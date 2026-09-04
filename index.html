@@ -27,6 +27,10 @@
           <div id="keys" title="상자 열쇠"><span class="kicon">✦</span><span id="keycount">0</span></div>
           <div id="gatekeys" title="관문 열쇠"><span class="kicon">⛨</span><span id="gatecount">0</span></div>
         </div>
+        <div id="timerbox">
+          <span class="datelabel">TIME</span>
+          <span id="timertext">0:00.00</span>
+        </div>
         <div id="datebox">
           <span class="datelabel">LOG DATE</span>
           <span id="datetext">2145 / 05 / 01</span>
@@ -56,18 +60,28 @@
       <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
       <h1>우물 아래</h1>
       <h2>THE WELL BELOW</h2>
+      <div class="t-mode">⏱ TIME ATTACK &nbsp;·&nbsp; 죽으면 그대로 끝, 기록은 남지 않습니다</div>
       <div class="t-keys">
         <p><b>W A S D</b> 이동 &nbsp;·&nbsp; <b>← ↑ → ↓</b> 공격 &nbsp;·&nbsp; <b>마우스</b> 로도 조준·발사</p>
-        <p><b>SPACE</b> 조사 / 대화 넘기기 &nbsp;·&nbsp; <b>R</b> 방 재시작</p>
+        <p><b>SPACE</b> 조사 / 대화 넘기기</p>
+      </div>
+      <div id="besttimes" class="hidden">
+        <span class="bt-label">최고 기록</span>
+        <ol id="bestlist"></ol>
       </div>
       <button id="startbtn">시 &nbsp;작</button>
-      <p class="t-foot">플레이 타임 약 4분 · 소리를 켜고 플레이하세요</p>
+      <p class="t-foot">한 판 약 7~8분 · 소리를 켜고 플레이하세요</p>
     </div>
 
     <!-- ── 사망 ───────────────────────────────────────────── -->
     <div id="dead" class="hidden">
-      <p class="d-line">뇌파 불안정 — 재동기화</p>
-      <button id="retrybtn">이 방 다시 시도 (R)</button>
+      <p class="d-line">뇌파 불안정 — 세션 강제 종료</p>
+      <div class="d-time">
+        <span class="d-time-label">생존 시간</span>
+        <b id="deadtime">0:00.00</b>
+      </div>
+      <p class="d-sub">타임어택에서는 <b>죽으면 기록이 남지 않습니다.</b></p>
+      <button id="retrybtn">처음부터 다시 (R)</button>
     </div>
 
     <!-- ── 엔딩 ───────────────────────────────────────────── -->
@@ -169,6 +183,17 @@
           <p class="e-quote">“우물은 탈출구가 아니라, 나를 가둔 —”</p>
           <h2>THE END</h2>
           <p class="e-sub">2145 / 05 / 20 · 실험체 07 · 뇌파 안정화 완료</p>
+
+          <div class="e-time">
+            <span class="e-time-label">CLEAR TIME</span>
+            <b id="cleartime">0:00.00</b>
+            <span id="recordtag" class="hidden">NEW RECORD</span>
+          </div>
+          <div class="e-records">
+            <span class="er-label">기록</span>
+            <ol id="records"></ol>
+          </div>
+
           <button id="againbtn">처음부터 다시</button>
         </div>
       </div>

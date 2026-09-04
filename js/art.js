@@ -107,7 +107,7 @@ function drawTaegeuk(g, cx, cy, r, rot = 0) {
    ═════════════════════════════════════════════════════════ */
 
 /* 고사리 — 부채꼴로 퍼지는 잎 */
-function drawFern(g, x, y, s, col = '#2c4630', dark = '#1b2d1e') {
+function drawFern(g, x, y, s, col = '#3d6440', dark = '#294529') {
   g.save();
   g.translate(x, y);
   g.lineCap = 'round';
@@ -136,7 +136,7 @@ function drawFern(g, x, y, s, col = '#2c4630', dark = '#1b2d1e') {
 }
 
 /* 풀 다발 */
-function drawGrassTuft(g, x, y, s, col = '#33482c', t = 0) {
+function drawGrassTuft(g, x, y, s, col = '#436b38', t = 0) {
   g.save();
   g.strokeStyle = col;
   g.lineWidth = Math.max(1, s * .1);
@@ -154,7 +154,7 @@ function drawGrassTuft(g, x, y, s, col = '#33482c', t = 0) {
 }
 
 /* 덤불 */
-function drawBush(g, x, y, s, col = '#22351f', hi = '#2e4529') {
+function drawBush(g, x, y, s, col = '#2d4a28', hi = '#3f6537') {
   g.save();
   g.fillStyle = 'rgba(0,0,0,.35)';
   g.beginPath(); g.ellipse(x, y + s * .2, s * .8, s * .25, 0, 0, Math.PI * 2); g.fill();
@@ -234,39 +234,39 @@ function bakeForest(W, H, TS) {
   const R = rng(20450501);
 
   // 해가 진 뒤의 어두운 잔디
-  g.fillStyle = '#1c2a1b'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#365430'; g.fillRect(0, 0, W, H);
   for (let i = 0; i < 3000; i++) {
     const x = R() * W, y = R() * H, v = R();
-    g.fillStyle = v > .78 ? '#26361f' : v > .44 ? '#182417' : '#213022';
+    g.fillStyle = v > .78 ? '#42663a' : v > .44 ? '#2e4a2a' : '#3a5c34';
     g.fillRect(x | 0, y | 0, 2, 2);
   }
   // 나무 사이로 새어드는 마지막 빛
   const lg = g.createRadialGradient(W * .30, H * .26, 10, W * .30, H * .26, 210);
-  lg.addColorStop(0, 'rgba(150,180,205,.10)'); lg.addColorStop(1, 'rgba(150,180,205,0)');
+  lg.addColorStop(0, 'rgba(248,240,196,.22)'); lg.addColorStop(1, 'rgba(248,240,196,0)');
   g.fillStyle = lg; g.fillRect(0, 0, W, H);
 
   // 흙길 — 우물로 이어진다
-  g.strokeStyle = '#3b3222'; g.lineWidth = 26; g.lineCap = 'round';
+  g.strokeStyle = '#7a6744'; g.lineWidth = 26; g.lineCap = 'round';
   g.beginPath(); g.moveTo(-10, H * .68); g.quadraticCurveTo(W * .45, H * .78, W * .74, H * .52); g.stroke();
-  g.strokeStyle = '#463c29'; g.lineWidth = 18;
+  g.strokeStyle = '#8d7952'; g.lineWidth = 18;
   g.beginPath(); g.moveTo(-10, H * .68); g.quadraticCurveTo(W * .45, H * .78, W * .74, H * .52); g.stroke();
   for (let i = 0; i < 130; i++) {
     const t = R();
     const x = -10 + t * (W * .8) + (R() - .5) * 16;
     const y = H * .68 + Math.sin(t * 2.4) * 26 - t * t * 60 + (R() - .5) * 14;
-    g.fillStyle = R() > .5 ? '#544733' : '#332b1e';
+    g.fillStyle = R() > .5 ? '#a3906a' : '#6b5b3e';
     g.fillRect(x | 0, y | 0, 2, 2);
   }
 
   // 이끼
   for (let i = 0; i < 22; i++)
-    drawMoss(g, R() * W, R() * H, 10 + R() * 16, R, 'rgba(38,58,36,.5)');
+    drawMoss(g, R() * W, R() * H, 10 + R() * 16, R, 'rgba(58,92,52,.42)');
 
   // 오방색 들꽃 — 어두워진 만큼 채도를 낮춰 은은하게
   for (let i = 0; i < 70; i++) {
     const x = R() * W, y = 20 + R() * (H - 40);
     g.fillStyle = OBANG_LIST[(R() * 5) | 0];
-    g.globalAlpha = .38;
+    g.globalAlpha = .8;
     g.fillRect(x | 0, y | 0, 2, 2);
     g.fillRect((x | 0) + 2, (y | 0) + 1, 1, 1);
     g.globalAlpha = 1;
@@ -289,7 +289,7 @@ function renderForestProps(g, t) {
   [[70, 116, 13], [210, 196, 12], [356, 96, 11], [286, 262, 13], [148, 76, 10]]
     .forEach(([x, y, s]) => drawBush(g, x, y, s));
   [[96, 172], [268, 132], [330, 250], [180, 300], [420, 122]]
-    .forEach(([x, y]) => drawGrassTuft(g, x, y, 12, '#2b3f25', t));
+    .forEach(([x, y]) => drawGrassTuft(g, x, y, 12, '#3d5c33', t));
 
   drawJangseung(g, 158, 258, 26);
   drawJangseung(g, 196, 262, 24);
@@ -323,13 +323,13 @@ function drawTree(g, x, y, s, t) {
   g.save();
   g.fillStyle = 'rgba(0,0,0,.35)';
   g.beginPath(); g.ellipse(x, y + s * .12, s * .55, s * .18, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#2e2416'; g.fillRect(x - s * .09, y - s * .34, s * .18, s * .42);
+  g.fillStyle = '#4c3b22'; g.fillRect(x - s * .09, y - s * .34, s * .18, s * .42);
   const sway = Math.sin(t * .0011 + x) * s * .03;
-  g.fillStyle = '#16281a';
+  g.fillStyle = '#27492b';
   g.beginPath(); g.ellipse(x + sway, y - s * .62, s * .52, s * .40, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#1d3522';
+  g.fillStyle = '#356038';
   g.beginPath(); g.ellipse(x - s * .14 + sway, y - s * .72, s * .34, s * .27, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#264229';
+  g.fillStyle = '#478047';
   g.beginPath(); g.ellipse(x + s * .16 + sway, y - s * .78, s * .22, s * .17, 0, 0, Math.PI * 2); g.fill();
   g.restore();
 }
@@ -429,15 +429,15 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   const g = c.getContext('2d');
   const R = rng(seed);
   const warp = depth * 0.16;               // 깊이가 깊을수록 무늬가 어긋난다
-  const decay = Math.max(0.10, 0.32 - depth * 0.045);
+  const decay = Math.max(0.22, 0.62 - depth * 0.05);
 
-  g.fillStyle = '#1b1a27'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#33304a'; g.fillRect(0, 0, W, H);
 
   // 돌 타일
   for (let y = TS; y < H - TS; y += TS) {
     for (let x = TS; x < W - TS; x += TS) {
       const v = R();
-      g.fillStyle = v > .78 ? '#252334' : v > .45 ? '#201e2c' : '#1a1925';
+      g.fillStyle = v > .78 ? '#433f5e' : v > .45 ? '#3b3853' : '#332f47';
       g.fillRect(x, y, TS, TS);
       g.strokeStyle = 'rgba(0,0,0,.36)'; g.lineWidth = 1;
       g.strokeRect(x + .5, y + .5, TS - 1, TS - 1);
@@ -507,12 +507,12 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   // 이끼 — 습하고 버려진 느낌
   for (let i = 0; i < 8 + depth * 3; i++)
     drawMoss(g, TS + R() * (W - TS * 2), TS + R() * (H - TS * 2),
-             8 + R() * 16, R, 'rgba(38,60,40,.42)');
+             8 + R() * 16, R, 'rgba(64,102,64,.38)');
 
   // 어둠 (가장자리로 갈수록)
   const vg = g.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, W * .62);
   vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, `rgba(0,0,0,${.34 + depth * .05})`);
+  vg.addColorStop(1, `rgba(0,0,0,${.16 + depth * .028})`);
   g.fillStyle = vg; g.fillRect(0, 0, W, H);
 
   return c;
@@ -586,15 +586,15 @@ function bakePlants(seed, depth) {
 /* 바닥 식물 (플레이어 아래) */
 function drawFloorPlants(g, p, t) {
   if (!p) return;
-  p.grass.forEach(q => drawGrassTuft(g, q.x, q.y, q.s, '#28382a', t));
-  p.ferns.forEach(q => drawFern(g, q.x, q.y, q.s, '#27392a', '#18261a'));
+  p.grass.forEach(q => drawGrassTuft(g, q.x, q.y, q.s, '#3f5c40', t));
+  p.ferns.forEach(q => drawFern(g, q.x, q.y, q.s, '#3c5a3e', '#28402a'));
   p.glow.forEach(q => drawGlowShrooms(g, q.x, q.y, q.s, t, q.c));
 }
 
 /* 벽에 붙은 식물 (벽 위에 겹쳐 그립니다) */
 function drawWallPlants(g, W, H, TS, p, t) {
   if (!p) return;
-  p.vines.forEach(v => drawVine(g, v.x, TS - 2, v.len, v.s, t, '#22321f'));
+  p.vines.forEach(v => drawVine(g, v.x, TS - 2, v.len, v.s, t, '#37502f'));
 }
 
 /* ── 벽 (벽돌 텍스처 + 오방색 띠) ───────────────────────── */
@@ -611,7 +611,7 @@ function drawWalls(g, W, H, TS, depth, t) {
   ring(W - TS, 0, TS, H);
 
   // 벽을 어둡게 + 아래쪽 그림자
-  g.fillStyle = 'rgba(8,6,12,.42)';
+  g.fillStyle = 'rgba(10,8,16,.16)';
   g.fillRect(0, 0, W, TS); g.fillRect(0, H - TS, W, TS);
   g.fillRect(0, 0, TS, H); g.fillRect(W - TS, 0, TS, H);
   const sh = g.createLinearGradient(0, TS, 0, TS + 14);
@@ -619,7 +619,7 @@ function drawWalls(g, W, H, TS, depth, t) {
   g.fillStyle = sh; g.fillRect(0, TS, W, 14);
 
   // 오방색 단청 띠 — 깊어질수록 흐려지고 어긋난다
-  const a = Math.max(.08, .30 - depth * .04);
+  const a = Math.max(.20, .55 - depth * .05);
   g.save();
   g.globalAlpha = a;
   drawSaekdong(g, 0, TS - 4, W, 2, false, 1, depth);          // 윗벽 밑단

@@ -39,7 +39,7 @@ addEventListener('keydown', e => {
   key[e.key] = true;
   const k = e.key.toLowerCase();
   if (k === ' ') onConfirm();
-  if (k === 'r') restartRoom();
+  if (k === 'r' && G.mode === 'dead') resetRun();   // 타임어택 : 사망 시에만 재시작
 });
 addEventListener('keyup', e => { key[e.key] = false; });
 cv.addEventListener('mousemove', e => {
@@ -82,6 +82,60 @@ const P = {
   fireCd: 0, inv: 0, walkT: 0, stepT: 0, dead: false
 };
 
+/* ═══════════ 타임어택 ══════════════════════════════════
+   시작 버튼을 누른 순간부터 마지막 열쇠를 꽂는 순간까지 잽니다.
+   죽으면 기록은 남지 않고 처음부터 다시 시작합니다.
+   ═════════════════════════════════════════════════════ */
+const RUN = { start: 0, elapsed: 0, running: false };
+const REC_KEY = 'wellbelow.records';
+const REC_MAX = 5;
+let memRecords = [];                 // localStorage 를 못 쓸 때의 대비책
+
+function startRun() { RUN.start = performance.now(); RUN.elapsed = 0; RUN.running = true; }
+function stopRun()  { if (RUN.running) { RUN.elapsed = performance.now() - RUN.start; RUN.running = false; } }
+function runTime()  { return RUN.running ? performance.now() - RUN.start : RUN.elapsed; }
+
+function fmtTime(ms) {
+  const t = Math.max(0, ms | 0);
+  const m = Math.floor(t / 60000);
+  const s = Math.floor(t % 60000 / 1000);
+  const c = Math.floor(t % 1000 / 10);
+  return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`;
+}
+
+function loadRecords() {
+  try {
+    const v = JSON.parse(localStorage.getItem(REC_KEY));
+    return Array.isArray(v) ? v.filter(n => typeof n === 'number') : [];
+  } catch (e) { return memRecords; }
+}
+function saveRecord(ms) {
+  const list = loadRecords().concat(ms).sort((a, b) => a - b).slice(0, REC_MAX);
+  memRecords = list;
+  try { localStorage.setItem(REC_KEY, JSON.stringify(list)); } catch (e) {}
+  return list;
+}
+
+function fillList(el, list, hi) {
+  el.innerHTML = '';
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'empty'; li.textContent = '아직 기록 없음';
+    el.appendChild(li); return;
+  }
+  list.forEach((ms, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="r-rank">${i + 1}</span><span class="r-time">${fmtTime(ms)}</span>`;
+    if (hi !== undefined && ms === hi) li.classList.add('mine');
+    el.appendChild(li);
+  });
+}
+function renderBestTimes() {
+  const list = loadRecords();
+  $('besttimes').classList.toggle('hidden', !list.length);
+  if (list.length) fillList($('bestlist'), list.slice(0, 3));
+}
+
 /* ═══════════ 자막 ═════════════════════════════════════ */
 const talk = { q: [], t: 0, cb: null, back: 'play' };
 function say(lines, cb) {
@@ -111,20 +165,41 @@ function nextLine() { talk.q.shift(); showLine(); }
 function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title') { startGame(); return; }
+  if (G.mode === 'dead')  { resetRun(); return; }
   if (G.mode === 'talk')  { if (talk.t > 12) nextLine(); return; }
   if (G.mode === 'note')  { closeNote(); return; }
   if (G.mode === 'play' || G.mode === 'forest') interact();
 }
 
-/* ═══════════ 시작 ═════════════════════════════════════ */
+/* ═══════════ 시작 / 초기화 ════════════════════════════ */
 function startGame() {
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   Sfx.unlock();
+  startRun();
   loadForest();
 }
+
+/* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
+function resetRun() {
+  stopRun();
+  G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
+  G.visited = new Set(); G.st = {}; G.seenGlitch = false;
+  G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
+  G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
+  G.flash = 0; G.shake = 0;
+  P.hp = P.max; P.dead = false; P.inv = 0;
+  RUN.elapsed = 0;
+  ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
+  Sfx.ambientStop();
+  setDate(0); updateHud(); updateTimer();
+  renderBestTimes();
+  $('title').classList.remove('hidden');
+  G.mode = 'title';
+}
+
 $('startbtn').addEventListener('click', startGame);
-$('retrybtn').addEventListener('click', restartRoom);
+$('retrybtn').addEventListener('click', resetRun);
 $('againbtn').addEventListener('click', () => location.reload());
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
@@ -228,12 +303,7 @@ function hash(s) {
   return h >>> 0;
 }
 
-function restartRoom() {
-  if (G.mode === 'ending' || G.mode === 'title') return;
-  P.hp = P.max; updateHud();
-  if (G.inForest) loadForest();
-  else loadRoom(G.room, 'W');
-}
+function updateTimer() { $('timertext').textContent = fmtTime(runTime()); }
 
 /* ═══════════ 날짜 HUD ═════════════════════════════════ */
 function setDate(i) {
@@ -421,6 +491,8 @@ function hurt(n) {
   if (hs) { hs.classList.add('hit'); setTimeout(() => hs.classList.remove('hit'), 320); }
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
+    stopRun();                       // 기록은 저장하지 않습니다
+    $('deadtime').textContent = fmtTime(RUN.elapsed);
     $('dead').classList.remove('hidden');
     Sfx.flatline(true);
     setTimeout(() => Sfx.flatline(false), 1400);
@@ -780,7 +852,7 @@ function renderForest() {
     g.restore();
   });
   drawPlayer();
-  drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
+  drawNightOverlay(g, W, H, P.x, P.y, .11, 230);
 }
 
 /* ── 지하 ──────────────────────────────────────────── */
@@ -870,7 +942,7 @@ function renderDungeon() {
   });
 
   // 어둠 — 주인공 주변만 밝다
-  drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);
+  drawNightOverlay(g, W, H, P.x, P.y, .15 + G.depth * .012, 215);
 }
 
 /* ── 문 ────────────────────────────────────────────── */
@@ -1145,6 +1217,14 @@ function renderFall() {
 /* ═══════════ 엔딩 ═════════════════════════════════════ */
 function beginEnding() {
   G.mode = 'ending';
+  stopRun();                                   // 여기서 시계를 멈춥니다
+  const ms = RUN.elapsed;
+  const prevBest = loadRecords()[0];
+  const list = saveRecord(ms);
+  $('cleartime').textContent = fmtTime(ms);
+  $('recordtag').classList.toggle('hidden', !(prevBest === undefined || ms < prevBest));
+  fillList($('records'), list.slice(0, 3), ms);   // 엔드 카드에는 상위 3개만
+
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('ending').classList.remove('hidden');
@@ -1194,12 +1274,15 @@ function openEyes() {
 function loop() {
   update();
   if (G.mode !== 'ending') render();
+  if (RUN.running) updateTimer();
   requestAnimationFrame(loop);
 }
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { G, P, MAP, BALANCE, loadRoom, loadForest, say, beginEnding };
+window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+                  resetRun, loadRecords, fmtTime,
+                  clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
-loadAssets().then(() => { fit(); updateHud(); loop(); });
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });
 
 })();
