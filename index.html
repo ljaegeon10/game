@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우물 아래 — The Well Below</title>
+<meta name="description" content="꿈과 현실의 경계에서 깨어나는 4분짜리 탑뷰 던전 게임">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="frame">
+  <div id="stage">
+
+    <canvas id="game" width="480" height="320"></canvas>
+
+    <!-- ── CRT / 글리치 오버레이 ───────────────────────────── -->
+    <div id="scanlines" aria-hidden="true"></div>
+    <div id="vignette" aria-hidden="true"></div>
+    <div id="glitchbar" aria-hidden="true"></div>
+
+    <!-- ── HUD ────────────────────────────────────────────── -->
+    <div id="hud" class="hidden">
+      <div id="hearts" aria-label="체력"></div>
+      <div id="hudright">
+        <div id="keys"><span class="kicon">✦</span><span id="keycount">0</span></div>
+        <div id="datebox">
+          <span class="datelabel">LOG DATE</span>
+          <span id="datetext">2145 / 05 / 01</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 상호작용 프롬프트 ───────────────────────────────── -->
+    <div id="prompt" class="hidden"><b>SPACE</b> <span id="prompttext"></span></div>
+
+    <!-- ── 자막 / 나레이션 ────────────────────────────────── -->
+    <div id="subtitle" class="hidden"><p id="subtext"></p><span id="subnext">▾</span></div>
+
+    <!-- ── 쪽지 ───────────────────────────────────────────── -->
+    <div id="noteoverlay" class="hidden">
+      <div id="note">
+        <div class="note-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="note-date" id="notedate"></div>
+        <div class="note-body" id="notebody"></div>
+        <div class="note-torn" aria-hidden="true"></div>
+        <div class="note-close">SPACE 를 눌러 접기</div>
+      </div>
+    </div>
+
+    <!-- ── 타이틀 ─────────────────────────────────────────── -->
+    <div id="title">
+      <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <h1>우물 아래</h1>
+      <h2>THE WELL BELOW</h2>
+      <div class="t-keys">
+        <p><b>W A S D</b> 이동 &nbsp;·&nbsp; <b>← ↑ → ↓</b> 공격 &nbsp;·&nbsp; <b>마우스</b> 로도 조준·발사</p>
+        <p><b>SPACE</b> 조사 / 대화 넘기기 &nbsp;·&nbsp; <b>R</b> 방 재시작</p>
+      </div>
+      <button id="startbtn">시 &nbsp;작</button>
+      <p class="t-foot">플레이 타임 약 4분 · 소리를 켜고 플레이하세요</p>
+    </div>
+
+    <!-- ── 사망 ───────────────────────────────────────────── -->
+    <div id="dead" class="hidden">
+      <p class="d-line">뇌파 불안정 — 재동기화</p>
+      <button id="retrybtn">이 방 다시 시도 (R)</button>
+    </div>
+
+    <!-- ── 엔딩 ───────────────────────────────────────────── -->
+    <div id="ending" class="hidden">
+      <div id="blackout"></div>
+      <div id="sysline"><span id="systext"></span><i class="caret"></i></div>
+
+      <!-- 눈꺼풀 -->
+      <div id="lid-top" aria-hidden="true"></div>
+      <div id="lid-bot" aria-hidden="true"></div>
+
+      <!-- 현실: SF 연구실 -->
+      <div id="lab">
+        <div id="labcam">
+          <div class="lab-ceiling">
+            <div class="ceil-grid"></div>
+          </div>
+          <div class="lab-wall"></div>
+          <div class="lab-floor"></div>
+
+          <!-- 모니터 3대 : 뇌파 그래프 -->
+          <div class="monitors" data-fs="mon">
+            <div class="mon">
+              <svg viewBox="0 0 120 44" preserveAspectRatio="none">
+                <polyline class="eeg" points="0,22 8,22 12,8 16,34 20,22 28,22 34,16 40,28 46,22 60,22 66,10 72,32 78,22 92,22 98,18 104,26 110,22 120,22"/>
+              </svg>
+              <span class="mon-tag">EEG · θ</span>
+            </div>
+            <div class="mon">
+              <svg viewBox="0 0 120 44" preserveAspectRatio="none">
+                <polyline class="eeg d2" points="0,26 10,26 14,14 18,32 24,20 32,26 38,12 44,30 52,22 64,26 70,16 76,30 84,24 96,26 102,14 108,30 116,24 120,26"/>
+              </svg>
+              <span class="mon-tag">CELL · 07</span>
+            </div>
+            <div class="mon">
+              <div class="mon-text">
+                <span>SUBJECT 07</span>
+                <span>DREAM DEPTH … 4</span>
+                <span>D+ 141 / 2145.05.20</span>
+                <span class="ok">STABILIZING</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 인체 골격 모형 -->
+          <div class="skeleton" data-fs="skull">
+            <div class="sk-skull"></div>
+            <div class="sk-spine"></div>
+            <div class="sk-ribs"><i></i><i></i><i></i><i></i></div>
+            <div class="sk-stand"></div>
+          </div>
+
+          <!-- 링거대 + 붉은 배양액 -->
+          <div class="iv" data-fs="blood">
+            <div class="iv-pole"></div>
+            <div class="iv-bag"><span class="iv-fluid"></span></div>
+            <div class="iv-tube"></div>
+          </div>
+
+          <!-- 침대 + 실험체 -->
+          <div class="bed" data-fs="bed">
+            <div class="bed-frame"></div>
+            <div class="bed-sheet"></div>
+            <div class="subject">
+              <div class="sj-head"><span class="sj-eye l"></span><span class="sj-eye r"></span></div>
+              <div class="sj-body"></div>
+              <div class="sj-electrodes"><i></i><i></i><i></i></div>
+            </div>
+          </div>
+
+          <!-- 키카드 잠금장치 -->
+          <div class="lock" data-fs="key">
+            <div class="lock-slot"></div>
+            <div class="lock-led"></div>
+            <span class="lock-card"></span>
+          </div>
+
+          <!-- 연구원 실루엣 -->
+          <div class="doctor" data-fs="doc">
+            <div class="dr-head"></div>
+            <div class="dr-coat"></div>
+          </div>
+        </div>
+
+        <!-- 복선 연결 : 꿈에서 본 것 → 현실의 진짜 모습 -->
+        <div id="callouts">
+          <div class="co-head"><i></i><i></i><i></i><i></i><i></i><span>꿈 → 현실</span></div>
+          <div class="co-slot">
+            <div class="co" data-for="bed"><b>우물 아래로 추락</b><span>141일째 잠들어 있는 실험체</span></div>
+            <div class="co" data-for="blood"><b>사방에 흩뿌려진 피</b><span>링거에 걸린 붉은 배양액</span></div>
+            <div class="co" data-for="skull"><b>바닥에 흩어진 해골</b><span>구석에 쌓인 인체 골격 모형</span></div>
+            <div class="co" data-for="mon"><b>기괴한 몬스터</b><span>모니터의 뇌파·세포 이미지</span></div>
+            <div class="co" data-for="key"><b>열쇠와 잠긴 상자</b><span>키카드와 실험 장치 잠금장치</span></div>
+          </div>
+        </div>
+
+        <div id="endcard">
+          <div class="e-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <p class="e-quote">“우물은 탈출구가 아니라, 나를 가둔 —”</p>
+          <h2>THE END</h2>
+          <p class="e-sub">2145 / 05 / 20 · 실험체 07 · 뇌파 안정화 완료</p>
+          <button id="againbtn">처음부터 다시</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <p id="hint">화면을 클릭하면 소리가 켜집니다 · 전체 조작은 타이틀 화면 참고</p>
+</div>
+
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/art.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
