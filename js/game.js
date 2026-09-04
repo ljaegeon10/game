@@ -12,12 +12,15 @@ g.imageSmoothingEnabled = false;
 const $ = id => document.getElementById(id);
 const stage = $('stage');
 
+/* 방향 상수 */
+const DIRS = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] };
+const OPP  = { N: 'S', S: 'N', W: 'E', E: 'W' };
+
 /* ── 화면 정수배 확대 ───────────────────────────────────── */
 function fit() {
-  const pad = 90;
   const n = Math.max(1, Math.min(
-    Math.floor((window.innerWidth  - 40)  / W),
-    Math.floor((window.innerHeight - pad) / H)
+    Math.floor((window.innerWidth  - 40) / W),
+    Math.floor((window.innerHeight - 90) / H)
   ));
   stage.style.setProperty('--scale', `scale(${n})`);
   stage.style.transform = `scale(${n})`;
@@ -52,33 +55,38 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | play | talk | note | fall | boss-intro | ending | dead
-  stage: 0,
-  t: 0,
-  shake: 0,
-  flash: 0,             // 화면 글리치 강도 0~1
+  mode: 'title',        // title | forest | play | talk | note | fall | boss-intro | ending | dead
+  room: null,           // 현재 방 id (숲이면 null)
+  inForest: true,
+  t: 0, shake: 0, flash: 0,
   seenGlitch: false,
-  keys: 0,
-  floor: null,
+  keys: 0,              // 상자 열쇠
+  doorKeys: 0,          // 관문 열쇠
+  gateOpen: false,
+  bossDead: false,
+  visited: new Set(),
+  st: {},               // 방별 저장 상태
+  floor: null, depth: 1,
   bullets: [], foes: [], fx: [], pickups: [], pots: [],
-  chest: null, floorKey: null, door: { open: false, x: W - TS, y: H / 2 - 26, w: TS, h: 52 },
-  boss: null,
+  chest: null, floorKey: null, boss: null,
+  doors: {},            // { N:{open,locked}, ... }
   well: { x: 372, y: 150, glow: 0 },
-  wellUsed: false,
-  fallT: 0,
-  butterflies: []
+  wellUsed: false, fallT: 0,
+  butterflies: [], plants: []
 };
 
 const P = {
   x: 60, y: H / 2, r: 10,
   hp: BALANCE.playerHp, max: BALANCE.playerHp,
-  face: -1, fireCd: 0, inv: 0, walkT: 0, stepT: 0, dead: false
+  dir: 'down', anim: 0,
+  fireCd: 0, inv: 0, walkT: 0, stepT: 0, dead: false
 };
 
-/* ═══════════ 자막 시스템 ═══════════════════════════════ */
-const talk = { q: [], t: 0, cb: null };
+/* ═══════════ 자막 ═════════════════════════════════════ */
+const talk = { q: [], t: 0, cb: null, back: 'play' };
 function say(lines, cb) {
   talk.q = lines.slice(); talk.cb = cb || null; talk.t = 0;
+  talk.back = G.inForest ? 'forest' : 'play';
   G.mode = 'talk';
   showLine();
 }
@@ -86,7 +94,7 @@ function showLine() {
   const l = talk.q[0];
   if (!l) {
     $('subtitle').classList.add('hidden');
-    G.mode = 'play';
+    G.mode = talk.back;
     const cb = talk.cb; talk.cb = null;
     if (cb) cb();
     return;
@@ -102,10 +110,10 @@ function nextLine() { talk.q.shift(); showLine(); }
 /* ═══════════ 확인 키 ═══════════════════════════════════ */
 function onConfirm() {
   Sfx.unlock();
-  if (G.mode === 'title')  { startGame(); return; }
-  if (G.mode === 'talk')   { if (talk.t > 12) nextLine(); return; }
-  if (G.mode === 'note')   { closeNote(); return; }
-  if (G.mode === 'play')   { interact(); return; }
+  if (G.mode === 'title') { startGame(); return; }
+  if (G.mode === 'talk')  { if (talk.t > 12) nextLine(); return; }
+  if (G.mode === 'note')  { closeNote(); return; }
+  if (G.mode === 'play' || G.mode === 'forest') interact();
 }
 
 /* ═══════════ 시작 ═════════════════════════════════════ */
@@ -113,67 +121,130 @@ function startGame() {
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   Sfx.unlock();
-  loadStage(0);
+  loadForest();
 }
 $('startbtn').addEventListener('click', startGame);
 $('retrybtn').addEventListener('click', restartRoom);
 $('againbtn').addEventListener('click', () => location.reload());
 
-/* ═══════════ 스테이지 로드 ═════════════════════════════ */
-function loadStage(i) {
-  G.stage = i;
-  const S = STAGES[i];
+/* ═══════════ 지상 ═════════════════════════════════════ */
+function loadForest() {
+  G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
-  G.chest = null; G.floorKey = null; G.boss = null;
-  G.door.open = false;
-  G.gotDoorKey = false;      // 다음 방 열쇠를 얻었는가
-  G.clearGiven = false;
-  G.flash = 0;
-  P.x = S.kind === 'forest' ? 52 : TS + 26;
-  P.y = H / 2; P.inv = 40; P.dead = false;
+  G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
+  P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
+  $('dead').classList.add('hidden');
+  G.floor = bakeForest(W, H, TS);
+  G.butterflies = Array.from({ length: 7 }, () => ({
+    x: 60 + Math.random() * 340, y: 40 + Math.random() * 240,
+    a: Math.random() * 6.28, s: .3 + Math.random() * .3,
+    c: OBANG_LIST[(Math.random() * 5) | 0], gl: 0
+  }));
+  G.well.glow = 0; G.wellUsed = false;
+  Sfx.ambient('forest');
+  setDate(0);
+  updateHud();
+  say(FOREST.intro);
+  talk.back = 'forest';
+}
+
+/* ═══════════ 방 그래프 ════════════════════════════════ */
+function neighbourOf(id, d) {
+  const r = MAP[id], [dx, dy] = DIRS[d];
+  return Object.keys(MAP).find(k =>
+    MAP[k].gx === r.gx + dx && MAP[k].gy === r.gy + dy);
+}
+
+function doorLockReason(toId) {
+  const t = MAP[toId];
+  if (t.needKeys && !G.gateOpen) return 'keys';
+  if (t.needBoss && !G.bossDead) return 'boss';
+  return null;
+}
+
+function buildDoors(id) {
+  G.doors = {};
+  for (const d of Object.keys(DIRS)) {
+    const nb = neighbourOf(id, d);
+    if (!nb) continue;
+    G.doors[d] = { to: nb, lock: doorLockReason(nb) };
+  }
+}
+
+/* 방 상태 저장소 */
+function stateOf(id) {
+  if (!G.st[id]) {
+    const r = MAP[id];
+    G.st[id] = {
+      cleared: !(r.enemies && r.enemies.length),
+      rewarded: false,
+      pots: (r.pots || []).map(() => true),   // true = 아직 안 깨짐
+      keyTaken: !r.key,
+      chestOpen: !r.chest
+    };
+  }
+  return G.st[id];
+}
+
+function loadRoom(id, fromDir) {
+  const r = MAP[id], s = stateOf(id);
+  G.inForest = false; G.room = id; G.depth = r.depth;
+  G.bullets = []; G.fx = []; G.pickups = [];
+  G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
+  P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
 
-  if (S.kind === 'forest') {
-    G.floor = bakeForest(W, H, TS);
-    G.butterflies = Array.from({ length: 7 }, () => ({
-      x: 60 + Math.random() * 340, y: 40 + Math.random() * 240,
-      a: Math.random() * 6.28, s: .35 + Math.random() * .35,
-      c: OBANG_LIST[(Math.random() * 5) | 0], gl: 0
-    }));
-    G.well.glow = 0; G.wellUsed = false;
-    Sfx.ambient('forest');
-  } else {
-    G.floor = bakeDungeonFloor(W, H, TS, 7717 + i * 913, S.depth);
-    if (i === 1) Sfx.ambient('dungeon');
+  G.floor = bakeDungeonFloor(W, H, TS, hash(id), r.depth);
+  G.plants = bakePlants(hash(id) + 91, r.depth);
+  buildDoors(id);
 
-    (S.enemies || []).forEach(e => spawnFoe(e.t, e.x, e.y));
-    (S.pots || []).forEach(p => G.pots.push({ x: p.x, y: p.y, hp: 1 }));
-    if (S.key)   G.floorKey = { x: S.key.x, y: S.key.y, bob: 0 };
-    if (S.chest) G.chest = { x: S.chest.x, y: S.chest.y, open: false, note: S.chest.note, givesKey: S.chest.givesKey };
-  }
+  if (!s.cleared) (r.enemies || []).forEach(e => spawnFoe(e.t, e.x, e.y));
+  (r.pots || []).forEach((p, i) => { if (s.pots[i]) G.pots.push({ x: p.x, y: p.y, i }); });
+  if (r.key && !s.keyTaken) G.floorKey = { x: r.key.x, y: r.key.y, bob: 0 };
+  if (r.chest) G.chest = { ...r.chest, open: s.chestOpen };
 
-  // 날짜 HUD 갱신 (방을 옮길 때마다 날짜가 뛴다 = 복선)
-  const dt = $('datetext');
-  if (dt.textContent !== S.date) {
-    dt.textContent = S.date;
-    $('datebox').classList.remove('tick');
-    void $('datebox').offsetWidth;
-    $('datebox').classList.add('tick');
-    if (i > 1) { G.flash = .8; Sfx.beep(.05); }
-  }
-  updateHud();
+  // 입장 위치 : 들어온 문 반대쪽에서 걸어 들어옵니다
+  const spawn = {
+    W: [TS + 26, H / 2, 'right'], E: [W - TS - 26, H / 2, 'left'],
+    N: [W / 2, TS + 26, 'down'],  S: [W / 2, H - TS - 26, 'up']
+  }[fromDir] || [TS + 26, H / 2, 'right'];
+  P.x = spawn[0]; P.y = spawn[1]; P.dir = spawn[2];
 
-  // 보스방은 대사가 끝난 뒤에 등장 연출을 시작합니다
-  const after = S.boss ? queueBoss : null;
-  if (S.intro && S.intro.length) say(S.intro, after);
+  const first = !G.visited.has(id);
+  G.visited.add(id);
+  setDate(G.visited.size);            // 방을 새로 밟을 때마다 날짜가 뛴다
+
+  if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
+
+  const after = r.boss && !G.bossDead ? queueBoss : null;
+  if (first && r.intro && r.intro.length) say(r.intro, after);
   else if (after) after();
   else G.mode = 'play';
 }
 
+function hash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
 function restartRoom() {
   if (G.mode === 'ending' || G.mode === 'title') return;
-  P.hp = P.max;
-  loadStage(G.stage);
+  P.hp = P.max; updateHud();
+  if (G.inForest) loadForest();
+  else loadRoom(G.room, 'W');
+}
+
+/* ═══════════ 날짜 HUD ═════════════════════════════════ */
+function setDate(i) {
+  const d = DATES[Math.min(i, DATES.length - 1)];
+  const el = $('datetext');
+  if (el.textContent === d) return;
+  el.textContent = d;
+  $('datebox').classList.remove('tick');
+  void $('datebox').offsetWidth;
+  $('datebox').classList.add('tick');
+  if (i > 1) { G.flash = Math.max(G.flash, .7); Sfx.beep(.045); }
 }
 
 /* ═══════════ 적 ═══════════════════════════════════════ */
@@ -183,23 +254,18 @@ function spawnFoe(type, x, y) {
     type, x, y, r: type === 'spitter' ? 13 : 12,
     hp: type === 'spitter' ? b.spitterHp : b.shroomHp,
     sp: type === 'spitter' ? b.spitterSpeed : b.shroomSpeed,
-    cd: 40 + Math.random() * 90, flash: 0, bob: Math.random() * 6.28
+    cd: 40 + Math.random() * 90,
+    flash: 0, kx: 0, ky: 0, bob: Math.random() * 6.28
   });
 }
 
-function queueBoss() {
-  G.mode = 'boss-intro';
-  G.bossIntroT = 0;
-  Sfx.bossRoar();
-  G.shake = 22;
-  G.flash = 1;
-}
+function queueBoss() { G.mode = 'boss-intro'; G.bossIntroT = 0; Sfx.bossRoar(); G.shake = 22; G.flash = 1; }
 
 function makeBoss() {
   G.boss = {
     x: W / 2, y: 118, r: 34, hp: BALANCE.bossHp, max: BALANCE.bossHp,
     sp: BALANCE.bossSpeed, phase: 1, t: 0, cd: 110, dash: 0, wind: 0,
-    spiral: 0, spiralA: 0, flash: 0, spawned: false, bob: 0
+    spiralA: 0, flash: 0, kx: 0, ky: 0, spawned: false, bob: 0
   };
 }
 
@@ -216,19 +282,48 @@ function shoot(dx, dy) {
 }
 function foeShot(x, y, dx, dy, sp) {
   const l = Math.hypot(dx, dy) || 1;
-  G.bullets.push({ x, y, vx: dx / l * sp, vy: dy / l * sp, life: 200, r: 4.5, mine: false });
+  G.bullets.push({ x, y, vx: dx / l * sp, vy: dy / l * sp, life: 220, r: 4.5, mine: false });
+}
+
+/* 주인공이 맞을 때와 같은 연출을 몹에게도 */
+function damageFoe(f, dmg, vx, vy) {
+  f.hp -= dmg;
+  f.flash = BALANCE.foeFlash;
+  const l = Math.hypot(vx, vy) || 1;
+  f.kx += vx / l * BALANCE.knockback;
+  f.ky += vy / l * BALANCE.knockback;
+  G.shake = Math.max(G.shake, 3.5);
+  spark(f.x, f.y, -vx, -vy);
+  Sfx.hit();
+}
+function spark(x, y, vx, vy) {
+  const l = Math.hypot(vx, vy) || 1;
+  for (let i = 0; i < 7; i++) {
+    const a = Math.atan2(vy / l, vx / l) + (Math.random() - .5) * 1.5;
+    const sp = 1.2 + Math.random() * 2.2;
+    G.fx.push({ k: 'p', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                life: 16, max: 16, c: '#cfeee4' });
+  }
 }
 
 /* ═══════════ 상호작용 ═════════════════════════════════ */
-function nearWell() {
-  return STAGES[G.stage].kind === 'forest' &&
-         Math.hypot(P.x - G.well.x, P.y - G.well.y + 6) < 52;
+const nearWell = () => G.inForest && Math.hypot(P.x - G.well.x, P.y - G.well.y + 6) < 52;
+const nearChest = () => G.chest && !G.chest.open && Math.hypot(P.x - G.chest.x, P.y - G.chest.y) < 34;
+const nearFinalLock = () => !G.inForest && MAP[G.room].final &&
+                            Math.hypot(P.x - (W - TS - 24), P.y - H / 2) < 46;
+
+/* 잠긴 관문 앞인지 */
+function nearLockedGate() {
+  for (const d in G.doors) {
+    const dr = G.doors[d];
+    if (dr.lock !== 'keys') continue;
+    const c = doorCenter(d);
+    if (Math.hypot(P.x - c[0], P.y - c[1]) < 46) return d;
+  }
+  return null;
 }
-function nearChest() {
-  return G.chest && !G.chest.open && Math.hypot(P.x - G.chest.x, P.y - G.chest.y) < 34;
-}
-function nearFinalLock() {
-  return STAGES[G.stage].final && Math.hypot(P.x - (W - TS - 24), P.y - H / 2) < 46;
+function doorCenter(d) {
+  return { N: [W / 2, TS], S: [W / 2, H - TS], W: [TS, H / 2], E: [W - TS, H / 2] }[d];
 }
 
 function interact() {
@@ -239,31 +334,47 @@ function interact() {
   }
   if (nearChest()) {
     if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 필요하다.', w: false }]); return; }
-    G.keys--; updateHud();
-    G.chest.open = true;
-    Sfx.chest(); G.shake = 8;
-    const n = NOTES[G.chest.note];
-    openNote(n, () => {
-      if (G.chest.givesKey) {
-        giveKey(true);
-        say([{ t: '쪽지 밑에 열쇠가 하나 더 들어 있다.', w: false }], checkDoor);
-      } else checkDoor();
-    });
+    G.keys--; G.chest.open = true; stateOf(G.room).chestOpen = true;
+    updateHud(); Sfx.chest(); G.shake = 8;
+    const heal = G.chest.heal || 0;
+    const done = () => {
+      if (heal) {
+        for (let i = 0; i < heal; i++)
+          G.pickups.push({ k: 'heart', x: G.chest.x + (i - (heal - 1) / 2) * 22,
+                           y: G.chest.y - 22, bob: i });
+        say([{ t: '상자 안쪽에서 온기가 새어 나온다. 조금 낫는 기분이다.', w: false }]);
+      }
+    };
+    if (G.chest.note) openNote(NOTES[G.chest.note], done);
+    else { Sfx.pickup(); done(); }
+    return;
+  }
+  const gd = nearLockedGate();
+  if (gd) {
+    if (G.doorKeys < (MAP[G.doors[gd].to].needKeys || 1)) {
+      say([{ t: `잠금장치가 둘. 관문 열쇠가 ${G.doorKeys} / 2 개다.`, w: false }]);
+    } else {
+      G.doorKeys -= 2; G.gateOpen = true;
+      buildDoors(G.room); updateHud();
+      Sfx.door(); G.shake = 10;
+      say([{ t: '두 잠금장치가 동시에 풀린다. 안쪽 길이 열렸다.', w: false }]);
+    }
     return;
   }
   if (nearFinalLock()) {
-    if (G.keys < 1) { say([{ t: '거대한 잠금장치. 마지막 열쇠가 필요하다.', w: false }]); return; }
-    G.keys--; updateHud();
+    if (G.keys < 1 && G.doorKeys < 1) {
+      say([{ t: '거대한 잠금장치. 마지막 열쇠가 필요하다.', w: false }]); return;
+    }
+    if (G.doorKeys > 0) G.doorKeys--; else G.keys--;
+    updateHud();
     say(ENDING_LINES, beginEnding);
-    return;
   }
 }
 
 /* ═══════════ 쪽지 ═════════════════════════════════════ */
 let noteCb = null, noteTypeT = 0, noteFull = '', noteCut = '';
 function openNote(n, cb) {
-  noteCb = cb || null;
-  G.mode = 'note';
+  noteCb = cb || null; G.mode = 'note';
   $('noteoverlay').classList.remove('hidden');
   $('notedate').textContent = n.date;
   $('notebody').innerHTML = '';
@@ -277,37 +388,9 @@ function closeNote() {
   if (cb) cb();
 }
 function renderNote() {
-  const shown = noteFull.slice(0, Math.floor(noteTypeT));
-  let html = shown.replace(/\n/g, '<br>');
-  if (noteTypeT >= noteFull.length) {
-    html += `<br><br><span class="cut">${noteCut}</span>`;
-  }
+  let html = noteFull.slice(0, Math.floor(noteTypeT)).replace(/\n/g, '<br>');
+  if (noteTypeT >= noteFull.length) html += `<br><br><span class="cut">${noteCut}</span>`;
   $('notebody').innerHTML = html;
-}
-
-/* ═══════════ 문 / 진행 ════════════════════════════════ */
-/* 문은 "다음 방 열쇠"를 손에 넣었을 때만 열립니다.
-   (바닥에서 주운 열쇠는 상자용이므로 문을 열지 않습니다) */
-function checkDoor() {
-  const S = STAGES[G.stage];
-  if (S.final || S.kind === 'forest') return;
-  if (G.gotDoorKey && !G.boss && !G.door.open) {
-    G.door.open = true;
-    Sfx.door(); G.shake = 6;
-  }
-}
-
-/* 열쇠 획득 연출 */
-function giveKey(isDoorKey) {
-  G.keys++;
-  if (isDoorKey) G.gotDoorKey = true;
-  updateHud(); Sfx.keyGet();
-  $('keys').classList.add('bump');
-  setTimeout(() => $('keys').classList.remove('bump'), 400);
-}
-
-function nextStage() {
-  if (G.stage + 1 < STAGES.length) loadStage(G.stage + 1);
 }
 
 /* ═══════════ HUD ══════════════════════════════════════ */
@@ -321,12 +404,18 @@ function updateHud() {
   }
   [...h.children].forEach((el, i) => el.classList.toggle('empty', i >= P.hp));
   $('keycount').textContent = G.keys;
+  $('gatecount').textContent = G.doorKeys;
+  $('gatekeys').classList.toggle('hidden', G.doorKeys === 0 && G.gateOpen);
+}
+function bumpKeys(sel) {
+  const el = $(sel); el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 400);
 }
 
 function hurt(n) {
   if (P.inv > 0 || P.dead) return;
   P.hp -= n; P.inv = BALANCE.invFrames;
-  Sfx.hurt(); G.shake = 10; G.flash = Math.max(G.flash, .5);
+  Sfx.hurt(); G.shake = 11; G.flash = Math.max(G.flash, .5);
   updateHud();
   const hs = $('hearts').children[Math.max(0, P.hp)];
   if (hs) { hs.classList.add('hit'); setTimeout(() => hs.classList.remove('hit'), 320); }
@@ -367,31 +456,26 @@ function update() {
   if (G.shake > 0) G.shake *= .86;
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
 
-  if (G.mode === 'talk') { talk.t++; if (talk.t > 260) nextLine(); return; }
-  if (G.mode === 'note') {
-    if (noteTypeT < noteFull.length) { noteTypeT += .9; renderNote(); }
-    return;
-  }
-  if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadStage(1); return; }
+  if (G.mode === 'talk') { talk.t++; if (talk.t > 270) nextLine(); return; }
+  if (G.mode === 'note') { if (noteTypeT < noteFull.length) { noteTypeT += .9; renderNote(); } return; }
+  if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
     if (G.bossIntroT > 90 && !G.boss) makeBoss();
     if (G.bossIntroT > 130) G.mode = 'play';
     return;
   }
-  if (G.mode !== 'play') return;
+  if (G.mode !== 'play' && G.mode !== 'forest') return;
 
-  const S = STAGES[G.stage];
+  const forest = G.inForest;
 
-  /* ── 플레이어 이동 ─────────────────────────────────── */
+  /* ── 이동 ─────────────────────────────────────────── */
   let mx = 0, my = 0;
   if (down('a', 'A', 'ㅁ')) mx--;
   if (down('d', 'D', 'ㅇ')) mx++;
   if (down('w', 'W', 'ㅈ')) my--;
   if (down('s', 'S', 'ㄴ')) my++;
-  // WASD 를 안 쓰면 방향키로도 이동
-  const aiming = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].some(k => key[k]);
-  if (!mx && !my && aiming && S.kind === 'forest') {
+  if (!mx && !my && forest) {          // 숲에선 방향키로도 이동
     if (key.ArrowLeft) mx--; if (key.ArrowRight) mx++;
     if (key.ArrowUp) my--;   if (key.ArrowDown) my++;
   }
@@ -399,43 +483,29 @@ function update() {
   if (ml) {
     P.x += mx / ml * BALANCE.playerSpeed;
     P.y += my / ml * BALANCE.playerSpeed;
-    P.walkT += .22;
-    if (mx) P.face = mx > 0 ? 1 : -1;
+    P.walkT += .22; P.anim += .16;
+    P.dir = mx ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');
     if (++P.stepT % 20 === 0) Sfx.step();
-  } else P.walkT *= .8;
+  } else { P.walkT *= .8; P.anim = 0; }
 
-  const pad = S.kind === 'forest' ? 12 : TS + P.r + 2;
-  P.x = Math.max(pad, Math.min(W - pad, P.x));
-  P.y = Math.max(S.kind === 'forest' ? 26 : pad, Math.min(H - pad, P.y));
+  clampPlayer(forest);
 
   if (P.inv > 0) P.inv--;
   if (P.fireCd > 0) P.fireCd--;
 
   /* ── 사격 ─────────────────────────────────────────── */
-  if (S.kind !== 'forest' && P.fireCd <= 0) {
+  if (!forest && P.fireCd <= 0) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
-    if (ax || ay) shoot(ax, ay);
-    else if (mouse.down) shoot(mouse.x - P.x, mouse.y - P.y);
+    if (!ax && !ay && mouse.down) { ax = mouse.x - P.x; ay = mouse.y - P.y; }
+    if (ax || ay) {
+      shoot(ax, ay);
+      if (!ml) P.dir = Math.abs(ax) > Math.abs(ay)
+        ? (ax > 0 ? 'right' : 'left') : (ay > 0 ? 'down' : 'up');
+    }
   }
 
-  /* ── 지상 : 우물 ──────────────────────────────────── */
-  if (S.kind === 'forest') {
-    const near = nearWell();
-    G.well.glow += ((near ? 1 : .25) - G.well.glow) * .05;
-    G.butterflies.forEach(b => {
-      b.a += (Math.random() - .5) * .35;
-      b.x += Math.cos(b.a) * b.s; b.y += Math.sin(b.a) * b.s * .6;
-      if (b.x < 20 || b.x > W - 20) b.a = Math.PI - b.a;
-      if (b.y < 30 || b.y > H - 20) b.a = -b.a;
-      if (b.gl > 0) b.gl--;
-      // ⚠ 복선 : 나비가 아주 가끔 한 프레임 튄다
-      if (Math.random() < .0007) { b.gl = 8; b.x += (Math.random() - .5) * 40; }
-    });
-    if (Math.random() < .006) Sfx.bird();
-    // ⚠ 복선 : 숲에 어울리지 않는 기계 비프
-    if (Math.random() < .0035) { Sfx.beep(.028); G.flash = Math.max(G.flash, .12); }
-  }
+  if (forest) { updateForest(); return; }
 
   /* ── 탄환 ─────────────────────────────────────────── */
   G.bullets = G.bullets.filter(b => {
@@ -448,15 +518,16 @@ function update() {
     if (b.mine) {
       for (const f of G.foes) {
         if (Math.hypot(b.x - f.x, b.y - f.y) < f.r + b.r) {
-          f.hp -= BALANCE.bulletDmg; f.flash = 6; Sfx.hit();
+          damageFoe(f, BALANCE.bulletDmg, b.vx, b.vy);
           if (f.hp <= 0) { f.dead = true; glitchDeath(f.x, f.y, false); }
           return false;
         }
       }
       for (const p of G.pots) {
-        if (!p.hp) continue;
+        if (p.dead) continue;
         if (Math.abs(b.x - p.x) < 13 && Math.abs(b.y - p.y) < 14) {
-          p.hp = 0; Sfx.pot(); puff(p.x, p.y, '#b98b1e');
+          p.dead = true; stateOf(G.room).pots[p.i] = false;
+          Sfx.pot(); puff(p.x, p.y, '#b98b1e');
           if (Math.random() < .5 && P.hp < P.max)
             G.pickups.push({ k: 'heart', x: p.x, y: p.y, bob: 0 });
           return false;
@@ -464,7 +535,11 @@ function update() {
       }
       const B = G.boss;
       if (B && Math.hypot(b.x - B.x, b.y - B.y) < B.r + b.r) {
-        B.hp -= BALANCE.bulletDmg; B.flash = 6; Sfx.hit();
+        B.hp -= BALANCE.bulletDmg; B.flash = BALANCE.foeFlash;
+        const l = Math.hypot(b.vx, b.vy) || 1;
+        B.kx += b.vx / l * 1.6; B.ky += b.vy / l * 1.6;
+        spark(b.x, b.y, -b.vx, -b.vy);
+        G.shake = Math.max(G.shake, 2.5); Sfx.hit();
         if (B.hp <= 0) killBoss();
         return false;
       }
@@ -475,19 +550,18 @@ function update() {
   });
 
   /* ── 적 ───────────────────────────────────────────── */
-  const wasFoes = G.foes.length;
+  const had = G.foes.length;
   G.foes = G.foes.filter(f => !f.dead);
   G.foes.forEach(f => {
     if (f.flash > 0) f.flash--;
     f.bob += .12;
+    f.x += f.kx; f.y += f.ky;               // 넉백
+    f.kx *= .78; f.ky *= .78;
     const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1;
     if (f.type === 'spitter') {
       if (d < 120) { f.x -= dx / d * f.sp; f.y -= dy / d * f.sp; }
       else { f.x += dx / d * f.sp * .5; f.y += dy / d * f.sp * .5; }
-      if (--f.cd <= 0) {
-        f.cd = BALANCE.spitterCd;
-        foeShot(f.x, f.y, dx, dy, BALANCE.spore);
-      }
+      if (--f.cd <= 0) { f.cd = BALANCE.spitterCd; foeShot(f.x, f.y, dx, dy, BALANCE.spore); }
     } else {
       f.x += dx / d * f.sp; f.y += dy / d * f.sp;
     }
@@ -495,22 +569,16 @@ function update() {
     f.y = Math.max(TS + f.r, Math.min(H - TS - f.r, f.y));
     if (d < f.r + P.r - 2) hurt(1);
   });
-  if (wasFoes && !G.foes.length && S.clearKey && !G.clearGiven && !G.boss) {
-    G.clearGiven = true;
-    // 이 방에 상자가 있으면 그 열쇠는 상자용, 없으면 곧바로 문 열쇠
-    giveKey(!G.chest);
-    say([{ t: '마지막 하나가 흩어진 자리에 열쇠가 남았다.', w: false }], checkDoor);
-  }
+  if (had && !G.foes.length) onRoomCleared();
 
-  /* ── 보스 ─────────────────────────────────────────── */
   if (G.boss) updateBoss();
 
   /* ── 픽업 ─────────────────────────────────────────── */
   if (G.floorKey) {
     G.floorKey.bob += .07;
     if (Math.hypot(P.x - G.floorKey.x, P.y - G.floorKey.y) < 20) {
-      G.floorKey = null;
-      giveKey(false);            // 상자를 여는 열쇠
+      G.floorKey = null; stateOf(G.room).keyTaken = true;
+      G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
       say([{ t: '오방색 매듭이 달린 낡은 열쇠. …왜 이렇게 익숙하지.', w: true }]);
     }
   }
@@ -518,8 +586,7 @@ function update() {
     p.bob += .09;
     if (Math.hypot(P.x - p.x, P.y - p.y) < 18) {
       if (p.k === 'heart' && P.hp < P.max) { P.hp++; updateHud(); }
-      Sfx.pickup();
-      return false;
+      Sfx.pickup(); return false;
     }
     return true;
   });
@@ -531,20 +598,78 @@ function update() {
     return f.life > 0;
   });
 
-  /* ── 문 통과 ──────────────────────────────────────── */
-  checkDoor();
-  if (G.door.open && P.x >= W - TS - P.r - 6 &&
-      Math.abs(P.y - H / 2) < 30 && S.kind !== 'forest' && !S.final) {
-    nextStage();
-  }
+  checkDoorTransit();
+  updatePrompt();
+}
 
-  /* ── 프롬프트 ─────────────────────────────────────── */
+/* 방을 비웠을 때 보상 */
+function onRoomCleared() {
+  const s = stateOf(G.room), r = MAP[G.room];
+  s.cleared = true;
+  if (s.rewarded || !r.clear) return;
+  s.rewarded = true;
+  if (r.clear === 'doorKey') {
+    G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
+    say([{ t: '마지막 하나가 흩어진 자리에 커다란 관문 열쇠가 남았다.', w: false }]);
+  } else {
+    G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
+    say([{ t: '흩어진 자리에 열쇠가 남았다.', w: false }]);
+  }
+}
+
+/* ── 플레이어 위치 제한 + 문 통로 개방 ─────────────────── */
+function clampPlayer(forest) {
+  if (forest) {
+    P.x = Math.max(12, Math.min(W - 12, P.x));
+    P.y = Math.max(26, Math.min(H - 12, P.y));
+    return;
+  }
+  const pad = TS + P.r + 2;
+  let minX = pad, maxX = W - pad, minY = pad, maxY = H - pad;
+  const bx = Math.abs(P.x - W / 2) < 20, by = Math.abs(P.y - H / 2) < 20;
+  const open = d => G.doors[d] && !G.doors[d].lock;
+  if (open('W') && by) minX = TS - 8;
+  if (open('E') && by) maxX = W - TS + 8;
+  if (open('N') && bx) minY = TS - 8;
+  if (open('S') && bx) maxY = H - TS + 8;
+  P.x = Math.max(minX, Math.min(maxX, P.x));
+  P.y = Math.max(minY, Math.min(maxY, P.y));
+}
+
+function checkDoorTransit() {
+  if (G.foes.length || G.boss) return;      // 적이 남아 있으면 문이 막힌다
+  const go = (d) => { Sfx.door(); loadRoom(G.doors[d].to, OPP[d]); };
+  if (G.doors.W && !G.doors.W.lock && P.x <= TS - 6) return go('W');
+  if (G.doors.E && !G.doors.E.lock && P.x >= W - TS + 6) return go('E');
+  if (G.doors.N && !G.doors.N.lock && P.y <= TS - 6) return go('N');
+  if (G.doors.S && !G.doors.S.lock && P.y >= H - TS + 6) return go('S');
+}
+
+function updatePrompt() {
   let pr = '';
   if (nearWell() && !G.wellUsed) pr = '우물 들여다보기';
-  else if (nearChest()) pr = G.keys > 0 ? '상자 열기' : '잠긴 상자';
-  else if (nearFinalLock()) pr = G.keys > 0 ? '마지막 열쇠 꽂기' : '잠금장치';
+  else if (nearChest()) pr = G.keys > 0 ? '상자 열기' : '잠긴 상자 (열쇠 필요)';
+  else if (nearFinalLock()) pr = (G.keys + G.doorKeys) > 0 ? '마지막 열쇠 꽂기' : '잠금장치';
+  else if (nearLockedGate()) pr = G.doorKeys >= 2 ? '관문 열기' : `관문 잠김 (${G.doorKeys}/2)`;
   if (pr) { $('prompt').classList.remove('hidden'); $('prompttext').textContent = pr; }
   else $('prompt').classList.add('hidden');
+}
+
+/* ═══════════ 지상 업데이트 ════════════════════════════ */
+function updateForest() {
+  const near = nearWell();
+  G.well.glow += ((near ? 1 : .25) - G.well.glow) * .05;
+  G.butterflies.forEach(b => {
+    b.a += (Math.random() - .5) * .35;
+    b.x += Math.cos(b.a) * b.s; b.y += Math.sin(b.a) * b.s * .6;
+    if (b.x < 20 || b.x > W - 20) b.a = Math.PI - b.a;
+    if (b.y < 30 || b.y > H - 20) b.a = -b.a;
+    if (b.gl > 0) b.gl--;
+    if (Math.random() < .0007) { b.gl = 8; b.x += (Math.random() - .5) * 40; }
+  });
+  if (Math.random() < .006) Sfx.bird();
+  if (Math.random() < .0035) { Sfx.beep(.028); G.flash = Math.max(G.flash, .12); }
+  updatePrompt();
 }
 
 /* ═══════════ 보스 AI ══════════════════════════════════ */
@@ -553,13 +678,12 @@ function updateBoss() {
   if (B.hp <= 0) { killBoss(); return; }
   B.t++; B.bob += .05;
   if (B.flash > 0) B.flash--;
+  B.x += B.kx; B.y += B.ky; B.kx *= .8; B.ky *= .8;
 
   const r = B.hp / B.max;
   const ph = r > .66 ? 1 : r > .33 ? 2 : 3;
   if (ph !== B.phase) {
-    B.phase = ph;
-    G.shake = 14; G.flash = .9; Sfx.bossRoar();
-    // 페이즈 전환 시 회복 아이템을 하나 흘린다 (4분 밸런스)
+    B.phase = ph; G.shake = 14; G.flash = .9; Sfx.bossRoar();
     if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
     if (ph === 3 && !B.spawned) {
       B.spawned = true;
@@ -570,19 +694,14 @@ function updateBoss() {
   const dx = P.x - B.x, dy = P.y - B.y, d = Math.hypot(dx, dy) || 1;
   const sp = B.sp * (ph === 3 ? 1.5 : ph === 2 ? 1.15 : 1);
 
-  if (B.dash > 0) {
-    B.dash--;
-    B.x += B.dvx; B.y += B.dvy;
-    B.dvx *= .95; B.dvy *= .95;
-  } else if (B.wind > 0) {
+  if (B.dash > 0) { B.dash--; B.x += B.dvx; B.y += B.dvy; B.dvx *= .95; B.dvy *= .95; }
+  else if (B.wind > 0) {
     B.wind--;
     if (B.wind === 0) {
       if (B.windKind === 'dash') {
-        B.dash = 26; B.dvx = dx / d * 4.6; B.dvy = dy / d * 4.6;
-        Sfx.bossRoar();
+        B.dash = 26; B.dvx = dx / d * 4.6; B.dvy = dy / d * 4.6; Sfx.bossRoar();
       } else {
-        const n = ph === 1 ? 8 : 12;
-        const off = Math.random() * 6.28;
+        const n = ph === 1 ? 8 : 12, off = Math.random() * 6.28;
         for (let i = 0; i < n; i++) {
           const a = off + (i / n) * Math.PI * 2;
           foeShot(B.x, B.y, Math.cos(a), Math.sin(a), BALANCE.spore + (ph - 1) * .25);
@@ -598,51 +717,41 @@ function updateBoss() {
       B.windKind = (ph >= 2 && Math.random() < .45) ? 'dash' : 'ring';
     }
   }
-
-  // 3페이즈 : 나선탄
   if (ph === 3 && B.t % 11 === 0) {
     B.spiralA += .78;
     foeShot(B.x, B.y, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.5);
   }
-
   B.x = Math.max(TS + B.r, Math.min(W - TS - B.r, B.x));
   B.y = Math.max(TS + B.r, Math.min(H - TS - B.r, B.y));
-
   if (d < B.r * .72 + P.r) hurt(1);
 }
 
 function killBoss() {
   const B = G.boss;
   glitchDeath(B.x, B.y, true);
-  G.shake = 26;
-  G.boss = null;
+  G.shake = 26; G.boss = null; G.bossDead = true;
   G.foes = [];
   G.bullets = G.bullets.filter(b => b.mine);
+  stateOf(G.room).cleared = true;
+  buildDoors(G.room);
   setTimeout(() => {
-    giveKey(true);
-    say(BOSS_DEAD_LINES, checkDoor);
+    G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
+    say(BOSS_DEAD_LINES);
   }, 700);
 }
 
 /* ═══════════ 렌더 ═════════════════════════════════════ */
 function render() {
-  const S = STAGES[G.stage];
   g.save();
-  const sh = G.shake;
-  if (sh > .4) g.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
-
-  g.fillStyle = '#05040a'; g.fillRect(-20, -20, W + 40, H + 40);
+  if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
+  g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
   if (G.floor) g.drawImage(G.floor, 0, 0);
-
-  if (S.kind === 'forest') renderForest();
-  else renderDungeon(S);
-
+  if (G.inForest) renderForest(); else renderDungeon();
   g.restore();
 
-  // 추락 연출
   if (G.mode === 'fall') renderFall();
+  if (!G.inForest && G.mode !== 'fall') drawMinimap();
 
-  // 화면 글리치
   if (G.flash > .02) {
     g.save();
     g.globalAlpha = G.flash * .5;
@@ -659,80 +768,51 @@ function render() {
 /* ── 지상 ──────────────────────────────────────────── */
 function renderForest() {
   const t = G.t * 16;
-  // 뒤쪽 나무
-  const trees = [[40, 70, 46], [120, 46, 38], [250, 40, 42], [430, 62, 44],
-                 [30, 200, 48], [110, 292, 44], [300, 300, 46], [455, 240, 42],
-                 [190, 120, 34], [400, 160, 36]];
-  trees.forEach(([x, y, s]) => drawTree(g, x, y, s, t));
-
-  drawJangseung(g, 158, 258, 26);
-  drawJangseung(g, 196, 262, 24);
-  drawSotdae(g, 92, 148, 20, t);
-
-  // 우물
+  renderForestProps(g, t);
   drawWell(g, G.well.x, G.well.y, G.t, G.well.glow);
-
-  // 나비
   G.butterflies.forEach(b => {
     g.save();
     if (b.gl > 0) { g.globalAlpha = .55; g.fillStyle = '#7de3c8'; }
-    else g.fillStyle = b.c;
+    else { g.globalAlpha = .8; g.fillStyle = b.c; }
     const f = Math.sin(G.t * .35 + b.a) * 2;
     g.fillRect(b.x - 3, b.y - f, 3, 2);
     g.fillRect(b.x + 1, b.y - f, 3, 2);
-    g.fillStyle = '#2b2b33'; g.fillRect(b.x, b.y - 1, 1, 3);
     g.restore();
   });
-
   drawPlayer();
-
-  // 살짝 어두운 나뭇잎 그림자
-  g.fillStyle = 'rgba(10,20,6,.10)';
-  for (let i = 0; i < 5; i++)
-    g.fillRect(0, (i * 71 + ((G.t * .2) % 71)) | 0, W, 6);
+  drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
 }
 
 /* ── 지하 ──────────────────────────────────────────── */
-function renderDungeon(S) {
-  drawWalls(g, W, H, TS, S.depth, G.t);
+function renderDungeon() {
+  const R = MAP[G.room];
+  drawWalls(g, W, H, TS, R.depth, G.t);
+  drawDoors();
+  drawWallPlants(g, W, H, TS, G.plants, G.t);
 
-  // 벽 낙서 (날짜)
-  if (S.graffiti) {
+  if (R.graffiti !== '' ) {
+    const date = DATES[Math.min(G.visited.size, DATES.length - 1)].split(' / ').slice(1).join(' / ');
     g.save();
-    g.globalAlpha = .55;
-    g.fillStyle = '#b8352c';
-    g.font = 'bold 13px ui-monospace, monospace';
-    g.textAlign = 'center';
-    g.fillText(S.graffiti, W / 2, H - 10);        // 아랫벽 (HUD 를 피해서)
-    if (S.boss) {
-      g.globalAlpha = .22;
-      g.font = 'bold 10px ui-monospace, monospace';
-      for (let i = 0; i < 12; i++) {
-        g.fillText(S.graffiti,
-          40 + ((i * 97) % (W - 80)),
-          TS + 14 + ((i * 53) % (H - TS * 2 - 20)));
-      }
+    g.globalAlpha = .5; g.fillStyle = '#b8352c';
+    g.font = 'bold 12px ui-monospace, monospace'; g.textAlign = 'center';
+    g.fillText(date, W / 2, H - 11);
+    if (R.boss) {
+      g.globalAlpha = .2; g.font = 'bold 10px ui-monospace, monospace';
+      for (let i = 0; i < 12; i++)
+        g.fillText('5 / 20', 40 + ((i * 97) % (W - 80)), TS + 22 + ((i * 53) % (H - TS * 2 - 30)));
     }
     g.restore();
   }
 
-  // 문
-  drawDoor(S);
-
-  // 항아리
-  G.pots.forEach(p => { if (p.hp) drawPot(p.x, p.y); });
-
-  // 상자
+  drawFloorPlants(g, G.plants, G.t);
+  G.pots.forEach(p => { if (!p.dead) drawPot(p.x, p.y); });
   if (G.chest) drawChest(G.chest);
-
-  // 바닥 열쇠
   if (G.floorKey) drawKey(G.floorKey.x, G.floorKey.y + Math.sin(G.floorKey.bob) * 2.5);
+  if (MAP[G.room].final) drawFinalLock();
 
-  // 픽업
   G.pickups.forEach(p => {
     const y = p.y + Math.sin(p.bob) * 2.5;
-    g.save();
-    g.fillStyle = '#c2352c';
+    g.save(); g.fillStyle = '#c2352c';
     g.beginPath();
     g.moveTo(p.x, y + 6); g.lineTo(p.x - 6, y - 1); g.lineTo(p.x - 3, y - 5);
     g.lineTo(p.x, y - 2); g.lineTo(p.x + 3, y - 5); g.lineTo(p.x + 6, y - 1);
@@ -741,23 +821,17 @@ function renderDungeon(S) {
     g.restore();
   });
 
-  // 보스 등장 연출
   if (G.mode === 'boss-intro' && !G.boss) {
     const k = Math.min(1, G.bossIntroT / 90);
-    g.save();
-    g.globalAlpha = k * .8;
-    g.fillStyle = '#c2352c';
+    g.save(); g.globalAlpha = k * .8; g.fillStyle = '#c2352c';
     g.beginPath(); g.arc(W / 2, 118, 4 + k * 30, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 
-  // 적
   G.foes.forEach(drawFoe);
   if (G.boss) drawBoss();
-
   drawPlayer();
 
-  // 탄환
   G.bullets.forEach(b => {
     g.save();
     if (b.mine) {
@@ -770,148 +844,185 @@ function renderDungeon(S) {
       g.beginPath(); g.arc(b.x, b.y, b.r + 3, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#e2604f';
       g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#3a1010';
-      g.beginPath(); g.arc(b.x - 1, b.y - 1, b.r * .4, 0, Math.PI * 2); g.fill();
     }
     g.restore();
   });
 
-  // 이펙트
   G.fx.forEach(f => {
     const k = f.life / f.max;
     if (f.k === 'p') {
       g.globalAlpha = k; g.fillStyle = f.c;
       g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3); g.globalAlpha = 1;
     } else {
-      // 글리치 : 코드 조각 + 뇌파 그래프
-      g.save();
-      g.globalAlpha = k;
+      g.save(); g.globalAlpha = k;
       g.strokeStyle = '#7de3c8'; g.lineWidth = 1.4;
       g.beginPath();
-      const wdt = f.max;
       for (let i = 0; i <= 20; i++) {
-        const x = f.x - wdt / 2 + (i / 20) * wdt;
+        const x = f.x - f.max / 2 + (i / 20) * f.max;
         const y = f.y + Math.sin(i * 1.9 + G.t * .5) * (i % 4 === 0 ? 13 : 3) * k;
         i ? g.lineTo(x, y) : g.moveTo(x, y);
       }
       g.stroke();
-      g.font = '9px ui-monospace, monospace';
-      g.fillStyle = '#7de3c8';
+      g.font = '9px ui-monospace, monospace'; g.fillStyle = '#7de3c8';
       f.chars.forEach(c => g.fillText(c.c, f.x + c.dx * (1 - k), f.y + c.dy * (1 - k)));
       g.restore();
     }
   });
+
+  // 어둠 — 주인공 주변만 밝다
+  drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);
 }
 
 /* ── 문 ────────────────────────────────────────────── */
-function drawDoor(S) {
-  const d = G.door;
-  const fin = !!S.final;
-
-  if (fin) {
-    // ── 거대한 문 : 오른쪽 벽 전체를 차지한다 ──────────────
-    const x = W - TS, y = 34, w = TS, h = H - 68;
+function drawDoors() {
+  for (const d in G.doors) {
+    const dr = G.doors[d];
+    const horiz = d === 'N' || d === 'S';
+    const c = doorCenter(d);
+    const x = horiz ? W / 2 - 26 : (d === 'W' ? 0 : W - TS);
+    const y = horiz ? (d === 'N' ? 0 : H - TS) : H / 2 - 26;
+    const w = horiz ? 52 : TS, h = horiz ? TS : 52;
     g.save();
-    g.fillStyle = '#2c2419'; g.fillRect(x - 4, y, w + 4, h);
-    g.fillStyle = '#3f3320'; g.fillRect(x - 2, y + 3, w + 2, h - 6);
-    g.strokeStyle = '#17121a'; g.lineWidth = 2;
-    g.strokeRect(x - 3, y + 1, w + 3, h - 2);
-    // 위로 뻗은 우물 파이프
-    g.fillStyle = '#4a4a55'; g.fillRect(x + 6, 0, 8, 36);
-    g.fillStyle = '#5e5e6b'; g.fillRect(x + 6, 0, 3, 36);
-    // 오방색 단청 + 태극
-    drawSaekdong(g, x - 3, y + 8, w + 3, 5, false, .92);
-    drawSaekdong(g, x - 3, y + h - 13, w + 3, 5, false, .92, 2);
-    drawTaegeuk(g, x + w / 2 - 1, H / 2, 12, G.t * .004);
+    if (dr.lock) {
+      g.fillStyle = '#3a2f22'; g.fillRect(x, y, w, h);
+      g.strokeStyle = '#1a1520'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+      drawSaekdong(g, x + 2, y + 3, w - 4, 3, false, .5, G.depth);
+      // 자물쇠
+      g.fillStyle = dr.lock === 'boss' ? '#7a2f2a' : '#e3b23c';
+      g.fillRect(c[0] - 5, c[1] - 4, 10, 9);
+      g.strokeStyle = g.fillStyle; g.lineWidth = 2;
+      g.beginPath(); g.arc(c[0], c[1] - 4, 4, Math.PI, 0); g.stroke();
+      g.fillStyle = '#15141b'; g.fillRect(c[0] - 1, c[1], 2, 4);
+      if (dr.lock === 'keys') {
+        g.fillStyle = '#e3b23c'; g.font = 'bold 7px ui-monospace, monospace';
+        g.textAlign = 'center'; g.fillText(`${G.doorKeys}/2`, c[0], c[1] + 16);
+      }
+    } else {
+      g.fillStyle = '#07060c'; g.fillRect(x, y, w, h);
+      const gr = horiz
+        ? g.createLinearGradient(0, d === 'N' ? y + h : y, 0, d === 'N' ? y : y + h)
+        : g.createLinearGradient(d === 'W' ? x + w : x, 0, d === 'W' ? x : x + w, 0);
+      gr.addColorStop(0, 'rgba(125,227,200,.13)'); gr.addColorStop(1, 'rgba(125,227,200,0)');
+      g.fillStyle = gr; g.fillRect(x - 6, y - 6, w + 12, h + 12);
+      if (horiz) drawSaekdong(g, x, d === 'N' ? y + h - 3 : y, w, 3, false, .55, G.depth);
+      else drawSaekdong(g, d === 'W' ? x + w - 3 : x, y, 3, h, true, .55, G.depth);
+    }
     g.restore();
-
-    // ── 잠금장치 (문 앞 받침대) ──────────────────────────
-    const lx = W - TS - 24, ly = H / 2;
-    g.save();
-    g.fillStyle = 'rgba(0,0,0,.45)';
-    g.beginPath(); g.ellipse(lx, ly + 20, 13, 5, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#232a34'; g.fillRect(lx - 8, ly - 16, 16, 36);
-    g.fillStyle = '#2f3945'; g.fillRect(lx - 8, ly - 16, 5, 36);
-    g.strokeStyle = '#141920'; g.lineWidth = 1.5; g.strokeRect(lx - 8, ly - 16, 16, 36);
-    // 열쇠 구멍
-    g.fillStyle = '#0a0d13'; g.fillRect(lx - 5, ly + 2, 10, 3);
-    // 상태 LED
-    const on = G.keys > 0;
-    g.fillStyle = on ? '#7de3c8' : '#c2352c';
-    g.globalAlpha = .55 + Math.sin(G.t * (on ? .12 : .05)) * .4;
-    g.fillRect(lx - 3, ly - 11, 6, 6);
-    g.globalAlpha = 1;
-    drawMaedeup(g, lx, ly + 13, 6, '#e3b23c');
-    g.restore();
-    return;
   }
+}
 
-  const x = d.x, y = d.y, w = d.w, h = d.h;
+/* 마지막 방의 거대한 문 + 잠금장치 */
+function drawFinalLock() {
+  const x = W - TS, y = 34, w = TS, h = H - 68;
   g.save();
-  g.fillStyle = d.open ? '#0a0910' : '#3a2f22';
-  g.fillRect(x, y, w, h);
-  g.strokeStyle = '#1a1520'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
-  if (d.open) {
-    const gr = g.createLinearGradient(x, 0, x + w, 0);
-    gr.addColorStop(0, 'rgba(125,227,200,.16)'); gr.addColorStop(1, 'rgba(125,227,200,0)');
-    g.fillStyle = gr; g.fillRect(x - 10, y, w + 10, h);
-    drawSaekdong(g, x, y, 3, h, true, .7, G.stage);
-    g.fillStyle = '#7de3c8'; g.globalAlpha = .5 + Math.sin(G.t * .08) * .3;
-    g.fillRect(x + w - 3, y + h / 2 - 8, 3, 16);
-  } else {
-    drawSaekdong(g, x + 2, y + 4, w - 4, 4, false, .55, G.stage);
-    // 잠긴 자물쇠
-    g.fillStyle = '#e3b23c';
-    g.fillRect(x + w / 2 - 5, y + h / 2 - 4, 10, 9);
-    g.strokeStyle = '#e3b23c'; g.lineWidth = 2;
-    g.beginPath(); g.arc(x + w / 2, y + h / 2 - 4, 4, Math.PI, 0); g.stroke();
-    g.fillStyle = '#15141b'; g.fillRect(x + w / 2 - 1, y + h / 2, 2, 4);
-  }
+  g.fillStyle = '#2c2419'; g.fillRect(x - 4, y, w + 4, h);
+  g.fillStyle = '#3f3320'; g.fillRect(x - 2, y + 3, w + 2, h - 6);
+  g.strokeStyle = '#17121a'; g.lineWidth = 2; g.strokeRect(x - 3, y + 1, w + 3, h - 2);
+  g.fillStyle = '#4a4a55'; g.fillRect(x + 6, 0, 8, 36);
+  drawSaekdong(g, x - 3, y + 8, w + 3, 5, false, .92);
+  drawSaekdong(g, x - 3, y + h - 13, w + 3, 5, false, .92, 2);
+  drawTaegeuk(g, x + w / 2 - 1, H / 2, 12, G.t * .004);
+  const lx = W - TS - 24, ly = H / 2;
+  g.fillStyle = 'rgba(0,0,0,.45)';
+  g.beginPath(); g.ellipse(lx, ly + 20, 13, 5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#232a34'; g.fillRect(lx - 8, ly - 16, 16, 36);
+  g.fillStyle = '#2f3945'; g.fillRect(lx - 8, ly - 16, 5, 36);
+  g.strokeStyle = '#141920'; g.lineWidth = 1.5; g.strokeRect(lx - 8, ly - 16, 16, 36);
+  g.fillStyle = '#0a0d13'; g.fillRect(lx - 5, ly + 2, 10, 3);
+  const on = (G.keys + G.doorKeys) > 0;
+  g.fillStyle = on ? '#7de3c8' : '#c2352c';
+  g.globalAlpha = .55 + Math.sin(G.t * (on ? .12 : .05)) * .4;
+  g.fillRect(lx - 3, ly - 11, 6, 6);
+  g.globalAlpha = 1;
+  drawMaedeup(g, lx, ly + 13, 6, '#e3b23c');
+  g.restore();
+}
+
+/* ── 미니맵 ────────────────────────────────────────── */
+function drawMinimap() {
+  const cell = 9, gap = 2, ox = W - 8, oy = H - 8;
+  const ids = Object.keys(MAP);
+  const maxX = Math.max(...ids.map(i => MAP[i].gx));
+  const maxY = Math.max(...ids.map(i => MAP[i].gy));
+  const bw = (maxX + 1) * (cell + gap), bh = (maxY + 1) * (cell + gap);
+  const x0 = ox - bw, y0 = oy - bh;
+  g.save();
+  g.fillStyle = 'rgba(6,6,12,.62)';
+  g.fillRect(x0 - 4, y0 - 4, bw + 8, bh + 8);
+  g.strokeStyle = 'rgba(241,236,224,.10)';
+  g.strokeRect(x0 - 4.5, y0 - 4.5, bw + 9, bh + 9);
+  ids.forEach(id => {
+    const r = MAP[id];
+    const x = x0 + r.gx * (cell + gap), y = y0 + r.gy * (cell + gap);
+    const seen = G.visited.has(id);
+    // 이웃과의 연결선
+    ['E', 'S'].forEach(d => {
+      const nb = neighbourOf(id, d);
+      if (!nb || !(seen || G.visited.has(nb))) return;
+      g.fillStyle = 'rgba(150,160,180,.35)';
+      if (d === 'E') g.fillRect(x + cell, y + cell / 2 - .5, gap, 1);
+      else g.fillRect(x + cell / 2 - .5, y + cell, 1, gap);
+    });
+    if (id === G.room) { g.fillStyle = '#e3b23c'; g.fillRect(x, y, cell, cell); }
+    else if (seen) { g.fillStyle = 'rgba(160,172,192,.55)'; g.fillRect(x, y, cell, cell); }
+    else {
+      const adj = Object.keys(DIRS).some(d => {
+        const nb = neighbourOf(id, d); return nb && G.visited.has(nb);
+      });
+      if (!adj) return;
+      g.strokeStyle = 'rgba(160,172,192,.30)';
+      g.strokeRect(x + .5, y + .5, cell - 1, cell - 1);
+    }
+    if (r.boss && seen) { g.fillStyle = '#c2352c'; g.fillRect(x + 3, y + 3, 3, 3); }
+    if (r.final && seen) { g.fillStyle = '#7de3c8'; g.fillRect(x + 3, y + 3, 3, 3); }
+  });
   g.restore();
 }
 
 /* ── 오브젝트 ──────────────────────────────────────── */
 function drawPot(x, y) {
   g.save();
-  g.fillStyle = 'rgba(0,0,0,.35)';
+  g.fillStyle = 'rgba(0,0,0,.4)';
   g.beginPath(); g.ellipse(x, y + 10, 11, 4, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#7a5a34';
+  g.fillStyle = '#5e4526';
   g.beginPath(); g.ellipse(x, y, 11, 13, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#8f6b3e';
+  g.fillStyle = '#6f5330';
   g.beginPath(); g.ellipse(x - 2, y - 2, 8, 10, 0, 0, Math.PI * 2); g.fill();
-  drawSaekdong(g, x - 10, y - 2, 20, 3, false, .85);   // 오방색 띠
-  g.fillStyle = '#5d431f'; g.fillRect(x - 6, y - 13, 12, 3);
+  drawSaekdong(g, x - 10, y - 2, 20, 3, false, .7);
+  g.fillStyle = '#46331a'; g.fillRect(x - 6, y - 13, 12, 3);
   g.restore();
 }
 
 function drawChest(c) {
   g.save();
-  g.fillStyle = 'rgba(0,0,0,.4)';
+  g.fillStyle = 'rgba(0,0,0,.45)';
   g.beginPath(); g.ellipse(c.x, c.y + 13, 20, 6, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#5a3f22'; g.fillRect(c.x - 18, c.y - 6, 36, 20);
-  g.fillStyle = '#6d4d2a'; g.fillRect(c.x - 18, c.y - 6, 36, 6);
+  g.fillStyle = '#493320'; g.fillRect(c.x - 18, c.y - 6, 36, 20);
+  g.fillStyle = '#5b4028'; g.fillRect(c.x - 18, c.y - 6, 36, 6);
   if (c.open) {
-    g.fillStyle = '#2a1c0e'; g.fillRect(c.x - 16, c.y - 4, 32, 8);
-    g.fillStyle = 'rgba(227,178,60,.25)';
-    g.fillRect(c.x - 16, c.y - 22, 32, 18);
+    g.fillStyle = '#20150a'; g.fillRect(c.x - 16, c.y - 4, 32, 8);
+    g.fillStyle = 'rgba(227,178,60,.18)'; g.fillRect(c.x - 16, c.y - 22, 32, 18);
   } else {
-    g.fillStyle = '#6d4d2a';
+    g.fillStyle = '#5b4028';
     g.beginPath();
     g.moveTo(c.x - 18, c.y - 6);
     g.quadraticCurveTo(c.x, c.y - 24, c.x + 18, c.y - 6);
     g.closePath(); g.fill();
-    drawSaekdong(g, c.x - 18, c.y - 9, 36, 4, false, .9);
-    drawMaedeup(g, c.x, c.y + 3, 9, '#e3b23c');   // 오방색 매듭 장식
+    drawSaekdong(g, c.x - 18, c.y - 9, 36, 4, false, .8);
+    drawMaedeup(g, c.x, c.y + 3, 9, '#e3b23c');
+    g.globalAlpha = .35 + Math.sin(G.t * .05) * .2;
+    g.fillStyle = '#e3b23c';
+    g.beginPath(); g.arc(c.x, c.y - 2, 22, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
   }
-  g.strokeStyle = '#3a2712'; g.lineWidth = 1.5;
+  g.strokeStyle = '#2c1d0e'; g.lineWidth = 1.5;
   g.strokeRect(c.x - 18, c.y - 6, 36, 20);
   g.restore();
 }
 
 function drawKey(x, y) {
   g.save();
-  g.globalAlpha = .35;
-  g.fillStyle = '#e3b23c';
+  g.globalAlpha = .3; g.fillStyle = '#e3b23c';
   g.beginPath(); g.arc(x, y, 13, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1;
   g.strokeStyle = '#e3b23c'; g.lineWidth = 2.4; g.lineCap = 'round';
@@ -924,46 +1035,56 @@ function drawKey(x, y) {
 
 /* ── 캐릭터 ────────────────────────────────────────── */
 function drawPlayer() {
-  const bob = Math.sin(P.walkT) * 1.6;
-  const dungeon = STAGES[G.stage].kind !== 'forest';
+  const bob = Math.sin(P.walkT) * 1.2;
   g.save();
-  g.fillStyle = 'rgba(0,0,0,.45)';
-  g.beginPath(); g.ellipse(P.x, P.y + 14, 14, 5, 0, 0, Math.PI * 2); g.fill();
-  // 어두운 던전에서 실루엣이 묻히지 않도록 약한 림라이트
-  if (dungeon) {
-    const rg = g.createRadialGradient(P.x, P.y, 4, P.x, P.y, 30);
-    rg.addColorStop(0, 'rgba(255,228,196,.16)');
-    rg.addColorStop(1, 'rgba(255,228,196,0)');
-    g.fillStyle = rg;
-    g.beginPath(); g.arc(P.x, P.y, 30, 0, Math.PI * 2); g.fill();
-  }
+  g.fillStyle = 'rgba(0,0,0,.5)';
+  g.beginPath(); g.ellipse(P.x, P.y + 15, 12, 4.5, 0, 0, Math.PI * 2); g.fill();
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
-  const w = 38, h = 33;
-  g.translate(P.x, P.y + bob);
-  if (P.face > 0) g.scale(-1, 1);          // 원본 스프라이트는 왼쪽을 봅니다
-  if (IMG.pig) g.drawImage(IMG.pig, -w / 2, -h / 2 - 2, w, h);
-  else { g.fillStyle = '#f0b0ae'; g.fillRect(-10, -10, 20, 20); }
+  const seq = HERO[P.dir] || HERO.down;
+  const idx = seq[Math.floor(P.anim) % seq.length];
+  const w = 30, h = Math.round(30 * HERO.fh / HERO.fw);
+  if (IMG.hero) {
+    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh,
+                P.x - w / 2, P.y + bob - h + 12, w, h);
+  } else {
+    g.fillStyle = '#f2e23a';
+    g.beginPath(); g.arc(P.x, P.y, 11, 0, Math.PI * 2); g.fill();
+  }
   g.restore();
 }
 
 function drawFoe(f) {
   const bob = Math.sin(f.bob) * 2;
-  g.save();
-  g.fillStyle = 'rgba(0,0,0,.35)';
-  g.beginPath(); g.ellipse(f.x, f.y + 11, 10, 4, 0, 0, Math.PI * 2); g.fill();
   const s = f.type === 'spitter' ? 30 : 26;
+  const eyeC = f.type === 'spitter' ? '#8de08a' : '#ff5330';
+  g.save();
+  g.fillStyle = 'rgba(0,0,0,.4)';
+  g.beginPath(); g.ellipse(f.x, f.y + 11, 10, 4, 0, 0, Math.PI * 2); g.fill();
+
+  g.globalAlpha = .5 + Math.sin(f.bob * .7) * .12;
+  const ag = g.createRadialGradient(f.x, f.y + 4, 2, f.x, f.y + 4, s * .8);
+  ag.addColorStop(0, f.type === 'spitter' ? 'rgba(90,150,90,.30)' : 'rgba(130,60,150,.30)');
+  ag.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = ag;
+  g.beginPath(); g.arc(f.x, f.y + 4, s * .8, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = 1;
+
+  // 피격 중에는 주인공처럼 깜빡인다
+  if (f.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .45;
+
   g.translate(f.x, f.y + bob);
-  if (f.type === 'spitter') {
-    g.globalAlpha = .9;
-    g.filter = 'hue-rotate(200deg) saturate(1.4)';
-  }
-  if (IMG.mushroom) g.drawImage(IMG.mushroom, -s / 2, -s / 2 - 2, s, s);
-  else { g.fillStyle = '#e08030'; g.fillRect(-10, -10, 20, 20); }
+  if (f.type === 'spitter') g.filter = 'hue-rotate(85deg) saturate(1.5) brightness(.92)';
+  if (IMG.mob) g.drawImage(IMG.mob, -s / 2, -s / 2 - 2, s, s);
+  else { g.fillStyle = '#4a4055'; g.fillRect(-10, -10, 20, 20); }
   g.filter = 'none';
+
+  const ex = s * .155, ey = s * .105;
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .75 + Math.sin(G.t * .07 + f.bob) * .25;
+  g.fillStyle = eyeC;
+  [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * ex, ey, 2.4, 0, Math.PI * 2); g.fill(); });
   if (f.flash > 0) {
-    g.globalCompositeOperation = 'lighter';
-    g.globalAlpha = .55;
-    g.fillStyle = '#7de3c8';
+    g.globalAlpha = .6; g.fillStyle = '#ffffff';
     g.fillRect(-s / 2, -s / 2 - 2, s, s);
   }
   g.restore();
@@ -974,28 +1095,25 @@ function drawBoss() {
   const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
   const sc = 1 + Math.sin(B.bob) * .04 + wind * .18;
   g.save();
-  g.fillStyle = 'rgba(0,0,0,.4)';
+  g.fillStyle = 'rgba(0,0,0,.45)';
   g.beginPath(); g.ellipse(B.x, B.y + 30, 34, 10, 0, 0, Math.PI * 2); g.fill();
-  // 위협 오라
   g.globalAlpha = .25 + wind * .5;
   const ag = g.createRadialGradient(B.x, B.y, 10, B.x, B.y, 60 + wind * 26);
   ag.addColorStop(0, 'rgba(150,60,220,.55)'); ag.addColorStop(1, 'rgba(150,60,220,0)');
   g.fillStyle = ag;
   g.beginPath(); g.arc(B.x, B.y, 62 + wind * 26, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1;
-
-  g.translate(B.x, B.y);
-  g.scale(sc, sc);
+  if (B.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .5;
+  g.translate(B.x, B.y); g.scale(sc, sc);
   const w = 96, h = 87;
   if (IMG.eye) g.drawImage(IMG.eye, -w / 2, -h / 2, w, h);
   else { g.fillStyle = '#c33'; g.beginPath(); g.arc(0, 0, 34, 0, 6.3); g.fill(); }
   if (B.flash > 0) {
     g.globalCompositeOperation = 'lighter'; g.globalAlpha = .5;
-    g.fillStyle = '#7de3c8'; g.fillRect(-w / 2, -h / 2, w, h);
+    g.fillStyle = '#ffffff'; g.fillRect(-w / 2, -h / 2, w, h);
   }
   g.restore();
 
-  // 체력 바
   const bw = 220, bx = (W - bw) / 2, by = H - 18;
   g.save();
   g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
@@ -1005,21 +1123,17 @@ function drawBoss() {
   g.restore();
 }
 
-/* ── 추락 연출 ─────────────────────────────────────── */
+/* ── 추락 ──────────────────────────────────────────── */
 function renderFall() {
   const k = G.fallT / 150;
   g.save();
-  // 좁아지는 우물 입구 : 타원 바깥쪽만 검게 (evenodd)
   const r = Math.max(0, 165 * (1 - k) ** 1.5);
   g.fillStyle = '#000';
-  g.beginPath();
-  g.rect(0, 0, W, H);
+  g.beginPath(); g.rect(0, 0, W, H);
   g.ellipse(W / 2, H / 2, r, r * .62, 0, 0, Math.PI * 2);
   g.fill('evenodd');
-  // 마지막엔 완전 암전
   g.fillStyle = `rgba(0,0,0,${Math.min(1, Math.max(0, (k - .55) / .35))})`;
   g.fillRect(0, 0, W, H);
-  // 스쳐 지나가는 돌
   g.fillStyle = 'rgba(120,110,130,.5)';
   for (let i = 0; i < 26; i++) {
     const y = ((i * 53 + G.fallT * 14) % (H + 60)) - 30;
@@ -1033,30 +1147,19 @@ function beginEnding() {
   G.mode = 'ending';
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
-  const E = $('ending');
-  E.classList.remove('hidden');
-  Sfx.ambientStop();
-  Sfx.flatline(true);                        // 삐————
+  $('ending').classList.remove('hidden');
+  Sfx.ambientStop(); Sfx.flatline(true);
   $('blackout').classList.add('on');
   G.flash = 1;
-
-  setTimeout(() => {
-    $('sysline').classList.add('on');
-    typeSys(0);
-  }, 2500);
+  setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);
 }
-
 function typeSys(i) {
-  if (i >= ENDING_SYS.length) {
-    setTimeout(openEyes, 1100);
-    return;
-  }
+  if (i >= ENDING_SYS.length) { setTimeout(openEyes, 1100); return; }
   const line = ENDING_SYS[i];
   let n = 0;
   $('systext').textContent = '';
   const iv = setInterval(() => {
-    n++;
-    $('systext').textContent = line.slice(0, n);
+    n++; $('systext').textContent = line.slice(0, n);
     if (n % 3 === 0) Sfx.beep(.012);
     if (n >= line.length) {
       clearInterval(iv);
@@ -1064,35 +1167,25 @@ function typeSys(i) {
     }
   }, 48);
 }
-
 function openEyes() {
   const E = $('ending');
   $('sysline').classList.remove('on');
   Sfx.flatline(false);
-  E.classList.add('open');                   // 눈꺼풀이 스르륵 열린다
-  setTimeout(() => E.classList.add('zoomout'), 500);   // 카메라 줌아웃
-
-  // 심박 비프 (안정화)
+  E.classList.add('open');
+  setTimeout(() => E.classList.add('zoomout'), 500);
   let beats = 0;
-  const hb = setInterval(() => {
-    Sfx.beep(.02);
-    if (++beats > 26) clearInterval(hb);
-  }, 900);
-
-  // 줌아웃이 끝난 뒤 복선을 한 줄씩 짚어준다
+  const hb = setInterval(() => { Sfx.beep(.02); if (++beats > 26) clearInterval(hb); }, 900);
   const order = ['bed', 'blood', 'skull', 'mon', 'key'];
-  const T0 = 6200;                                  // 카메라가 멈춘 뒤
+  const T0 = 6200, GAP = 1850;
   setTimeout(() => $('callouts').classList.add('on'), T0 - 500);
-  const GAP = 1850;
   order.forEach((k, i) => setTimeout(() => {
     document.querySelectorAll('.co').forEach(e => e.classList.remove('on'));
     const el = document.querySelector(`.co[data-for="${k}"]`);
     if (el) el.classList.add('on');
     Sfx.beep(.016);
   }, T0 + i * GAP));
-
   setTimeout(() => {
-    $('callouts').classList.remove('on');       // 자막을 먼저 걷어낸다
+    $('callouts').classList.remove('on');
     $('endcard').classList.add('on');
   }, T0 + order.length * GAP + 900);
 }
@@ -1104,15 +1197,9 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/* 디버그용 핸들 (개발/테스트 편의. 게임 진행에는 쓰이지 않습니다)
-   콘솔에서 __game.loadStage(4) 처럼 특정 방으로 바로 갈 수 있습니다. */
-window.__game = { G, P, STAGES, BALANCE, loadStage, giveKey, say, beginEnding };
+/* 디버그용 (개발/테스트 편의) */
+window.__game = { G, P, MAP, BALANCE, loadRoom, loadForest, say, beginEnding };
 
-/* ═══════════ 부팅 ═════════════════════════════════════ */
-loadAssets().then(() => {
-  fit();
-  updateHud();
-  loop();
-});
+loadAssets().then(() => { fit(); updateHud(); loop(); });
 
 })();

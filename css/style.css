@@ -123,13 +123,15 @@ html,body{
 @keyframes heartpop{ 0%{transform:scale(1.6)} 100%{transform:scale(1)} }
 
 #hudright{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
-#keys{
+#keyrow{ display:flex; gap:8px; align-items:center; }
+#keys, #gatekeys{
   display:flex; align-items:center; gap:3px;
-  color:var(--hwang); font-weight:700;
-  text-shadow:0 1px 0 #000;
+  font-weight:700; text-shadow:0 1px 0 #000;
 }
-#keys .kicon{ font-size:12px; }
-#keys.bump{ animation:heartpop .35s ease-out 1; }
+#keys{ color:var(--hwang); }
+#gatekeys{ color:#8fd3e8; }
+#keys .kicon, #gatekeys .kicon{ font-size:12px; }
+#keys.bump, #gatekeys.bump{ animation:heartpop .35s ease-out 1; }
 
 #datebox{
   display:flex; align-items:baseline; gap:5px;
