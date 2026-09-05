@@ -1545,12 +1545,30 @@ function openEyes() {
   }, T0 + order.length * GAP + 900);
 }
 
-/* ═══════════ 루프 ═════════════════════════════════════ */
-function loop() {
-  update();
+/* ═══════════ 루프 ═════════════════════════════════════
+   모든 움직임이 "1프레임당 몇 픽셀" 로 되어 있어서, 예전처럼 화면
+   주사율에 그대로 맡기면 120Hz·144Hz 모니터에서 게임이 2배 넘게 빨라집니다.
+   그래서 논리 갱신은 항상 초당 60번으로 고정하고, 화면만 주사율대로 그립니다. */
+const STEP = 1000 / 60;
+let lastT = 0, acc = 0;
+
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (now === undefined) now = performance.now();
+  if (!lastT) lastT = now;
+  let dt = now - lastT;
+  lastT = now;
+
+  // 탭을 잠깐 벗어났다 돌아온 경우엔 밀린 시간을 한꺼번에 몰아 돌리지 않습니다
+  if (dt > 250) dt = STEP;
+  acc += dt;
+
+  let steps = 0;
+  while (acc >= STEP && steps < 5) { update(); acc -= STEP; steps++; }
+  if (acc > STEP * 5) acc = 0;
+
   if (G.mode !== 'ending') render();
   if (RUN.running) updateTimer();
-  requestAnimationFrame(loop);
 }
 
 /* 디버그용 (개발/테스트 편의) */
