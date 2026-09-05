@@ -238,6 +238,23 @@ html,body{
   animation:bob 1s ease-in-out infinite;
 }
 
+/* 충격적인 사실 / 반전 — 갑자기 팡 하고 살짝 커지는 강조 */
+.shock{
+  display:inline-block;
+  font-size:1.34em; font-weight:800;
+  color:#ffe3d6;
+  text-shadow:0 0 14px rgba(224,72,60,.65), 0 2px 0 rgba(0,0,0,.6);
+  animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
+}
+@keyframes shockPop{
+  0%{ transform:scale(.7); opacity:0; }
+  55%{ transform:scale(1.14); opacity:1; }
+  100%{ transform:scale(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .shock{ animation:none; }
+}
+
 /* ── 쪽지 ──────────────────────────────────────────────── */
 #noteoverlay{
   position:absolute; inset:0; z-index:50;

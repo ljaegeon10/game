@@ -246,6 +246,23 @@ html,body{
   animation:bob 1s ease-in-out infinite;
 }
 
+/* 충격적인 사실 / 반전 — 갑자기 팡 하고 살짝 커지는 강조 */
+.shock{
+  display:inline-block;
+  font-size:1.34em; font-weight:800;
+  color:#ffe3d6;
+  text-shadow:0 0 14px rgba(224,72,60,.65), 0 2px 0 rgba(0,0,0,.6);
+  animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
+}
+@keyframes shockPop{
+  0%{ transform:scale(.7); opacity:0; }
+  55%{ transform:scale(1.14); opacity:1; }
+  100%{ transform:scale(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .shock{ animation:none; }
+}
+
 /* ── 쪽지 ──────────────────────────────────────────────── */
 #noteoverlay{
   position:absolute; inset:0; z-index:50;
@@ -1077,6 +1094,13 @@ const Sfx = (() => {
     /* ⚠ 복선 : 숲속에 어울리지 않는 기계 비프 */
     beep(vol = 0.07) { tone(1046, 0.055, 'square', vol); },
 
+    /* 대사 중 충격적인 사실이 "팡" 하고 커질 때 */
+    reveal() {
+      tone(52, 0.32, 'sine', 0.30, 40);
+      tone(220, 0.05, 'triangle', 0.14);
+      noise(0.1, 0.14, 1200, 7000);
+    },
+
     /* 엔딩의 지속 기계음 (삐——) */
     flatline(on) {
       const c = ctx();
@@ -1889,7 +1913,7 @@ const MAP = {
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
-    intro: [{ t: '벽의 날짜가 바뀌어 있다. 분명 방금 지나온 곳인데.', w: true }],
+    intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
     enemies: [
       { t: 'shroom', x: 110, y: 100 }, { t: 'shroom', x: 370, y: 100 },
       { t: 'shroom', x: 240, y: 240 }, { t: 'spitter', x: 380, y: 220 }
@@ -1933,7 +1957,7 @@ const MAP = {
 
   se: {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
-    intro: [{ t: '벽 낙서의 날짜가 며칠씩 건너뛴다.', w: true }],
+    intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
     enemies: [
       { t: 'spitter', x: 120, y: 100 }, { t: 'shroom', x: 360, y: 110 },
       { t: 'shroom', x: 130, y: 240 }, { t: 'spitter', x: 370, y: 235 }
@@ -1955,7 +1979,7 @@ const MAP = {
     gx: 4, gy: 1, depth: 5, name: '심층', boss: true,
     intro: [
       { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
-      { t: '…무언가가 이쪽을 보고 있다.', w: true }
+      { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
     ],
     pots: [{ x: 70, y: 70 }, { x: 410, y: 70 }, { x: 70, y: 250 }, { x: 410, y: 250 }]
   },
@@ -1984,17 +2008,17 @@ const FALL_LINES = [
 ];
 
 const GLITCH_LINES = [
-  { t: '피가 튀지 않았다. 잠깐… 숫자 같은 게 흩어졌다.', w: true }
+  { t: '피가 튀지 않았다. 잠깐… **숫자 같은 게 흩어졌다.**', w: true }
 ];
 
 const BOSS_DEAD_LINES = [
-  { t: '저건 눈이었나. 아니면 나를 들여다보던 화면이었나.', w: true },
+  { t: '저건 눈이었나. 아니면 **나를 들여다보던 화면이었나.**', w: true },
   { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
 ];
 
 const ENDING_LINES = [
   { t: '열쇠를 꽂는다. 딸깍.', w: false },
-  { t: '…불이 전부 꺼졌다.', w: true }
+  { t: '**…불이 전부 꺼졌다.**', w: true }
 ];
 
 const ENDING_SYS = [
@@ -2143,10 +2167,38 @@ function renderBestTimes() {
   if (list.length) fillList($('bestlist'), list.slice(0, 3));
 }
 
-/* ═══════════ 자막 ═════════════════════════════════════ */
-const talk = { q: [], t: 0, cb: null, back: 'play' };
+/* ═══════════ 자막 ═════════════════════════════════════
+   글자가 한 글자씩 박자감 있게 나타납니다. 문장부호에서 살짝 멈춰
+   숨을 고르고, `**이렇게**` 감싼 구절은 충격적인 사실/반전을 드러낼 때
+   갑자기 팡 하고 커지면서 화면이 살짝 흔들립니다. */
+const TALK_CPF = 0.62;                    // 초당 약 37자 — 또박또박 읽히는 속도
+const TALK_PAUSE = {                      // 문장부호에서 쉬어가는 박자(프레임)
+  ',': 7, '，': 7,
+  '.': 16, '!': 16, '?': 16,
+  '…': 24, '─': 20, ':': 10
+};
+const talk = { q: [], cur: null, charI: 0, hold: 0, doneT: 0, shockFired: null, cb: null, back: 'play' };
+
+function parseShock(raw) {
+  const ranges = [];
+  let plain = '', i = 0;
+  while (i < raw.length) {
+    if (raw[i] === '*' && raw[i + 1] === '*') {
+      const end = raw.indexOf('**', i + 2);
+      if (end !== -1) {
+        const seg = raw.slice(i + 2, end);
+        ranges.push([plain.length, plain.length + seg.length]);
+        plain += seg; i = end + 2; continue;
+      }
+    }
+    plain += raw[i]; i++;
+  }
+  return { plain, ranges };
+}
+function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
 function say(lines, cb) {
-  talk.q = lines.slice(); talk.cb = cb || null; talk.t = 0;
+  talk.q = lines.slice(); talk.cb = cb || null;
   talk.back = G.inForest ? 'forest' : 'play';
   G.mode = 'talk';
   showLine();
@@ -2160,11 +2212,68 @@ function showLine() {
     if (cb) cb();
     return;
   }
+  const { plain, ranges } = parseShock(l.t);
+  talk.cur = { plain, ranges };
+  talk.charI = 0; talk.hold = 0; talk.doneT = 0; talk.shockFired = new Set();
   const s = $('subtitle');
   s.classList.remove('hidden');
   s.classList.toggle('whisper', !!l.w);
-  $('subtext').textContent = l.t;
-  talk.t = 0;
+  $('subnext').classList.add('hidden');
+  renderTalk();
+}
+function renderTalk() {
+  const t = talk.cur; if (!t) return;
+  const n = Math.min(t.plain.length, Math.floor(talk.charI));
+  const shown = t.plain.slice(0, n);
+  let html = '', pos = 0;
+  for (const [s0, s1] of t.ranges) {
+    if (s0 >= n) break;
+    const e = Math.min(s1, n);
+    html += escapeHtml(shown.slice(pos, s0));
+    html += `<span class="shock">${escapeHtml(shown.slice(s0, e))}</span>`;
+    pos = e;
+  }
+  html += escapeHtml(shown.slice(pos));
+  $('subtext').innerHTML = html.replace(/\n/g, '<br>');
+}
+/* 대사 진행 : 타이핑 중이면 한 프레임 진행, 다 나왔으면 대기 시간만 잰다 */
+function tickTalk() {
+  const t = talk.cur;
+  if (!t) return;
+  if (talk.charI < t.plain.length) {
+    if (talk.hold > 0) { talk.hold--; return; }
+    const ni = Math.floor(talk.charI);
+    const hitRange = t.ranges.find(r => r[0] === ni && !talk.shockFired.has(r));
+    if (hitRange) {
+      talk.charI = hitRange[1];
+      talk.shockFired.add(hitRange);
+      G.shake = Math.max(G.shake, 6);
+      G.flash = Math.max(G.flash, .32);
+      Sfx.reveal();
+      talk.hold = 30;
+    } else {
+      talk.charI += TALK_CPF;
+      const ch = t.plain[Math.floor(talk.charI) - 1];
+      if (ch && TALK_PAUSE[ch]) talk.hold = TALK_PAUSE[ch];
+    }
+    renderTalk();
+    if (talk.charI >= t.plain.length) $('subnext').classList.remove('hidden');
+  } else {
+    talk.doneT++;
+    if (talk.doneT > 200) nextLine();
+  }
+}
+/* SPACE : 타이핑 중이면 즉시 완성, 다 나왔으면 다음 줄로 */
+function advanceTalk() {
+  const t = talk.cur;
+  if (!t) return;
+  if (talk.charI < t.plain.length) {
+    talk.charI = t.plain.length; talk.hold = 0;
+    renderTalk();
+    $('subnext').classList.remove('hidden');
+  } else if (talk.doneT > 2) {
+    nextLine();
+  }
 }
 function nextLine() { talk.q.shift(); showLine(); }
 
@@ -2173,7 +2282,7 @@ function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title') { startGame(); return; }
   if (G.mode === 'dead')  { resetRun(); return; }
-  if (G.mode === 'talk')  { if (talk.t > 12) nextLine(); return; }
+  if (G.mode === 'talk')  { advanceTalk(); return; }
   if (G.mode === 'note')  { closeNote(); return; }
   if (G.mode === 'play' || G.mode === 'forest') interact();
 }
@@ -2535,7 +2644,7 @@ function update() {
   if (G.shake > 0) G.shake *= .86;
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
 
-  if (G.mode === 'talk') { talk.t++; if (talk.t > 270) nextLine(); return; }
+  if (G.mode === 'talk') { tickTalk(); return; }
   if (G.mode === 'note') { if (noteTypeT < noteFull.length) { noteTypeT += .9; renderNote(); } return; }
   if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {

@@ -104,7 +104,7 @@ const MAP = {
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
-    intro: [{ t: '벽의 날짜가 바뀌어 있다. 분명 방금 지나온 곳인데.', w: true }],
+    intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
     enemies: [
       { t: 'shroom', x: 110, y: 100 }, { t: 'shroom', x: 370, y: 100 },
       { t: 'shroom', x: 240, y: 240 }, { t: 'spitter', x: 380, y: 220 }
@@ -148,7 +148,7 @@ const MAP = {
 
   se: {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
-    intro: [{ t: '벽 낙서의 날짜가 며칠씩 건너뛴다.', w: true }],
+    intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
     enemies: [
       { t: 'spitter', x: 120, y: 100 }, { t: 'shroom', x: 360, y: 110 },
       { t: 'shroom', x: 130, y: 240 }, { t: 'spitter', x: 370, y: 235 }
@@ -170,7 +170,7 @@ const MAP = {
     gx: 4, gy: 1, depth: 5, name: '심층', boss: true,
     intro: [
       { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
-      { t: '…무언가가 이쪽을 보고 있다.', w: true }
+      { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
     ],
     pots: [{ x: 70, y: 70 }, { x: 410, y: 70 }, { x: 70, y: 250 }, { x: 410, y: 250 }]
   },
@@ -199,17 +199,17 @@ const FALL_LINES = [
 ];
 
 const GLITCH_LINES = [
-  { t: '피가 튀지 않았다. 잠깐… 숫자 같은 게 흩어졌다.', w: true }
+  { t: '피가 튀지 않았다. 잠깐… **숫자 같은 게 흩어졌다.**', w: true }
 ];
 
 const BOSS_DEAD_LINES = [
-  { t: '저건 눈이었나. 아니면 나를 들여다보던 화면이었나.', w: true },
+  { t: '저건 눈이었나. 아니면 **나를 들여다보던 화면이었나.**', w: true },
   { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
 ];
 
 const ENDING_LINES = [
   { t: '열쇠를 꽂는다. 딸깍.', w: false },
-  { t: '…불이 전부 꺼졌다.', w: true }
+  { t: '**…불이 전부 꺼졌다.**', w: true }
 ];
 
 const ENDING_SYS = [
