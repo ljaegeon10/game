@@ -2797,11 +2797,11 @@ function hurt(n) {
 
 /* ═══════════ 이펙트 ═══════════════════════════════════ */
 function glitchDeath(x, y, big) {
-  G.fx.push({ k: 'glitch', x, y, life: big ? 44 : 26, max: big ? 44 : 26,
-              chars: Array.from({ length: big ? 14 : 7 },
+  G.fx.push({ k: 'glitch', x, y, life: big ? 58 : 36, max: big ? 58 : 36,
+              chars: Array.from({ length: big ? 16 : 9 },
                 () => ({ c: '01<>{}#%$&*'[(Math.random() * 11) | 0],
-                         dx: (Math.random() - .5) * (big ? 70 : 34),
-                         dy: (Math.random() - .5) * (big ? 70 : 34) })) });
+                         dx: (Math.random() - .5) * (big ? 100 : 54),
+                         dy: (Math.random() - .5) * (big ? 100 : 54) })) });
   Sfx.glitch();
   G.flash = Math.max(G.flash, big ? 1 : .55);
   $('glitchbar').classList.remove('on');
@@ -3242,6 +3242,12 @@ function renderDungeon() {
       g.globalAlpha = k; g.fillStyle = f.c;
       g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3); g.globalAlpha = 1;
     } else {
+      // 죽으면서 흩어지는 숫자/기호 — "피 대신 숫자가 흩어졌다"는 복선이라
+      // 눈에 확 띄어야 합니다. 태어나자마자 빠르게 퍼지고, 끝에서만 사라집니다.
+      const prog = 1 - k;
+      const spread = Math.min(1, prog * 2.4);
+      const fade = prog > .7 ? Math.max(0, (1 - prog) / .3) : 1;
+
       g.save(); g.globalAlpha = k;
       g.strokeStyle = '#7de3c8'; g.lineWidth = 1.4;
       g.beginPath();
@@ -3251,8 +3257,20 @@ function renderDungeon() {
         i ? g.lineTo(x, y) : g.moveTo(x, y);
       }
       g.stroke();
-      g.font = '9px DungGeunMo, ui-monospace, monospace'; g.fillStyle = '#7de3c8';
-      f.chars.forEach(c => g.fillText(c.c, f.x + c.dx * (1 - k), f.y + c.dy * (1 - k)));
+      g.restore();
+
+      g.save();
+      g.globalAlpha = fade;
+      g.font = 'bold 15px DungGeunMo, ui-monospace, monospace';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.shadowColor = 'rgba(125,227,200,.85)'; g.shadowBlur = 9;
+      f.chars.forEach(c => {
+        const cx = f.x + c.dx * spread, cy = f.y + c.dy * spread;
+        g.lineWidth = 3; g.strokeStyle = 'rgba(4,8,10,.85)';
+        g.strokeText(c.c, cx, cy);
+        g.fillStyle = '#c8f7ec';
+        g.fillText(c.c, cx, cy);
+      });
       g.restore();
     }
   });
