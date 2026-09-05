@@ -542,7 +542,7 @@ function doorCenter(d) {
 function interact() {
   if (nearWell() && !G.wellUsed) {
     G.wellUsed = true;
-    say(FALL_LINES, () => { G.mode = 'fall'; G.fallT = 0; Sfx.fall(); Sfx.ambientStop(); });
+    say(FALL_LINES, () => { G.mode = 'fall'; G.fallT = 0; G.shake = 7; Sfx.fall(); Sfx.ambientStop(); });
     return;
   }
   if (nearChest()) {
@@ -688,7 +688,7 @@ function update() {
     }
     return;
   }
-  if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadRoom('start', 'W'); return; }
+  if (G.mode === 'fall') { G.fallT++; if (G.fallT > 168) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
     if (G.bossIntroT > 90 && !G.boss) makeBoss();
@@ -1381,20 +1381,87 @@ function drawBoss() {
 }
 
 /* ── 추락 ──────────────────────────────────────────── */
+/* 우물 추락 연출 — 화면 중앙으로 빨려 들어가는 소용돌이 우물 통로.
+   지상 배경(renderForest)이 이미 그려진 위에, 안쪽으로 좁아지는 돌벽
+   고리들 + 회전하는 잔상 줄무늬 + 점점 작아지며 구르는 주인공을 겹칩니다. */
 function renderFall() {
-  const k = G.fallT / 150;
+  const dur = 168;
+  const t = G.fallT, k = t / dur;
+  const cx = W / 2, cy = H / 2 - 6;
   g.save();
-  const r = Math.max(0, 165 * (1 - k) ** 1.5);
-  g.fillStyle = '#000';
-  g.beginPath(); g.rect(0, 0, W, H);
-  g.ellipse(W / 2, H / 2, r, r * .62, 0, 0, Math.PI * 2);
-  g.fill('evenodd');
-  g.fillStyle = `rgba(0,0,0,${Math.min(1, Math.max(0, (k - .55) / .35))})`;
+
+  // 1) 안쪽부터 어두워지는 소용돌이 비네트
+  const vr = 250 * (1 - k * .35);
+  const vg = g.createRadialGradient(cx, cy, vr * .08, cx, cy, vr);
+  vg.addColorStop(0, `rgba(6,4,10,${.15 + k * .25})`);
+  vg.addColorStop(.7, `rgba(4,3,8,${.35 + k * .4})`);
+  vg.addColorStop(1, `rgba(2,2,5,${.7 + k * .3})`);
+  g.fillStyle = vg;
   g.fillRect(0, 0, W, H);
-  g.fillStyle = 'rgba(120,110,130,.5)';
-  for (let i = 0; i < 26; i++) {
-    const y = ((i * 53 + G.fallT * 14) % (H + 60)) - 30;
-    g.fillRect((i * 97) % W, y, 3, 12 + (i % 4) * 6);
+
+  // 2) 우물 안쪽 돌벽 — 고리가 계속 태어나 화면 밖으로 커지며 지나갑니다
+  const spin = k * 2.2;
+  for (let i = 0; i < 8; i++) {
+    const cycle = ((k * 2.4) + i / 8) % 1;
+    const rad = 8 + cycle * 260;
+    const a = (1 - cycle) * .55;
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(spin + i * .3);
+    g.strokeStyle = `rgba(90,78,68,${a})`;
+    g.lineWidth = 3 + cycle * 5;
+    g.beginPath(); g.ellipse(0, 0, rad, rad * .68, 0, 0, Math.PI * 2); g.stroke();
+    // 돌벽 이음매(단청 색 살짝 스민 돌조각) — 오방색을 아주 옅게 흘려 복선 유지
+    if (i % 2 === 0) {
+      g.strokeStyle = `rgba(227,178,60,${a * .3})`;
+      g.lineWidth = 1.4;
+      g.beginPath(); g.ellipse(0, 3, rad * .99, rad * .67, 0, 0, Math.PI); g.stroke();
+    }
+    g.restore();
+  }
+
+  // 3) 빙글빙글 도는 잔상 줄무늬 — 빨려 들어가는 속도감
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(spin * 1.4);
+  for (let i = 0; i < 22; i++) {
+    const ang = (i / 22) * Math.PI * 2;
+    const dist = 26 + ((i * 41 + t * 10) % 230);
+    const a = Math.max(0, 1 - dist / 230) * .55;
+    const len = 26 + (i % 5) * 14;
+    g.strokeStyle = `rgba(200,208,228,${a})`;
+    g.lineWidth = 1.3;
+    g.beginPath();
+    g.moveTo(Math.cos(ang) * dist, Math.sin(ang) * dist * .68);
+    g.lineTo(Math.cos(ang) * (dist + len), Math.sin(ang) * (dist + len) * .68);
+    g.stroke();
+  }
+  g.restore();
+
+  // 4) 작아지며 구르듯 떨어지는 주인공
+  if (IMG.hero) {
+    const scale = Math.max(.05, 1 - k * .92);
+    g.save();
+    g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
+    g.rotate(k * 3.2);
+    g.scale(scale, scale);
+    g.globalAlpha = Math.min(1, 1.3 - k);
+    const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
+    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
+    g.restore();
+  }
+
+  // 5) 아주 짧게 스친 글리치 — 반전의 복선
+  if (t === 70) {
+    g.fillStyle = 'rgba(125,227,200,.16)';
+    g.fillRect(0, 0, W, H);
+  }
+
+  // 6) 마지막은 완전한 암전으로 마무리
+  const fadeFrom = .72;
+  if (k > fadeFrom) {
+    g.fillStyle = `rgba(0,0,0,${Math.min(1, (k - fadeFrom) / (1 - fadeFrom))})`;
+    g.fillRect(0, 0, W, H);
   }
   g.restore();
 }
