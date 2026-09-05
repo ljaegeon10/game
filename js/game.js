@@ -4,7 +4,7 @@
 (() => {
 'use strict';
 
-const W = 480, H = 320, TS = 32;
+const W = 576, H = 324, TS = 32;   // 16:9
 const cv = document.getElementById('game');
 const g  = cv.getContext('2d');
 g.imageSmoothingEnabled = false;
@@ -76,7 +76,9 @@ const G = {
   bullets: [], foes: [], fx: [], pickups: [], pots: [],
   chest: null, floorKey: null, boss: null,
   doors: {},            // { N:{open,locked}, ... }
-  well: { x: 372, y: 150, glow: 0 },
+  well: { x: 446, y: 152, glow: 0 },
+  oldTree: { x: 132, y: 296 },   // 이스터에그 — 늙은 나무 밑동
+  sawDoc: false,
   wellUsed: false, fallT: 0,
   butterflies: [], plants: []
 };
@@ -274,6 +276,7 @@ function onConfirm() {
   if (G.mode === 'dead')  { retry(); return; }
   if (G.mode === 'talk')  { advanceTalk(); return; }
   if (G.mode === 'note')  { closeNote(); return; }
+  if (G.mode === 'doc')   { closeDoc(); return; }
   if (G.mode === 'play' || G.mode === 'forest') interact();
 }
 
@@ -363,7 +366,7 @@ function loadForest() {
   $('dead').classList.add('hidden');
   G.floor = bakeForest(W, H, TS);
   G.butterflies = Array.from({ length: 7 }, () => ({
-    x: 60 + Math.random() * 340, y: 40 + Math.random() * 240,
+    x: 60 + Math.random() * (W - 140), y: 40 + Math.random() * (H - 90),
     a: Math.random() * 6.28, s: .3 + Math.random() * .3,
     c: OBANG_LIST[(Math.random() * 5) | 0], gl: 0
   }));
@@ -531,6 +534,8 @@ function spark(x, y, vx, vy) {
 /* ═══════════ 상호작용 ═════════════════════════════════ */
 const nearWell = () => G.inForest && Math.hypot(P.x - G.well.x, P.y - G.well.y + 6) < 52;
 const nearChest = () => G.chest && !G.chest.open && Math.hypot(P.x - G.chest.x, P.y - G.chest.y) < 34;
+/* 이스터에그 — 숲 한구석 늙은 나무 밑동 */
+const nearOldTree = () => G.inForest && Math.hypot(P.x - G.oldTree.x, P.y - G.oldTree.y + 10) < 40;
 const nearFinalLock = () => !G.inForest && MAP[G.room].final &&
                             Math.hypot(P.x - (W - TS - 24), P.y - H / 2) < 46;
 
@@ -549,6 +554,7 @@ function doorCenter(d) {
 }
 
 function interact() {
+  if (nearOldTree()) { openDoc(); return; }
   if (nearWell() && !G.wellUsed) {
     G.wellUsed = true;
     say(FALL_LINES, () => { G.mode = 'fall'; G.fallT = 0; G.shake = 7; Sfx.fall(); Sfx.ambientStop(); });
@@ -610,6 +616,19 @@ function closeNote() {
   const cb = noteCb; noteCb = null;
   if (cb) cb();
 }
+/* ── 이스터에그 서류 ─────────────────────────────────── */
+function openDoc() {
+  G.sawDoc = true;
+  G.mode = 'doc';
+  $('docoverlay').classList.remove('hidden');
+  $('prompt').classList.add('hidden');
+  Sfx.chest();
+}
+function closeDoc() {
+  $('docoverlay').classList.add('hidden');
+  G.mode = 'forest';
+}
+
 function renderNote() {
   let html = noteFull.slice(0, Math.floor(noteTypeT)).replace(/\n/g, '<br>');
   if (noteTypeT >= noteFull.length) html += `<br><br><span class="cut">${noteCut}</span>`;
@@ -697,6 +716,7 @@ function update() {
     }
     return;
   }
+  if (G.mode === 'doc') return;   // 서류를 보는 동안은 시간이 멈춥니다
   if (G.mode === 'fall') { G.fallT++; if (G.fallT > 168) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
@@ -895,7 +915,8 @@ function checkDoorTransit() {
 
 function updatePrompt() {
   let pr = '';
-  if (nearWell() && !G.wellUsed) pr = '우물 들여다보기';
+  if (nearOldTree()) pr = G.sawDoc ? '서류 다시 보기' : '나무 밑동에 낀 무언가';
+  else if (nearWell() && !G.wellUsed) pr = '우물 들여다보기';
   else if (nearChest()) pr = G.keys > 0 ? '상자 열기' : '잠긴 상자 (열쇠 필요)';
   else if (nearFinalLock()) pr = (G.keys + G.doorKeys) > 0 ? '마지막 열쇠 꽂기' : '잠금장치';
   else if (nearLockedGate()) pr = G.doorKeys >= 2 ? '관문 열기' : `관문 잠김 (${G.doorKeys}/2)`;
@@ -1018,6 +1039,7 @@ function renderForest() {
   const t = G.t * 16;
   renderForestProps(g, t);
   drawWell(g, G.well.x, G.well.y, G.t, G.well.glow);
+  drawOldTreeDoc();
   G.butterflies.forEach(b => {
     g.save();
     if (b.gl > 0) { g.globalAlpha = .55; g.fillStyle = '#7de3c8'; }
@@ -1029,6 +1051,27 @@ function renderForest() {
   });
   drawPlayer();
   drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
+}
+
+/* 늙은 나무 밑동에 낀 서류 한 장 — 가까이 가면 살짝 밝아집니다 */
+function drawOldTreeDoc() {
+  const o = G.oldTree, near = nearOldTree();
+  g.save();
+  g.globalAlpha = near ? .95 : .55;
+  // 접힌 종이 귀퉁이
+  g.fillStyle = '#d8d4c6';
+  g.beginPath();
+  g.moveTo(o.x - 5, o.y + 4); g.lineTo(o.x + 5, o.y + 2);
+  g.lineTo(o.x + 4, o.y + 9); g.lineTo(o.x - 6, o.y + 10);
+  g.closePath(); g.fill();
+  g.fillStyle = '#a9a496';
+  g.fillRect(o.x - 5, o.y + 7, 9, 1);
+  if (near) {
+    g.globalAlpha = .35 + Math.sin(G.t * .12) * .18;
+    g.strokeStyle = '#e3b23c'; g.lineWidth = 1;
+    g.strokeRect(o.x - 8, o.y + 1, 15, 11);
+  }
+  g.restore();
 }
 
 /* ── 지하 ──────────────────────────────────────────── */
@@ -1560,21 +1603,9 @@ function openEyes() {
   let beats = 0;
   const hb = setInterval(() => { Sfx.beep(.05); if (++beats > 30) clearInterval(hb); }, 900);
 
-  /* ② 꿈에서 본 것 → 현실의 진짜 모습, 한 줄씩 */
-  const order = ['bed', 'blood', 'skull', 'mon', 'key'];
-  const T0 = 7600, GAP = 2100;
-  at(T0 - 600, () => $('callouts').classList.add('on'));
-  order.forEach((k, i) => at(T0 + i * GAP, () => {
-    document.querySelectorAll('.co').forEach(e => e.classList.remove('on'));
-    const el = document.querySelector(`.co[data-for="${k}"]`);
-    if (el) el.classList.add('on');
-    Sfx.beep(.04);
-  }));
-
-  /* ③ 마지막 한 방 — 깨어난 게 끝이 아니었다는 각성 로그 */
-  const T1 = T0 + order.length * GAP + 700;
+  /* ② 한동안 연구실을 그대로 보여줍니다 — 설명 없이 보게 두는 시간 */
+  const T1 = 11500;
   at(T1, () => {
-    $('callouts').classList.remove('on');
     clearInterval(hb);
     const st = $('monstatus');
     if (st) { st.textContent = 'AWAKE'; st.classList.add('alert'); }

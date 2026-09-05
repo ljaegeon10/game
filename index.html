@@ -13,7 +13,7 @@
 <div id="frame">
   <div id="stage">
 
-    <canvas id="game" width="480" height="320"></canvas>
+    <canvas id="game" width="576" height="324"></canvas>
 
     <!-- ── CRT / 글리치 오버레이 ───────────────────────────── -->
     <div id="scanlines" aria-hidden="true"></div>
@@ -57,6 +57,44 @@
         <div class="note-body" id="notebody"></div>
         <div class="note-torn" aria-hidden="true"></div>
         <div class="note-close">SPACE 를 눌러 접기</div>
+      </div>
+    </div>
+
+    <!-- ── 이스터에그 : 늙은 나무 밑동에 낀 사전 면담 기록 ──── -->
+    <div id="docoverlay" class="hidden">
+      <div id="doc">
+        <div class="doc-head">
+          <span class="doc-stamp">대외비</span>
+          <div class="doc-title">피험자 사전 면담 기록</div>
+          <div class="doc-meta">문서번호 DRM-07 · 2145 / 01 / 12</div>
+        </div>
+
+        <div class="doc-row"><b>피험자</b><span>이 ○ ○ (28) · 식별번호 07</span></div>
+        <div class="doc-row"><b>면담자</b><span>ㅇㅇ 박사</span></div>
+
+        <div class="doc-qa">
+          <p class="q">Q. 지원 동기를 말씀해 주세요.</p>
+          <p class="a">빚이 좀 있습니다. 석 달이면 끝난다고 들었고…<br>잠만 자면 된다길래.</p>
+
+          <p class="q">Q. 오래 꿈꾸는 것에 거부감은 없습니까.</p>
+          <p class="a">없습니다. 요즘은 깨어 있는 게 더 힘들어서요.</p>
+
+          <p class="q">Q. 꿈과 현실이 헷갈릴 수 있습니다. 괜찮겠습니까.</p>
+          <p class="a">(웃음) 꿈이면 깨면 되는 거 아닙니까.</p>
+        </div>
+
+        <div class="doc-note">
+          <b>면담자 소견</b>
+          피암시성 높음. 각성 저항 낮을 것으로 예상 — 장기 세션 적합.<br>
+          ※ 동의서 서명 완료. <u>중도 하차 조항은 구두로만 안내함.</u>
+        </div>
+
+        <div class="doc-foot">
+          <span>D+141 기준</span>
+          <b>세션 141 회 · 각성 <em>0</em> 회</b>
+        </div>
+
+        <div class="doc-close">SPACE 를 눌러 덮기</div>
       </div>
     </div>
 
@@ -146,13 +184,62 @@
             </div>
           </div>
 
-          <!-- 인체 골격 모형 (교육용 실물 모형처럼 스탠드에 걸려 있습니다) -->
+          <!-- 인체 골격 모형 : 스탠드에 걸린 교육용 실물 모형 -->
           <div class="skeleton" data-fs="skull">
-            <div class="sk-skull">
-              <i class="sk-eye l"></i><i class="sk-eye r"></i>
-              <i class="sk-nose"></i>
-              <i class="sk-jaw"></i>
-            </div>
+            <svg viewBox="0 0 60 172" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <linearGradient id="bone" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#efeade"/>
+                  <stop offset=".55" stop-color="#ddd6c4"/>
+                  <stop offset="1" stop-color="#b3aa93"/>
+                </linearGradient>
+              </defs>
+              <!-- 스탠드 -->
+              <rect class="sk-stand" x="29" y="16" width="2" height="146"/>
+              <ellipse class="sk-stand" cx="30" cy="164" rx="15" ry="3.4"/>
+              <g fill="url(#bone)" stroke="#8d846d" stroke-width=".5">
+                <!-- 두개골 : 뇌머리뼈 + 광대 + 아래턱 -->
+                <path d="M30 4c8.4 0 13.6 6 13.6 13.4 0 4.2-1.1 7.4-2.6 9.7l-1.4 2.2c-.5.8-1.4 1.3-2.4 1.3H22.8c-1 0-1.9-.5-2.4-1.3l-1.4-2.2c-1.5-2.3-2.6-5.5-2.6-9.7C16.4 10 21.6 4 30 4z"/>
+                <path d="M23.4 31.6h13.2c.6 2.6-.4 5.2-2.5 6.2-1.3.6-2.7.9-4.1.9s-2.8-.3-4.1-.9c-2.1-1-3.1-3.6-2.5-6.2z"/>
+                <!-- 척추 -->
+                <rect x="28.6" y="40" width="2.8" height="12" rx="1"/>
+                <!-- 빗장뼈 -->
+                <path d="M30 53l-12 3.4M30 53l12 3.4" stroke="#cdc5b0" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+                <!-- 복장뼈 -->
+                <rect x="28.4" y="55" width="3.2" height="24" rx="1.4"/>
+              </g>
+              <!-- 갈비뼈 -->
+              <g fill="none" stroke="#ded7c5" stroke-width="2.1" stroke-linecap="round">
+                <path d="M29 58c-6 .4-11 3-13 7"/><path d="M31 58c6 .4 11 3 13 7"/>
+                <path d="M29 63.5c-7 .5-12.6 3.4-14.6 7.8"/><path d="M31 63.5c7 .5 12.6 3.4 14.6 7.8"/>
+                <path d="M29 69c-7.4.6-13.2 3.7-15.2 8.4"/><path d="M31 69c7.4.6 13.2 3.7 15.2 8.4"/>
+                <path d="M29 74.5c-7 .6-12.4 3.7-14.2 8.4"/><path d="M31 74.5c7 .6 12.4 3.7 14.2 8.4"/>
+                <path d="M29 80c-6 .6-10.6 3.4-12.2 7.8"/><path d="M31 80c6 .6 10.6 3.4 12.2 7.8"/>
+              </g>
+              <g fill="url(#bone)" stroke="#8d846d" stroke-width=".5">
+                <!-- 허리뼈 -->
+                <rect x="28.2" y="88" width="3.6" height="14" rx="1.6"/>
+                <!-- 골반 -->
+                <path d="M18 102h24c1.4 0 2.3 1.3 1.9 2.6l-2 6.6c-1 3.4-4.2 5.6-7.7 5.4-2.6-.2-4.3-1.8-4.6-4.1l-.6-4.3-.6 4.3c-.3 2.3-2 3.9-4.6 4.1-3.5.2-6.7-2-7.7-5.4l-2-6.6c-.4-1.3.5-2.6 1.9-2.6z"/>
+                <!-- 위팔뼈 · 아래팔뼈 -->
+                <rect x="15.4" y="57" width="2.8" height="26" rx="1.4" transform="rotate(5 16.8 70)"/>
+                <rect x="41.8" y="57" width="2.8" height="26" rx="1.4" transform="rotate(-5 43.2 70)"/>
+                <rect x="14.2" y="83" width="2.4" height="22" rx="1.2" transform="rotate(3 15.4 94)"/>
+                <rect x="43.4" y="83" width="2.4" height="22" rx="1.2" transform="rotate(-3 44.6 94)"/>
+                <!-- 넙다리뼈 · 정강뼈 -->
+                <rect x="22.4" y="116" width="3.4" height="24" rx="1.7"/>
+                <rect x="34.2" y="116" width="3.4" height="24" rx="1.7"/>
+                <rect x="22.8" y="140" width="2.8" height="20" rx="1.4"/>
+                <rect x="34.4" y="140" width="2.8" height="20" rx="1.4"/>
+              </g>
+              <!-- 눈구멍 · 코 -->
+              <g fill="#15161a">
+                <ellipse cx="24.6" cy="18" rx="3.7" ry="4.2"/>
+                <ellipse cx="35.4" cy="18" rx="3.7" ry="4.2"/>
+                <path d="M30 23.6l2.4 4.6h-4.8z"/>
+              </g>
+            </svg>
+          </div>
             <div class="sk-neck"></div>
             <div class="sk-cage">
               <i></i><i></i><i></i><i></i><i></i>
@@ -175,15 +262,31 @@
             <div class="iv-tube"></div>
           </div>
 
-          <!-- 침대 + 실험체 -->
+          <!-- 침대 + 실험체 : 이불을 덮고 반듯이 누워 있습니다 -->
           <div class="bed" data-fs="bed">
+            <div class="bed-legs"><i></i><i></i></div>
             <div class="bed-frame"></div>
-            <div class="bed-sheet"></div>
+            <div class="bed-rail l"></div>
+            <div class="bed-rail r"></div>
+            <div class="bed-pillow"></div>
             <div class="subject">
-              <div class="sj-head"><span class="sj-eye l"></span><span class="sj-eye r"></span></div>
-              <div class="sj-body"></div>
+              <div class="sj-head">
+                <span class="sj-hair"></span>
+                <span class="sj-eye l"></span><span class="sj-eye r"></span>
+                <span class="sj-brow"></span>
+                <span class="sj-mouth"></span>
+                <span class="sj-ear"></span>
+              </div>
+              <div class="sj-neck"></div>
               <div class="sj-electrodes"><i></i><i></i><i></i></div>
+              <div class="sj-lead"></div>
             </div>
+            <div class="bed-blanket">
+              <span class="bl-fold"></span>
+              <span class="bl-chest"></span>
+              <span class="bl-knee"></span>
+            </div>
+            <div class="sj-arm"></div>
           </div>
 
           <!-- 키카드 잠금장치 -->
@@ -200,21 +303,9 @@
           </div>
         </div>
 
-        <!-- 복선 연결 : 꿈에서 본 것 → 현실의 진짜 모습 -->
-        <div id="callouts">
-          <div class="co-head"><i></i><i></i><i></i><i></i><i></i><span>꿈 → 현실</span></div>
-          <div class="co-slot">
-            <div class="co" data-for="bed"><b>우물 아래로 추락</b><span>141일째 잠들어 있는 실험체</span></div>
-            <div class="co" data-for="blood"><b>사방에 흩뿌려진 피</b><span>링거에 걸린 붉은 배양액</span></div>
-            <div class="co" data-for="skull"><b>바닥에 흩어진 해골</b><span>구석에 쌓인 인체 골격 모형</span></div>
-            <div class="co" data-for="mon"><b>기괴한 몬스터</b><span>모니터의 뇌파·세포 이미지</span></div>
-            <div class="co" data-for="key"><b>열쇠와 잠긴 상자</b><span>키카드와 실험 장치 잠금장치</span></div>
-          </div>
-        </div>
 
         <div id="endcard">
           <div class="e-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-          <p class="e-quote">“우물은 탈출구가 아니라, 나를 가둔 —”</p>
           <h2>THE END</h2>
           <p class="e-sub">2145 / 05 / 20 · 실험체 07 · 뇌파 안정화 완료</p>
 

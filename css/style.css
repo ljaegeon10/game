@@ -57,7 +57,7 @@ html,body{
 /* ── 게임 스테이지 ─────────────────────────────────────── */
 #stage{
   position:relative;
-  width:480px; height:320px;
+  width:576px; height:324px;
   transform-origin:center center;
   background:#000;
   box-shadow:
@@ -81,7 +81,7 @@ html,body{
 }
 
 #game{
-  display:block; width:480px; height:320px;
+  display:block; width:576px; height:324px;
   image-rendering:pixelated;
   image-rendering:crisp-edges;
 }
@@ -181,7 +181,6 @@ html,body{
 #timertext{
   font-size:13px; font-weight:700; color:var(--hwang);
   letter-spacing:.06em; font-variant-numeric:tabular-nums;
-  text-shadow:0 0 10px rgba(227,178,60,.5);
 }
 
 /* ── 기록 목록 (타이틀 / 엔딩 공용) ────────────────────── */
@@ -286,7 +285,7 @@ html,body{
   font-style:normal;
   font-size:1.32em; font-weight:800;
   color:#ffe3d6;
-  text-shadow:0 0 14px rgba(224,72,60,.65), 0 2px 0 rgba(0,0,0,.6);
+  text-shadow:0 2px 0 rgba(0,0,0,.6);
   animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
 }
 /* 강조 글자는 팡 터지는 연출 + 떨림을 같이 겁니다 */
@@ -370,6 +369,72 @@ html,body{
 .note-close{
   position:absolute; right:12px; bottom:-18px;
   font-size:9px; color:#8c8478; letter-spacing:.05em;
+}
+
+
+/* ── 이스터에그 : 사전 면담 기록 서류 ─────────────────────
+   쪽지(손글씨)와 달리 이건 연구소가 만든 '서류' 라서, 빳빳한 흰 종이에
+   기계로 찍어낸 인상을 주도록 각지고 차갑게 꾸몄습니다. */
+#docoverlay{
+  position:absolute; inset:0; z-index:52;
+  background:rgba(4,4,8,.86);
+  display:flex; align-items:center; justify-content:center;
+  animation:fadein .25s ease-out 1;
+}
+#doc{
+  position:relative;
+  width:430px; max-height:306px;
+  padding:10px 14px 18px;
+  background:#eceae3;
+  color:#23262b;
+  border:1px solid #b9b6ab;
+  box-shadow:0 14px 34px rgba(0,0,0,.7);
+  animation:noteIn .3s cubic-bezier(.2,1.3,.4,1) 1;
+  font-size:8.5px; line-height:1.45;
+}
+/* 종이 결 + 접힌 자국 */
+#doc::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(90deg, transparent 49.6%, rgba(0,0,0,.07) 50%, transparent 50.4%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.022) 0 1px, transparent 1px 4px);
+}
+.doc-head{
+  position:relative;
+  border-bottom:2px solid #23262b; padding-bottom:4px; margin-bottom:6px;
+}
+.doc-title{ font-size:12px; font-weight:700; letter-spacing:.06em; }
+.doc-meta{ font-size:8px; color:#6b6f77; letter-spacing:.08em; margin-top:2px; }
+.doc-stamp{
+  position:absolute; right:0; top:-2px;
+  font-size:9px; font-weight:700; letter-spacing:.18em;
+  color:#b2372e; border:1.5px solid #b2372e; padding:2px 6px;
+  transform:rotate(-9deg); opacity:.85;
+}
+.doc-row{ display:flex; gap:8px; margin-bottom:2px; }
+.doc-row b{ min-width:44px; color:#6b6f77; font-weight:400; }
+.doc-qa{ margin:6px 0; border-top:1px dotted #b3b0a6; padding-top:5px; }
+.doc-qa .q{ margin:0 0 2px; font-weight:700; }
+.doc-qa .a{
+  margin:0 0 5px 9px; color:#3c4048;
+  border-left:2px solid #c3c0b6; padding-left:7px;
+}
+.doc-note{
+  background:#e0ddd3; border:1px solid #c2bfb4;
+  padding:5px 8px; margin-top:5px; font-size:8px; color:#3c4048;
+}
+.doc-note b{ display:block; color:#23262b; margin-bottom:3px; letter-spacing:.06em; }
+.doc-note u{ text-decoration-color:#b2372e; }
+.doc-foot{
+  display:flex; align-items:baseline; justify-content:space-between;
+  margin-top:6px; border-top:2px solid #23262b; padding-top:5px;
+}
+.doc-foot span{ font-size:8px; color:#6b6f77; letter-spacing:.08em; }
+.doc-foot b{ font-size:10px; letter-spacing:.04em; }
+.doc-foot em{ font-style:normal; color:#b2372e; font-size:13px; font-weight:800; }
+.doc-close{
+  position:absolute; right:14px; bottom:4px;
+  font-size:8px; color:#8b8880; letter-spacing:.05em;
 }
 
 /* ── 타이틀 ────────────────────────────────────────────── */
@@ -514,7 +579,6 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   font-family:var(--font-ui);
   font-size:22px; font-weight:700; color:#ffd9d3;
   font-variant-numeric:tabular-nums;
-  text-shadow:0 0 16px rgba(232,105,92,.55);
 }
 .d-sub{ margin:6px 0 0; font-size:10px; color:#e6b8b3; }
 .d-sub b{ color:#fff0ed; }
@@ -534,7 +598,6 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   text-align:center; opacity:0;
   font-family:var(--font-ui);
   font-size:13px; letter-spacing:.22em; color:#bfe9dd;
-  text-shadow:0 0 14px rgba(125,227,200,.6);
 }
 #sysline.on{ opacity:1; }
 #sysline .caret{
@@ -559,7 +622,7 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 #lab{
   position:absolute; inset:0; overflow:hidden; z-index:4;
   opacity:0; transition:opacity 1.2s ease-out .4s;
-  background:#080a10;
+  background:#eef1f4;
 }
 #ending.open #lab{ opacity:1; }
 
@@ -570,7 +633,7 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   transition:transform 6.5s cubic-bezier(.3,.02,.2,1),
              filter 3.6s ease-out;
   /* 막 눈을 떴을 때는 초점이 안 맞습니다 */
-  filter:saturate(.35) contrast(.85) brightness(1.35) blur(7px);
+  filter:saturate(.2) contrast(.7) brightness(1.6) blur(7px);
 }
 #ending.focus #labcam{ filter:saturate(.86) contrast(1.06) brightness(1) blur(0); }
 #ending.zoomout #labcam{ transform:scale(1) translate(0,0); }
@@ -600,52 +663,51 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 
 .lab-ceiling{
   position:absolute; left:0; right:0; top:0; height:20%;
-  background:linear-gradient(180deg,#141a26,#0d1119);
-  border-bottom:1px solid #1e2735;
+  background:linear-gradient(180deg,#fdfefe,#e8edf1);
+  border-bottom:1px solid #d2dae1;
 }
 /* 천장 조명 격자 — 던전 단청 무늬와 같은 리듬 */
+/* 천장 형광등 패널 — 던전 단청 띠와 같은 리듬 */
 .ceil-grid{
   position:absolute; left:12%; right:12%; top:16%; height:34%;
   background:
-    repeating-linear-gradient(90deg, rgba(190,214,238,.14) 0 2px, transparent 2px 22px),
-    repeating-linear-gradient(0deg,  rgba(190,214,238,.14) 0 2px, transparent 2px 18px),
-    linear-gradient(180deg, rgba(198,220,245,.16), rgba(198,220,245,.03));
-  box-shadow:0 0 60px 14px rgba(174,205,240,.10);
-  border:1px solid rgba(190,214,238,.16);
+    repeating-linear-gradient(90deg, rgba(120,150,175,.30) 0 2px, transparent 2px 22px),
+    linear-gradient(180deg,#ffffff,#f2f7fb);
+  box-shadow:0 0 46px 16px rgba(255,255,255,.9);
+  border:1px solid #cfd9e2;
 }
 .lab-wall{
   position:absolute; left:0; right:0; top:20%; height:50%;
   background:
-    linear-gradient(180deg,#1a2130,#10161f 60%,#0d121a),
-    repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 46px);
+    linear-gradient(180deg,#f7fafc,#eaeff4 60%,#e2e8ee),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.02) 0 1px, transparent 1px 46px);
 }
 /* 벽면의 오방색 라인 — 던전 단청 띠와 같은 자리 */
 .lab-wall::after{
   content:""; position:absolute; left:0; right:0; top:64%; height:2px;
   background:linear-gradient(90deg,
     rgba(47,111,181,.30) 0 20%, rgba(241,236,224,.22) 20% 40%,
-    rgba(194,53,44,.28) 40% 60%, rgba(30,28,38,.5) 60% 80%,
-    rgba(227,178,60,.28) 80% 100%);
+    rgba(194,53,44,.22) 40% 60%, rgba(90,96,110,.28) 60% 80%,
+    rgba(227,178,60,.24) 80% 100%);
 }
 .lab-floor{
   position:absolute; left:0; right:0; bottom:0; height:30%;
-  background:
-    linear-gradient(180deg,#0d1017,#12161f);
-  border-top:1px solid #1b2230;
+  background:linear-gradient(180deg,#dfe6ec,#eaeff3);
+  border-top:1px solid #c9d3dc;
 }
 .lab-floor::after{
   content:""; position:absolute; inset:0;
-  background:repeating-linear-gradient(180deg, rgba(255,255,255,.018) 0 1px, transparent 1px 10px);
+  background:repeating-linear-gradient(180deg, rgba(120,140,160,.10) 0 1px, transparent 1px 10px);
 }
 
 /* 모니터 */
 .monitors{ position:absolute; left:3%; top:24%; display:flex; gap:5px; }
 .mon{
   position:relative;
-  width:52px; height:28px; padding:2px;
-  background:#04070a;
-  border:1px solid #24303f;
-  box-shadow:0 0 16px rgba(80,200,190,.16), inset 0 0 12px rgba(0,0,0,.9);
+  width:54px; height:34px; padding:2px;
+  background:#0d1418;
+  border:1px solid #9fadb9;
+  box-shadow:0 2px 8px rgba(60,80,100,.28), inset 0 0 12px rgba(0,0,0,.85);
 }
 .mon svg{ width:100%; height:100%; display:block; }
 .eeg{
@@ -661,121 +723,35 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   font-family:var(--font-ui); font-size:5px; color:#4f7f78; letter-spacing:.1em;
 }
 .mon-text{
-  display:flex; flex-direction:column; justify-content:center; gap:2px; height:100%;
-  font-family:var(--font-ui); font-size:5px; color:#7fa9c4; letter-spacing:.06em;
+  display:flex; flex-direction:column; justify-content:center; gap:1px; height:100%;
+  font-family:var(--font-ui); font-size:5px; color:#7fa9c4; letter-spacing:.04em;
   padding-left:3px;
 }
 .mon-text .ok{ color:var(--glow); animation:flick 1.6s steps(3) infinite; }
 
 /* ── 인체 골격 모형 ────────────────────────────────────────
-   꿈에서 본 '바닥에 흩어진 해골'의 현실 대응물. 교육용 실물 모형처럼
-   스탠드 봉에 매달려 아주 천천히 흔들립니다. 전부 CSS 도형입니다. */
+   꿈에서 본 '바닥에 흩어진 해골'의 현실 대응물. SVG 로 실제 뼈 모양에
+   가깝게 그리고, 스탠드에 걸린 채 아주 천천히 흔들립니다. */
 .skeleton{
-  position:absolute; right:5%; top:20%;
-  width:44px; height:132px;
-  opacity:.9;
-  --bone:#d6d0bd;
-  --bone-d:#a89f89;
-  transform-origin:50% 4%;
+  position:absolute; right:4%; top:17%;
+  width:52px; height:150px;
+  transform-origin:50% 6%;
   animation:skSway 7s ease-in-out infinite;
-  filter:drop-shadow(0 2px 5px rgba(0,0,0,.55));
+  filter:drop-shadow(0 3px 5px rgba(70,85,100,.35));
 }
+.skeleton svg{ width:100%; height:100%; display:block; }
+.skeleton .sk-stand{ fill:#8c99a6; }
 @keyframes skSway{
-  0%,100%{ transform:rotate(-.9deg) }
-  50%    { transform:rotate(.9deg) }
-}
-
-/* 두개골 : 머리뼈 + 눈구멍 + 코 + 아래턱 */
-.sk-skull{
-  position:relative;
-  width:19px; height:17px; margin:0 auto;
-  background:linear-gradient(150deg, var(--bone), var(--bone-d));
-  border-radius:52% 52% 38% 38%;
-  box-shadow:inset -3px -2px 0 rgba(0,0,0,.18);
-}
-.sk-eye{
-  position:absolute; top:6px; width:5px; height:5px;
-  background:#100f14; border-radius:52% 52% 45% 45%;
-  box-shadow:inset 0 1px 1px rgba(0,0,0,.9);
-}
-.sk-eye.l{ left:3px } .sk-eye.r{ right:3px }
-.sk-nose{
-  position:absolute; left:50%; top:11px; transform:translateX(-50%);
-  width:0; height:0;
-  border-left:2px solid transparent; border-right:2px solid transparent;
-  border-bottom:3.5px solid #100f14;
-}
-.sk-jaw{
-  position:absolute; left:50%; bottom:-4px; transform:translateX(-50%);
-  width:13px; height:6px;
-  background:var(--bone-d);
-  border-radius:0 0 46% 46%;
-  box-shadow:inset 0 -1px 0 rgba(0,0,0,.25);
-}
-.sk-neck{ width:3px; height:7px; margin:5px auto 0; background:var(--bone-d); }
-
-/* 흉곽 : 갈비뼈 + 복장뼈 */
-.sk-cage{ position:relative; width:34px; height:34px; margin:0 auto; }
-.sk-cage i{
-  position:absolute; left:50%; transform:translateX(-50%);
-  border:1.5px solid var(--bone);
-  border-top:none; border-radius:0 0 60% 60%;
-  background:transparent;
-}
-.sk-cage i:nth-child(1){ top:0px;  width:24px; height:7px }
-.sk-cage i:nth-child(2){ top:6px;  width:30px; height:8px }
-.sk-cage i:nth-child(3){ top:13px; width:32px; height:8px }
-.sk-cage i:nth-child(4){ top:20px; width:28px; height:8px }
-.sk-cage i:nth-child(5){ top:27px; width:21px; height:7px }
-.sk-sternum{
-  position:absolute; left:50%; top:1px; transform:translateX(-50%);
-  width:3.5px; height:26px; background:var(--bone-d); border-radius:2px;
-}
-
-/* 팔뼈 : 어깨에서 아래로 늘어뜨림 */
-.sk-arm{
-  position:absolute; top:31px; width:2.5px; height:42px;
-  background:linear-gradient(180deg, var(--bone), var(--bone-d));
-  border-radius:2px;
-}
-.sk-arm.l{ left:2px;  transform:rotate(6deg) }
-.sk-arm.r{ right:2px; transform:rotate(-6deg) }
-
-/* 요추 + 골반 */
-.sk-lumbar{ width:3.5px; height:12px; margin:0 auto; background:var(--bone-d); }
-.sk-pelvis{
-  width:22px; height:12px; margin:0 auto;
-  border:2px solid var(--bone);
-  border-top:none;
-  border-radius:12% 12% 48% 48%;
-  background:transparent;
-}
-/* 다리뼈 */
-.sk-leg{
-  position:absolute; top:106px; width:3px; height:20px;
-  background:linear-gradient(180deg, var(--bone), var(--bone-d));
-  border-radius:2px;
-}
-.sk-leg.l{ left:14px } .sk-leg.r{ right:14px }
-
-/* 스탠드 : 뒤쪽 봉과 받침 */
-.sk-pole{
-  position:absolute; left:50%; top:2px; transform:translateX(-50%);
-  width:2px; height:126px; background:#3f4757; z-index:-1;
-}
-.sk-base{
-  position:absolute; left:50%; bottom:-3px; transform:translateX(-50%);
-  width:26px; height:4px;
-  background:linear-gradient(180deg,#5a6373,#39404e);
-  border-radius:50%;
+  0%,100%{ transform:rotate(-.8deg) }
+  50%    { transform:rotate(.8deg) }
 }
 
 /* 링거 */
 .iv{ position:absolute; left:26%; top:40%; width:30px; height:110px; }
-.iv-pole{ position:absolute; left:14px; top:6px; width:2px; height:104px; background:#5b6473; }
+.iv-pole{ position:absolute; left:14px; top:6px; width:2px; height:104px; background:#9aa7b4; }
 .iv-bag{
   position:absolute; left:4px; top:0; width:20px; height:26px;
-  background:rgba(210,225,240,.16); border:1px solid #566073; border-radius:3px 3px 6px 6px;
+  background:rgba(255,255,255,.75); border:1px solid #a9b5c1; border-radius:3px 3px 6px 6px;
   overflow:hidden;
 }
 .iv-fluid{
@@ -799,56 +775,133 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   box-shadow:0 0 6px rgba(200,50,44,.8);
 }
 
-/* 침대 + 실험체 */
-.bed{ position:absolute; left:36%; bottom:14%; width:150px; height:60px; }
+/* ── 침대 + 실험체 ────────────────────────────────────────
+   옆에서 본 병상. 베개에 머리를 대고 이불을 가슴까지 덮은 채
+   눈을 감고 누워 있습니다. 가슴이 아주 천천히 오르내립니다. */
+.bed{ position:absolute; left:31%; bottom:12%; width:186px; height:66px; }
 .bed-frame{
-  position:absolute; left:0; right:0; bottom:0; height:16px;
-  background:linear-gradient(180deg,#2a3242,#1a202b);
-  border:1px solid #38424f; border-radius:3px;
+  position:absolute; left:0; right:0; bottom:6px; height:15px;
+  background:linear-gradient(180deg,#f2f5f8,#d7dee5);
+  border:1px solid #b7c2cc; border-radius:3px;
 }
-.bed-frame::before,.bed-frame::after{
-  content:""; position:absolute; bottom:-9px; width:3px; height:9px; background:#333c49;
+.bed-legs i{
+  position:absolute; bottom:-6px; width:3px; height:12px;
+  background:#aab5c0; border-radius:0 0 2px 2px;
 }
-.bed-frame::before{ left:9px } .bed-frame::after{ right:9px }
-.bed-sheet{
-  position:absolute; left:4px; right:4px; bottom:14px; height:16px;
-  background:linear-gradient(180deg,#c3cbd6,#8e97a4);
-  border-radius:3px 3px 0 0;
-  box-shadow:0 -2px 10px rgba(160,190,220,.18);
+.bed-legs i:nth-child(1){ left:12px } .bed-legs i:nth-child(2){ right:12px }
+.bed-rail{
+  position:absolute; bottom:14px; width:4px; height:22px;
+  background:linear-gradient(180deg,#cfd8e1,#a9b5c0); border-radius:2px;
 }
-.subject{ position:absolute; left:14px; bottom:28px; }
+.bed-rail.l{ left:-2px; height:30px } .bed-rail.r{ right:-2px }
+.bed-pillow{
+  position:absolute; left:6px; bottom:20px;
+  width:42px; height:17px;
+  background:linear-gradient(180deg,#ffffff,#e4eaf0);
+  border:1px solid #ccd5de; border-radius:7px 7px 4px 4px;
+  transform:rotate(-3deg);
+}
+
+/* 이불 — 가슴에서 발끝까지, 무릎 쪽이 살짝 솟아 있습니다 */
+.bed-blanket{
+  position:absolute; left:52px; right:4px; bottom:20px; height:21px;
+  background:linear-gradient(180deg,#dfe7ef,#c3ceda);
+  border:1px solid #aeb9c5; border-radius:5px 8px 3px 3px;
+  animation:breathe 5.5s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{ transform:scaleY(1) }
+  50%    { transform:scaleY(1.07) }
+}
+.bl-fold{
+  position:absolute; left:0; top:2px; width:16px; height:6px;
+  background:#eef3f8; border-right:1px solid #b4bfca; border-radius:4px 0 0 4px;
+}
+.bl-chest{
+  position:absolute; left:14px; top:-3px; width:34px; height:8px;
+  background:linear-gradient(180deg,#e7eef5,#d2dbe4);
+  border:1px solid #b2bdc8; border-bottom:none; border-radius:8px 8px 0 0;
+}
+.bl-knee{
+  position:absolute; right:26px; top:-5px; width:22px; height:9px;
+  background:linear-gradient(180deg,#e7eef5,#d2dbe4);
+  border:1px solid #b2bdc8; border-bottom:none; border-radius:9px 7px 0 0;
+}
+
+/* 사람 */
+.subject{ position:absolute; left:13px; bottom:25px; }
 .sj-head{
-  position:relative;
-  width:17px; height:17px; background:#e8c3a6; border-radius:50%;
-  box-shadow:inset -3px -2px 0 rgba(0,0,0,.14);
+  position:relative; width:25px; height:23px;
+  background:linear-gradient(160deg,#f0d3b6,#dcb694);
+  border-radius:48% 46% 44% 50%;
+  box-shadow:inset -2px -2px 0 rgba(120,80,50,.12);
+  transform:rotate(-6deg);
 }
+.sj-hair{
+  position:absolute; left:-1px; top:-2px; width:20px; height:13px;
+  background:#3b2f2a; border-radius:50% 42% 20% 44%;
+}
+/* 감은 눈 — 마지막에 아주 천천히 뜹니다 */
 .sj-eye{
-  position:absolute; top:8px; width:5px; height:1.5px; background:#3a2a22; border-radius:1px;
-  animation:eyeopen 1.2s ease-out 5.6s forwards;
+  position:absolute; top:11px; width:5px; height:1.6px;
+  background:#4a3a30; border-radius:1px;
+  animation:eyeopen 1.4s ease-out 5.6s forwards;
 }
-.sj-eye.l{ left:2px } .sj-eye.r{ right:2px }
-@keyframes eyeopen{ to{ height:4px; background:#1f2a3a; box-shadow:0 0 6px rgba(125,227,200,.7) } }
-.sj-body{
-  position:absolute; left:15px; bottom:0; width:118px; height:11px;
-  background:linear-gradient(180deg,#cfd6e0,#9aa3b1); border-radius:6px;
+.sj-eye.l{ left:8px } .sj-eye.r{ left:16px }
+@keyframes eyeopen{ to{ height:3.4px; background:#22303f; } }
+.sj-brow{
+  position:absolute; left:8px; top:8px; width:12px; height:1px;
+  background:rgba(70,50,38,.5); border-radius:1px;
 }
-.sj-electrodes{ position:absolute; left:-2px; top:-6px; width:22px; }
+.sj-mouth{
+  position:absolute; left:12px; top:17px; width:6px; height:1px;
+  background:rgba(150,95,80,.7); border-radius:1px;
+}
+.sj-ear{
+  position:absolute; left:0px; top:11px; width:3px; height:5px;
+  background:#e3bd9b; border-radius:50% 0 0 50%;
+}
+.sj-neck{
+  position:absolute; left:20px; top:14px; width:22px; height:9px;
+  background:#e0b997; border-radius:0 3px 3px 0;
+}
+/* 이불 밖으로 나온 팔 */
+/* 이불 위에 가지런히 얹힌 팔뚝과 손 */
+.sj-arm{
+  position:absolute; left:74px; bottom:33px;
+  width:26px; height:5px;
+  background:linear-gradient(180deg,#f0d3b6,#d9b18e);
+  border-radius:3px; transform:rotate(-2deg);
+  box-shadow:0 1px 2px rgba(90,110,130,.25);
+}
+.sj-arm::after{
+  content:""; position:absolute; right:-4px; top:-1.5px;
+  width:7px; height:7px; background:#ecccae; border-radius:50% 50% 45% 45%;
+}
+/* 이마·관자놀이에 붙인 전극 */
+.sj-electrodes{ position:absolute; left:2px; top:-4px; width:22px; }
 .sj-electrodes i{
   position:absolute; width:3px; height:3px; border-radius:50%;
-  background:var(--glow); box-shadow:0 0 6px var(--glow);
+  background:#7de3c8; box-shadow:0 0 5px rgba(60,190,160,.9);
   animation:flick 1.3s steps(3) infinite;
 }
-.sj-electrodes i:nth-child(1){ left:2px; top:0 }
-.sj-electrodes i:nth-child(2){ left:9px; top:-2px; animation-delay:.3s }
-.sj-electrodes i:nth-child(3){ left:16px; top:1px; animation-delay:.6s }
+.sj-electrodes i:nth-child(1){ left:3px; top:2px }
+.sj-electrodes i:nth-child(2){ left:10px; top:-1px; animation-delay:.3s }
+.sj-electrodes i:nth-child(3){ left:16px; top:3px; animation-delay:.6s }
+.sj-lead{
+  position:absolute; left:4px; top:-4px; width:22px; height:16px;
+  border-top:1px solid rgba(90,180,160,.75);
+  border-left:1px solid rgba(90,180,160,.75);
+  border-radius:8px 0 0 0;
+}
 
 /* 키카드 잠금장치 */
 .lock{ position:absolute; right:20%; bottom:36%; width:16px; height:24px; }
 .lock-slot{
-  width:16px; height:24px; background:#151b25; border:1px solid #2e3949; border-radius:2px;
+  width:16px; height:24px; background:#cfd8e0; border:1px solid #97a4b1; border-radius:2px;
 }
 .lock-slot::after{
-  content:""; position:absolute; left:3px; top:15px; width:10px; height:2px; background:#0a0d13;
+  content:""; position:absolute; left:3px; top:15px; width:10px; height:2px; background:#5d6a76;
 }
 .lock-led{
   position:absolute; left:6px; top:4px; width:4px; height:4px; border-radius:50%;
@@ -862,50 +915,15 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 }
 
 /* 연구원 실루엣 */
-.doctor{ position:absolute; right:12%; bottom:16%; width:26px; height:64px; opacity:.55; }
-.dr-head{ width:12px; height:12px; margin:0 auto; background:#070a0f; border-radius:50%; }
+.doctor{ position:absolute; right:12%; bottom:16%; width:26px; height:64px; opacity:.9; }
+.dr-head{ width:12px; height:12px; margin:0 auto; background:#333c46; border-radius:50%; }
 .dr-coat{
   width:26px; height:50px; margin-top:-1px;
-  background:linear-gradient(180deg,#0b0f16,#070a0f);
+  background:linear-gradient(180deg,#5c6672,#3d4650);
+  border:1px solid #333b44;
   clip-path:polygon(24% 0,76% 0,100% 26%,88% 100%,12% 100%,0 26%);
 }
 
-/* 복선 자막 : 화면 아래에서 한 줄씩 교체됩니다 (연구실을 가리지 않도록) */
-#callouts{
-  position:absolute; left:0; right:0; bottom:9px; z-index:8; pointer-events:none;
-  text-align:center;
-  opacity:0; transition:opacity .6s ease-out;
-}
-#callouts.on{ opacity:1; }
-.co-slot{ position:relative; height:17px; }
-.co-head{
-  display:inline-flex; align-items:center; gap:4px; margin-bottom:5px;
-  background:rgba(5,7,12,.7); padding:2px 8px;
-}
-.co-head i{ width:7px; height:3px; display:block; }
-.co-head i:nth-child(1){ background:var(--cheong) }
-.co-head i:nth-child(2){ background:var(--baek) }
-.co-head i:nth-child(3){ background:var(--jeok) }
-.co-head i:nth-child(4){ background:#3a3743 }
-.co-head i:nth-child(5){ background:var(--hwang) }
-.co-head span{
-  font-size:8px; letter-spacing:.24em; color:#7d879a; margin-left:2px;
-}
-.co{
-  position:absolute; left:0; right:0; top:0;
-  opacity:0; transform:translateY(5px);
-  transition:opacity .5s ease-out, transform .5s ease-out;
-  font-size:10px; line-height:1.5;
-  white-space:nowrap;
-}
-.co::before{                      /* 글자 뒤 어두운 판 */
-  content:""; position:absolute; inset:-2px 50% -2px 50%;
-  margin:0 -170px; background:rgba(5,7,12,.72); z-index:-1;
-}
-.co.on{ opacity:1; transform:translateY(0); }
-.co b{ color:#8089a0; font-weight:500; font-size:9px; letter-spacing:-.01em; }
-.co b::after{ content:" → "; color:var(--hwang); font-weight:700; }
-.co span{ color:var(--baek); font-weight:700; margin-left:4px; }
 
 /* 엔드 카드 */
 #endcard{
@@ -917,12 +935,9 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 }
 #endcard.on{ opacity:1; pointer-events:auto; }
 #endcard .e-obang{ width:120px; margin-bottom:9px; }
-.e-quote{
-  margin:0 0 6px; font-size:10px; color:#93a1b3; font-style:italic; letter-spacing:.02em;
-}
 #endcard h2{
   margin:0; font-size:21px; letter-spacing:.42em; text-indent:.42em; font-weight:800;
-  color:var(--baek); text-shadow:0 0 24px rgba(47,111,181,.5);
+  color:var(--baek);
 }
 .e-sub{
   margin:6px 0 0; font-size:8.5px; color:#8894a5; letter-spacing:.12em;
@@ -939,7 +954,6 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   font-family:var(--font-ui);
   font-size:22px; font-weight:700; color:var(--hwang);
   font-variant-numeric:tabular-nums; letter-spacing:.04em;
-  text-shadow:0 0 20px rgba(227,178,60,.55);
 }
 #recordtag{
   font-size:8px; letter-spacing:.2em; font-weight:700;

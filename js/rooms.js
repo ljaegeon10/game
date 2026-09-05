@@ -91,79 +91,79 @@ const MAP = {
       { t: '…차갑다. 올라가려던 사다리는 이미 무너져 있다.', w: false },
       { t: '공격 — 방향키 / 마우스', sys: true }
     ],
-    enemies: [{ t: 'shroom', x: 340, y: 100 }],
-    pots: [{ x: 96, y: 250 }]
+    enemies: [{ t: 'shroom', x: 408, y: 100 }],
+    pots: [{ x: 115, y: 250 }]
   },
 
   fork: {
     gx: 1, gy: 1, depth: 1, name: '갈림길',
     intro: [{ t: '길이 셋으로 갈린다. 어느 쪽이든 안쪽으로 이어지는 것 같다.', w: false }],
-    enemies: [{ t: 'shroom', x: 130, y: 90 }, { t: 'shroom', x: 350, y: 230 }],
-    pots: [{ x: 240, y: 70 }, { x: 240, y: 250 }]
+    enemies: [{ t: 'shroom', x: 156, y: 90 }, { t: 'shroom', x: 420, y: 230 }],
+    pots: [{ x: 288, y: 70 }, { x: 288, y: 250 }]
   },
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
     intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
     enemies: [
-      { t: 'shroom', x: 110, y: 100 }, { t: 'shroom', x: 370, y: 100 },
-      { t: 'shroom', x: 240, y: 240 }, { t: 'spitter', x: 380, y: 220 }
+      { t: 'shroom', x: 132, y: 100 }, { t: 'shroom', x: 444, y: 100 },
+      { t: 'shroom', x: 288, y: 240 }, { t: 'spitter', x: 456, y: 220 }
     ],
-    pots: [{ x: 80, y: 240 }],
+    pots: [{ x: 96, y: 240 }],
     clear: 'doorKey'          // 전멸 → 관문 열쇠 ①
   },
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
     intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
-    enemies: [{ t: 'shroom', x: 120, y: 120 }, { t: 'spitter', x: 360, y: 210 }],
-    pots: [{ x: 400, y: 90 }],
-    key: { x: 100, y: 240 },
-    chest: { x: 240, y: 160, note: 'n1', heal: 1 }
+    enemies: [{ t: 'shroom', x: 144, y: 120 }, { t: 'spitter', x: 432, y: 210 }],
+    pots: [{ x: 480, y: 90 }],
+    key: { x: 120, y: 240 },
+    chest: { x: 288, y: 160, note: 'n1', heal: 1 }
   },
 
   mid: {
     gx: 2, gy: 1, depth: 3, name: '중앙',
     intro: [{ t: '세 갈래가 여기서 다시 만난다. 결국 같은 곳으로 돌아온 셈이다.', w: true }],
     enemies: [
-      { t: 'spitter', x: 120, y: 90 }, { t: 'spitter', x: 360, y: 240 },
-      { t: 'shroom', x: 240, y: 90 }
+      { t: 'spitter', x: 144, y: 90 }, { t: 'spitter', x: 432, y: 240 },
+      { t: 'shroom', x: 288, y: 90 }
     ],
-    pots: [{ x: 90, y: 250 }, { x: 400, y: 90 }],
-    key: { x: 400, y: 250 },
-    chest: { x: 240, y: 168, note: 'n2', heal: 1 }
+    pots: [{ x: 108, y: 250 }, { x: 480, y: 90 }],
+    key: { x: 480, y: 250 },
+    chest: { x: 288, y: 168, note: 'n2', heal: 1 }
   },
 
   ne: {
     gx: 2, gy: 0, depth: 3, name: '북동 통로',
     intro: [{ t: '천장에서 뿌리가 내려와 있다. 여긴 더 오래 방치된 것 같다.', w: false }],
     enemies: [
-      { t: 'shroom', x: 120, y: 100 }, { t: 'shroom', x: 360, y: 100 },
-      { t: 'shroom', x: 240, y: 230 }
+      { t: 'shroom', x: 144, y: 100 }, { t: 'shroom', x: 432, y: 100 },
+      { t: 'shroom', x: 288, y: 230 }
     ],
-    pots: [{ x: 240, y: 80 }],
+    pots: [{ x: 288, y: 80 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
-    chest: { x: 120, y: 230, heal: 1 }        // 회복만 들어 있는 상자
+    chest: { x: 144, y: 230, heal: 1 }        // 회복만 들어 있는 상자
   },
 
   se: {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
     intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
     enemies: [
-      { t: 'spitter', x: 120, y: 100 }, { t: 'shroom', x: 360, y: 110 },
-      { t: 'shroom', x: 130, y: 240 }, { t: 'spitter', x: 370, y: 235 }
+      { t: 'spitter', x: 144, y: 100 }, { t: 'shroom', x: 432, y: 110 },
+      { t: 'shroom', x: 156, y: 240 }, { t: 'spitter', x: 444, y: 235 }
     ],
-    pots: [{ x: 240, y: 250 }],
+    pots: [{ x: 288, y: 250 }],
     clear: 'doorKey'          // 전멸 → 관문 열쇠 ②
   },
 
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
     intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
-    enemies: [{ t: 'shroom', x: 150, y: 100 }, { t: 'shroom', x: 330, y: 220 }],
-    pots: [{ x: 90, y: 90 }, { x: 400, y: 250 }],
+    enemies: [{ t: 'shroom', x: 180, y: 100 }, { t: 'shroom', x: 396, y: 220 }],
+    pots: [{ x: 108, y: 90 }, { x: 480, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
-    chest: { x: 240, y: 250, note: 'n3', heal: 1 }
+    chest: { x: 288, y: 250, note: 'n3', heal: 1 }
   },
 
   boss: {
@@ -172,7 +172,7 @@ const MAP = {
       { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
       { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
     ],
-    pots: [{ x: 70, y: 70 }, { x: 410, y: 70 }, { x: 70, y: 250 }, { x: 410, y: 250 }]
+    pots: [{ x: 84, y: 70 }, { x: 492, y: 70 }, { x: 84, y: 250 }, { x: 492, y: 250 }]
   },
 
   exit: {
