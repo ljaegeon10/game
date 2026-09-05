@@ -184,77 +184,6 @@
             </div>
           </div>
 
-          <!-- 인체 골격 모형 : 스탠드에 걸린 교육용 실물 모형 -->
-          <div class="skeleton" data-fs="skull">
-            <svg viewBox="0 0 60 172" preserveAspectRatio="xMidYMid meet">
-              <defs>
-                <linearGradient id="bone" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stop-color="#efeade"/>
-                  <stop offset=".55" stop-color="#ddd6c4"/>
-                  <stop offset="1" stop-color="#b3aa93"/>
-                </linearGradient>
-              </defs>
-              <!-- 스탠드 -->
-              <rect class="sk-stand" x="29" y="16" width="2" height="146"/>
-              <ellipse class="sk-stand" cx="30" cy="164" rx="15" ry="3.4"/>
-              <g fill="url(#bone)" stroke="#8d846d" stroke-width=".5">
-                <!-- 두개골 : 뇌머리뼈 + 광대 + 아래턱 -->
-                <path d="M30 4c8.4 0 13.6 6 13.6 13.4 0 4.2-1.1 7.4-2.6 9.7l-1.4 2.2c-.5.8-1.4 1.3-2.4 1.3H22.8c-1 0-1.9-.5-2.4-1.3l-1.4-2.2c-1.5-2.3-2.6-5.5-2.6-9.7C16.4 10 21.6 4 30 4z"/>
-                <path d="M23.4 31.6h13.2c.6 2.6-.4 5.2-2.5 6.2-1.3.6-2.7.9-4.1.9s-2.8-.3-4.1-.9c-2.1-1-3.1-3.6-2.5-6.2z"/>
-                <!-- 척추 -->
-                <rect x="28.6" y="40" width="2.8" height="12" rx="1"/>
-                <!-- 빗장뼈 -->
-                <path d="M30 53l-12 3.4M30 53l12 3.4" stroke="#cdc5b0" stroke-width="2.4" stroke-linecap="round" fill="none"/>
-                <!-- 복장뼈 -->
-                <rect x="28.4" y="55" width="3.2" height="24" rx="1.4"/>
-              </g>
-              <!-- 갈비뼈 -->
-              <g fill="none" stroke="#ded7c5" stroke-width="2.1" stroke-linecap="round">
-                <path d="M29 58c-6 .4-11 3-13 7"/><path d="M31 58c6 .4 11 3 13 7"/>
-                <path d="M29 63.5c-7 .5-12.6 3.4-14.6 7.8"/><path d="M31 63.5c7 .5 12.6 3.4 14.6 7.8"/>
-                <path d="M29 69c-7.4.6-13.2 3.7-15.2 8.4"/><path d="M31 69c7.4.6 13.2 3.7 15.2 8.4"/>
-                <path d="M29 74.5c-7 .6-12.4 3.7-14.2 8.4"/><path d="M31 74.5c7 .6 12.4 3.7 14.2 8.4"/>
-                <path d="M29 80c-6 .6-10.6 3.4-12.2 7.8"/><path d="M31 80c6 .6 10.6 3.4 12.2 7.8"/>
-              </g>
-              <g fill="url(#bone)" stroke="#8d846d" stroke-width=".5">
-                <!-- 허리뼈 -->
-                <rect x="28.2" y="88" width="3.6" height="14" rx="1.6"/>
-                <!-- 골반 -->
-                <path d="M18 102h24c1.4 0 2.3 1.3 1.9 2.6l-2 6.6c-1 3.4-4.2 5.6-7.7 5.4-2.6-.2-4.3-1.8-4.6-4.1l-.6-4.3-.6 4.3c-.3 2.3-2 3.9-4.6 4.1-3.5.2-6.7-2-7.7-5.4l-2-6.6c-.4-1.3.5-2.6 1.9-2.6z"/>
-                <!-- 위팔뼈 · 아래팔뼈 -->
-                <rect x="15.4" y="57" width="2.8" height="26" rx="1.4" transform="rotate(5 16.8 70)"/>
-                <rect x="41.8" y="57" width="2.8" height="26" rx="1.4" transform="rotate(-5 43.2 70)"/>
-                <rect x="14.2" y="83" width="2.4" height="22" rx="1.2" transform="rotate(3 15.4 94)"/>
-                <rect x="43.4" y="83" width="2.4" height="22" rx="1.2" transform="rotate(-3 44.6 94)"/>
-                <!-- 넙다리뼈 · 정강뼈 -->
-                <rect x="22.4" y="116" width="3.4" height="24" rx="1.7"/>
-                <rect x="34.2" y="116" width="3.4" height="24" rx="1.7"/>
-                <rect x="22.8" y="140" width="2.8" height="20" rx="1.4"/>
-                <rect x="34.4" y="140" width="2.8" height="20" rx="1.4"/>
-              </g>
-              <!-- 눈구멍 · 코 -->
-              <g fill="#15161a">
-                <ellipse cx="24.6" cy="18" rx="3.7" ry="4.2"/>
-                <ellipse cx="35.4" cy="18" rx="3.7" ry="4.2"/>
-                <path d="M30 23.6l2.4 4.6h-4.8z"/>
-              </g>
-            </svg>
-          </div>
-            <div class="sk-neck"></div>
-            <div class="sk-cage">
-              <i></i><i></i><i></i><i></i><i></i>
-              <b class="sk-sternum"></b>
-            </div>
-            <div class="sk-arm l"></div>
-            <div class="sk-arm r"></div>
-            <div class="sk-lumbar"></div>
-            <div class="sk-pelvis"></div>
-            <div class="sk-leg l"></div>
-            <div class="sk-leg r"></div>
-            <div class="sk-pole"></div>
-            <div class="sk-base"></div>
-          </div>
-
           <!-- 링거대 + 붉은 배양액 -->
           <div class="iv" data-fs="blood">
             <div class="iv-pole"></div>
@@ -329,7 +258,6 @@
   <p id="hint">화면을 클릭하면 소리가 켜집니다 · 전체 조작은 타이틀 화면 참고</p>
 </div>
 
-<script src="js/bgm.js"></script>
 <script src="js/assets.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/art.js"></script>

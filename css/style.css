@@ -729,23 +729,6 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 }
 .mon-text .ok{ color:var(--glow); animation:flick 1.6s steps(3) infinite; }
 
-/* ── 인체 골격 모형 ────────────────────────────────────────
-   꿈에서 본 '바닥에 흩어진 해골'의 현실 대응물. SVG 로 실제 뼈 모양에
-   가깝게 그리고, 스탠드에 걸린 채 아주 천천히 흔들립니다. */
-.skeleton{
-  position:absolute; right:4%; top:17%;
-  width:52px; height:150px;
-  transform-origin:50% 6%;
-  animation:skSway 7s ease-in-out infinite;
-  filter:drop-shadow(0 3px 5px rgba(70,85,100,.35));
-}
-.skeleton svg{ width:100%; height:100%; display:block; }
-.skeleton .sk-stand{ fill:#8c99a6; }
-@keyframes skSway{
-  0%,100%{ transform:rotate(-.8deg) }
-  50%    { transform:rotate(.8deg) }
-}
-
 /* 링거 */
 .iv{ position:absolute; left:26%; top:40%; width:30px; height:110px; }
 .iv-pole{ position:absolute; left:14px; top:6px; width:2px; height:104px; background:#9aa7b4; }

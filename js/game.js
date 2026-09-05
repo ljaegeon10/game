@@ -307,7 +307,6 @@ function startGame(timeAttack = true) {
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
   Sfx.unlock();
-  Sfx.preloadBgm();          // 보스전 BGM 을 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
   else { RUN.running = false; RUN.elapsed = 0; }
   loadForest();
@@ -334,7 +333,6 @@ function respawn() {
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
   stopRun();
-  Sfx.bossBgm(false);
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
@@ -489,7 +487,7 @@ function spawnFoe(type, x, y) {
 function queueBoss() {
   G.mode = 'boss-intro'; G.bossIntroT = 0;
   Sfx.bossRoar(); G.shake = 22; G.flash = 1;
-  Sfx.ambientStop(); Sfx.bossBgm(true);
+  Sfx.ambientStop();
 }
 
 function makeBoss() {
@@ -669,7 +667,6 @@ function hurt(n) {
   if (hs) { hs.classList.add('hit'); setTimeout(() => hs.classList.remove('hit'), 320); }
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
-    Sfx.bossBgm(false);
     stopRun();                       // 기록은 저장하지 않습니다
     $('deadtime').textContent = fmtTime(RUN.elapsed);
     // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
@@ -897,6 +894,17 @@ function clampPlayer(forest) {
   if (forest) {
     P.x = Math.max(12, Math.min(W - 12, P.x));
     P.y = Math.max(26, Math.min(H - 12, P.y));
+    // 나무는 배경 그림이 아니라 실제로 막아서는 몸통입니다 — 밑동에서
+    // 원형으로 밀어냅니다 (캔버스에 그려지는 좌표를 그대로 씁니다)
+    for (const [tx, ty, s] of FOREST_TREES) {
+      const r = s * 0.30 + P.r;
+      const dx = P.x - tx, dy = P.y - ty;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0 && dist < r) {
+        P.x = tx + dx / dist * r;
+        P.y = ty + dy / dist * r;
+      }
+    }
     return;
   }
   const pad = TS + P.r + 2;
@@ -1006,7 +1014,7 @@ function killBoss() {
   const B = G.boss;
   glitchDeath(B.x, B.y, true);
   G.shake = 26; G.boss = null; G.bossDead = true;
-  Sfx.bossBgm(false); Sfx.ambient('dungeon');
+  Sfx.ambient('dungeon');
   G.foes = [];
   G.bullets = G.bullets.filter(b => b.mine);
   stateOf(G.room).cleared = true;
@@ -1568,7 +1576,7 @@ function beginEnding() {
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('ending').classList.remove('hidden');
-  Sfx.ambientStop(); Sfx.bossBgm(false); Sfx.flatline(true);
+  Sfx.ambientStop(); Sfx.flatline(true);
   $('blackout').classList.add('on');
   G.flash = 1;
   setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);
