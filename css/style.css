@@ -329,9 +329,9 @@ html,body{
 button{
   margin-top:8px;
   font-family:inherit; font-size:13px; font-weight:700;
-  letter-spacing:.3em; text-indent:.3em;
+  letter-spacing:.14em;
   color:var(--ink); background:var(--hwang);
-  border:none; padding:7px 22px; cursor:pointer;
+  border:none; padding:8px 30px; cursor:pointer;
   box-shadow:0 3px 0 #8a6a18, 0 0 26px rgba(227,178,60,.35);
   transition:transform .08s, box-shadow .08s, background .15s;
 }
