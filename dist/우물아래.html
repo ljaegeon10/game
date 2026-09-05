@@ -3252,9 +3252,9 @@ function renderDungeon() {
       g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3); g.globalAlpha = 1;
     } else {
       // 죽으면서 흩어지는 숫자/기호 — "피 대신 숫자가 흩어졌다"는 복선이라
-      // 눈에 확 띄어야 합니다. 태어나자마자 빠르게 퍼지고, 끝에서만 사라집니다.
+      // 눈에 확 띄어야 합니다. 천천히 떠다니듯 퍼지다가 끝에서만 사라집니다.
       const prog = 1 - k;
-      const spread = Math.min(1, prog * 2.4);
+      const spread = Math.min(1, prog / .9);
       const fade = prog > .7 ? Math.max(0, (1 - prog) / .3) : 1;
 
       g.save(); g.globalAlpha = k;
