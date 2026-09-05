@@ -307,6 +307,7 @@ function startGame(timeAttack = true) {
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
   Sfx.unlock();
+  Sfx.preloadBgm();          // 보스전 BGM 을 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
   else { RUN.running = false; RUN.elapsed = 0; }
   loadForest();
@@ -333,6 +334,7 @@ function respawn() {
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
   stopRun();
+  Sfx.bossBgm(false);
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
@@ -484,7 +486,11 @@ function spawnFoe(type, x, y) {
   });
 }
 
-function queueBoss() { G.mode = 'boss-intro'; G.bossIntroT = 0; Sfx.bossRoar(); G.shake = 22; G.flash = 1; }
+function queueBoss() {
+  G.mode = 'boss-intro'; G.bossIntroT = 0;
+  Sfx.bossRoar(); G.shake = 22; G.flash = 1;
+  Sfx.ambientStop(); Sfx.bossBgm(true);
+}
 
 function makeBoss() {
   G.boss = {
@@ -663,6 +669,7 @@ function hurt(n) {
   if (hs) { hs.classList.add('hit'); setTimeout(() => hs.classList.remove('hit'), 320); }
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
+    Sfx.bossBgm(false);
     stopRun();                       // 기록은 저장하지 않습니다
     $('deadtime').textContent = fmtTime(RUN.elapsed);
     // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
@@ -999,6 +1006,7 @@ function killBoss() {
   const B = G.boss;
   glitchDeath(B.x, B.y, true);
   G.shake = 26; G.boss = null; G.bossDead = true;
+  Sfx.bossBgm(false); Sfx.ambient('dungeon');
   G.foes = [];
   G.bullets = G.bullets.filter(b => b.mine);
   stateOf(G.room).cleared = true;
@@ -1014,8 +1022,11 @@ function render() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
-  if (G.floor) g.drawImage(G.floor, 0, 0);
-  if (G.inForest) renderForest(); else renderDungeon();
+  // 추락 중에는 지상 화면이 뒤로 비쳐 보이면 안 되므로 아예 건너뜁니다
+  if (G.mode !== 'fall') {
+    if (G.floor) g.drawImage(G.floor, 0, 0);
+    if (G.inForest) renderForest(); else renderDungeon();
+  }
   g.restore();
 
   if (G.mode === 'fall') renderFall();
@@ -1460,12 +1471,14 @@ function renderFall() {
   const cx = W / 2, cy = H / 2 - 6;
   g.save();
 
-  // 1) 안쪽부터 어두워지는 소용돌이 비네트
-  const vr = 250 * (1 - k * .35);
-  const vg = g.createRadialGradient(cx, cy, vr * .08, cx, cy, vr);
-  vg.addColorStop(0, `rgba(6,4,10,${.15 + k * .25})`);
-  vg.addColorStop(.7, `rgba(4,3,8,${.35 + k * .4})`);
-  vg.addColorStop(1, `rgba(2,2,5,${.7 + k * .3})`);
+  // 1) 우물 안쪽 — 가운데 저 아래 어둠으로 빨려 드는 통로 (완전 불투명)
+  g.fillStyle = '#07060b';
+  g.fillRect(0, 0, W, H);
+  const vr = 280 * (1 - k * .3);
+  const vg = g.createRadialGradient(cx, cy, vr * .06, cx, cy, vr);
+  vg.addColorStop(0, '#000000');
+  vg.addColorStop(.45, `rgb(${18 - k * 12 | 0},${15 - k * 10 | 0},${22 - k * 14 | 0})`);
+  vg.addColorStop(1, `rgb(${34 - k * 26 | 0},${28 - k * 22 | 0},${24 - k * 18 | 0})`);
   g.fillStyle = vg;
   g.fillRect(0, 0, W, H);
 
@@ -1555,7 +1568,7 @@ function beginEnding() {
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('ending').classList.remove('hidden');
-  Sfx.ambientStop(); Sfx.flatline(true);
+  Sfx.ambientStop(); Sfx.bossBgm(false); Sfx.flatline(true);
   $('blackout').classList.add('on');
   G.flash = 1;
   setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);

@@ -152,6 +152,55 @@ const Sfx = (() => {
       }
     },
 
+    /* ── 보스전 BGM ────────────────────────────────────────
+       준비된 음원을 그대로 틀지 않고, 재생 속도를 0.92 배로 낮춰
+       한 톤 무겁게 깔고 로우패스로 윗쪽을 눌러 효과음이 묻히지 않게
+       합니다. 보스방에 들어설 때 서서히 차오르고, 보스가 죽으면
+       천천히 빠집니다. */
+    preloadBgm() {
+      if (api._bgmBuf || api._bgmLoading || typeof BGM_BOSS_B64 === 'undefined') return;
+      api._bgmLoading = true;
+      const c = ctx();
+      // base64 → ArrayBuffer 직접 변환 (fetch 를 쓰면 오프라인·샌드박스에서 막힙니다)
+      const bin = atob(BGM_BOSS_B64);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      c.decodeAudioData(u8.buffer,
+        buf => { api._bgmBuf = buf; api._bgmLoading = false; if (api._bgmWant) api.bossBgm(true); },
+        ()  => { api._bgmLoading = false; });
+    },
+
+    bossBgm(on) {
+      const c = ctx();
+      if (on) {
+        api._bgmWant = true;
+        if (api._bgm) return;
+        if (!api._bgmBuf) { api.preloadBgm(); return; }   // 아직 디코딩 중이면 끝나고 자동 재생
+        const t = c.currentTime;
+        const src = c.createBufferSource();
+        src.buffer = api._bgmBuf;
+        src.loop = true;
+        src.playbackRate.value = 0.92;
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 3400; lp.Q.value = 0.7;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.42, t + 2.2);
+        src.connect(lp); lp.connect(g); g.connect(master);
+        src.start(t);
+        api._bgm = { src, g };
+      } else {
+        api._bgmWant = false;
+        if (!api._bgm) return;
+        const { src, g } = api._bgm; api._bgm = null;
+        try {
+          g.gain.setValueAtTime(g.gain.value, c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.6);
+          src.stop(c.currentTime + 1.8);
+        } catch (e) {}
+      }
+    },
+
     /* ── 배경 앰비언스 ─────────────────────────────────── */
     ambient(kind) {
       const c = ctx();
