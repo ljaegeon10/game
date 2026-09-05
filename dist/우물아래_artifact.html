@@ -281,17 +281,19 @@ html,body{
   font-size:11px; letter-spacing:.08em; line-height:1.7;
 }
 
-/* 충격적인 사실 / 반전 — 갑자기 팡 하고 살짝 커지는 강조 */
+/* 충격적인 사실 / 반전 — 갑자기 팡 하고 확 커지는 강조.
+   기울어진(italic) 나레이션 문장 안에 있어도 이 부분만은 눕지 않고 똑바로 섭니다. */
 .shock{
   display:inline-block;
-  font-size:1.34em; font-weight:800;
+  font-style:normal;
+  font-size:1.85em; font-weight:800;
   color:#ffe3d6;
-  text-shadow:0 0 14px rgba(224,72,60,.65), 0 2px 0 rgba(0,0,0,.6);
-  animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
+  text-shadow:0 0 18px rgba(224,72,60,.7), 0 2px 0 rgba(0,0,0,.6);
+  animation:shockPop .36s cubic-bezier(.2,1.6,.4,1) 1;
 }
 @keyframes shockPop{
-  0%{ transform:scale(.7); opacity:0; }
-  55%{ transform:scale(1.14); opacity:1; }
+  0%{ transform:scale(.6); opacity:0; }
+  55%{ transform:scale(1.22); opacity:1; }
   100%{ transform:scale(1); }
 }
 @media (prefers-reduced-motion: reduce){
@@ -409,6 +411,13 @@ html,body{
 }
 @media (prefers-reduced-motion: reduce){
   #startbtn{ animation:none; box-shadow:0 0 16px rgba(227,178,60,.22); }
+}
+
+#credits{
+  position:absolute; left:0; right:0; bottom:10px;
+  margin:0; font-size:8px; letter-spacing:.1em;
+  color:rgba(241,236,224,.28);
+  text-align:center;
 }
 
 /* ── 모드 선택 ────────────────────────────────────────────
@@ -924,6 +933,8 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
         </div>
         <button id="msback">← 뒤로</button>
       </div>
+
+      <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁</p>
     </div>
 
     <!-- ── 사망 ───────────────────────────────────────────── -->
