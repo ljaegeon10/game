@@ -17,7 +17,7 @@
 const BALANCE = {
   playerHp:      3,      // 하트 3개
   playerSpeed:   2.15,
-  forestSpeedMult: 0.82, // 지상(숲)에서는 조금 더 여유롭게 걷습니다
+  forestSpeedMult: 0.66, // 지상(숲)에서는 여유롭게 걷습니다 (던전 속도는 그대로)
   playerFireCd:  20,     // 초당 3발
   bulletSpeed:   4.6,
   bulletLife:    48,
@@ -71,7 +71,7 @@ const FOREST = {
   intro: [
     { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
     { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false },
-    { t: 'W A S D 로 걸어서 우물까지 가 보자.', w: true }
+    { t: '이동 — W A S D', sys: true }
   ]
 };
 
@@ -89,7 +89,7 @@ const MAP = {
     gx: 0, gy: 1, depth: 1, name: '우물 아래',
     intro: [
       { t: '…차갑다. 올라가려던 사다리는 이미 무너져 있다.', w: false },
-      { t: '방향키(← ↑ → ↓)로 공격할 수 있다.', w: true }
+      { t: '공격 — 방향키 / 마우스', sys: true }
     ],
     enemies: [{ t: 'shroom', x: 340, y: 100 }],
     pots: [{ x: 96, y: 250 }]
@@ -115,7 +115,7 @@ const MAP = {
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
-    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에 상자가 하나.', w: false }],
+    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
     enemies: [{ t: 'shroom', x: 120, y: 120 }, { t: 'spitter', x: 360, y: 210 }],
     pots: [{ x: 400, y: 90 }],
     key: { x: 100, y: 240 },
@@ -159,7 +159,7 @@ const MAP = {
 
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
-    intro: [{ t: '거대한 잠금장치가 둘. 열쇠 두 개가 있어야 안쪽으로 갈 수 있다.', w: false }],
+    intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
     enemies: [{ t: 'shroom', x: 150, y: 100 }, { t: 'shroom', x: 330, y: 220 }],
     pots: [{ x: 90, y: 90 }, { x: 400, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
@@ -179,7 +179,7 @@ const MAP = {
     gx: 5, gy: 1, depth: 5, name: '탈출구', final: true, needBoss: true,
     intro: [
       { t: '지상으로 통하는 문. 우물의 파이프가 위로 뻗어 있다.', w: false },
-      { t: '마지막 잠금장치에 열쇠를 꽂으면 된다.', w: false }
+      { t: '마지막 잠금장치. 이걸 열면, 끝나는 걸까.', w: true }
     ]
   }
 };

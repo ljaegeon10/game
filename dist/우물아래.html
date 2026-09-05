@@ -23,6 +23,13 @@
   --paper:#e6dcc2;
   --glow:#7de3c8;
   --danger:#e0483c;
+
+  /* 인물의 말/속마음(대사·쪽지)에 쓰는 옛 명조체 계열.
+     한글 전체를 담은 웹폰트는 용량이 커서(수백KB~수MB) 오프라인 단일 파일
+     원칙과 맞지 않아, OS에 이미 깔려 있는 명조 서체를 그대로 사용합니다.
+     시스템 문구(#subtitle.sys, --font-system)는 이 서체를 쓰지 않습니다. */
+  --font-narrative:"AppleMyungjo","Batang","바탕체",Georgia,serif;
+  --font-system:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 
 /* 타이틀 전용 표제 서체 — 오프라인 실행을 위해 파일 안에 내장했습니다.
@@ -237,13 +244,32 @@ html,body{
   min-height:44px;
 }
 #subtitle p{
-  margin:0; font-size:11.5px; line-height:1.65; color:#f0e9db;
-  letter-spacing:-.01em;
+  margin:0; font-size:12.5px; line-height:1.7; color:#f0e9db;
+  font-family:var(--font-narrative); letter-spacing:.01em;
 }
 #subtitle.whisper p{ color:#b3c6d8; font-style:italic; }
 #subnext{
   position:absolute; right:8px; bottom:4px; font-size:9px; color:var(--hwang);
   animation:bob 1s ease-in-out infinite;
+}
+
+/* 시스템 문구 : 인물의 말이 아니라 화면에 뜨는 안내/판독값이라는 것을
+   한눈에 구분할 수 있도록 따로 표시합니다 — 다른 서체(고정폭)·다른 색(청록)·
+   다른 타이핑 리듬(문장부호 쉼 없이 기계적으로)을 씁니다. */
+#subtag{
+  position:absolute; left:10px; top:-9px;
+  font-family:var(--font-system);
+  font-size:8px; font-weight:700; letter-spacing:.3em; text-indent:.3em;
+  color:var(--glow); background:#0b1414;
+  padding:2px 7px; border:1px solid rgba(125,227,200,.55);
+}
+#subtitle.sys{
+  border-left:3px solid var(--glow);
+  background:linear-gradient(180deg, rgba(19,32,34,.94), rgba(13,24,27,.97));
+}
+#subtitle.sys p{
+  font-family:var(--font-system); color:var(--glow);
+  font-size:11px; letter-spacing:.08em; line-height:1.7;
 }
 
 /* 충격적인 사실 / 반전 — 갑자기 팡 하고 살짝 커지는 강조 */
@@ -309,8 +335,9 @@ html,body{
   padding-bottom:5px; margin-bottom:9px;
 }
 .note-body{
-  font-size:12.5px; line-height:1.85; min-height:96px;
-  white-space:pre-wrap; letter-spacing:-.01em;
+  font-family:var(--font-narrative);
+  font-size:13.5px; line-height:1.9; min-height:96px;
+  white-space:pre-wrap; letter-spacing:.005em;
 }
 .note-body .cut{
   color:#6d5c42;
@@ -795,7 +822,11 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
     <div id="prompt" class="hidden"><b>SPACE</b> <span id="prompttext"></span></div>
 
     <!-- ── 자막 / 나레이션 ────────────────────────────────── -->
-    <div id="subtitle" class="hidden"><p id="subtext"></p><span id="subnext">▾</span></div>
+    <div id="subtitle" class="hidden">
+      <span id="subtag" class="hidden">SYSTEM</span>
+      <p id="subtext"></p>
+      <span id="subnext">▾</span>
+    </div>
 
     <!-- ── 쪽지 ───────────────────────────────────────────── -->
     <div id="noteoverlay" class="hidden">
@@ -1826,7 +1857,7 @@ function drawWalls(g, W, H, TS, depth, t) {
 const BALANCE = {
   playerHp:      3,      // 하트 3개
   playerSpeed:   2.15,
-  forestSpeedMult: 0.82, // 지상(숲)에서는 조금 더 여유롭게 걷습니다
+  forestSpeedMult: 0.66, // 지상(숲)에서는 여유롭게 걷습니다 (던전 속도는 그대로)
   playerFireCd:  20,     // 초당 3발
   bulletSpeed:   4.6,
   bulletLife:    48,
@@ -1880,7 +1911,7 @@ const FOREST = {
   intro: [
     { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
     { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false },
-    { t: 'W A S D 로 걸어서 우물까지 가 보자.', w: true }
+    { t: '이동 — W A S D', sys: true }
   ]
 };
 
@@ -1898,7 +1929,7 @@ const MAP = {
     gx: 0, gy: 1, depth: 1, name: '우물 아래',
     intro: [
       { t: '…차갑다. 올라가려던 사다리는 이미 무너져 있다.', w: false },
-      { t: '방향키(← ↑ → ↓)로 공격할 수 있다.', w: true }
+      { t: '공격 — 방향키 / 마우스', sys: true }
     ],
     enemies: [{ t: 'shroom', x: 340, y: 100 }],
     pots: [{ x: 96, y: 250 }]
@@ -1924,7 +1955,7 @@ const MAP = {
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
-    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에 상자가 하나.', w: false }],
+    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
     enemies: [{ t: 'shroom', x: 120, y: 120 }, { t: 'spitter', x: 360, y: 210 }],
     pots: [{ x: 400, y: 90 }],
     key: { x: 100, y: 240 },
@@ -1968,7 +1999,7 @@ const MAP = {
 
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
-    intro: [{ t: '거대한 잠금장치가 둘. 열쇠 두 개가 있어야 안쪽으로 갈 수 있다.', w: false }],
+    intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
     enemies: [{ t: 'shroom', x: 150, y: 100 }, { t: 'shroom', x: 330, y: 220 }],
     pots: [{ x: 90, y: 90 }, { x: 400, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
@@ -1988,7 +2019,7 @@ const MAP = {
     gx: 5, gy: 1, depth: 5, name: '탈출구', final: true, needBoss: true,
     intro: [
       { t: '지상으로 통하는 문. 우물의 파이프가 위로 뻗어 있다.', w: false },
-      { t: '마지막 잠금장치에 열쇠를 꽂으면 된다.', w: false }
+      { t: '마지막 잠금장치. 이걸 열면, 끝나는 걸까.', w: true }
     ]
   }
 };
@@ -2172,6 +2203,7 @@ function renderBestTimes() {
    숨을 고르고, `**이렇게**` 감싼 구절은 충격적인 사실/반전을 드러낼 때
    갑자기 팡 하고 커지면서 화면이 살짝 흔들립니다. */
 const TALK_CPF = 0.62;                    // 초당 약 37자 — 또박또박 읽히는 속도
+const SYS_CPF  = 1.15;                    // 시스템 문구는 숨 고르기 없이 기계적으로 빠르게
 const TALK_PAUSE = {                      // 문장부호에서 쉬어가는 박자(프레임)
   ',': 7, '，': 7,
   '.': 16, '!': 16, '?': 16,
@@ -2213,11 +2245,13 @@ function showLine() {
     return;
   }
   const { plain, ranges } = parseShock(l.t);
-  talk.cur = { plain, ranges };
+  talk.cur = { plain, ranges, sys: !!l.sys };
   talk.charI = 0; talk.hold = 0; talk.doneT = 0; talk.shockFired = new Set();
   const s = $('subtitle');
   s.classList.remove('hidden');
   s.classList.toggle('whisper', !!l.w);
+  s.classList.toggle('sys', !!l.sys);
+  $('subtag').classList.toggle('hidden', !l.sys);
   $('subnext').classList.add('hidden');
   renderTalk();
 }
@@ -2251,6 +2285,8 @@ function tickTalk() {
       G.flash = Math.max(G.flash, .32);
       Sfx.reveal();
       talk.hold = 30;
+    } else if (t.sys) {
+      talk.charI += SYS_CPF;              // 시스템 문구는 숨 고르지 않고 기계적으로
     } else {
       talk.charI += TALK_CPF;
       const ch = t.plain[Math.floor(talk.charI) - 1];
@@ -2519,7 +2555,7 @@ function interact() {
     return;
   }
   if (nearChest()) {
-    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 필요하다.', w: false }]); return; }
+    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 없다.', w: false }]); return; }
     G.keys--; G.chest.open = true; stateOf(G.room).chestOpen = true;
     updateHud(); Sfx.chest(); G.shake = 8;
     const heal = G.chest.heal || 0;
@@ -2538,18 +2574,18 @@ function interact() {
   const gd = nearLockedGate();
   if (gd) {
     if (G.doorKeys < (MAP[G.doors[gd].to].needKeys || 1)) {
-      say([{ t: `잠금장치가 둘. 관문 열쇠가 ${G.doorKeys} / 2 개다.`, w: false }]);
+      say([{ t: `관문 열쇠 ${G.doorKeys}/2`, sys: true }]);
     } else {
       G.doorKeys -= 2; G.gateOpen = true;
       buildDoors(G.room); updateHud();
       Sfx.door(); G.shake = 10;
-      say([{ t: '두 잠금장치가 동시에 풀린다. 안쪽 길이 열렸다.', w: false }]);
+      say([{ t: '잠금장치가 풀린다. 안쪽 길이 열렸다.', w: false }]);
     }
     return;
   }
   if (nearFinalLock()) {
     if (G.keys < 1 && G.doorKeys < 1) {
-      say([{ t: '거대한 잠금장치. 마지막 열쇠가 필요하다.', w: false }]); return;
+      say([{ t: '잠겨 있다. 아직 열쇠가 없다.', w: false }]); return;
     }
     if (G.doorKeys > 0) G.doorKeys--; else G.keys--;
     updateHud();
@@ -2558,16 +2594,17 @@ function interact() {
 }
 
 /* ═══════════ 쪽지 ═════════════════════════════════════ */
-let noteCb = null, noteTypeT = 0, noteFull = '', noteCut = '';
+const NOTE_CPF = 0.42;                    // 쪽지는 대사보다도 한 박자 느리게, 눌러 쓴 글씨를 읽듯
+let noteCb = null, noteTypeT = 0, noteHold = 0, noteFull = '', noteCut = '';
 function openNote(n, cb) {
   noteCb = cb || null; G.mode = 'note';
   $('noteoverlay').classList.remove('hidden');
   $('notedate').textContent = n.date;
   $('notebody').innerHTML = '';
-  noteFull = n.body; noteCut = n.cut; noteTypeT = 0;
+  noteFull = n.body; noteCut = n.cut; noteTypeT = 0; noteHold = 0;
 }
 function closeNote() {
-  if (noteTypeT < noteFull.length) { noteTypeT = noteFull.length; renderNote(); return; }
+  if (noteTypeT < noteFull.length) { noteTypeT = noteFull.length; noteHold = 0; renderNote(); return; }
   $('noteoverlay').classList.add('hidden');
   G.mode = 'play';
   const cb = noteCb; noteCb = null;
@@ -2645,7 +2682,18 @@ function update() {
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
 
   if (G.mode === 'talk') { tickTalk(); return; }
-  if (G.mode === 'note') { if (noteTypeT < noteFull.length) { noteTypeT += .9; renderNote(); } return; }
+  if (G.mode === 'note') {
+    if (noteTypeT < noteFull.length) {
+      if (noteHold > 0) { noteHold--; }
+      else {
+        noteTypeT += NOTE_CPF;
+        const ch = noteFull[Math.floor(noteTypeT) - 1];
+        if (ch && TALK_PAUSE[ch]) noteHold = TALK_PAUSE[ch];
+      }
+      renderNote();
+    }
+    return;
+  }
   if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
@@ -2807,10 +2855,10 @@ function onRoomCleared() {
   s.rewarded = true;
   if (r.clear === 'doorKey') {
     G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
-    say([{ t: '마지막 하나가 흩어진 자리에 커다란 관문 열쇠가 남았다.', w: false }]);
+    say([{ t: '마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다.', w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-    say([{ t: '흩어진 자리에 열쇠가 남았다.', w: false }]);
+    say([{ t: '흩어진 자리에 열쇠가 남아 있다.', w: false }]);
   }
 }
 

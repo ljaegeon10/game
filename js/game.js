@@ -141,6 +141,7 @@ function renderBestTimes() {
    숨을 고르고, `**이렇게**` 감싼 구절은 충격적인 사실/반전을 드러낼 때
    갑자기 팡 하고 커지면서 화면이 살짝 흔들립니다. */
 const TALK_CPF = 0.62;                    // 초당 약 37자 — 또박또박 읽히는 속도
+const SYS_CPF  = 1.15;                    // 시스템 문구는 숨 고르기 없이 기계적으로 빠르게
 const TALK_PAUSE = {                      // 문장부호에서 쉬어가는 박자(프레임)
   ',': 7, '，': 7,
   '.': 16, '!': 16, '?': 16,
@@ -182,11 +183,13 @@ function showLine() {
     return;
   }
   const { plain, ranges } = parseShock(l.t);
-  talk.cur = { plain, ranges };
+  talk.cur = { plain, ranges, sys: !!l.sys };
   talk.charI = 0; talk.hold = 0; talk.doneT = 0; talk.shockFired = new Set();
   const s = $('subtitle');
   s.classList.remove('hidden');
   s.classList.toggle('whisper', !!l.w);
+  s.classList.toggle('sys', !!l.sys);
+  $('subtag').classList.toggle('hidden', !l.sys);
   $('subnext').classList.add('hidden');
   renderTalk();
 }
@@ -220,6 +223,8 @@ function tickTalk() {
       G.flash = Math.max(G.flash, .32);
       Sfx.reveal();
       talk.hold = 30;
+    } else if (t.sys) {
+      talk.charI += SYS_CPF;              // 시스템 문구는 숨 고르지 않고 기계적으로
     } else {
       talk.charI += TALK_CPF;
       const ch = t.plain[Math.floor(talk.charI) - 1];
@@ -488,7 +493,7 @@ function interact() {
     return;
   }
   if (nearChest()) {
-    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 필요하다.', w: false }]); return; }
+    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 없다.', w: false }]); return; }
     G.keys--; G.chest.open = true; stateOf(G.room).chestOpen = true;
     updateHud(); Sfx.chest(); G.shake = 8;
     const heal = G.chest.heal || 0;
@@ -507,18 +512,18 @@ function interact() {
   const gd = nearLockedGate();
   if (gd) {
     if (G.doorKeys < (MAP[G.doors[gd].to].needKeys || 1)) {
-      say([{ t: `잠금장치가 둘. 관문 열쇠가 ${G.doorKeys} / 2 개다.`, w: false }]);
+      say([{ t: `관문 열쇠 ${G.doorKeys}/2`, sys: true }]);
     } else {
       G.doorKeys -= 2; G.gateOpen = true;
       buildDoors(G.room); updateHud();
       Sfx.door(); G.shake = 10;
-      say([{ t: '두 잠금장치가 동시에 풀린다. 안쪽 길이 열렸다.', w: false }]);
+      say([{ t: '잠금장치가 풀린다. 안쪽 길이 열렸다.', w: false }]);
     }
     return;
   }
   if (nearFinalLock()) {
     if (G.keys < 1 && G.doorKeys < 1) {
-      say([{ t: '거대한 잠금장치. 마지막 열쇠가 필요하다.', w: false }]); return;
+      say([{ t: '잠겨 있다. 아직 열쇠가 없다.', w: false }]); return;
     }
     if (G.doorKeys > 0) G.doorKeys--; else G.keys--;
     updateHud();
@@ -527,16 +532,17 @@ function interact() {
 }
 
 /* ═══════════ 쪽지 ═════════════════════════════════════ */
-let noteCb = null, noteTypeT = 0, noteFull = '', noteCut = '';
+const NOTE_CPF = 0.42;                    // 쪽지는 대사보다도 한 박자 느리게, 눌러 쓴 글씨를 읽듯
+let noteCb = null, noteTypeT = 0, noteHold = 0, noteFull = '', noteCut = '';
 function openNote(n, cb) {
   noteCb = cb || null; G.mode = 'note';
   $('noteoverlay').classList.remove('hidden');
   $('notedate').textContent = n.date;
   $('notebody').innerHTML = '';
-  noteFull = n.body; noteCut = n.cut; noteTypeT = 0;
+  noteFull = n.body; noteCut = n.cut; noteTypeT = 0; noteHold = 0;
 }
 function closeNote() {
-  if (noteTypeT < noteFull.length) { noteTypeT = noteFull.length; renderNote(); return; }
+  if (noteTypeT < noteFull.length) { noteTypeT = noteFull.length; noteHold = 0; renderNote(); return; }
   $('noteoverlay').classList.add('hidden');
   G.mode = 'play';
   const cb = noteCb; noteCb = null;
@@ -614,7 +620,18 @@ function update() {
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
 
   if (G.mode === 'talk') { tickTalk(); return; }
-  if (G.mode === 'note') { if (noteTypeT < noteFull.length) { noteTypeT += .9; renderNote(); } return; }
+  if (G.mode === 'note') {
+    if (noteTypeT < noteFull.length) {
+      if (noteHold > 0) { noteHold--; }
+      else {
+        noteTypeT += NOTE_CPF;
+        const ch = noteFull[Math.floor(noteTypeT) - 1];
+        if (ch && TALK_PAUSE[ch]) noteHold = TALK_PAUSE[ch];
+      }
+      renderNote();
+    }
+    return;
+  }
   if (G.mode === 'fall') { G.fallT++; if (G.fallT > 150) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
@@ -776,10 +793,10 @@ function onRoomCleared() {
   s.rewarded = true;
   if (r.clear === 'doorKey') {
     G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
-    say([{ t: '마지막 하나가 흩어진 자리에 커다란 관문 열쇠가 남았다.', w: false }]);
+    say([{ t: '마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다.', w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-    say([{ t: '흩어진 자리에 열쇠가 남았다.', w: false }]);
+    say([{ t: '흩어진 자리에 열쇠가 남아 있다.', w: false }]);
   }
 }
 
