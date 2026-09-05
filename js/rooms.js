@@ -17,6 +17,7 @@
 const BALANCE = {
   playerHp:      3,      // 하트 3개
   playerSpeed:   2.15,
+  forestSpeedMult: 0.82, // 지상(숲)에서는 조금 더 여유롭게 걷습니다
   playerFireCd:  20,     // 초당 3발
   bulletSpeed:   4.6,
   bulletLife:    48,

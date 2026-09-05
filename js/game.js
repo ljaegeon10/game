@@ -79,7 +79,7 @@ const P = {
   x: 60, y: H / 2, r: 10,
   hp: BALANCE.playerHp, max: BALANCE.playerHp,
   dir: 'down', anim: 0,
-  fireCd: 0, inv: 0, walkT: 0, stepT: 0, dead: false
+  fireCd: 0, inv: 0, walkPhase: 0, walkAmt: 0, stepT: 0, dead: false
 };
 
 /* ═══════════ 타임어택 ══════════════════════════════════
@@ -552,13 +552,22 @@ function update() {
     if (key.ArrowUp) my--;   if (key.ArrowDown) my++;
   }
   const ml = Math.hypot(mx, my);
+  // 숲에서는 조금 더 느긋하게 걷습니다 (던전 전투 속도는 그대로 유지)
+  const spd = BALANCE.playerSpeed * (forest ? BALANCE.forestSpeedMult : 1);
   if (ml) {
-    P.x += mx / ml * BALANCE.playerSpeed;
-    P.y += my / ml * BALANCE.playerSpeed;
-    P.walkT += .22; P.anim += .16;
+    P.x += mx / ml * spd;
+    P.y += my / ml * spd;
+    // 보폭(걷는 속도)이 실제 이동 속도에 비례해야 발이 미끄러지지 않고
+    // 자연스러운 걸음걸이로 보입니다
+    P.walkPhase += spd * 0.1023; P.anim += spd * 0.0744;
+    P.walkAmt += (1 - P.walkAmt) * 0.35;        // 걷기 시작 → 부드럽게 리듬 붙기
     P.dir = mx ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');
-    if (++P.stepT % 20 === 0) Sfx.step();
-  } else { P.walkT *= .8; P.anim = 0; }
+    const stepEvery = Math.round(20 * BALANCE.playerSpeed / spd);
+    if (++P.stepT % stepEvery === 0) Sfx.step();
+  } else {
+    P.walkAmt *= 0.78;                          // 멈춤 → 부드럽게 리듬 가라앉기
+    P.anim = 0;
+  }
 
   clampPlayer(forest);
 
@@ -1107,17 +1116,35 @@ function drawKey(x, y) {
 
 /* ── 캐릭터 ────────────────────────────────────────── */
 function drawPlayer() {
-  const bob = Math.sin(P.walkT) * 1.2;
+  // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
+  // 위로 뜰 때 살짝 눌리고(squash), 내려올 때 살짝 늘어나는(stretch)
+  // 고전 애니메이션 원리로, 프레임이 몇 장 없는 스프라이트에도
+  // 걷는 리듬감을 만들어 줍니다. walkAmt 는 걷기 시작/멈춤을 부드럽게
+  // 이어주는 값이라, 급격히 꺾이지 않고 자연스럽게 리듬이 붙고 가라앉습니다.
+  const phase = P.walkPhase;
+  const amt = P.walkAmt;
+  const bob = Math.sin(phase) * 1.6 * amt;
+  const lift = Math.max(0, Math.sin(phase)) * amt;      // 0(착지)~1(정점)
+  const squash = 1 - lift * 0.06;                       // 정점에서 살짝 눌림
+  const stretch = 1 + lift * 0.05;
+  const tilt = Math.sin(phase) * 0.05 * amt;            // 좌우로 살짝 흔들리는 걸음새
+
   g.save();
   g.fillStyle = 'rgba(0,0,0,.5)';
-  g.beginPath(); g.ellipse(P.x, P.y + 15, 12, 4.5, 0, 0, Math.PI * 2); g.fill();
+  const shadowSquish = 1 + lift * 0.14;                 // 뜰 때 그림자가 살짝 좁아짐
+  g.beginPath(); g.ellipse(P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 0, 0, Math.PI * 2); g.fill();
+
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
+
   const seq = HERO[P.dir] || HERO.down;
   const idx = seq[Math.floor(P.anim) % seq.length];
   const w = 30, h = Math.round(30 * HERO.fh / HERO.fw);
+
   if (IMG.hero) {
-    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh,
-                P.x - w / 2, P.y + bob - h + 12, w, h);
+    g.translate(P.x, P.y + bob - h / 2 + 12);
+    g.rotate(tilt);
+    g.scale(stretch, squash);
+    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -w / 2, -h / 2, w, h);
   } else {
     g.fillStyle = '#f2e23a';
     g.beginPath(); g.arc(P.x, P.y, 11, 0, Math.PI * 2); g.fill();
