@@ -171,7 +171,6 @@ function parseShock(raw) {
   }
   return { plain, ranges };
 }
-function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 function say(lines, cb) {
   talk.q = lines.slice(); talk.cb = cb || null;
@@ -191,6 +190,7 @@ function showLine() {
   const { plain, ranges } = parseShock(l.t);
   talk.cur = { plain, ranges, sys: !!l.sys };
   talk.charI = 0; talk.hold = 0; talk.doneT = 0; talk.shockFired = new Set();
+  talk.domN = 0; $('subtext').textContent = '';
   const s = $('subtitle');
   s.classList.remove('hidden');
   s.classList.toggle('whisper', !!l.w);
@@ -199,20 +199,29 @@ function showLine() {
   $('subnext').classList.add('hidden');
   renderTalk();
 }
+/* 글자를 한 자씩 DOM 에 덧붙입니다. 통째로 다시 그리면 글자마다 걸어 둔
+   흔들림 애니메이션이 매 프레임 처음으로 되감겨 멈춘 것처럼 보이기 때문에,
+   이미 나온 글자는 건드리지 않고 새로 나온 만큼만 이어 붙입니다. */
 function renderTalk() {
   const t = talk.cur; if (!t) return;
+  const el = $('subtext');
   const n = Math.min(t.plain.length, Math.floor(talk.charI));
-  const shown = t.plain.slice(0, n);
-  let html = '', pos = 0;
-  for (const [s0, s1] of t.ranges) {
-    if (s0 >= n) break;
-    const e = Math.min(s1, n);
-    html += escapeHtml(shown.slice(pos, s0));
-    html += `<span class="shock">${escapeHtml(shown.slice(s0, e))}</span>`;
-    pos = e;
+
+  if (n < talk.domN) { el.textContent = ''; talk.domN = 0; }   // 되돌아가면 처음부터
+
+  for (let i = talk.domN; i < n; i++) {
+    const ch = t.plain[i];
+    if (ch === '\n') { el.appendChild(document.createElement('br')); continue; }
+    if (ch === ' ')  { el.appendChild(document.createTextNode(' ')); continue; }
+
+    const sp = document.createElement('span');
+    sp.className = t.ranges.some(r => i >= r[0] && i < r[1]) ? 'ch shock' : 'ch';
+    sp.textContent = ch;
+    // 글자마다 위상을 어긋나게 해서 물결처럼 잘게 떨리도록
+    sp.style.animationDelay = `-${((i * 37) % 11) * .06}s`;
+    el.appendChild(sp);
   }
-  html += escapeHtml(shown.slice(pos));
-  $('subtext').innerHTML = html.replace(/\n/g, '<br>');
+  talk.domN = n;
 }
 /* 대사 진행 : 타이핑 중이면 한 프레임 진행, 다 나왔으면 대기 시간만 잰다 */
 function tickTalk() {
@@ -1508,9 +1517,10 @@ function beginEnding() {
   G.flash = 1;
   setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);
 }
-function typeSys(i) {
-  if (i >= ENDING_SYS.length) { setTimeout(openEyes, 1100); return; }
-  const line = ENDING_SYS[i];
+/* 시스템 문구를 한 줄씩 타이핑합니다 (엔딩 도입부·마지막 각성 로그 공용) */
+function typeSysLines(lines, i, done) {
+  if (i >= lines.length) { setTimeout(done, 1100); return; }
+  const line = lines[i];
   let n = 0;
   $('systext').textContent = '';
   const iv = setInterval(() => {
@@ -1518,31 +1528,66 @@ function typeSys(i) {
     if (n % 3 === 0) Sfx.beep(.03);
     if (n >= line.length) {
       clearInterval(iv);
-      setTimeout(() => typeSys(i + 1), i === ENDING_SYS.length - 1 ? 900 : 700);
+      setTimeout(() => typeSysLines(lines, i + 1, done), i === lines.length - 1 ? 900 : 700);
     }
   }, 48);
 }
+function typeSys(i) { typeSysLines(ENDING_SYS, i, openEyes); }
 function openEyes() {
   const E = $('ending');
   $('sysline').classList.remove('on');
   Sfx.flatline(false);
   E.classList.add('open');
-  setTimeout(() => E.classList.add('zoomout'), 500);
+
+  const lid = (v, sec) => {
+    E.style.setProperty('--lidT', sec + 's');
+    E.style.setProperty('--lid', v);
+  };
+  const at = (ms, fn) => setTimeout(fn, ms);
+
+  /* ① 눈을 뜨는 리듬 — 실눈 → 깜빡 → 반쯤 → 깜빡 → 완전히.
+        초점이 안 맞은 채 조명이 확 밀려들었다가 서서히 또렷해집니다. */
+  lid(.26, .55);
+  E.classList.add('wash');
+  at(700,  () => { lid(.04, .26); Sfx.beep(.03); });
+  at(1150, () => lid(.48, .6));
+  at(1950, () => { lid(.10, .28); Sfx.beep(.03); });
+  at(2400, () => lid(1, 2.8));
+  at(2600, () => E.classList.add('focus'));      // 초점이 맞기 시작
+  at(3200, () => E.classList.add('zoomout'));    // 카메라가 천천히 물러남
+
+  // 심박 — 처음엔 느리다가 깨어나며 조금씩 또렷해집니다
   let beats = 0;
-  const hb = setInterval(() => { Sfx.beep(.05); if (++beats > 26) clearInterval(hb); }, 900);
+  const hb = setInterval(() => { Sfx.beep(.05); if (++beats > 30) clearInterval(hb); }, 900);
+
+  /* ② 꿈에서 본 것 → 현실의 진짜 모습, 한 줄씩 */
   const order = ['bed', 'blood', 'skull', 'mon', 'key'];
-  const T0 = 6200, GAP = 1850;
-  setTimeout(() => $('callouts').classList.add('on'), T0 - 500);
-  order.forEach((k, i) => setTimeout(() => {
+  const T0 = 7600, GAP = 2100;
+  at(T0 - 600, () => $('callouts').classList.add('on'));
+  order.forEach((k, i) => at(T0 + i * GAP, () => {
     document.querySelectorAll('.co').forEach(e => e.classList.remove('on'));
     const el = document.querySelector(`.co[data-for="${k}"]`);
     if (el) el.classList.add('on');
     Sfx.beep(.04);
-  }, T0 + i * GAP));
-  setTimeout(() => {
+  }));
+
+  /* ③ 마지막 한 방 — 깨어난 게 끝이 아니었다는 각성 로그 */
+  const T1 = T0 + order.length * GAP + 700;
+  at(T1, () => {
     $('callouts').classList.remove('on');
-    $('endcard').classList.add('on');
-  }, T0 + order.length * GAP + 900);
+    clearInterval(hb);
+    const st = $('monstatus');
+    if (st) { st.textContent = 'AWAKE'; st.classList.add('alert'); }
+    $('alertwash').classList.add('on');
+    Sfx.glitch();
+    at(900, () => {
+      $('sysline').classList.add('on');
+      typeSysLines(ENDING_LAST, 0, () => {
+        $('sysline').classList.remove('on');
+        at(700, () => $('endcard').classList.add('on'));
+      });
+    });
+  });
 }
 
 /* ═══════════ 루프 ═════════════════════════════════════

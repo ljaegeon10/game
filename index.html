@@ -109,6 +109,10 @@
       <div id="lid-top" aria-hidden="true"></div>
       <div id="lid-bot" aria-hidden="true"></div>
 
+      <!-- 눈 뜰 때 밀려드는 조명 / 마지막 각성 경보 -->
+      <div id="lightwash" aria-hidden="true"></div>
+      <div id="alertwash" aria-hidden="true"></div>
+
       <!-- 현실: SF 연구실 -->
       <div id="lab">
         <div id="labcam">
@@ -137,17 +141,31 @@
                 <span>SUBJECT 07</span>
                 <span>DREAM DEPTH … 4</span>
                 <span>D+ 141 / 2145.05.20</span>
-                <span class="ok">STABILIZING</span>
+                <span class="ok" id="monstatus">STABILIZING</span>
               </div>
             </div>
           </div>
 
-          <!-- 인체 골격 모형 -->
+          <!-- 인체 골격 모형 (교육용 실물 모형처럼 스탠드에 걸려 있습니다) -->
           <div class="skeleton" data-fs="skull">
-            <div class="sk-skull"></div>
-            <div class="sk-spine"></div>
-            <div class="sk-ribs"><i></i><i></i><i></i><i></i></div>
-            <div class="sk-stand"></div>
+            <div class="sk-skull">
+              <i class="sk-eye l"></i><i class="sk-eye r"></i>
+              <i class="sk-nose"></i>
+              <i class="sk-jaw"></i>
+            </div>
+            <div class="sk-neck"></div>
+            <div class="sk-cage">
+              <i></i><i></i><i></i><i></i><i></i>
+              <b class="sk-sternum"></b>
+            </div>
+            <div class="sk-arm l"></div>
+            <div class="sk-arm r"></div>
+            <div class="sk-lumbar"></div>
+            <div class="sk-pelvis"></div>
+            <div class="sk-leg l"></div>
+            <div class="sk-leg r"></div>
+            <div class="sk-pole"></div>
+            <div class="sk-base"></div>
           </div>
 
           <!-- 링거대 + 붉은 배양액 -->
