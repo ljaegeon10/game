@@ -207,17 +207,30 @@ __game.clearRecords()   // 기록 전체 삭제
 
 ## 🔆 밝기 조절
 
-전체 톤은 두 곳에서 조절합니다.
+**맵(숲·던전)은 어둡게, UI(HUD·타이틀·자막 등)는 밝게** — 이 둘을 분리해서 관리합니다.
 
 | 위치 | 설명 |
 |---|---|
-| `js/game.js` 의 `drawNightOverlay(...)` 두 줄 | 첫 번째 인자가 어둠 강도 (`0` = 어둠 없음) |
-| `js/art.js` 의 `bakeForest` / `bakeDungeonFloor` 팔레트 | 바닥·풀 색상 |
+| `js/game.js` 의 `drawNightOverlay(...)` 두 줄 | 맵의 어둠 강도 (`0` = 어둠 없음). 캔버스 안, HUD 에는 영향 없음 |
+| `js/art.js` 의 `bakeForest` / `bakeDungeonFloor` 팔레트 | 맵 바닥·풀 색상 |
+| `css/style.css` | HUD·타이틀·자막·쪽지 등 캔버스 바깥 UI (별도 유지) |
 
 ```js
-drawNightOverlay(g, W, H, P.x, P.y, .11, 230);            // 숲
-drawNightOverlay(g, W, H, P.x, P.y, .15 + G.depth * .012, 215);  // 던전
+drawNightOverlay(g, W, H, P.x, P.y, .34, 172);                  // 숲
+drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);  // 던전
 ```
+
+---
+
+## 🔊 소리 크기
+
+전체적으로 잘 안 들린다는 피드백에 맞춰 볼륨을 크게 올렸습니다.
+
+- 마스터 게인 `0.5 → 1.35`, 겹쳐 울릴 때 깨지지 않도록 리미터(컴프레서) 추가
+- 효과음 대부분을 1.7~2배가량 증폭 (발소리·새소리·기계 비프처럼 원래 작던 소리는 그 이상)
+- 배경 앰비언스(환풍기/드론음)도 함께 키움
+
+`js/audio.js` 상단 `master.gain.value` 한 곳에서 전체 크기를 다시 조절할 수 있습니다.
 
 ---
 

@@ -10,8 +10,16 @@ const Sfx = (() => {
     if (!ac) {
       ac = new (window.AudioContext || window.webkitAudioContext)();
       master = ac.createGain();
-      master.gain.value = 0.5;
-      master.connect(ac.destination);
+      master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+      // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
+      const comp = ac.createDynamicsCompressor();
+      comp.threshold.value = -10;
+      comp.knee.value = 18;
+      comp.ratio.value = 14;
+      comp.attack.value = 0.002;
+      comp.release.value = 0.18;
+      master.connect(comp);
+      comp.connect(ac.destination);
     }
     if (ac.state === 'suspended') ac.resume();
     return ac;
@@ -52,15 +60,15 @@ const Sfx = (() => {
   const api = {
     unlock() { ctx(); },
 
-    shoot()   { tone(720, 0.09, 'square', 0.07, 380); },
-    hit()     { noise(0.09, 0.16, 900, 5200); tone(180, 0.07, 'square', 0.09, 90); },
-    hurt()    { tone(200, 0.30, 'sawtooth', 0.20, 60); noise(0.2, 0.12, 200, 1800); },
-    pickup()  { tone(880, 0.08, 'triangle', 0.16); setTimeout(() => tone(1320, 0.12, 'triangle', 0.14), 70); },
-    keyGet()  { [660, 880, 1170].forEach((f, i) => setTimeout(() => tone(f, 0.13, 'triangle', 0.15), i * 85)); },
-    chest()   { noise(0.3, 0.16, 120, 1400); tone(140, 0.4, 'sawtooth', 0.10, 70); },
-    door()    { noise(0.5, 0.14, 80, 900); tone(90, 0.6, 'sine', 0.12, 50); },
-    pot()     { noise(0.16, 0.2, 1400, 9000); },
-    step()    { noise(0.05, 0.045, 300, 1400); },
+    shoot()   { tone(720, 0.09, 'square', 0.16, 380); },
+    hit()     { noise(0.09, 0.32, 900, 5200); tone(180, 0.07, 'square', 0.18, 90); },
+    hurt()    { tone(200, 0.30, 'sawtooth', 0.40, 60); noise(0.2, 0.26, 200, 1800); },
+    pickup()  { tone(880, 0.08, 'triangle', 0.32); setTimeout(() => tone(1320, 0.12, 'triangle', 0.28), 70); },
+    keyGet()  { [660, 880, 1170].forEach((f, i) => setTimeout(() => tone(f, 0.13, 'triangle', 0.30), i * 85)); },
+    chest()   { noise(0.3, 0.32, 120, 1400); tone(140, 0.4, 'sawtooth', 0.20, 70); },
+    door()    { noise(0.5, 0.28, 80, 900); tone(90, 0.6, 'sine', 0.24, 50); },
+    pot()     { noise(0.16, 0.40, 1400, 9000); },
+    step()    { noise(0.05, 0.09, 300, 1400); },
 
     /* 몬스터가 죽을 때 — 피가 아니라 "코드가 튀는" 소리 */
     glitch() {
@@ -69,11 +77,11 @@ const Sfx = (() => {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'square';
         o.frequency.setValueAtTime(300 + Math.random() * 2600, t + i * 0.022);
-        env(g, t + i * 0.022, 0.002, 0.03, 0.06);
+        env(g, t + i * 0.022, 0.002, 0.03, 0.12);
         o.connect(g); g.connect(master);
         o.start(t + i * 0.022); o.stop(t + i * 0.022 + 0.05);
       }
-      noise(0.14, 0.10, 2000, 12000);
+      noise(0.14, 0.20, 2000, 12000);
     },
 
     fall() {
@@ -82,26 +90,26 @@ const Sfx = (() => {
       o.type = 'sine';
       o.frequency.setValueAtTime(900, t);
       o.frequency.exponentialRampToValueAtTime(45, t + 1.9);
-      env(g, t, 0.05, 1.9, 0.22);
+      env(g, t, 0.05, 1.9, 0.40);
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 2.1);
-      noise(1.6, 0.1, 60, 700);
+      noise(1.6, 0.20, 60, 700);
     },
 
     bossRoar() {
-      tone(70, 1.3, 'sawtooth', 0.24, 40);
-      tone(105, 1.1, 'square', 0.10, 55);
-      noise(1.0, 0.16, 60, 900);
+      tone(70, 1.3, 'sawtooth', 0.42, 40);
+      tone(105, 1.1, 'square', 0.20, 55);
+      noise(1.0, 0.30, 60, 900);
     },
 
     /* 지상 : 새소리 (평화로움) */
     bird() {
       const base = 1900 + Math.random() * 700;
-      tone(base, 0.07, 'sine', 0.045, base * 1.35);
-      setTimeout(() => tone(base * 1.2, 0.06, 'sine', 0.035, base * 0.85), 90);
+      tone(base, 0.07, 'sine', 0.09, base * 1.35);
+      setTimeout(() => tone(base * 1.2, 0.06, 'sine', 0.07, base * 0.85), 90);
     },
 
     /* ⚠ 복선 : 숲속에 어울리지 않는 기계 비프 */
-    beep(vol = 0.03) { tone(1046, 0.055, 'square', vol); },
+    beep(vol = 0.07) { tone(1046, 0.055, 'square', vol); },
 
     /* 엔딩의 지속 기계음 (삐——) */
     flatline(on) {
@@ -111,7 +119,7 @@ const Sfx = (() => {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'sine'; o.frequency.value = 1000;
         g.gain.setValueAtTime(0.0001, c.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.14, c.currentTime + 0.35);
+        g.gain.exponentialRampToValueAtTime(0.28, c.currentTime + 0.35);
         o.connect(g); g.connect(master); o.start();
         api._fl = { o, g };
       } else if (api._fl) {
@@ -128,7 +136,7 @@ const Sfx = (() => {
       api.ambientStop();
       ambGain = c.createGain();
       ambGain.gain.value = 0;
-      ambGain.gain.linearRampToValueAtTime(kind === 'forest' ? 0.10 : 0.16, c.currentTime + 2);
+      ambGain.gain.linearRampToValueAtTime(kind === 'forest' ? 0.20 : 0.30, c.currentTime + 2);
       ambGain.connect(master);
 
       // 환풍기 / 공조기 소리 : 숲에서도 아주 작게 깔린다 (복선)
@@ -149,7 +157,7 @@ const Sfx = (() => {
       if (kind !== 'forest') {
         const o = c.createOscillator(), og = c.createGain();
         o.type = 'sine'; o.frequency.value = 48;
-        og.gain.value = 0.09;
+        og.gain.value = 0.16;
         o.connect(og); og.connect(ambGain); o.start();
         amb.push(o);
       }

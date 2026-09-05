@@ -314,7 +314,7 @@ function setDate(i) {
   $('datebox').classList.remove('tick');
   void $('datebox').offsetWidth;
   $('datebox').classList.add('tick');
-  if (i > 1) { G.flash = Math.max(G.flash, .7); Sfx.beep(.045); }
+  if (i > 1) { G.flash = Math.max(G.flash, .7); Sfx.beep(.10); }
 }
 
 /* ═══════════ 적 ═══════════════════════════════════════ */
@@ -740,7 +740,7 @@ function updateForest() {
     if (Math.random() < .0007) { b.gl = 8; b.x += (Math.random() - .5) * 40; }
   });
   if (Math.random() < .006) Sfx.bird();
-  if (Math.random() < .0035) { Sfx.beep(.028); G.flash = Math.max(G.flash, .12); }
+  if (Math.random() < .0035) { Sfx.beep(.065); G.flash = Math.max(G.flash, .12); }
   updatePrompt();
 }
 
@@ -852,7 +852,7 @@ function renderForest() {
     g.restore();
   });
   drawPlayer();
-  drawNightOverlay(g, W, H, P.x, P.y, .11, 230);
+  drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
 }
 
 /* ── 지하 ──────────────────────────────────────────── */
@@ -942,7 +942,7 @@ function renderDungeon() {
   });
 
   // 어둠 — 주인공 주변만 밝다
-  drawNightOverlay(g, W, H, P.x, P.y, .15 + G.depth * .012, 215);
+  drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);
 }
 
 /* ── 문 ────────────────────────────────────────────── */
@@ -1240,7 +1240,7 @@ function typeSys(i) {
   $('systext').textContent = '';
   const iv = setInterval(() => {
     n++; $('systext').textContent = line.slice(0, n);
-    if (n % 3 === 0) Sfx.beep(.012);
+    if (n % 3 === 0) Sfx.beep(.03);
     if (n >= line.length) {
       clearInterval(iv);
       setTimeout(() => typeSys(i + 1), i === ENDING_SYS.length - 1 ? 900 : 700);
@@ -1254,7 +1254,7 @@ function openEyes() {
   E.classList.add('open');
   setTimeout(() => E.classList.add('zoomout'), 500);
   let beats = 0;
-  const hb = setInterval(() => { Sfx.beep(.02); if (++beats > 26) clearInterval(hb); }, 900);
+  const hb = setInterval(() => { Sfx.beep(.05); if (++beats > 26) clearInterval(hb); }, 900);
   const order = ['bed', 'blood', 'skull', 'mon', 'key'];
   const T0 = 6200, GAP = 1850;
   setTimeout(() => $('callouts').classList.add('on'), T0 - 500);
@@ -1262,7 +1262,7 @@ function openEyes() {
     document.querySelectorAll('.co').forEach(e => e.classList.remove('on'));
     const el = document.querySelector(`.co[data-for="${k}"]`);
     if (el) el.classList.add('on');
-    Sfx.beep(.016);
+    Sfx.beep(.04);
   }, T0 + i * GAP));
   setTimeout(() => {
     $('callouts').classList.remove('on');
