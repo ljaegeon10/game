@@ -25,6 +25,16 @@
   --danger:#e0483c;
 }
 
+/* 타이틀 전용 표제 서체 — 오프라인 실행을 위해 파일 안에 내장했습니다.
+   "THE WELL BELOW" 표기에 쓰이는 글자만 담은 초소형 서브셋(약 2KB)입니다. */
+@font-face{
+  font-family:'WellDisplay';
+  font-style:normal;
+  font-weight:900;
+  font-display:swap;
+  src:url(data:font/woff2;base64,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) format('woff2');
+}
+
 *{box-sizing:border-box;}
 
 html,body{
@@ -205,13 +215,6 @@ html,body{
 .bt-label{ font-size:8px; letter-spacing:.24em; color:#97a6bb; }
 
 /* 타이틀의 모드 배지 */
-.t-mode{
-  margin:0 0 8px; padding:3px 11px;
-  border:1px solid rgba(227,178,60,.5);
-  background:rgba(227,178,60,.10);
-  font-size:9.5px; letter-spacing:.06em; color:var(--hwang);
-}
-
 /* ── 프롬프트 ──────────────────────────────────────────── */
 #prompt{
   position:absolute; left:50%; bottom:34px; transform:translateX(-50%);
@@ -315,25 +318,47 @@ html,body{
 #title{
   position:absolute; inset:0; z-index:60;
   background:
-    radial-gradient(ellipse at 50% 34%, rgba(227,178,60,.14), transparent 60%),
-    linear-gradient(180deg,#2a2f42,#171b28);
+    radial-gradient(ellipse at 50% 40%, rgba(194,53,44,.10), transparent 58%),
+    radial-gradient(ellipse at 50% 34%, rgba(227,178,60,.10), transparent 62%),
+    linear-gradient(180deg,#20232f,#111319);
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:2px; text-align:center;
+  gap:0; text-align:center;
 }
-#title .t-obang{ width:140px; margin-bottom:8px; }
+#title .t-obang{ width:120px; margin-bottom:30px; opacity:.85; }
 #title h1{
-  margin:0; font-size:30px; letter-spacing:.24em; text-indent:.24em;
-  font-weight:800; color:var(--baek);
-  text-shadow:0 0 22px rgba(47,111,181,.55), 0 3px 0 #000;
+  margin:0; font-family:'WellDisplay','Playfair Display',Georgia,serif;
+  font-weight:900; font-size:50px; line-height:.9; letter-spacing:.005em;
+  color:#f2ece0;
+  text-shadow:
+    0 0 34px rgba(194,53,44,.32),
+    0 0 64px rgba(47,111,181,.20),
+    0 3px 0 rgba(0,0,0,.65);
 }
-#title h2{
-  margin:3px 0 8px; font-size:9.5px; letter-spacing:.42em; text-indent:.42em;
-  font-weight:500; color:#97a6bb;
-}
-.t-keys p{ margin:2px 0; font-size:9.5px; color:#bcc6d6; letter-spacing:.02em; }
-.t-keys b{ color:var(--hwang); }
-.t-foot{ margin:7px 0 0; font-size:8.5px; color:#8b95a6; }
 
+/* ── 시작 버튼 : 타이틀 전용, 은은하게 숨 쉬는 테두리형 ────── */
+#startbtn{
+  position:relative; margin-top:40px;
+  font-family:inherit; font-size:13px; font-weight:700;
+  letter-spacing:.4em; text-indent:.4em;
+  color:var(--hwang); background:rgba(15,14,20,.4);
+  border:1px solid rgba(227,178,60,.55);
+  padding:13px 34px; cursor:pointer;
+  transition:color .2s, background .2s, border-color .2s, transform .08s;
+  animation:startGlow 3.8s ease-in-out infinite;
+}
+#startbtn:hover{
+  color:#fff4d9; background:rgba(227,178,60,.14); border-color:var(--hwang);
+}
+#startbtn:active{ transform:translateY(2px); }
+@keyframes startGlow{
+  0%,100%{ box-shadow:0 0 12px rgba(227,178,60,.16), inset 0 0 12px rgba(227,178,60,.04); }
+  50%{ box-shadow:0 0 24px rgba(227,178,60,.34), inset 0 0 16px rgba(227,178,60,.10); }
+}
+@media (prefers-reduced-motion: reduce){
+  #startbtn{ animation:none; box-shadow:0 0 16px rgba(227,178,60,.22); }
+}
+
+/* 사망/엔딩 화면의 일반 버튼 */
 button{
   margin-top:8px;
   font-family:inherit; font-size:13px; font-weight:700;
@@ -769,19 +794,12 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
       <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-      <h1>우물 아래</h1>
-      <h2>THE WELL BELOW</h2>
-      <div class="t-mode">⏱ 목숨은 하나, 죽으면 처음부터예요</div>
-      <div class="t-keys">
-        <p><b>WASD</b>로 움직이고, <b>방향키</b>나 <b>마우스</b>로 공격해요</p>
-        <p><b>SPACE</b>로 조사하고 대화를 넘겨요</p>
-      </div>
+      <h1>THE WELL<br>BELOW</h1>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
       </div>
-      <button id="startbtn">시작</button>
-      <p class="t-foot">🔈 소리를 켜고 시작하세요</p>
+      <button id="startbtn"><span>시작하기</span></button>
     </div>
 
     <!-- ── 사망 ───────────────────────────────────────────── -->
