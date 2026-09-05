@@ -3,7 +3,7 @@
 숲에서 우물로 **추락**하고, 아이작 스타일의 지하를 헤매다
 **"이 모든 것이 꿈(연구 프로젝트)이었다"** 는 반전으로 끝나는 7~8분짜리 2D 탑뷰 웹게임입니다.
 
-**타임어택 모드**로 동작합니다 — 시작부터 탈출까지 시간을 재고, 죽으면 그대로 끝납니다.
+`시작하기`를 누르면 **타임어택 모드**와 **일반 모드** 중에서 고를 수 있습니다.
 
 HTML · CSS · 순수 JavaScript(Canvas 2D)로만 만들었고, 외부 라이브러리가 없습니다.
 
@@ -38,6 +38,18 @@ python3 build.py      # → dist/우물아래.html 생성
 | `R` | **사망 화면에서만** — 처음부터 다시 |
 
 > 방의 적을 모두 없애야 문이 열립니다. 우하단 미니맵으로 길을 확인하세요.
+
+---
+
+## 🎮 모드 선택
+
+`시작하기` → 두 가지 모드 중 하나를 고릅니다. (키보드 `1` / `2`, `ESC` 로 뒤로)
+
+| | 타임어택 모드 | 일반 모드 |
+|---|---|---|
+| **타이머** | HUD 에 표시 | 없음 |
+| **기록** | 상위 5개 저장 | 저장하지 않음 |
+| **죽으면** | 전부 초기화 → 타이틀 | 죽은 방에서 체력을 채워 다시 |
 
 ---
 
@@ -249,15 +261,18 @@ drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);  // 던전
 
 ```
 index.html          화면 구조 (HUD · 타이머 · 기록표 · 쪽지 · 엔딩 연구실 전부 HTML)
+css/font.css        둥근모꼴(DungGeunMo) 웹폰트를 base64 로 내장 — 오프라인에서도 동일
 css/style.css       오방색 팔레트, CRT/글리치, 쪽지, 엔딩 연구실 (전부 CSS)
 js/assets.js        픽셀아트를 base64 로 내장 (make_assets.py 가 생성)
 js/audio.js         WebAudio 합성 효과음 — 음원 파일 없음
 js/art.js           단청·색동·매듭·태극, 숲/던전 배경 절차적 생성
 js/rooms.js         맵 그래프 · 스토리 텍스트 · 밸런스 수치
-js/game.js          게임 루프, 전투, 보스 AI, 타임어택/기록, 연출
+js/game.js          게임 루프, 전투, 보스 AI, 모드 선택/타임어택/기록, 연출
 assets/             PNG (hero / mob / mushroom / eye / brick)
 tools/make_assets.py  Piskel 원본 → 게임용 PNG + js/assets.js 생성
+assets/fonts/       DungGeunMo.woff2 (font.css 의 원본)
 build.py            단일 HTML 파일로 묶는 스크립트
+build_artifact.py   Artifact 게시용 HTML 생성
 dist/우물아래.html   ← 배포용 단일 파일
 ```
 

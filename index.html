@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>우물 아래 — The Well Below</title>
 <meta name="description" content="오래된 우물 아래, 무엇이 기다리고 있을까 — 짧고 어두운 탑뷰 어드벤처">
+<link rel="stylesheet" href="css/font.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -68,6 +69,22 @@
         <ol id="bestlist"></ol>
       </div>
       <button id="startbtn"><span>시작하기</span></button>
+
+      <!-- 시작하기를 누르면 나오는 모드 선택 -->
+      <div id="modesel" class="hidden">
+        <p class="ms-q">모드 선택</p>
+        <div class="ms-row">
+          <button class="modebtn" data-mode="time">
+            <b>타임어택 모드</b>
+            <span>기록 경쟁 · 죽으면 처음부터</span>
+          </button>
+          <button class="modebtn" data-mode="normal">
+            <b>일반 모드</b>
+            <span>시간 없음 · 죽은 방에서 다시</span>
+          </button>
+        </div>
+        <button id="msback">← 뒤로</button>
+      </div>
     </div>
 
     <!-- ── 사망 ───────────────────────────────────────────── -->

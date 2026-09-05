@@ -39,7 +39,12 @@ addEventListener('keydown', e => {
   key[e.key] = true;
   const k = e.key.toLowerCase();
   if (k === ' ') onConfirm();
-  if (k === 'r' && G.mode === 'dead') resetRun();   // 타임어택 : 사망 시에만 재시작
+  if (k === 'r' && G.mode === 'dead') retry();
+  if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
+    if (k === '1') startGame(true);
+    if (k === '2') startGame(false);
+    if (k === 'escape' || k === 'backspace') closeModeSelect();
+  }
 });
 addEventListener('keyup', e => { key[e.key] = false; });
 cv.addEventListener('mousemove', e => {
@@ -55,7 +60,8 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | forest | play | talk | note | fall | boss-intro | ending | dead
+  mode: 'title',        // title | modesel | forest | play | talk | note | fall | boss-intro | ending | dead
+  timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
   t: 0, shake: 0, flash: 0,
@@ -254,20 +260,62 @@ function nextLine() { talk.q.shift(); showLine(); }
 /* ═══════════ 확인 키 ═══════════════════════════════════ */
 function onConfirm() {
   Sfx.unlock();
-  if (G.mode === 'title') { startGame(); return; }
-  if (G.mode === 'dead')  { resetRun(); return; }
+  if (G.mode === 'title')  { openModeSelect(); return; }
+  if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
+  if (G.mode === 'dead')  { retry(); return; }
   if (G.mode === 'talk')  { advanceTalk(); return; }
   if (G.mode === 'note')  { closeNote(); return; }
   if (G.mode === 'play' || G.mode === 'forest') interact();
 }
 
 /* ═══════════ 시작 / 초기화 ════════════════════════════ */
-function startGame() {
+
+/* 시작하기 → 모드 선택. 로고는 그대로 두고 아래쪽만 바뀝니다. */
+function openModeSelect() {
+  Sfx.unlock();
+  $('startbtn').classList.add('hidden');
+  $('besttimes').classList.add('hidden');
+  $('modesel').classList.remove('hidden');
+  G.mode = 'modesel';
+}
+function closeModeSelect() {
+  $('modesel').classList.add('hidden');
+  $('startbtn').classList.remove('hidden');
+  renderBestTimes();
+  G.mode = 'title';
+}
+
+/* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
+   timeAttack = false : 시계 없이 천천히. 죽으면 그 방에서 다시 시작합니다. */
+function startGame(timeAttack = true) {
+  G.timeAttack = timeAttack !== false;
+  $('modesel').classList.add('hidden');
+  $('startbtn').classList.remove('hidden');
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
+  $('timerbox').classList.toggle('hidden', !G.timeAttack);
   Sfx.unlock();
-  startRun();
+  if (G.timeAttack) startRun();
+  else { RUN.running = false; RUN.elapsed = 0; }
   loadForest();
+}
+
+/* 사망 처리 — 모드에 따라 갈립니다 */
+function retry() {
+  if (G.timeAttack) resetRun();
+  else respawn();
+}
+
+/* 일반 모드 : 죽은 방을 처음 상태로 되돌리고 체력을 채워 다시 넣어 줍니다 */
+function respawn() {
+  $('dead').classList.add('hidden');
+  ['subtitle', 'prompt', 'noteoverlay'].forEach(id => $(id).classList.add('hidden'));
+  G.bullets = []; G.fx = []; G.pickups = [];
+  G.flash = 0; G.shake = 0;
+  P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames;
+  updateHud();
+  if (G.room) loadRoom(G.room, 'W');
+  else loadForest();
 }
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
@@ -284,12 +332,17 @@ function resetRun() {
   Sfx.ambientStop();
   setDate(0); updateHud(); updateTimer();
   renderBestTimes();
+  $('modesel').classList.add('hidden');
+  $('startbtn').classList.remove('hidden');
   $('title').classList.remove('hidden');
   G.mode = 'title';
 }
 
-$('startbtn').addEventListener('click', startGame);
-$('retrybtn').addEventListener('click', resetRun);
+$('startbtn').addEventListener('click', openModeSelect);
+$('msback').addEventListener('click', closeModeSelect);
+document.querySelectorAll('.modebtn').forEach(b =>
+  b.addEventListener('click', () => startGame(b.dataset.mode === 'time')));
+$('retrybtn').addEventListener('click', retry);
 $('againbtn').addEventListener('click', () => location.reload());
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
@@ -584,6 +637,9 @@ function hurt(n) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
     stopRun();                       // 기록은 저장하지 않습니다
     $('deadtime').textContent = fmtTime(RUN.elapsed);
+    // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
+    $('dead').classList.toggle('casual', !G.timeAttack);
+    $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : '이어서 다시 (R)';
     $('dead').classList.remove('hidden');
     Sfx.flatline(true);
     setTimeout(() => Sfx.flatline(false), 1400);
@@ -977,10 +1033,10 @@ function renderDungeon() {
     const date = DATES[Math.min(G.visited.size, DATES.length - 1)].split(' / ').slice(1).join(' / ');
     g.save();
     g.globalAlpha = .5; g.fillStyle = '#b8352c';
-    g.font = 'bold 12px ui-monospace, monospace'; g.textAlign = 'center';
+    g.font = 'bold 12px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'center';
     g.fillText(date, W / 2, H - 11);
     if (R.boss) {
-      g.globalAlpha = .2; g.font = 'bold 10px ui-monospace, monospace';
+      g.globalAlpha = .2; g.font = 'bold 10px DungGeunMo, ui-monospace, monospace';
       for (let i = 0; i < 12; i++)
         g.fillText('5 / 20', 40 + ((i * 97) % (W - 80)), TS + 22 + ((i * 53) % (H - TS * 2 - 30)));
     }
@@ -1046,7 +1102,7 @@ function renderDungeon() {
         i ? g.lineTo(x, y) : g.moveTo(x, y);
       }
       g.stroke();
-      g.font = '9px ui-monospace, monospace'; g.fillStyle = '#7de3c8';
+      g.font = '9px DungGeunMo, ui-monospace, monospace'; g.fillStyle = '#7de3c8';
       f.chars.forEach(c => g.fillText(c.c, f.x + c.dx * (1 - k), f.y + c.dy * (1 - k)));
       g.restore();
     }
@@ -1077,7 +1133,7 @@ function drawDoors() {
       g.beginPath(); g.arc(c[0], c[1] - 4, 4, Math.PI, 0); g.stroke();
       g.fillStyle = '#15141b'; g.fillRect(c[0] - 1, c[1], 2, 4);
       if (dr.lock === 'keys') {
-        g.fillStyle = '#e3b23c'; g.font = 'bold 7px ui-monospace, monospace';
+        g.fillStyle = '#e3b23c'; g.font = 'bold 7px DungGeunMo, ui-monospace, monospace';
         g.textAlign = 'center'; g.fillText(`${G.doorKeys}/2`, c[0], c[1] + 16);
       }
     } else {
@@ -1347,12 +1403,17 @@ function renderFall() {
 function beginEnding() {
   G.mode = 'ending';
   stopRun();                                   // 여기서 시계를 멈춥니다
-  const ms = RUN.elapsed;
-  const prevBest = loadRecords()[0];
-  const list = saveRecord(ms);
-  $('cleartime').textContent = fmtTime(ms);
-  $('recordtag').classList.toggle('hidden', !(prevBest === undefined || ms < prevBest));
-  fillList($('records'), list.slice(0, 3), ms);   // 엔드 카드에는 상위 3개만
+
+  // 타임어택으로 깬 판만 기록에 남깁니다 (일반 모드는 시계 자체가 없습니다)
+  $('endcard').classList.toggle('casual', !G.timeAttack);
+  if (G.timeAttack) {
+    const ms = RUN.elapsed;
+    const prevBest = loadRecords()[0];
+    const list = saveRecord(ms);
+    $('cleartime').textContent = fmtTime(ms);
+    $('recordtag').classList.toggle('hidden', !(prevBest === undefined || ms < prevBest));
+    fillList($('records'), list.slice(0, 3), ms);   // 엔드 카드에는 상위 3개만
+  }
 
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
@@ -1409,6 +1470,7 @@ function loop() {
 
 /* 디버그용 (개발/테스트 편의) */
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+                  startGame, openModeSelect, closeModeSelect, retry, respawn, hurt,
                   resetRun, loadRecords, fmtTime,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
