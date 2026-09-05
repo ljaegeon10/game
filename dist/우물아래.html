@@ -287,13 +287,13 @@ html,body{
   font-size:11px; letter-spacing:.08em; line-height:1.7;
 }
 
-/* 글자 하나하나가 잘게 위아래로 떨립니다. 글자마다 위상을 어긋나게 줘서
-   (JS 가 animation-delay 를 음수로 넣습니다) 문장 전체가 물결처럼 일렁입니다.
-   픽셀 글꼴이라 정수 픽셀 단위로 툭툭 끊어 움직여야 흐릿해지지 않습니다. */
-#subtext .ch{
-  display:inline-block;
-  animation:chJitter .66s steps(1) infinite;
-}
+/* 평소 글자는 얌전히 있습니다. 떨림은 아래 강조 구절에만 겁니다 —
+   전부 떨면 어디가 중요한지 묻히기 때문입니다. */
+#subtext .ch{ display:inline-block; }
+
+/* 글자마다 위상을 어긋나게 줘서(JS 가 animation-delay 를 음수로 넣습니다)
+   강조 구절이 물결처럼 일렁입니다. 픽셀 글꼴이라 정수 픽셀 단위로 툭툭
+   끊어 움직여야 흐릿해지지 않습니다. */
 @keyframes chJitter{
   0%  { transform:translateY(-1px); }
   25% { transform:translateY(0); }
