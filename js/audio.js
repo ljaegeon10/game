@@ -118,21 +118,36 @@ const Sfx = (() => {
       noise(0.1, 0.14, 1200, 7000);
     },
 
-    /* 엔딩의 지속 기계음 (삐——) */
+    /* 엔딩으로 넘어갈 때 깔리는 낮은 드론음.
+       (예전엔 병원 모니터의 날카로운 "삐——" 였는데, 너무 신경을 긁어서
+       가라앉듯 웅웅거리는 저음 두 겹 + 아주 느린 너울로 바꿨습니다.) */
     flatline(on) {
       const c = ctx();
       if (on) {
         if (api._fl) return;
-        const o = c.createOscillator(), g = c.createGain();
-        o.type = 'sine'; o.frequency.value = 1000;
-        g.gain.setValueAtTime(0.0001, c.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.28, c.currentTime + 0.35);
-        o.connect(g); g.connect(master); o.start();
-        api._fl = { o, g };
+        const t = c.currentTime;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.22, t + 1.4);
+
+        const o1 = c.createOscillator(), o2 = c.createOscillator();
+        o1.type = 'sine'; o1.frequency.value = 54;
+        o2.type = 'sine'; o2.frequency.value = 57;      // 살짝 어긋나 은은하게 울립니다
+
+        // 아주 느리게 숨 쉬듯 커졌다 작아지는 너울
+        const lfo = c.createOscillator(), lfoGain = c.createGain();
+        lfo.type = 'sine'; lfo.frequency.value = 0.12;
+        lfoGain.gain.value = 0.06;
+        lfo.connect(lfoGain); lfoGain.connect(g.gain);
+        lfo.start();
+
+        o1.connect(g); o2.connect(g); g.connect(master);
+        o1.start(); o2.start();
+        api._fl = { nodes: [o1, o2, lfo], g };
       } else if (api._fl) {
-        const { o, g } = api._fl;
-        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.2);
-        o.stop(c.currentTime + 1.4);
+        const { nodes, g } = api._fl;
+        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.6);
+        nodes.forEach(n => n.stop(c.currentTime + 1.8));
         api._fl = null;
       }
     },
