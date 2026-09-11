@@ -3463,10 +3463,12 @@ function interact() {
   if (nearOldTree()) { openDoc(); return; }
   if (nearWell() && !G.wellUsed) {
     G.wellUsed = true;
+    $('prompt').classList.add('hidden');   // 대사·추락 내내 상호작용 프롬프트가 남아있지 않도록
     say(FALL_LINES, () => {
       G.mode = 'fall'; G.fallT = 0; G.shake = 7;
       Sfx.fall(); Sfx.ambientStop();
-      Sfx.dungeonBgm(true);   // 두둥 — 던전 탐사 브금 시작 (보스방 직전까지)
+      // "두둥" 은 여기서 바로 터뜨리지 않습니다 — 검은 화면을 잠깐 붙잡아 뒀다가
+      // 풀리는 순간에 맞춰 터뜨립니다 (update() 의 FALL_BLACK 지점 참고)
     });
     return;
   }
@@ -3769,7 +3771,16 @@ function update() {
     return;
   }
   if (G.mode === 'doc') return;   // 서류를 보는 동안은 시간이 멈춥니다
-  if (G.mode === 'fall') { G.fallT++; if (G.fallT > 168) loadRoom('start', 'W'); return; }
+  if (G.mode === 'fall') {
+    G.fallT++;
+    // 검은 화면이 풀리는 순간 — 우물 속 통로가 드러나며 브금의 "두둥"이 터집니다
+    if (G.fallT === FALL_BLACK) {
+      Sfx.dungeonBgm(true);
+      G.shake = Math.max(G.shake, 9); G.flash = Math.max(G.flash, .6);
+    }
+    if (G.fallT > FALL_BLACK + FALL_REVEAL) loadRoom('start', 'W');
+    return;
+  }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
     tickFx();
@@ -4844,10 +4855,26 @@ function drawBoss() {
 /* ── 추락 ──────────────────────────────────────────── */
 /* 우물 추락 연출 — 화면 중앙으로 빨려 들어가는 소용돌이 우물 통로.
    지상 배경(renderForest)이 이미 그려진 위에, 안쪽으로 좁아지는 돌벽
-   고리들 + 회전하는 잔상 줄무늬 + 점점 작아지며 구르는 주인공을 겹칩니다. */
+   고리들 + 회전하는 잔상 줄무늬 + 점점 작아지며 구르는 주인공을 겹칩니다.
+
+   두 단계로 나뉩니다 —
+   ① FALL_BLACK  : 완전한 암전을 잠깐 붙잡아 둡니다. 떨어지는 소리만 들리고
+                    아무것도 보이지 않는 순간 ("우물 안으로 들어섰다"는 느낌).
+   ② FALL_REVEAL : 화면이 풀리면서 소용돌이 통로가 드러납니다. 이 풀리는
+                    순간에 브금의 "두둥" 이 정확히 겹치도록 update() 에서
+                    맞춰 둡니다. 예전(168프레임)보다 살짝 느리게 드러나도록
+                    늘렸습니다. */
+const FALL_BLACK = 26;
+const FALL_REVEAL = 185;
+
 function renderFall() {
-  const dur = 168;
-  const t = G.fallT, k = t / dur;
+  if (G.fallT < FALL_BLACK) {
+    // 암전을 붙잡아 두는 동안은 아무것도 그리지 않습니다
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    return;
+  }
+  const dur = FALL_REVEAL;
+  const t = G.fallT - FALL_BLACK, k = t / dur;
   const cx = W / 2, cy = H / 2 - 6;
   g.save();
 
@@ -4861,6 +4888,19 @@ function renderFall() {
   vg.addColorStop(1, `rgb(${34 - k * 26 | 0},${28 - k * 22 | 0},${24 - k * 18 | 0})`);
   g.fillStyle = vg;
   g.fillRect(0, 0, W, H);
+
+  // 1.5) 암전이 "풀리는" 순간 — 브금의 두둥과 겹치는 짧은 섬광
+  if (t < 14) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = (1 - t / 14) * .55;
+    const fg = g.createRadialGradient(cx, cy, 0, cx, cy, 200);
+    fg.addColorStop(0, 'rgba(150,128,88,.9)');
+    fg.addColorStop(1, 'rgba(150,128,88,0)');
+    g.fillStyle = fg;
+    g.fillRect(0, 0, W, H);
+    g.restore();
+  }
 
   // 2) 우물 안쪽 돌벽 — 고리가 계속 태어나 화면 밖으로 커지며 지나갑니다
   const spin = k * 2.2;
