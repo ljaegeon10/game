@@ -313,6 +313,7 @@ function startGame(timeAttack = true) {
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
   Sfx.unlock();
+  Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
   else { RUN.running = false; RUN.elapsed = 0; }
   loadForest();
@@ -331,6 +332,7 @@ function respawn() {
   G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
   G.flash = 0; G.shake = 0; G.glare = 0;
   P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames; P.slow = 0;
+  Sfx.dungeonBgmDuck(false);   // 보스전 전이라면 브금 볼륨을 되돌립니다 (보스전엔 이미 꺼져 있어 무해)
   updateHud();
   if (G.room) loadRoom(G.room, 'W');
   else loadForest();
@@ -349,7 +351,7 @@ function resetRun() {
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
   RUN.elapsed = 0;
   ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
-  Sfx.ambientStop();
+  Sfx.ambientStop(); Sfx.dungeonBgm(false);
   setDate(0); updateHud(); updateTimer();
   renderBestTimes();
   $('modesel').classList.add('hidden');
@@ -555,6 +557,7 @@ function queueBoss() {
   glare(1);
   G.rings = [];
   Sfx.ambientStop();
+  Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
 }
 
 function makeBoss() {
@@ -632,7 +635,11 @@ function interact() {
   if (nearOldTree()) { openDoc(); return; }
   if (nearWell() && !G.wellUsed) {
     G.wellUsed = true;
-    say(FALL_LINES, () => { G.mode = 'fall'; G.fallT = 0; G.shake = 7; Sfx.fall(); Sfx.ambientStop(); });
+    say(FALL_LINES, () => {
+      G.mode = 'fall'; G.fallT = 0; G.shake = 7;
+      Sfx.fall(); Sfx.ambientStop();
+      Sfx.dungeonBgm(true);   // 두둥 — 던전 탐사 브금 시작 (보스방 직전까지)
+    });
     return;
   }
   if (nearChest()) {
@@ -858,7 +865,7 @@ function hurt(n) {
     $('dead').classList.toggle('casual', !G.timeAttack);
     $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : '이어서 다시 (R)';
     $('dead').classList.remove('hidden');
-    Sfx.flatline(true);
+    Sfx.flatline(true); Sfx.dungeonBgmDuck(true);   // 플랫라인 비프가 묻히지 않도록 브금을 낮춥니다
     setTimeout(() => Sfx.flatline(false), 1400);
   }
 }
@@ -2113,7 +2120,7 @@ function beginEnding() {
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('ending').classList.remove('hidden');
-  Sfx.ambientStop(); Sfx.flatline(true);
+  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.flatline(true);
   $('blackout').classList.add('on');
   G.flash = 1;
   setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);

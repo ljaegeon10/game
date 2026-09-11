@@ -206,6 +206,68 @@ const Sfx = (() => {
       tone(44, 1.2, 'sine', 0.40, 28);
     },
 
+    /* ── 던전 탐사 브금 (우물 낙하 ~ 보스전 직전) ────────────
+       받은 음원(SANABI OST)을 그대로, MP3 프레임 단위로 잘라 넣었습니다
+       (재인코딩 없음). 잘라낸 시작점은 곡의 첫 "두둥" 타격 바로 앞이라,
+       우물로 떨어지는 순간 재생을 시작하면 그 타격이 거의 동시에 터집니다.
+       탐사 중에는 후렴이 시작되는 지점(원곡 54.343s)부터 다음 순환이
+       같은 위상으로 돌아오는 지점(원곡 118.338s, 정확히 64.000s 뒤)까지를
+       반복합니다 — 두 지점 모두 다음 타격이 오기 30ms 전이라 이어 붙인
+       자리가 들리지 않습니다. 보스방에 들어서면 멈춥니다. */
+    preloadDungeonBgm() {
+      if (api._dgBuf || api._dgLoading || typeof DUNGEON_BGM_B64 === 'undefined') return;
+      api._dgLoading = true;
+      const c = ctx();
+      const bin = atob(DUNGEON_BGM_B64);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      c.decodeAudioData(u8.buffer,
+        buf => { api._dgBuf = buf; api._dgLoading = false; if (api._dgWant) api.dungeonBgm(true); },
+        ()  => { api._dgLoading = false; });
+    },
+
+    dungeonBgm(on) {
+      const c = ctx();
+      if (on) {
+        api._dgWant = true;
+        if (api._dg) return;
+        if (!api._dgBuf) { api.preloadDungeonBgm(); return; }   // 디코딩 끝나면 자동 재생
+        const t = c.currentTime;
+        const src = c.createBufferSource();
+        src.buffer = api._dgBuf;
+        src.loop = true;
+        src.loopStart = 48.079;   // 원곡 54.343s (후렴 시작)
+        src.loopEnd = 112.074;    // 원곡 118.338s (같은 위상으로 되돌아오는 지점)
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 9500; lp.Q.value = 0.6;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.32, t + 0.35);
+        src.connect(lp); lp.connect(g); g.connect(master);
+        src.start(t, 0);
+        api._dg = { src, g };
+      } else {
+        api._dgWant = false;
+        if (!api._dg) return;
+        const { src, g } = api._dg; api._dg = null;
+        try {
+          g.gain.cancelScheduledValues(c.currentTime);
+          g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), c.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.4);
+          src.stop(c.currentTime + 1.6);
+        } catch (e) {}
+      }
+    },
+
+    /* 사망 화면 동안 살짝 낮췄다가 되돌립니다 (플랫라인 비프가 묻히지 않도록) */
+    dungeonBgmDuck(down) {
+      if (!api._dg) return;
+      const c = ctx(), g = api._dg.g;
+      g.gain.cancelScheduledValues(c.currentTime);
+      g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), c.currentTime);
+      g.gain.exponentialRampToValueAtTime(down ? 0.07 : 0.32, c.currentTime + (down ? 0.4 : 0.9));
+    },
+
     /* ── 배경 앰비언스 ─────────────────────────────────── */
     ambient(kind) {
       const c = ctx();
