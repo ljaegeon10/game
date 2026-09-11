@@ -1582,21 +1582,25 @@ const Sfx = (() => {
   let ac = null, master = null, ambGain = null, amb = [], started = false;
 
   function ctx() {
-    if (!ac) {
-      ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain();
-      master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
-      // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
-      const comp = ac.createDynamicsCompressor();
-      comp.threshold.value = -10;
-      comp.knee.value = 18;
-      comp.ratio.value = 14;
-      comp.attack.value = 0.002;
-      comp.release.value = 0.18;
-      master.connect(comp);
-      comp.connect(ac.destination);
-    }
-    if (ac.state === 'suspended') ac.resume();
+    // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
+    // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
+    try {
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain();
+        master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
+        const comp = ac.createDynamicsCompressor();
+        comp.threshold.value = -10;
+        comp.knee.value = 18;
+        comp.ratio.value = 14;
+        comp.attack.value = 0.002;
+        comp.release.value = 0.18;
+        master.connect(comp);
+        comp.connect(ac.destination);
+      }
+      if (ac.state === 'suspended') ac.resume();
+    } catch (e) { /* 소리 없이도 게임은 계속됩니다 */ }
     return ac;
   }
 
@@ -2866,6 +2870,17 @@ function fit() {
 window.addEventListener('resize', fit);
 
 /* ── 입력 ───────────────────────────────────────────────── */
+/* 아티팩트(iframe)처럼 페이지가 삽입되어 있는 경우, 로드 직후엔 이 문서에
+   키보드 포커스가 가 있지 않아 스페이스/방향키가 아예 씹힐 수 있습니다.
+   그래서 로드되자마자 한 번, 그리고 어디를 클릭하든 매번 이 문서로
+   포커스를 되돌려 둡니다. */
+try { window.focus(); } catch (e) {}
+document.body.tabIndex = -1;
+document.body.style.outline = 'none';
+const reclaimFocus = () => { try { window.focus(); document.body.focus({ preventScroll: true }); } catch (e) {} };
+addEventListener('pointerdown', reclaimFocus, { capture: true });
+addEventListener('load', reclaimFocus);
+
 const key = {};
 const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 let mouse = { x: 0, y: 0, down: false };

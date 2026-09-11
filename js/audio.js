@@ -7,21 +7,25 @@ const Sfx = (() => {
   let ac = null, master = null, ambGain = null, amb = [], started = false;
 
   function ctx() {
-    if (!ac) {
-      ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain();
-      master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
-      // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
-      const comp = ac.createDynamicsCompressor();
-      comp.threshold.value = -10;
-      comp.knee.value = 18;
-      comp.ratio.value = 14;
-      comp.attack.value = 0.002;
-      comp.release.value = 0.18;
-      master.connect(comp);
-      comp.connect(ac.destination);
-    }
-    if (ac.state === 'suspended') ac.resume();
+    // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
+    // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
+    try {
+      if (!ac) {
+        ac = new (window.AudioContext || window.webkitAudioContext)();
+        master = ac.createGain();
+        master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
+        const comp = ac.createDynamicsCompressor();
+        comp.threshold.value = -10;
+        comp.knee.value = 18;
+        comp.ratio.value = 14;
+        comp.attack.value = 0.002;
+        comp.release.value = 0.18;
+        master.connect(comp);
+        comp.connect(ac.destination);
+      }
+      if (ac.state === 'suspended') ac.resume();
+    } catch (e) { /* 소리 없이도 게임은 계속됩니다 */ }
     return ac;
   }
 

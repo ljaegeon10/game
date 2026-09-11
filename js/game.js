@@ -29,6 +29,17 @@ function fit() {
 window.addEventListener('resize', fit);
 
 /* ── 입력 ───────────────────────────────────────────────── */
+/* 아티팩트(iframe)처럼 페이지가 삽입되어 있는 경우, 로드 직후엔 이 문서에
+   키보드 포커스가 가 있지 않아 스페이스/방향키가 아예 씹힐 수 있습니다.
+   그래서 로드되자마자 한 번, 그리고 어디를 클릭하든 매번 이 문서로
+   포커스를 되돌려 둡니다. */
+try { window.focus(); } catch (e) {}
+document.body.tabIndex = -1;
+document.body.style.outline = 'none';
+const reclaimFocus = () => { try { window.focus(); document.body.focus({ preventScroll: true }); } catch (e) {} };
+addEventListener('pointerdown', reclaimFocus, { capture: true });
+addEventListener('load', reclaimFocus);
+
 const key = {};
 const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 let mouse = { x: 0, y: 0, down: false };
