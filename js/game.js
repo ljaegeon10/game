@@ -73,7 +73,7 @@ const G = {
   visited: new Set(),
   st: {},               // 방별 저장 상태
   floor: null, depth: 1,
-  bullets: [], foes: [], fx: [], pickups: [], pots: [],
+  bullets: [], foes: [], fx: [], pickups: [], pots: [], clouds: [],
   chest: null, floorKey: null, boss: null,
   doors: {},            // { N:{open,locked}, ... }
   well: { x: 446, y: 152, glow: 0 },
@@ -87,7 +87,7 @@ const P = {
   x: 60, y: H / 2, r: 10,
   hp: BALANCE.playerHp, max: BALANCE.playerHp,
   dir: 'down', anim: 0,
-  fireCd: 0, inv: 0, walkPhase: 0, walkAmt: 0, stepT: 0, dead: false
+  fireCd: 0, inv: 0, slow: 0, walkPhase: 0, walkAmt: 0, stepT: 0, dead: false
 };
 
 /* ═══════════ 타임어택 ══════════════════════════════════
@@ -322,9 +322,9 @@ function retry() {
 function respawn() {
   $('dead').classList.add('hidden');
   ['subtitle', 'prompt', 'noteoverlay'].forEach(id => $(id).classList.add('hidden'));
-  G.bullets = []; G.fx = []; G.pickups = [];
+  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = [];
   G.flash = 0; G.shake = 0;
-  P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames;
+  P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames; P.slow = 0;
   updateHud();
   if (G.room) loadRoom(G.room, 'W');
   else loadForest();
@@ -335,10 +335,10 @@ function resetRun() {
   stopRun();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
-  G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
+  G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
-  P.hp = P.max; P.dead = false; P.inv = 0;
+  P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
   RUN.elapsed = 0;
   ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
   Sfx.ambientStop();
@@ -360,9 +360,9 @@ $('againbtn').addEventListener('click', () => location.reload());
 /* ═══════════ 지상 ═════════════════════════════════════ */
 function loadForest() {
   G.inForest = true; G.room = null; G.depth = 0;
-  G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = [];
+  G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
-  P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
+  P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
   G.floor = bakeForest(W, H, TS);
   G.butterflies = Array.from({ length: 7 }, () => ({
@@ -419,9 +419,9 @@ function stateOf(id) {
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
-  G.bullets = []; G.fx = []; G.pickups = [];
+  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = [];
   G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
-  P.inv = 40; P.dead = false;
+  P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
   G.floor = bakeDungeonFloor(W, H, TS, hash(id), r.depth);
@@ -473,15 +473,44 @@ function setDate(i) {
 }
 
 /* ═══════════ 적 ═══════════════════════════════════════ */
+/* 몹 종류별 기본값 — r(크기) · hp · sp(속도) · hue(색조) · eye(눈빛) */
+const FOE = {
+  shroom:   { r: 12, hp: 'shroomHp',   sp: 'shroomSpeed',   hue: 0,   eye: '#ff5330' },
+  spitter:  { r: 13, hp: 'spitterHp',  sp: 'spitterSpeed',  hue: 85,  eye: '#8de08a' },
+  sporer:   { r: 13, hp: 'sporerHp',   sp: 'sporerSpeed',   hue: 42,  eye: '#e8e06a' },
+  splitter: { r: 14, hp: 'splitterHp', sp: 'splitterSpeed', hue: 255, eye: '#c79bff' },
+  mini:     { r:  8, hp: 'miniHp',     sp: 'miniSpeed',     hue: 255, eye: '#c79bff' },
+  charger:  { r: 13, hp: 'chargerHp',  sp: 'chargerSpeed',  hue: 330, eye: '#ff9a4d' },
+  blinker:  { r: 12, hp: 'blinkerHp',  sp: 'blinkerSpeed',  hue: 160, eye: '#7de3c8' }
+};
+
 function spawnFoe(type, x, y) {
-  const b = BALANCE;
+  const d = FOE[type] || FOE.shroom;
   G.foes.push({
-    type, x, y, r: type === 'spitter' ? 13 : 12,
-    hp: type === 'spitter' ? b.spitterHp : b.shroomHp,
-    sp: type === 'spitter' ? b.spitterSpeed : b.shroomSpeed,
+    type, x, y, r: d.r,
+    hp: BALANCE[d.hp], sp: BALANCE[d.sp],
     cd: 40 + Math.random() * 90,
+    wind: 0, dash: 0, dvx: 0, dvy: 0, warp: 0,
     flash: 0, kx: 0, ky: 0, bob: Math.random() * 6.28
   });
+}
+
+/* 몹이 죽을 때 — 분열체만 새끼를 남깁니다 */
+function killFoe(f) {
+  f.dead = true;
+  glitchDeath(f.x, f.y, false);
+  if (f.type === 'splitter') {
+    for (const sd of [-1, 1]) {
+      const nx = Math.max(TS + 12, Math.min(W - TS - 12, f.x + sd * 13));
+      const ny = Math.max(TS + 12, Math.min(H - TS - 12, f.y + 6));
+      spawnFoe('mini', nx, ny);
+    }
+  }
+}
+
+/* 포자 구름 — 안에 있으면 이동이 느려집니다 */
+function dropSpore(x, y) {
+  G.clouds.push({ x, y, r: 26, life: 210, max: 210, seed: Math.random() * 6.28 });
 }
 
 function queueBoss() {
@@ -744,7 +773,8 @@ function update() {
   }
   const ml = Math.hypot(mx, my);
   // 숲에서는 조금 더 느긋하게 걷습니다 (던전 전투 속도는 그대로 유지)
-  const spd = BALANCE.playerSpeed * (forest ? BALANCE.forestSpeedMult : 1);
+  const spd = BALANCE.playerSpeed * (forest ? BALANCE.forestSpeedMult : 1)
+            * (P.slow > 0 ? BALANCE.slowMult : 1);   // 포자에 닿으면 느려집니다
   if (ml) {
     P.x += mx / ml * spd;
     P.y += my / ml * spd;
@@ -789,9 +819,10 @@ function update() {
     }
     if (b.mine) {
       for (const f of G.foes) {
+        if (f.warp) continue;                      // 점멸 중에는 맞지 않습니다
         if (Math.hypot(b.x - f.x, b.y - f.y) < f.r + b.r) {
           damageFoe(f, BALANCE.bulletDmg, b.vx, b.vy);
-          if (f.hp <= 0) { f.dead = true; glitchDeath(f.x, f.y, false); }
+          if (f.hp <= 0) killFoe(f);
           return false;
         }
       }
@@ -831,16 +862,64 @@ function update() {
     f.kx *= .78; f.ky *= .78;
     const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1;
     if (f.type === 'spitter') {
+      // 거리를 재며 침을 뱉습니다
       if (d < 120) { f.x -= dx / d * f.sp; f.y -= dy / d * f.sp; }
       else { f.x += dx / d * f.sp * .5; f.y += dy / d * f.sp * .5; }
       if (--f.cd <= 0) { f.cd = BALANCE.spitterCd; foeShot(f.x, f.y, dx, dy, BALANCE.spore); }
+
+    } else if (f.type === 'sporer') {
+      // 느릿하게 따라오며 지나간 자리에 포자를 흘립니다
+      f.x += dx / d * f.sp; f.y += dy / d * f.sp;
+      if (--f.cd <= 0) { f.cd = BALANCE.sporerCd; dropSpore(f.x, f.y); Sfx.pot(); }
+
+    } else if (f.type === 'charger') {
+      if (f.dash > 0) {                       // 돌진 중 — 직선으로 튀어 나갑니다
+        f.x += f.dvx; f.y += f.dvy;
+        f.dash--;
+        if (f.x <= TS + f.r || f.x >= W - TS - f.r ||
+            f.y <= TS + f.r || f.y >= H - TS - f.r) f.dash = 0;
+      } else if (f.wind > 0) {                // 예비 동작 — 피할 시간을 줍니다
+        if (--f.wind === 0) {
+          const l = Math.hypot(dx, dy) || 1;
+          f.dvx = dx / l * BALANCE.chargerDash;
+          f.dvy = dy / l * BALANCE.chargerDash;
+          f.dash = 20; Sfx.bossRoar();
+        }
+      } else {
+        f.x += dx / d * f.sp; f.y += dy / d * f.sp;
+        if (--f.cd <= 0 && d < 190) { f.cd = BALANCE.chargerCd; f.wind = BALANCE.chargerWind; }
+      }
+
+    } else if (f.type === 'blinker') {
+      if (f.warp > 0) {                       // 사라졌다 나타나는 중
+        if (--f.warp === 0) {
+          const a = Math.random() * Math.PI * 2, rr = 52 + Math.random() * 26;
+          f.x = Math.max(TS + f.r, Math.min(W - TS - f.r, P.x + Math.cos(a) * rr));
+          f.y = Math.max(TS + f.r, Math.min(H - TS - f.r, P.y + Math.sin(a) * rr));
+          glitchDeath(f.x, f.y, false);
+        }
+      } else {
+        f.x += dx / d * f.sp; f.y += dy / d * f.sp;
+        if (--f.cd <= 0) { f.cd = BALANCE.blinkerCd; f.warp = 26; glitchDeath(f.x, f.y, false); }
+      }
+
     } else {
       f.x += dx / d * f.sp; f.y += dy / d * f.sp;
     }
     f.x = Math.max(TS + f.r, Math.min(W - TS - f.r, f.x));
     f.y = Math.max(TS + f.r, Math.min(H - TS - f.r, f.y));
-    if (d < f.r + P.r - 2) hurt(1);
+    // 점멸 중(사라진 상태)에는 부딪히지 않습니다
+    if (!f.warp && d < f.r + P.r - 2) hurt(1);
   });
+
+  /* ── 포자 구름 ─────────────────────────────────────── */
+  G.clouds = G.clouds.filter(c => {
+    c.life--;
+    const rr = c.r * (0.55 + (1 - c.life / c.max) * 0.45);   // 시간이 지날수록 퍼집니다
+    if (Math.hypot(P.x - c.x, P.y - c.y) < rr) P.slow = BALANCE.slowFrames;
+    return c.life > 0;
+  });
+  if (P.slow > 0) P.slow--;
   if (had && !G.foes.length) onRoomCleared();
 
   if (G.boss) updateBoss();
@@ -1138,6 +1217,7 @@ function renderDungeon() {
     g.restore();
   }
 
+  drawClouds();
   G.foes.forEach(drawFoe);
   if (G.boss) drawBoss();
   drawPlayer();
@@ -1196,6 +1276,17 @@ function renderDungeon() {
       g.restore();
     }
   });
+
+  // 포자에 닿아 느려진 동안은 화면 가장자리가 누렇게 물듭니다
+  if (P.slow > 0) {
+    g.save();
+    g.globalAlpha = Math.min(1, P.slow / BALANCE.slowFrames) * .5;
+    const sg = g.createRadialGradient(P.x, P.y, 30, P.x, P.y, W * .55);
+    sg.addColorStop(0, 'rgba(190,180,70,0)');
+    sg.addColorStop(1, 'rgba(170,160,60,.55)');
+    g.fillStyle = sg; g.fillRect(0, 0, W, H);
+    g.restore();
+  }
 
   // 어둠 — 주인공 주변만 밝다
   drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);
@@ -1399,34 +1490,98 @@ function drawPlayer() {
   g.restore();
 }
 
-function drawFoe(f) {
-  const bob = Math.sin(f.bob) * 2;
-  const s = f.type === 'spitter' ? 30 : 26;
-  const eyeC = f.type === 'spitter' ? '#8de08a' : '#ff5330';
-  g.save();
-  g.fillStyle = 'rgba(0,0,0,.4)';
-  g.beginPath(); g.ellipse(f.x, f.y + 11, 10, 4, 0, 0, Math.PI * 2); g.fill();
+/* 포자 구름 — 노르스름한 홀씨가 뭉게뭉게 퍼집니다 */
+function drawClouds() {
+  G.clouds.forEach(c => {
+    const k = c.life / c.max;
+    const rr = c.r * (0.55 + (1 - k) * 0.45);
+    const fade = Math.min(1, k * 3);             // 사라질 때만 옅어집니다
+    g.save();
+    // 어두운 던전에서도 눈에 띄도록 발광 합성으로 얹습니다
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .62 * fade;
+    const cg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, rr);
+    cg.addColorStop(0, 'rgba(226,214,120,.95)');
+    cg.addColorStop(.55, 'rgba(170,158,70,.55)');
+    cg.addColorStop(1, 'rgba(120,110,50,0)');
+    g.fillStyle = cg;
+    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.fill();
+    // 가장자리 테두리 — 범위를 분명히 알 수 있게
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = .38 * fade;
+    g.strokeStyle = '#cdc06a'; g.lineWidth = 1;
+    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.stroke();
+    // 떠다니는 홀씨
+    g.globalAlpha = .75 * fade;
+    g.fillStyle = '#e4dc8c';
+    for (let i = 0; i < 6; i++) {
+      const a = c.seed + i * 1.05 + G.t * .012;
+      const d = rr * (.3 + (i % 3) * .22);
+      g.fillRect((c.x + Math.cos(a) * d) | 0, (c.y + Math.sin(a * 1.3) * d * .7) | 0, 2, 2);
+    }
+    g.restore();
+  });
+}
 
-  g.globalAlpha = .5 + Math.sin(f.bob * .7) * .12;
+const FOE_GLOW = {
+  shroom: 'rgba(130,60,150,.30)', spitter: 'rgba(90,150,90,.30)',
+  sporer: 'rgba(180,170,60,.34)', splitter: 'rgba(140,80,210,.34)',
+  mini:   'rgba(140,80,210,.30)', charger: 'rgba(220,90,50,.34)',
+  blinker:'rgba(70,200,180,.34)'
+};
+
+function drawFoe(f) {
+  const dfn = FOE[f.type] || FOE.shroom;
+  const bob = Math.sin(f.bob) * 2;
+  const s = f.type === 'mini' ? 18 : f.type === 'splitter' ? 32 : f.type === 'shroom' ? 26 : 30;
+  const eyeC = dfn.eye;
+
+  // 점멸체는 사라지는 동안 반쯤 비칩니다
+  const warpK = f.warp ? Math.abs(Math.sin(f.warp * .32)) * .5 : 1;
+
+  g.save();
+  g.globalAlpha = warpK;
+  g.fillStyle = 'rgba(0,0,0,.4)';
+  g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill();
+
+  g.globalAlpha = (.5 + Math.sin(f.bob * .7) * .12) * warpK;
   const ag = g.createRadialGradient(f.x, f.y + 4, 2, f.x, f.y + 4, s * .8);
-  ag.addColorStop(0, f.type === 'spitter' ? 'rgba(90,150,90,.30)' : 'rgba(130,60,150,.30)');
+  ag.addColorStop(0, FOE_GLOW[f.type] || FOE_GLOW.shroom);
   ag.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = ag;
   g.beginPath(); g.arc(f.x, f.y + 4, s * .8, 0, Math.PI * 2); g.fill();
-  g.globalAlpha = 1;
+  g.globalAlpha = warpK;
+
+  // 돌진체 : 웅크리는 동안 붉은 고리가 조여듭니다 (피할 신호)
+  if (f.wind > 0) {
+    const k = 1 - f.wind / BALANCE.chargerWind;
+    g.save();
+    g.globalAlpha = .35 + k * .5;
+    g.strokeStyle = '#ff7a45'; g.lineWidth = 1.6;
+    g.beginPath(); g.arc(f.x, f.y + 2, 30 - k * 16, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
 
   // 피격 중에는 주인공처럼 깜빡인다
-  if (f.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .45;
+  if (f.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .45 * warpK;
 
   g.translate(f.x, f.y + bob);
-  if (f.type === 'spitter') g.filter = 'hue-rotate(85deg) saturate(1.5) brightness(.92)';
+  // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
+  if (f.wind > 0) { const k = 1 - f.wind / BALANCE.chargerWind; g.scale(1 + k * .18, 1 - k * .14); }
+  if (dfn.hue) g.filter = `hue-rotate(${dfn.hue}deg) saturate(1.5) brightness(.92)`;
   if (IMG.mob) g.drawImage(IMG.mob, -s / 2, -s / 2 - 2, s, s);
   else { g.fillStyle = '#4a4055'; g.fillRect(-10, -10, 20, 20); }
   g.filter = 'none';
 
+  // 분열체 : 몸통에 갈라질 금이 가 있습니다
+  if (f.type === 'splitter') {
+    g.strokeStyle = 'rgba(20,10,30,.65)'; g.lineWidth = 1.4;
+    g.beginPath(); g.moveTo(0, -s / 2); g.lineTo(-2, 0); g.lineTo(1, s / 2 - 2); g.stroke();
+  }
+
   const ex = s * .155, ey = s * .105;
   g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = .75 + Math.sin(G.t * .07 + f.bob) * .25;
+  g.globalAlpha = (.75 + Math.sin(G.t * .07 + f.bob) * .25) * warpK;
   g.fillStyle = eyeC;
   [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * ex, ey, 2.4, 0, Math.PI * 2); g.fill(); });
   if (f.flash > 0) {

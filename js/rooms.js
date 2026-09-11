@@ -31,6 +31,33 @@ const BALANCE = {
   spitterCd:     138,
   spore:         1.5,
 
+  /* ── 추가 몹 ──────────────────────────────────────────────
+     포자충 : 느릿하게 다가오며 발밑에 포자 구름을 흘립니다.
+              구름 안에 있으면 이동 속도가 확 떨어집니다.
+     분열체 : 죽으면 작고 빠른 새끼 둘로 쪼개집니다.
+     돌진체 : 잠깐 웅크렸다가(예비 동작) 직선으로 튀어 나옵니다.
+     점멸체 : 주기적으로 사라졌다 주인공 옆에 다시 나타납니다. */
+  sporerHp:      3,
+  sporerSpeed:   0.34,
+  sporerCd:      124,     // 포자를 흘리는 간격
+  slowFrames:    96,      // 포자를 밟았을 때 느려지는 시간
+  slowMult:      0.42,    // 느려지는 정도
+
+  splitterHp:    4,
+  splitterSpeed: 0.52,
+  miniHp:        1,
+  miniSpeed:     1.22,
+
+  chargerHp:     4,
+  chargerSpeed:  0.30,
+  chargerCd:     132,     // 돌진 간격
+  chargerWind:   34,      // 예비 동작 길이 (피할 시간)
+  chargerDash:   6.0,     // 돌진 속도
+
+  blinkerHp:     3,
+  blinkerSpeed:  0.26,
+  blinkerCd:     150,     // 점멸 간격
+
   knockback:     7.5,    // 몹이 맞았을 때 밀려나는 거리
   foeFlash:      9,      // 몹 피격 깜빡임 프레임
 
@@ -106,7 +133,7 @@ const MAP = {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
     intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
     enemies: [
-      { t: 'shroom', x: 132, y: 100 }, { t: 'shroom', x: 444, y: 100 },
+      { t: 'shroom', x: 132, y: 100 }, { t: 'charger', x: 444, y: 100 },
       { t: 'shroom', x: 288, y: 240 }, { t: 'spitter', x: 456, y: 220 }
     ],
     pots: [{ x: 96, y: 240 }],
@@ -116,7 +143,7 @@ const MAP = {
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
     intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
-    enemies: [{ t: 'shroom', x: 144, y: 120 }, { t: 'spitter', x: 432, y: 210 }],
+    enemies: [{ t: 'shroom', x: 144, y: 120 }, { t: 'sporer', x: 432, y: 210 }],
     pots: [{ x: 480, y: 90 }],
     key: { x: 120, y: 240 },
     chest: { x: 288, y: 160, note: 'n1', heal: 1 }
@@ -126,7 +153,7 @@ const MAP = {
     gx: 2, gy: 1, depth: 3, name: '중앙',
     intro: [{ t: '세 갈래가 여기서 다시 만난다. 결국 같은 곳으로 돌아온 셈이다.', w: true }],
     enemies: [
-      { t: 'spitter', x: 144, y: 90 }, { t: 'spitter', x: 432, y: 240 },
+      { t: 'spitter', x: 144, y: 90 }, { t: 'blinker', x: 432, y: 240 },
       { t: 'shroom', x: 288, y: 90 }
     ],
     pots: [{ x: 108, y: 250 }, { x: 480, y: 90 }],
@@ -138,7 +165,7 @@ const MAP = {
     gx: 2, gy: 0, depth: 3, name: '북동 통로',
     intro: [{ t: '천장에서 뿌리가 내려와 있다. 여긴 더 오래 방치된 것 같다.', w: false }],
     enemies: [
-      { t: 'shroom', x: 144, y: 100 }, { t: 'shroom', x: 432, y: 100 },
+      { t: 'shroom', x: 144, y: 100 }, { t: 'splitter', x: 432, y: 100 },
       { t: 'shroom', x: 288, y: 230 }
     ],
     pots: [{ x: 288, y: 80 }],
@@ -150,7 +177,7 @@ const MAP = {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
     intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
     enemies: [
-      { t: 'spitter', x: 144, y: 100 }, { t: 'shroom', x: 432, y: 110 },
+      { t: 'sporer', x: 144, y: 100 }, { t: 'charger', x: 432, y: 110 },
       { t: 'shroom', x: 156, y: 240 }, { t: 'spitter', x: 444, y: 235 }
     ],
     pots: [{ x: 288, y: 250 }],
@@ -160,7 +187,7 @@ const MAP = {
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
     intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
-    enemies: [{ t: 'shroom', x: 180, y: 100 }, { t: 'shroom', x: 396, y: 220 }],
+    enemies: [{ t: 'splitter', x: 180, y: 100 }, { t: 'blinker', x: 396, y: 220 }],
     pots: [{ x: 108, y: 90 }, { x: 480, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
     chest: { x: 288, y: 250, note: 'n3', heal: 1 }
