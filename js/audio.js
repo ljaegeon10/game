@@ -152,6 +152,60 @@ const Sfx = (() => {
       }
     },
 
+    /* ── 이스터에그 ② : 관찰자가 끼어드는 장면 ──────────────
+       숲 밖으로 나가려 하면 숨어 있던 장비 소리가 전면에 나옵니다.
+       낮은 웅웅거림 + 아주 느린 맥놀이 + 위쪽에서 새는 금속성 배음. */
+    creepDrone(on) {
+      const c = ctx();
+      if (on) {
+        if (api._cd) return;
+        const t = c.currentTime;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.30, t + 1.1);
+
+        const o1 = c.createOscillator(), o2 = c.createOscillator(), o3 = c.createOscillator();
+        o1.type = 'sawtooth'; o1.frequency.value = 38;
+        o2.type = 'sine';     o2.frequency.value = 39.4;   // 1.4Hz 맥놀이 — 속이 울렁거리는 간격
+        o3.type = 'square';   o3.frequency.value = 1870;   // 형광등처럼 새는 고음
+        const hi = c.createGain(); hi.gain.value = 0.012;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+
+        o3.connect(hi); hi.connect(g);
+        o1.connect(lp); o2.connect(lp); lp.connect(g);
+        g.connect(master);
+        o1.start(); o2.start(); o3.start();
+        api._cd = { nodes: [o1, o2, o3], g };
+      } else if (api._cd) {
+        const { nodes, g } = api._cd;
+        g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.9);
+        nodes.forEach(n => n.stop(c.currentTime + 1.1));
+        api._cd = null;
+      }
+    },
+
+    /* 한 줄씩 찍히는 글씨 — 타자기보다 무전기에 가까운 소리 */
+    creepType() {
+      noise(0.05, 0.16, 1800, 7000);
+      tone(96, 0.10, 'square', 0.10, 62);
+    },
+
+    /* 점프스케어 — 비명 대신, 귀 바로 옆에서 장비가 터지는 소리 */
+    scream() {
+      const c = ctx(), t = c.currentTime;
+      [131, 139, 196, 208].forEach(f => {          // 일부러 어긋난 화음
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f * 3, t);
+        o.frequency.exponentialRampToValueAtTime(f, t + 0.9);
+        env(g, t, 0.004, 0.9, 0.26);
+        o.connect(g); g.connect(master);
+        o.start(t); o.stop(t + 1.0);
+      });
+      noise(0.9, 0.42, 200, 11000);
+      tone(44, 1.2, 'sine', 0.40, 28);
+    },
+
     /* ── 배경 앰비언스 ─────────────────────────────────── */
     ambient(kind) {
       const c = ctx();

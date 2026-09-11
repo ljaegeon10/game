@@ -150,6 +150,10 @@ html,body{
 #gatekeys{ color:#8fd3e8; }
 #keys .kicon, #gatekeys .kicon{ font-size:12px; }
 #keys.bump, #gatekeys.bump{ animation:heartpop .35s ease-out 1; }
+/* 관문 열쇠를 다 모으면 눈에 띄게 — "분명 2개 먹었는데" 를 없애기 위해 */
+#gatekeys.done{ color:var(--glow); }
+#gatekeys.done .kicon{ animation:gatelit 1.6s ease-in-out infinite; }
+@keyframes gatelit{ 0%,100%{ opacity:1 } 50%{ opacity:.45 } }
 
 #datebox{
   display:flex; align-items:baseline; gap:5px;
@@ -182,6 +186,23 @@ html,body{
   font-size:13px; font-weight:700; color:var(--hwang);
   letter-spacing:.06em; font-variant-numeric:tabular-nums;
 }
+
+/* ── 일반 모드 탐사 진행도 ─────────────────────────────── */
+#explorebox{
+  display:flex; align-items:baseline; gap:5px;
+  background:rgba(20,22,34,.85);
+  border:1px solid rgba(47,111,181,.45);
+  border-left:2px solid var(--cheong);
+  padding:2px 7px;
+  font-family:var(--font-ui);
+}
+#explorebox.hidden{ display:none; }
+#exploretext{
+  font-size:12px; font-weight:700; color:#9fc6ef;
+  letter-spacing:.06em; font-variant-numeric:tabular-nums;
+}
+#explorebox.done{ border-color:rgba(125,227,200,.6); border-left-color:var(--glow); }
+#explorebox.done #exploretext{ color:var(--glow); }
 
 /* ── 기록 목록 (타이틀 / 엔딩 공용) ────────────────────── */
 #bestlist, #records{
@@ -504,7 +525,7 @@ html,body{
 }
 .ms-row{ display:flex; gap:12px; }
 .modebtn{
-  margin:0; width:150px;
+  margin:0; width:158px;
   display:flex; flex-direction:column; align-items:center; gap:5px;
   padding:12px 8px 11px;
   background:rgba(15,14,20,.45); color:var(--baek);
@@ -517,6 +538,15 @@ html,body{
   font-size:8px; letter-spacing:.03em; line-height:1.5;
   color:rgba(241,236,224,.42);
 }
+/* 모드마다 관문 조건이 다르므로, 고르기 전에 한 줄로 알려 줍니다 */
+.modebtn em{
+  font-style:normal; font-size:8px; line-height:1.5;
+  padding-top:4px; margin-top:1px;
+  border-top:1px solid rgba(241,236,224,.14);
+  color:rgba(241,236,224,.62);
+}
+.modebtn[data-mode="time"] em{ color:rgba(227,178,60,.78); }
+.modebtn[data-mode="normal"] em{ color:rgba(159,198,239,.80); }
 .modebtn:hover{ background:rgba(15,14,20,.45); }
 .modebtn[data-mode="time"]:hover{
   border-color:rgba(227,178,60,.75); background:rgba(227,178,60,.10);
@@ -1006,6 +1036,183 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   display:flex; flex-direction:column; align-items:center; gap:4px;
 }
 .er-label{ font-size:8px; letter-spacing:.24em; color:#97a6bb; }
+
+/* ═══════════════════════════════════════════════════════
+   이스터에그 ② — 숲 밖으로 나가려 하면 끼어드는 관찰자
+   화면 전체를 덮고, 게임이 아니라 "장비 쪽"에서 말을 거는 것처럼
+   보이도록 정돈된 서체 · 노이즈 · 깜빡이는 형광등으로 꾸몄습니다.
+   ═══════════════════════════════════════════════════════ */
+#creepy{
+  position:absolute; inset:0; z-index:80;
+  background:#000;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  overflow:hidden;
+  font-family:var(--font-ui);
+  animation:crIn .35s steps(3) 1;
+}
+#creepy.hidden{ display:none !important; }
+@keyframes crIn{ 0%{ opacity:0 } 40%{ opacity:1 } 55%{ opacity:.2 } 100%{ opacity:1 } }
+
+/* 화면을 채우는 필름 노이즈 */
+#cr-noise{
+  position:absolute; inset:-20%;
+  background-image:
+    repeating-conic-gradient(rgba(255,255,255,.05) 0 0.0006turn, rgba(0,0,0,0) 0 0.0014turn),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,0) 1px 3px);
+  opacity:.5;
+  animation:crNoise .12s steps(2) infinite;
+  pointer-events:none;
+}
+@keyframes crNoise{
+  0%  { transform:translate(0,0) }
+  50% { transform:translate(-2%,1.5%) }
+  100%{ transform:translate(1.5%,-1%) }
+}
+
+/* 위아래로 흘러가는 굵은 동기 신호 줄 */
+#cr-bars{
+  position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg,
+    rgba(255,255,255,0) 0%, rgba(255,255,255,.10) 46%,
+    rgba(255,255,255,.16) 50%, rgba(255,255,255,.10) 54%,
+    rgba(255,255,255,0) 100%);
+  background-size:100% 46%;
+  animation:crRoll 3.4s linear infinite;
+  mix-blend-mode:screen;
+}
+@keyframes crRoll{ from{ background-position:0 -60% } to{ background-position:0 160% } }
+
+/* 문구 */
+#cr-body{
+  position:relative; z-index:2;
+  display:flex; flex-direction:column; align-items:center; gap:7px;
+  padding:0 26px; text-align:center;
+  max-width:100%;
+}
+.cr-line{
+  margin:0; font-size:13px; line-height:1.7; letter-spacing:.04em;
+  color:#efeae0;
+  animation:crLine .26s steps(3) 1, crShiver 2.2s steps(1) infinite;
+}
+@keyframes crLine{ 0%{ opacity:0; transform:translateY(4px) } 100%{ opacity:1 } }
+@keyframes crShiver{
+  0%,86%,100%{ transform:translate(0,0) }
+  88%{ transform:translate(-2px,1px) }
+  90%{ transform:translate(2px,-1px) }
+  92%{ transform:translate(-1px,0) }
+}
+
+/* 관찰자 명단 — 실험 기록 한 장처럼 */
+.cr-log{
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  margin-top:6px; padding:11px 22px;
+  border:1px solid rgba(224,72,60,.55);
+  background:rgba(32,8,8,.55);
+  animation:crLogIn .3s steps(3) 1;
+}
+@keyframes crLogIn{ 0%{ opacity:0; transform:scale(1.06) } 100%{ opacity:1; transform:scale(1) } }
+.cr-log-h{ font-size:8px; letter-spacing:.26em; color:var(--danger); }
+.cr-log-s{ font-size:8px; letter-spacing:.3em; color:rgba(241,236,224,.5); }
+.cr-log-n{
+  font-size:15px; font-weight:700; letter-spacing:.10em; color:#fff;
+  animation:crShiver 1.4s steps(1) infinite;
+}
+.cr-log-f{ font-size:8px; letter-spacing:.12em; color:rgba(241,236,224,.42); }
+
+/* 찢기는 순간 */
+#creepy.tear #cr-body{ animation:crTear .42s steps(2) 1; }
+#creepy.tear{ background:#100406; }
+@keyframes crTear{
+  0%  { transform:translateX(0)   skewX(0) }
+  25% { transform:translateX(-14px) skewX(9deg);  filter:invert(1) }
+  50% { transform:translateX(11px)  skewX(-7deg) }
+  75% { transform:translateX(-6px)  skewX(4deg);  filter:invert(1) }
+  100%{ transform:translateX(0)   skewX(0) }
+}
+
+/* 점프스케어 — 화면 가득 뜨는 눈 */
+#cr-eye{
+  position:absolute; left:50%; top:50%; z-index:3;
+  width:230px; height:230px; margin:-115px 0 0 -115px;
+  opacity:0; pointer-events:none;
+  /* 눈꺼풀이 눈 밖으로 삐져나오지 않도록 눈 모양대로 잘라 냅니다 */
+  border-radius:52% 48% 50% 50%; overflow:hidden;
+  /* 위아래를 어둡게 눌러 눈구멍에 박힌 것처럼 보이게 합니다 */
+  box-shadow:inset 0 26px 34px -14px rgba(6,2,4,.95),
+             inset 0 -22px 30px -14px rgba(6,2,4,.9);
+}
+#creepy.scare{ background:#0a0406; animation:crScare 1.5s steps(2) 1 both; }
+@keyframes crScare{
+  0%  { background:#fff }
+  8%  { background:#050204 }
+  14% { background:#fff }
+  26% { background:#2a0a0c }
+  100%{ background:#0a0406 }
+}
+#creepy.scare #cr-eye{ opacity:1; animation:crEye 1.5s cubic-bezier(.1,.9,.2,1) 1 both; }
+@keyframes crEye{
+  0%  { transform:scale(.12); opacity:1 }
+  22% { transform:scale(1.16); opacity:1 }
+  34% { transform:scale(1);    opacity:1 }
+  88% { transform:scale(1.04); opacity:1 }
+  100%{ transform:scale(1.4);  opacity:0 }
+}
+#creepy.scare #cr-body{ opacity:0; }
+.cr-sclera{
+  position:absolute; inset:0; border-radius:52% 48% 50% 50%;
+  background:radial-gradient(circle at 42% 40%, #fff 0 42%, #e9dccb 62%, #6d5f52 100%);
+  /* 위아래를 눌러 눈구멍에 박힌 것처럼 (자식이 덮으므로 흰자 쪽에 겁니다) */
+  box-shadow:inset 0 0 30px rgba(80,20,16,.8),
+             inset 0 26px 36px -16px rgba(6,2,4,.9),
+             inset 0 -22px 32px -16px rgba(6,2,4,.85);
+}
+/* 실핏줄 — 흰자 가장자리에서만 보이도록 마스크를 씌웁니다 */
+.cr-sclera::after{
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  /* 주기가 다른 두 겹을 겹쳐 규칙적인 햇살 무늬로 보이지 않게 합니다 */
+  background:
+    repeating-conic-gradient(from 11deg at 50% 50%,
+      rgba(168,40,32,0) 0 13deg, rgba(168,40,32,.26) 13.4deg 13.9deg,
+      rgba(168,40,32,0) 14.3deg 27deg),
+    repeating-conic-gradient(from 3deg at 50% 50%,
+      rgba(140,30,24,0) 0 31deg, rgba(140,30,24,.20) 31.4deg 32.1deg,
+      rgba(140,30,24,0) 32.6deg 45deg);
+  -webkit-mask:radial-gradient(circle, transparent 0 46%, #000 74%, transparent 95%);
+          mask:radial-gradient(circle, transparent 0 46%, #000 74%, transparent 95%);
+}
+.cr-iris{
+  position:absolute; left:50%; top:50%; width:104px; height:104px; margin:-52px 0 0 -52px;
+  border-radius:50%;
+  background:radial-gradient(circle at 40% 36%, #b8453a 0 30%, #6d1c17 62%, #250807 100%);
+}
+.cr-pupil{
+  position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px;
+  border-radius:50%; background:#050204;
+  box-shadow:0 0 0 3px rgba(0,0,0,.55);
+  animation:crPupil 1.5s steps(2) 1 both;
+}
+@keyframes crPupil{
+  0%{ transform:scale(1.6) } 24%{ transform:scale(.5) }
+  40%{ transform:scale(1.1) } 100%{ transform:scale(.9) }
+}
+.cr-lid{
+  position:absolute; left:-6%; width:112%; height:52%;
+  background:#0a0406;
+}
+.cr-lid.t{ top:0;    border-radius:0 0 52% 48%; animation:crLidT 1.5s ease-out 1 both; }
+.cr-lid.b{ bottom:0; border-radius:48% 52% 0 0; animation:crLidB 1.5s ease-out 1 both; }
+@keyframes crLidT{ 0%{ transform:translateY(0) } 22%{ transform:translateY(-104%) } 100%{ transform:translateY(-104%) } }
+@keyframes crLidB{ 0%{ transform:translateY(0) } 22%{ transform:translateY(104%) }  100%{ transform:translateY(104%) } }
+
+/* 세션 초기화 */
+#creepy.wipe{ background:#000; }
+#creepy.wipe #cr-noise, #creepy.wipe #cr-bars{ opacity:.12; }
+.cr-wipe-line{
+  margin:0; font-size:11px; letter-spacing:.22em; color:rgba(241,236,224,.72);
+  animation:crLine .3s steps(3) 1;
+}
+.cr-wipe-line.d{ color:var(--danger); animation:crLine .3s steps(3) 1, flick 1s steps(2) infinite; }
 
 /* ── 공통 ──────────────────────────────────────────────── */
 .hidden{ display:none !important; }

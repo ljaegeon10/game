@@ -66,19 +66,24 @@ const G = {
   inForest: true,
   t: 0, shake: 0, flash: 0,
   seenGlitch: false,
-  keys: 0,              // 상자 열쇠
-  doorKeys: 0,          // 관문 열쇠
+  keys: 0,              // 상자 열쇠 (상자를 열 때 소모)
+  doorKeys: 0,          // 관문 열쇠 — 비운 방에서 매번 다시 세는 파생값
   gateOpen: false,
   bossDead: false,
+  finalKey: false,      // 보스를 잡으면 손에 쥐어지는 마지막 열쇠
   visited: new Set(),
   st: {},               // 방별 저장 상태
   floor: null, depth: 1,
   bullets: [], foes: [], fx: [], pickups: [], pots: [], clouds: [],
+  rings: [],            // 보스전 충격파 고리
+  glare: 0,             // 보스전 섬광 (0~1)
   chest: null, floorKey: null, boss: null,
   doors: {},            // { N:{open,locked}, ... }
   well: { x: 446, y: 152, glow: 0 },
-  oldTree: { x: 132, y: 296 },   // 이스터에그 — 늙은 나무 밑동
+  oldTree: { x: 132, y: 296 },   // 이스터에그 ① — 늙은 나무 밑동
+  gap: { x: 414, y: 26 },        // 이스터에그 ② — 숲 맨 위, 나무 사이의 틈
   sawDoc: false,
+  creepyOn: false,
   wellUsed: false, fallT: 0,
   butterflies: [], plants: []
 };
@@ -273,6 +278,7 @@ function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title')  { openModeSelect(); return; }
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
+  if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
   if (G.mode === 'dead')  { retry(); return; }
   if (G.mode === 'talk')  { advanceTalk(); return; }
   if (G.mode === 'note')  { closeNote(); return; }
@@ -322,8 +328,8 @@ function retry() {
 function respawn() {
   $('dead').classList.add('hidden');
   ['subtitle', 'prompt', 'noteoverlay'].forEach(id => $(id).classList.add('hidden'));
-  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = [];
-  G.flash = 0; G.shake = 0;
+  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
+  G.flash = 0; G.shake = 0; G.glare = 0;
   P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames; P.slow = 0;
   updateHud();
   if (G.room) loadRoom(G.room, 'W');
@@ -334,8 +340,10 @@ function respawn() {
 function resetRun() {
   stopRun();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
+  G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
+  G.rings = []; G.glare = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
@@ -361,6 +369,7 @@ $('againbtn').addEventListener('click', () => location.reload());
 function loadForest() {
   G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
+  G.rings = []; G.glare = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
@@ -383,6 +392,31 @@ function neighbourOf(id, d) {
   const r = MAP[id], [dx, dy] = DIRS[d];
   return Object.keys(MAP).find(k =>
     MAP[k].gx === r.gx + dx && MAP[k].gy === r.gy + dy);
+}
+
+/* ── 열쇠 / 진행 조건 ───────────────────────────────────────
+   관문 열쇠는 "들고 다니다 써서 없어지는 물건"이 아니라, 그 방을 비웠다는
+   증표입니다. 예전에는 숫자를 직접 더하고 빼다 보니 (보상 연출 도중에 방을
+   넘어가는 등) 분명 두 개를 먹었는데 관문이 안 열리는 일이 생겼습니다.
+   그래서 개수를 저장하지 않고 방 상태에서 매번 다시 세도록 바꿨습니다. */
+function earnedDoorKeys() {
+  let n = 0;
+  for (const id in MAP)
+    if (MAP[id].clear === 'doorKey' && G.st[id] && G.st[id].rewarded) n++;
+  return n;
+}
+const DOOR_KEYS_NEEDED = 2;
+const syncKeys = () => { G.doorKeys = earnedDoorKeys(); };
+
+/* 일반 모드에서 아직 밟지 않은 방 */
+const exploreDone = () => EXPLORE_ROOMS.filter(id => G.visited.has(id)).length;
+const exploreAll  = () => exploreDone() >= EXPLORE_ROOMS.length;
+
+/* 관문을 열 수 있는 상태인가 */
+function gateReady() {
+  syncKeys();
+  if (G.doorKeys < DOOR_KEYS_NEEDED) return false;
+  return G.timeAttack ? true : exploreAll();
 }
 
 function doorLockReason(toId) {
@@ -419,8 +453,9 @@ function stateOf(id) {
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
-  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = [];
+  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
   G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
+  G.glare = 0;
   P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
@@ -443,6 +478,7 @@ function loadRoom(id, fromDir) {
   const first = !G.visited.has(id);
   G.visited.add(id);
   setDate(G.visited.size);            // 방을 새로 밟을 때마다 날짜가 뛴다
+  updateHud();                        // 탐사 진행도(일반 모드) 갱신
 
   if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
 
@@ -515,7 +551,9 @@ function dropSpore(x, y) {
 
 function queueBoss() {
   G.mode = 'boss-intro'; G.bossIntroT = 0;
-  Sfx.bossRoar(); G.shake = 22; G.flash = 1;
+  Sfx.bossRoar(); G.shake = 24; G.flash = 1;
+  glare(1);
+  G.rings = [];
   Sfx.ambientStop();
 }
 
@@ -523,7 +561,7 @@ function makeBoss() {
   G.boss = {
     x: W / 2, y: 118, r: 34, hp: BALANCE.bossHp, max: BALANCE.bossHp,
     sp: BALANCE.bossSpeed, phase: 1, t: 0, cd: 110, dash: 0, wind: 0,
-    spiralA: 0, flash: 0, kx: 0, ky: 0, spawned: false, bob: 0
+    spiralA: 0, flash: 0, kx: 0, ky: 0, spawned: false, bob: 0, rayT: 60
   };
 }
 
@@ -567,8 +605,11 @@ function spark(x, y, vx, vy) {
 /* ═══════════ 상호작용 ═════════════════════════════════ */
 const nearWell = () => G.inForest && Math.hypot(P.x - G.well.x, P.y - G.well.y + 6) < 52;
 const nearChest = () => G.chest && !G.chest.open && Math.hypot(P.x - G.chest.x, P.y - G.chest.y) < 34;
-/* 이스터에그 — 숲 한구석 늙은 나무 밑동 */
+/* 이스터에그 ① — 숲 한구석 늙은 나무 밑동 */
 const nearOldTree = () => G.inForest && Math.hypot(P.x - G.oldTree.x, P.y - G.oldTree.y + 10) < 40;
+/* 이스터에그 ② — 숲 맨 위, 나무 사이로 난 좁은 틈 (지도 밖) */
+const nearCreepyGap = () => G.inForest && !G.creepyOn &&
+                            P.y <= G.gap.y + 16 && Math.abs(P.x - G.gap.x) < 26;
 const nearFinalLock = () => !G.inForest && MAP[G.room].final &&
                             Math.hypot(P.x - (W - TS - 24), P.y - H / 2) < 46;
 
@@ -587,6 +628,7 @@ function doorCenter(d) {
 }
 
 function interact() {
+  if (nearCreepyGap()) { beginCreepy(); return; }
   if (nearOldTree()) { openDoc(); return; }
   if (nearWell() && !G.wellUsed) {
     G.wellUsed = true;
@@ -612,10 +654,17 @@ function interact() {
   }
   const gd = nearLockedGate();
   if (gd) {
-    if (G.doorKeys < (MAP[G.doors[gd].to].needKeys || 1)) {
-      say([{ t: `관문 열쇠 ${G.doorKeys}/2`, sys: true }]);
+    /* 관문 열쇠는 소모되지 않습니다 — 두 개를 모았다면 언제 눌러도 열립니다 */
+    if (G.doorKeys < DOOR_KEYS_NEEDED) {
+      say([{ t: `관문 열쇠 ${G.doorKeys} / ${DOOR_KEYS_NEEDED} — 아직 모자란다.`, sys: true }]);
+    } else if (!gateReady()) {
+      // 일반 모드 : 아직 둘러보지 않은 방이 남아 있습니다
+      say([
+        { t: `열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**`, w: true },
+        { t: `탐사 ${exploreDone()} / ${EXPLORE_ROOMS.length}`, sys: true }
+      ]);
     } else {
-      G.doorKeys -= 2; G.gateOpen = true;
+      G.gateOpen = true;
       buildDoors(G.room); updateHud();
       Sfx.door(); G.shake = 10;
       say([{ t: '잠금장치가 풀린다. 안쪽 길이 열렸다.', w: false }]);
@@ -623,10 +672,9 @@ function interact() {
     return;
   }
   if (nearFinalLock()) {
-    if (G.keys < 1 && G.doorKeys < 1) {
+    if (!G.finalKey) {
       say([{ t: '잠겨 있다. 아직 열쇠가 없다.', w: false }]); return;
     }
-    if (G.doorKeys > 0) G.doorKeys--; else G.keys--;
     updateHud();
     say(ENDING_LINES, beginEnding);
   }
@@ -662,6 +710,106 @@ function closeDoc() {
   G.mode = 'forest';
 }
 
+/* ═══════════ 이스터에그 ② : 지도 밖으로 걸어 나가면 ══════
+   숲 맨 위 나무 사이의 틈은 맵 경계입니다. 그 너머로 나가려 하면
+   숲이 만들어진 것이라는 게 들통나고, 관찰자(제작진)가 화면에
+   직접 끼어들어 세션을 강제로 초기화합니다.
+   ═══════════════════════════════════════════════════════ */
+let creepyTimers = [];
+function beginCreepy() {
+  if (G.creepyOn) return;
+  G.creepyOn = true;
+  G.mode = 'creepy';
+  Sfx.ambientStop();
+  Sfx.creepDrone(true);
+  ['prompt', 'subtitle', 'hud'].forEach(id => $(id).classList.add('hidden'));
+
+  const cr = $('creepy'), body = $('cr-body');
+  body.innerHTML = '';
+  cr.className = '';                       // hidden 해제 + 상태 클래스 초기화
+  cr.classList.add('on');
+
+  let t = 0;
+  creepyTimers = CREEPY_SCRIPT.map(step => {
+    const at = t; t += step.d;
+    return setTimeout(() => creepyStep(step), at);
+  });
+}
+
+function creepyStep(step) {
+  const cr = $('creepy'), body = $('cr-body');
+  switch (step.kind) {
+    case 'dark':
+      Sfx.glitch();
+      break;
+
+    case 'line': {
+      const p = document.createElement('p');
+      p.className = 'cr-line';
+      p.textContent = step.t;
+      body.appendChild(p);
+      // 화면에는 최근 두 줄만 남깁니다 — 말이 쌓이면 공포가 아니라 안내문이 됩니다
+      const lines = [...body.querySelectorAll('.cr-line')];
+      lines.slice(0, -2).forEach(el => el.remove());
+      lines.slice(-2).forEach((el, i, a) => {
+        el.style.opacity = i === a.length - 1 ? 1 : .3;
+      });
+      Sfx.creepType();
+      break;
+    }
+
+    case 'glitch':
+      cr.classList.add('tear');
+      Sfx.glitch();
+      setTimeout(() => cr.classList.remove('tear'), 420);
+      break;
+
+    case 'log': {
+      body.innerHTML = '';                 // 명단이 뜰 때는 화면을 비웁니다
+      const box = document.createElement('div');
+      box.className = 'cr-log';
+      box.innerHTML =
+        '<span class="cr-log-h">OBSERVATION LOG · DRM-07</span>' +
+        '<span class="cr-log-s">관찰자</span>' +
+        '<span class="cr-log-n">' + CREEPY_STAFF.join(' · ') + '</span>' +
+        '<span class="cr-log-f">SESSION 001 – 141 · 전 구간 기록 보유</span>';
+      body.appendChild(box);
+      Sfx.reveal();
+      break;
+    }
+
+    case 'scare':
+      cr.classList.add('scare');
+      Sfx.scream();
+      G.shake = 30;
+      break;
+
+    case 'wipe':
+      cr.classList.remove('scare');
+      cr.classList.add('wipe');
+      body.innerHTML = '<p class="cr-wipe-line">SUBJECT 07 — 관찰 사실 인지</p>' +
+                       '<p class="cr-wipe-line d">세션 강제 초기화 … </p>';
+      Sfx.creepDrone(false);
+      Sfx.flatline(true);
+      setTimeout(() => Sfx.flatline(false), 1600);
+      break;
+
+    case 'end':
+      endCreepy();
+      break;
+  }
+}
+
+function endCreepy() {
+  creepyTimers.forEach(clearTimeout); creepyTimers = [];
+  Sfx.creepDrone(false);
+  const cr = $('creepy');
+  cr.className = 'hidden';
+  $('cr-body').innerHTML = '';
+  G.creepyOn = false;
+  resetRun();                       // 들킨 세션은 처음부터 다시
+}
+
 function renderNote() {
   let html = noteFull.slice(0, Math.floor(noteTypeT)).replace(/\n/g, '<br>');
   if (noteTypeT >= noteFull.length) html += `<br><br><span class="cut">${noteCut}</span>`;
@@ -678,9 +826,17 @@ function updateHud() {
     }
   }
   [...h.children].forEach((el, i) => el.classList.toggle('empty', i >= P.hp));
+  syncKeys();   // 관문 열쇠는 저장값이 아니라 "비운 방"에서 매번 다시 셉니다
   $('keycount').textContent = G.keys;
-  $('gatecount').textContent = G.doorKeys;
-  $('gatekeys').classList.toggle('hidden', G.doorKeys === 0 && G.gateOpen);
+  $('gatecount').textContent = `${G.doorKeys}/${DOOR_KEYS_NEEDED}`;
+  $('gatekeys').classList.toggle('done', G.doorKeys >= DOOR_KEYS_NEEDED);
+  // 일반 모드에서는 시계 대신 "몇 개의 방을 밟았는가"를 보여 줍니다
+  const eb = $('explorebox');
+  if (eb) {
+    eb.classList.toggle('hidden', G.timeAttack || G.inForest || G.mode === 'title');
+    $('exploretext').textContent = `${exploreDone()} / ${EXPLORE_ROOMS.length}`;
+    eb.classList.toggle('done', exploreAll());
+  }
 }
 function bumpKeys(sel) {
   const el = $(sel); el.classList.add('bump');
@@ -724,6 +880,34 @@ function glitchDeath(x, y, big) {
     setTimeout(() => { if (G.mode === 'play') say(GLITCH_LINES); }, 420);
   }
 }
+/* ── 보스전 연출 ─────────────────────────────────────────
+   퍼져 나가는 충격파 고리 · 화면을 덮는 섬광 · 바닥을 훑는 빛줄기.
+   싸움이 "번쩍이고 흔들리는" 구간이 되도록 공격마다 붙여 둡니다. */
+function shockRing(x, y, max, c, w = 4, life = 34) {
+  G.rings.push({ x, y, r: 6, max, life, maxLife: life, c, w });
+}
+function glare(v) { G.glare = Math.min(1.4, Math.max(G.glare, v)); }
+
+/* 이펙트 · 충격파 · 섬광은 보스 연출 중에도 계속 돌아야 해서 따로 뺐습니다 */
+function tickFx() {
+  G.fx = G.fx.filter(f => {
+    f.life--;
+    if (f.k === 'p') { f.x += f.vx; f.y += f.vy; f.vx *= .92; f.vy *= .92; }
+    else if (f.k === 'suck') {            // 눈으로 빨려 들어가는 빛 알갱이
+      f.x += (f.tx - f.x) * .17;
+      f.y += (f.ty - f.y) * .17;
+    }
+    return f.life > 0;
+  });
+  G.rings = G.rings.filter(r => {
+    r.life--;
+    const k = 1 - r.life / r.maxLife;
+    r.r = 6 + (r.max - 6) * (1 - Math.pow(1 - k, 2.4));   // 처음에 확 퍼지고 끝에서 느려짐
+    return r.life > 0;
+  });
+  if (G.glare > 0) G.glare = Math.max(0, G.glare - .055);
+}
+
 function puff(x, y, c) {
   for (let i = 0; i < 6; i++)
     G.fx.push({ k: 'p', x, y, vx: (Math.random() - .5) * 2.4, vy: (Math.random() - .5) * 2.4,
@@ -753,6 +937,18 @@ function update() {
   if (G.mode === 'fall') { G.fallT++; if (G.fallT > 168) loadRoom('start', 'W'); return; }
   if (G.mode === 'boss-intro') {
     G.bossIntroT++;
+    tickFx();
+    // 눈이 뜨이기까지 — 땅이 점점 세게 울리고, 세 번 크게 번쩍입니다
+    G.shake = Math.max(G.shake, 1.5 + (G.bossIntroT / 90) * 7);
+    if (G.bossIntroT === 30 || G.bossIntroT === 58) {
+      Sfx.hit(); glare(.7); G.shake = 16;
+      shockRing(W / 2, 118, 200, '194,53,44', 5, 30);
+    }
+    if (G.bossIntroT === 88) {
+      Sfx.bossRoar(); glare(1.3); G.shake = 26; G.flash = 1;
+      shockRing(W / 2, 118, 340, '255,255,255', 8, 44);
+      shockRing(W / 2, 118, 240, '150,60,220', 6, 36);
+    }
     if (G.bossIntroT > 90 && !G.boss) makeBoss();
     if (G.bossIntroT > 130) G.mode = 'play';
     return;
@@ -853,7 +1049,6 @@ function update() {
   });
 
   /* ── 적 ───────────────────────────────────────────── */
-  const had = G.foes.length;
   G.foes = G.foes.filter(f => !f.dead);
   G.foes.forEach(f => {
     if (f.flash > 0) f.flash--;
@@ -920,7 +1115,11 @@ function update() {
     return c.life > 0;
   });
   if (P.slow > 0) P.slow--;
-  if (had && !G.foes.length) onRoomCleared();
+  /* 방을 비웠는지는 "몹이 사라진 그 한 프레임"이 아니라 매 프레임 상태로 봅니다.
+     보상 대사가 뜨는 동안 방을 넘어가거나 하면 그 순간을 놓칠 수 있었고,
+     그게 열쇠를 분명 먹었는데 관문이 안 열리던 원인이었습니다. */
+  if (!G.inForest && !G.boss && !G.foes.length && !stateOf(G.room).cleared)
+    onRoomCleared();
 
   if (G.boss) updateBoss();
 
@@ -942,12 +1141,7 @@ function update() {
     return true;
   });
 
-  /* ── 이펙트 ───────────────────────────────────────── */
-  G.fx = G.fx.filter(f => {
-    f.life--;
-    if (f.k === 'p') { f.x += f.vx; f.y += f.vy; f.vx *= .92; f.vy *= .92; }
-    return f.life > 0;
-  });
+  tickFx();
 
   checkDoorTransit();
   updatePrompt();
@@ -960,8 +1154,8 @@ function onRoomCleared() {
   if (s.rewarded || !r.clear) return;
   s.rewarded = true;
   if (r.clear === 'doorKey') {
-    G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
-    say([{ t: '마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다.', w: false }]);
+    updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
+    say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
     say([{ t: '흩어진 자리에 열쇠가 남아 있다.', w: false }]);
@@ -1008,12 +1202,18 @@ function checkDoorTransit() {
 }
 
 function updatePrompt() {
+  syncKeys();
   let pr = '';
   if (nearOldTree()) pr = G.sawDoc ? '서류 다시 보기' : '나무 밑동에 낀 무언가';
   else if (nearWell() && !G.wellUsed) pr = '우물 들여다보기';
   else if (nearChest()) pr = G.keys > 0 ? '상자 열기' : '잠긴 상자 (열쇠 필요)';
-  else if (nearFinalLock()) pr = (G.keys + G.doorKeys) > 0 ? '마지막 열쇠 꽂기' : '잠금장치';
-  else if (nearLockedGate()) pr = G.doorKeys >= 2 ? '관문 열기' : `관문 잠김 (${G.doorKeys}/2)`;
+  else if (nearCreepyGap()) pr = '나무 사이 좁은 틈으로';
+  else if (nearFinalLock()) pr = G.finalKey ? '마지막 열쇠 꽂기' : '잠금장치';
+  else if (nearLockedGate()) {
+    if (gateReady()) pr = '관문 열기';
+    else if (G.doorKeys < DOOR_KEYS_NEEDED) pr = `관문 잠김 · 열쇠 ${G.doorKeys}/${DOOR_KEYS_NEEDED}`;
+    else pr = `관문 잠김 · 탐사 ${exploreDone()}/${EXPLORE_ROOMS.length}`;
+  }
   if (pr) { $('prompt').classList.remove('hidden'); $('prompttext').textContent = pr; }
   else $('prompt').classList.add('hidden');
 }
@@ -1046,7 +1246,12 @@ function updateBoss() {
   const r = B.hp / B.max;
   const ph = r > .66 ? 1 : r > .33 ? 2 : 3;
   if (ph !== B.phase) {
-    B.phase = ph; G.shake = 14; G.flash = .9; Sfx.bossRoar();
+    B.phase = ph; G.shake = 22; G.flash = 1; Sfx.bossRoar();
+    // 단계가 바뀔 때 : 흰 섬광 + 충격파 두 겹 + 바닥을 훑는 빛줄기
+    glare(1.2);
+    shockRing(B.x, B.y, 300, '255,255,255', 7, 40);
+    shockRing(B.x, B.y, 210, '194,53,44', 5, 34);
+    B.rayT = 90;
     if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
     if (ph === 3 && !B.spawned) {
       B.spawned = true;
@@ -1054,15 +1259,34 @@ function updateBoss() {
     }
   }
 
+  // 눈이 깨어 있는 동안 바닥이 계속 잘게 떨립니다 (단계가 오를수록 세게)
+  G.shake = Math.max(G.shake, 0.9 + ph * 0.55);
+  if (B.rayT > 0) B.rayT--;
+
   const dx = P.x - B.x, dy = P.y - B.y, d = Math.hypot(dx, dy) || 1;
   const sp = B.sp * (ph === 3 ? 1.5 : ph === 2 ? 1.15 : 1);
 
-  if (B.dash > 0) { B.dash--; B.x += B.dvx; B.y += B.dvy; B.dvx *= .95; B.dvy *= .95; }
+  if (B.dash > 0) {
+    B.dash--; B.x += B.dvx; B.y += B.dvy; B.dvx *= .95; B.dvy *= .95;
+    // 돌진 중에는 지나온 자리에 빛 잔상이 남습니다
+    if (B.dash % 2 === 0)
+      G.fx.push({ k: 'trail', x: B.x, y: B.y, life: 16, max: 16, r: B.r });
+    G.shake = Math.max(G.shake, 5);
+  }
   else if (B.wind > 0) {
     B.wind--;
+    // 예비 동작 — 사방의 빛이 눈 쪽으로 빨려 들어갑니다
+    if (B.wind % 3 === 0) {
+      const a = Math.random() * 6.28, dist = 70 + Math.random() * 40;
+      G.fx.push({ k: 'suck', x: B.x + Math.cos(a) * dist, y: B.y + Math.sin(a) * dist,
+                  tx: B.x, ty: B.y, life: 18, max: 18,
+                  c: B.windKind === 'dash' ? '#ffb37a' : '#c9a0ff' });
+    }
     if (B.wind === 0) {
       if (B.windKind === 'dash') {
         B.dash = 26; B.dvx = dx / d * 4.6; B.dvy = dy / d * 4.6; Sfx.bossRoar();
+        G.shake = Math.max(G.shake, 15); glare(.6);
+        shockRing(B.x, B.y, 150, '255,179,122', 5, 26);
       } else {
         const n = ph === 1 ? 8 : 12, off = Math.random() * 6.28;
         for (let i = 0; i < n; i++) {
@@ -1070,6 +1294,8 @@ function updateBoss() {
           foeShot(B.x, B.y, Math.cos(a), Math.sin(a), BALANCE.spore + (ph - 1) * .25);
         }
         Sfx.glitch();
+        G.shake = Math.max(G.shake, 12); glare(.75);
+        shockRing(B.x, B.y, 230, '201,160,255', 6, 32);
       }
     }
   } else {
@@ -1092,14 +1318,22 @@ function updateBoss() {
 function killBoss() {
   const B = G.boss;
   glitchDeath(B.x, B.y, true);
-  G.shake = 26; G.boss = null; G.bossDead = true;
+  // 눈이 터지는 순간 — 충격파가 네 겹으로 퍼지고 화면이 하얗게 날아갑니다
+  glare(1.4);
+  shockRing(B.x, B.y, 420, '255,255,255', 10, 52);
+  shockRing(B.x, B.y, 320, '125,227,200', 7, 46);
+  shockRing(B.x, B.y, 230, '150,60,220', 6, 40);
+  setTimeout(() => { if (G.mode === 'play' || G.mode === 'talk') {
+    glare(.9); G.shake = 18; shockRing(B.x, B.y, 300, '255,255,255', 6, 40);
+  } }, 260);
+  G.shake = 32; G.boss = null; G.bossDead = true;
   Sfx.ambient('dungeon');
   G.foes = [];
   G.bullets = G.bullets.filter(b => b.mine);
   stateOf(G.room).cleared = true;
   buildDoors(G.room);
   setTimeout(() => {
-    G.doorKeys++; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
+    G.finalKey = true; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
     say(BOSS_DEAD_LINES);
   }, 700);
 }
@@ -1130,6 +1364,19 @@ function render() {
     }
     g.restore();
   }
+
+  // 보스전 섬광 — 화면 전체가 한 번 하얗게 날아갑니다
+  if (G.glare > .02) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = Math.min(1, G.glare) * .6;
+    const gg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * .72);
+    gg.addColorStop(0, 'rgba(255,250,240,.95)');
+    gg.addColorStop(.6, 'rgba(255,220,200,.35)');
+    gg.addColorStop(1, 'rgba(255,180,160,0)');
+    g.fillStyle = gg; g.fillRect(0, 0, W, H);
+    g.restore();
+  }
 }
 
 /* ── 지상 ──────────────────────────────────────────── */
@@ -1138,6 +1385,7 @@ function renderForest() {
   renderForestProps(g, t);
   drawWell(g, G.well.x, G.well.y, G.t, G.well.glow);
   drawOldTreeDoc();
+  drawCreepyGap();
   G.butterflies.forEach(b => {
     g.save();
     if (b.gl > 0) { g.globalAlpha = .55; g.fillStyle = '#7de3c8'; }
@@ -1169,6 +1417,45 @@ function drawOldTreeDoc() {
     g.strokeStyle = '#e3b23c'; g.lineWidth = 1;
     g.strokeRect(o.x - 8, o.y + 1, 15, 11);
   }
+  g.restore();
+}
+
+/* 숲 맨 위 — 나무 사이로 난 좁은 틈.
+   평소엔 나무 그늘처럼만 보이고, 가까이 가면 그 너머가 숲이 아니라
+   아무것도 없는 검은 면이라는 게 드러납니다. */
+function drawCreepyGap() {
+  const { x, y } = G.gap, near = nearCreepyGap();
+  const k = near ? 1 : .34;
+  g.save();
+
+  // 틈 너머 — 아래로 갈수록 옅어지는 검은 면
+  const og = g.createLinearGradient(0, 0, 0, y + 34);
+  og.addColorStop(0, `rgba(2,2,4,${.92 * (near ? 1 : .8)})`);
+  og.addColorStop(1, 'rgba(2,2,4,0)');
+  g.fillStyle = og;
+  g.fillRect(x - 17, 0, 34, y + 34);
+
+  // 틈 양쪽 나무 기둥
+  g.fillStyle = '#1b2418';
+  g.fillRect(x - 27, 0, 11, y + 22);
+  g.fillRect(x + 16, 0, 11, y + 26);
+  g.fillStyle = 'rgba(12,18,12,.85)';
+  g.fillRect(x - 24, 0, 3, y + 20);
+  g.fillRect(x + 22, 0, 3, y + 24);
+
+  // 가까이 가면 틈 안쪽에서 아주 옅게 스캔라인이 어른거립니다 (복선)
+  if (near) {
+    g.globalAlpha = .16 + Math.sin(G.t * .18) * .1;
+    g.fillStyle = '#7de3c8';
+    for (let i = 0; i < 7; i++) g.fillRect(x - 15, 2 + i * 5 + ((G.t >> 1) % 5), 30, 1);
+    g.globalAlpha = 1;
+  }
+
+  // 바닥에 난 발자국 — 누군가 이미 이쪽으로 나간 적이 있습니다
+  g.globalAlpha = k * .5;
+  g.fillStyle = '#6a6558';
+  for (let i = 0; i < 4; i++)
+    g.fillRect(x - 4 + (i % 2) * 7, y + 26 + i * 9, 3, 5);
   g.restore();
 }
 
@@ -1212,15 +1499,35 @@ function renderDungeon() {
 
   if (G.mode === 'boss-intro' && !G.boss) {
     const k = Math.min(1, G.bossIntroT / 90);
-    g.save(); g.globalAlpha = k * .8; g.fillStyle = '#c2352c';
+    g.save();
+    g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip();
+    // 갈라지는 틈에서 새어 나오는 빛
+    g.globalCompositeOperation = 'lighter';
+    const bg = g.createRadialGradient(W / 2, 118, 2, W / 2, 118, 40 + k * 130);
+    bg.addColorStop(0, `rgba(255,120,90,${.5 * k})`);
+    bg.addColorStop(.5, `rgba(150,40,90,${.22 * k})`);
+    bg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 6; i++) {
+      const a = i * 1.047 + G.bossIntroT * .012;
+      g.globalAlpha = k * .22 * (.5 + Math.sin(G.bossIntroT * .1 + i) * .5);
+      g.strokeStyle = '#ff9a6a'; g.lineWidth = 2 + k * 5;
+      g.beginPath(); g.moveTo(W / 2, 118);
+      g.lineTo(W / 2 + Math.cos(a) * 340, 118 + Math.sin(a) * 340);
+      g.stroke();
+    }
+    g.globalAlpha = k * .85; g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#c2352c';
     g.beginPath(); g.arc(W / 2, 118, 4 + k * 30, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 
   drawClouds();
+  if (G.boss) drawBossLight();
   G.foes.forEach(drawFoe);
   if (G.boss) drawBoss();
   drawPlayer();
+  drawRings();
 
   G.bullets.forEach(b => {
     g.save();
@@ -1243,6 +1550,23 @@ function renderDungeon() {
     if (f.k === 'p') {
       g.globalAlpha = k; g.fillStyle = f.c;
       g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3); g.globalAlpha = 1;
+    } else if (f.k === 'trail') {            // 보스 돌진 잔상
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = k * .4;
+      const tg = g.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r * 1.3);
+      tg.addColorStop(0, 'rgba(255,170,120,.8)');
+      tg.addColorStop(1, 'rgba(255,120,80,0)');
+      g.fillStyle = tg;
+      g.beginPath(); g.arc(f.x, f.y, f.r * 1.3, 0, Math.PI * 2); g.fill();
+      g.restore();
+    } else if (f.k === 'suck') {             // 눈으로 빨려 드는 빛 알갱이
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = (1 - k) * .9;
+      g.fillStyle = f.c;
+      g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
+      g.restore();
     } else {
       // 죽으면서 흩어지는 숫자/기호 — "피 대신 숫자가 흩어졌다"는 복선이라
       // 눈에 확 띄어야 합니다. 천천히 떠다니듯 퍼지다가 끝에서만 사라집니다.
@@ -1313,8 +1637,13 @@ function drawDoors() {
       g.beginPath(); g.arc(c[0], c[1] - 4, 4, Math.PI, 0); g.stroke();
       g.fillStyle = '#15141b'; g.fillRect(c[0] - 1, c[1], 2, 4);
       if (dr.lock === 'keys') {
-        g.fillStyle = '#e3b23c'; g.font = 'bold 7px DungGeunMo, ui-monospace, monospace';
-        g.textAlign = 'center'; g.fillText(`${G.doorKeys}/2`, c[0], c[1] + 16);
+        const short = G.doorKeys < DOOR_KEYS_NEEDED;
+        g.fillStyle = short ? '#e3b23c' : (gateReady() ? '#7de3c8' : '#c2352c');
+        g.font = 'bold 7px DungGeunMo, ui-monospace, monospace';
+        g.textAlign = 'center';
+        g.fillText(short ? `${G.doorKeys}/${DOOR_KEYS_NEEDED}`
+                         : (gateReady() ? 'OPEN' : `${exploreDone()}/${EXPLORE_ROOMS.length}`),
+                   c[0], c[1] + 16);
       }
     } else {
       g.fillStyle = '#07060c'; g.fillRect(x, y, w, h);
@@ -1591,6 +1920,59 @@ function drawFoe(f) {
   g.restore();
 }
 
+/* 퍼져 나가는 충격파 고리 */
+function drawRings() {
+  if (!G.rings.length) return;
+  g.save();
+  if (!G.inForest) { g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip(); }
+  g.globalCompositeOperation = 'lighter';
+  G.rings.forEach(r => {
+    const k = r.life / r.maxLife;
+    g.globalAlpha = k * k * .85;
+    g.strokeStyle = `rgba(${r.c},1)`;
+    g.lineWidth = Math.max(.6, r.w * k);
+    g.beginPath(); g.ellipse(r.x, r.y, r.r, r.r * .82, 0, 0, Math.PI * 2); g.stroke();
+    // 고리 안쪽에 옅게 깔리는 빛
+    g.globalAlpha = k * k * .12;
+    g.beginPath(); g.ellipse(r.x, r.y, r.r * .92, r.r * .76, 0, 0, Math.PI * 2); g.fill();
+  });
+  g.restore();
+}
+
+/* 보스 주변의 빛 — 단계가 오를수록 색이 짙어지고 빛줄기가 돕니다 */
+function drawBossLight() {
+  const B = G.boss;
+  const ph = B.phase;
+  const pulse = .5 + Math.sin(G.t * .09) * .5;
+  const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
+  const col = ph === 1 ? '150,60,220' : ph === 2 ? '200,60,150' : '224,72,60';
+  g.save();
+  // 빛은 방 안쪽(바닥)에서만 — 벽 너머로 새면 방이 뚫려 보입니다
+  g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip();
+  g.globalCompositeOperation = 'lighter';
+
+  // 바닥을 넓게 물들이는 빛
+  g.globalAlpha = .16 + pulse * .1 + wind * .2;
+  const lg = g.createRadialGradient(B.x, B.y, 8, B.x, B.y, 150 + ph * 22);
+  lg.addColorStop(0, `rgba(${col},.85)`);
+  lg.addColorStop(1, `rgba(${col},0)`);
+  g.fillStyle = lg; g.fillRect(0, 0, W, H);
+
+  // 천천히 도는 빛줄기 (단계가 바뀐 직후 한동안 더 밝게)
+  const rays = 4 + ph * 2;
+  const boost = B.rayT > 0 ? B.rayT / 90 : 0;
+  for (let i = 0; i < rays; i++) {
+    const a = G.t * (.006 + ph * .002) + (i / rays) * Math.PI * 2;
+    g.globalAlpha = (.05 + pulse * .045 + wind * .1 + boost * .22);
+    g.strokeStyle = `rgb(${col})`;
+    g.lineWidth = 3 + wind * 8 + boost * 6;
+    g.beginPath(); g.moveTo(B.x, B.y);
+    g.lineTo(B.x + Math.cos(a) * 300, B.y + Math.sin(a) * 300);
+    g.stroke();
+  }
+  g.restore();
+}
+
 function drawBoss() {
   const B = G.boss;
   const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
@@ -1827,6 +2209,8 @@ function loop(now) {
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect, retry, respawn, hurt,
                   resetRun, loadRecords, fmtTime,
+                  EXPLORE_ROOMS, DOOR_KEYS_NEEDED, gateReady, exploreDone, exploreAll,
+                  earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });

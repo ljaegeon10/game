@@ -32,6 +32,11 @@
           <span class="datelabel">TIME</span>
           <span id="timertext">0:00.00</span>
         </div>
+        <!-- 일반 모드 : 시계 대신 밟은 방 수 (관문이 열리는 조건) -->
+        <div id="explorebox" class="hidden" title="관문은 모든 방을 밟아야 열립니다">
+          <span class="datelabel">탐사</span>
+          <span id="exploretext">0 / 7</span>
+        </div>
         <div id="datebox">
           <span class="datelabel">LOG DATE</span>
           <span id="datetext">2145 / 05 / 01</span>
@@ -98,6 +103,17 @@
       </div>
     </div>
 
+    <!-- ── 이스터에그 ② : 숲 밖으로 나가려 하면 끼어드는 관찰자 ── -->
+    <div id="creepy" class="hidden" aria-hidden="true">
+      <div id="cr-noise"></div>
+      <div id="cr-bars"></div>
+      <div id="cr-eye">
+        <i class="cr-sclera"></i><i class="cr-iris"></i><i class="cr-pupil"></i>
+        <i class="cr-lid t"></i><i class="cr-lid b"></i>
+      </div>
+      <div id="cr-body"></div>
+    </div>
+
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
       <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
@@ -115,10 +131,12 @@
           <button class="modebtn" data-mode="time">
             <b>타임어택 모드</b>
             <span>기록 경쟁 · 죽으면 처음부터</span>
+            <em>열쇠 2 개면 관문 통과</em>
           </button>
           <button class="modebtn" data-mode="normal">
             <b>일반 모드</b>
             <span>시간 없음 · 죽은 방에서 다시</span>
+            <em>모든 방을 밟아야 열림</em>
           </button>
         </div>
         <button id="msback">← 뒤로</button>
