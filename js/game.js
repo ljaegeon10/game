@@ -114,6 +114,7 @@ const G = {
   creepyOn: false,
   wellUsed: false, fallT: 0, landT: 0, eyeT: 0, wake: 0,
   morphed: false, morphT: 0, morphX: 0, morphY: 0, morphDark: 0,
+  medpack: null,        // 눈이 터질 때 튀어나오는 구급 팩 (페이즈3 직전)
   butterflies: [], plants: []
 };
 
@@ -375,7 +376,7 @@ function resetRun() {
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
-  G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
@@ -404,7 +405,7 @@ function loadForest() {
   G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
-  G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
@@ -524,7 +525,7 @@ function loadRoom(id, fromDir) {
   G.inForest = false; G.room = id; G.depth = r.depth;
   G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
   G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
-  G.glare = 0;
+  G.glare = 0; G.medpack = null;
   P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
@@ -625,7 +626,7 @@ function queueBoss() {
   glare(1);
   G.rings = [];
   // 보스방에 다시 들어오면(죽고 부활 포함) 눈부터 다시 싸웁니다
-  G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   clearMorphSys();
   // 페이즈3에서 늘었던 체력칸은 눈 보스부터 다시 싸울 땐 원래대로
   if (P.max !== BALANCE.playerHp) { P.max = BALANCE.playerHp; P.hp = Math.min(P.hp, P.max); updateHud(); }
@@ -1512,10 +1513,14 @@ const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
 /* 각 행동의 [예비 동작, 그 뒤 길이] */
 const ABOM_ACT = {
   blade:  { wind: 40, dur: 80, c: '#ffb27a' },   // 왼팔의 녹슨 낫
-  claw:   { wind: 34, dur: 54, c: '#ff8a6a' },   // 오른팔의 집게를 내리찍기
+  claw:   { wind: 52, dur: 46, c: '#ff8a6a' },   // 오른팔의 집게를 내리찍기
   lash:   { wind: 32, dur: 46, c: '#e07fb0' },   // 촉수 채찍
   scream: { wind: 36, dur: 88, c: '#ff6a66' }    // 아래쪽 아가리의 비명
 };
+/* 내리찍기는 예비 동작 절반쯤에서 자리를 "확정"합니다. 그 전까지는 조준선이
+   주인공을 따라다니고, 확정된 뒤로는 더 안 따라옵니다 — 언제 빠져나가야
+   하는지가 눈에 보여야 피할 수 있습니다. */
+const CLAW_LOCK = 26;
 
 /* -π~π 로 접은 각도 차 */
 function angDiff(a, b) {
@@ -1546,6 +1551,15 @@ function beginMorph() {
   G.clouds = [];
   G.bullets = [];
 
+  /* 눈이 터질 때 뭔가 하나가 같이 튀어나옵니다 — 낡은 구급 팩.
+     암전이 내려앉는 동안 주인공이 이걸 주워 삼키고, 그래서 페이즈3를
+     체력칸 5개로 시작합니다. (예전엔 설명 없이 체력만 늘어났습니다) */
+  // 주인공 발밑이 아니라, 자리가 넓은 쪽으로 조금 떨어진 곳에 떨어뜨립니다
+  const side = (P.x - TS) > (W - TS - P.x) ? -1 : 1;
+  const lx = Math.max(TS + 28, Math.min(W - TS - 28, P.x + side * 58));
+  const ly = Math.max(TS + 28, Math.min(H - TS - 28, P.y + 16));
+  G.medpack = { x0: B.x, y0: B.y, lx, ly, x: B.x, y: B.y, spin: 0, eaten: false };
+
   glitchDeath(B.x, B.y, true);
   glare(1.4); G.shake = 34; G.flash = 1;
   shockRing(B.x, B.y, 420, '255,255,255', 10, 52);
@@ -1559,6 +1573,9 @@ const RISE_FROM = 100, RISE_TO = 380;
 const CRACK_AT = [110, 160, 215, 275, 335];
 const WAKE_AT = 520;                 // 각성하는 순간
 
+/* 피팩이 튀어나와 → 바닥에 떨어지고 → 주인공에게 끌려가 → 삼켜지는 시점 */
+const PACK_LAND = 26, PACK_PULL = 44, PACK_EAT = 64;
+
 /* 관측 로그 타이핑 상태 — 프레임으로 굴려야 게임 속도와 어긋나지 않습니다 */
 let morphSysI = -1, morphSysN = 0;
 
@@ -1569,9 +1586,73 @@ function clearMorphSys() {
   $('morphtext').textContent = '';
 }
 
+/* 눈이 터질 때 튀어나온 구급 팩 — 포물선으로 날아가 바닥에 떨어지고,
+   덜컹거리다가 주인공 쪽으로 끌려가서 삼켜집니다. 암막 위에 따로 그리기
+   때문에 화면이 캄캄해진 뒤에도 이것만은 또렷하게 보입니다. */
+function tickMedpack(t) {
+  const m = G.medpack;
+  if (!m || m.eaten) return;
+
+  if (t <= PACK_LAND) {                       // ① 포물선을 그리며 날아갑니다
+    const k = t / PACK_LAND;
+    m.x = m.x0 + (m.lx - m.x0) * k;
+    m.y = m.y0 + (m.ly - m.y0) * k - Math.sin(k * Math.PI) * 46;
+    m.spin += .34;
+    if (t === PACK_LAND) {
+      Sfx.pot(); G.shake = Math.max(G.shake, 5);
+      for (let i = 0; i < 8; i++)
+        G.fx.push({ k: 'p', x: m.x, y: m.y + 4, vx: (Math.random() - .5) * 2.4,
+                    vy: -Math.random() * 1.6, life: 20, max: 20, c: '#8a7c66' });
+    }
+  } else if (t < PACK_PULL) {                 // ② 바닥에서 덜컹거리다 멈춥니다
+    m.spin *= .84;
+    const k = (t - PACK_LAND) / (PACK_PULL - PACK_LAND);
+    m.y = m.ly - Math.abs(Math.sin((t - PACK_LAND) * .55)) * 3.5 * (1 - k);
+  } else if (t < PACK_EAT) {                  // ③ 주인공에게 끌려옵니다
+    const k = (t - PACK_PULL) / (PACK_EAT - PACK_PULL);
+    m.x += (P.x - m.x) * (.12 + k * .3);
+    m.y += (P.y - 6 - m.y) * (.12 + k * .3);
+    m.spin += .12;
+    if (t % 3 === 0)
+      G.fx.push({ k: 'suck', x: m.x + (Math.random() - .5) * 28, y: m.y + (Math.random() - .5) * 28,
+                  tx: P.x, ty: P.y - 6, life: 16, max: 16, c: '#ffd6d6' });
+  } else {                                    // ④ 삼킵니다
+    eatMedpack();
+  }
+}
+
+/* 구급 팩을 삼키는 순간 — 체력칸이 3개에서 5개로 늘고 가득 찹니다 */
+function eatMedpack() {
+  const m = G.medpack;
+  if (m) m.eaten = true;
+  const prev = P.max;
+  P.max = BALANCE.abomPlayerMax;
+  P.hp = P.max;
+  updateHud();
+  // 새로 붙은 칸만 하나씩 톡 튀어나오게
+  const hs = $('hearts').children;
+  for (let i = prev; i < hs.length; i++) {
+    const el = hs[i];
+    setTimeout(() => {
+      el.classList.add('gain');
+      setTimeout(() => el.classList.remove('gain'), 520);
+    }, (i - prev) * 150);
+  }
+  Sfx.pickup();
+  setTimeout(() => Sfx.keyGet(), 90);
+  glare(.5); G.flash = Math.max(G.flash, .45); G.shake = Math.max(G.shake, 7);
+  shockRing(P.x, P.y, 150, '255,214,214', 4, 26);
+  for (let i = 0; i < 16; i++) {
+    const a = Math.random() * 6.28, s = 1 + Math.random() * 2.4;
+    G.fx.push({ k: 'p', x: P.x, y: P.y - 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .6,
+                life: 30, max: 30, c: i % 2 ? '#ff6a7a' : '#ffe8ea' });
+  }
+}
+
 function tickMorph() {
   const t = ++G.morphT;
   tickFx();
+  tickMedpack(t);
 
   /* ── 바깥에서 이 장면을 지켜보는 쪽의 관측 로그 ── */
   for (let i = 0; i < MORPH_SYS.length; i++) {
@@ -1606,7 +1687,7 @@ function tickMorph() {
   // ② 어둠과 정적 — 낮게 한 번. 이때부터 로그만 찍힙니다
   else if (t < RISE_FROM) {
     G.morphDark = 1;
-    if (t === 64) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
+    if (t === 84) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
     G.shake = Math.max(G.shake, 1.2);
   }
   // ③ 바닥이 다섯 번 갈라지고 실루엣이 천천히 솟아오릅니다
@@ -1652,10 +1733,7 @@ function tickMorph() {
       shockRing(G.morphX, G.morphY, 230, '255,170,120', 6, 38);
     }
     G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 36);
-    if (t === WAKE_AT + 40 && !G.boss) {
-      makeAbom();
-      healForAbom();
-    }
+    if (t === WAKE_AT + 40 && !G.boss) makeAbom();
   }
   if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; clearMorphSys(); }
 }
@@ -1670,21 +1748,6 @@ function makeAbom() {
     bladeFrom: 0, bladeA: 0, lash: [], lashLen: 0, reach: 150,
     gap: 0, tx: 0, ty: 0, rise: 0, spiralA: 0, rayT: 120
   };
-}
-
-/* 스토리상 — 무너진 자리에 굴러 있던 피팩을 주워 먹은 걸로 칩니다.
-   페이즈3는 덩치도 패턴도 굵어서, 이전 체력 그대로 던져 넣으면 가혹합니다.
-   체력칸을 5개로 늘리고 그 자리에서 가득 채웁니다. */
-function healForAbom() {
-  P.max = BALANCE.abomPlayerMax;
-  P.hp = P.max;
-  updateHud();
-  Sfx.pickup();
-  for (let i = 0; i < 12; i++) {
-    const a = Math.random() * 6.28, s = 1 + Math.random() * 2.2;
-    G.fx.push({ k: 'p', x: P.x, y: P.y - 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .6,
-                life: 28, max: 28, c: i % 2 ? '#ff6a7a' : '#ffd2d8' });
-  }
 }
 
 function updateAbom() {
@@ -1792,10 +1855,27 @@ function runAbomAct(B, dx, dy, d) {
   }
 
   else if (B.act === 'claw') {
-    if (t === w) { B.tx = P.x; B.ty = P.y; Sfx.bossRoar(); }
+    /* 예비 동작 — 몸을 크게 들어 올립니다. 그림자가 작아지고 몸이 떠오르는
+       것만으로도 "뛰어든다"는 게 읽힙니다. */
+    if (t <= w) {
+      B.rise = (t / w) * 20;
+      if (t < CLAW_LOCK) { B.tx = P.x; B.ty = P.y; }      // 아직은 따라다닙니다
+      if (t === CLAW_LOCK) {                              // 여기서 자리 확정
+        B.tx = P.x; B.ty = P.y;
+        Sfx.beep(.18); Sfx.hit();
+        G.shake = Math.max(G.shake, 9);
+        shockRing(B.tx, B.ty, 130, '255,138,106', 3, 22);
+      }
+      // 확정된 자리에 흙먼지가 들썩입니다 — 여기 떨어진다는 신호
+      if (t > CLAW_LOCK && t % 4 === 0)
+        G.fx.push({ k: 'p', x: B.tx + (Math.random() - .5) * 40, y: B.ty + (Math.random() - .5) * 22,
+                    vx: (Math.random() - .5) * 1.2, vy: -.6 - Math.random(),
+                    life: 18, max: 18, c: '#c08a68' });
+    }
+    if (t === w) { Sfx.bossRoar(); G.shake = Math.max(G.shake, 12); }
     if (t > w && t <= w + 16) {
       B.x += (B.tx - B.x) * .2; B.y += (B.ty - B.y) * .2;
-      B.rise = Math.sin((t - w) / 16 * Math.PI) * 14;
+      B.rise = 20 * (1 - (t - w) / 16);          // 들어 올린 몸이 그대로 내려옵니다
       G.shake = Math.max(G.shake, 5);
       G.fx.push({ k: 'trail', x: B.x, y: B.y, life: 14, max: 14, r: 26 });
     }
@@ -2697,8 +2777,52 @@ function renderMorph() {
     g.restore();
   }
 
+  /* 피팩을 줍는 동안은 주인공도 어둠 위로 드러납니다 — 캄캄한 방에서
+     팩 하나만 빛나고, 그 빛에 주인공이 비치는 그림입니다. */
+  const mt = G.morphT;
+  if (mt <= PACK_EAT + 26 && G.morphDark > .02) {
+    const k = mt <= PACK_EAT ? 1 : 1 - (mt - PACK_EAT) / 26;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .3 * k;
+    const pg = g.createRadialGradient(P.x, P.y, 2, P.x, P.y, 58);
+    pg.addColorStop(0, 'rgba(255,226,214,.9)');
+    pg.addColorStop(1, 'rgba(255,160,140,0)');
+    g.fillStyle = pg;
+    g.beginPath(); g.arc(P.x, P.y, 58, 0, 6.3); g.fill();
+    g.restore();
+    g.save(); g.globalAlpha = .85 * k; drawPlayer(); g.restore();
+  }
+  drawMedpack();
+
   // 어둠 속에서도 몸통과 바닥 틈은 보여야 하므로 암막 위에 그립니다
   if (!G.boss) drawMorphRise();
+}
+
+/* 낡은 구급 팩 — 암막 위에 그려야 어둠 속에서도 보입니다 */
+function drawMedpack() {
+  const m = G.medpack;
+  if (!m || m.eaten) return;
+  g.save();
+  g.fillStyle = 'rgba(0,0,0,.45)';
+  g.beginPath(); g.ellipse(m.x, Math.max(m.y, m.ly) + 7, 7, 2.5, 0, 0, 6.3); g.fill();
+
+  // 어둠 속에서 이것만 은은하게 빛납니다
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .55 + Math.sin(G.t * .16) * .18;
+  const lg = g.createRadialGradient(m.x, m.y, 1, m.x, m.y, 28);
+  lg.addColorStop(0, 'rgba(255,238,234,.95)');
+  lg.addColorStop(1, 'rgba(255,120,110,0)');
+  g.fillStyle = lg;
+  g.beginPath(); g.arc(m.x, m.y, 28, 0, 6.3); g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+
+  g.translate(m.x, m.y); g.rotate(Math.sin(m.spin) * .5);
+  g.fillStyle = '#ded6c4'; g.fillRect(-6, -5, 12, 10);          // 팩 몸통
+  g.fillStyle = '#9c9384'; g.fillRect(-6, -5, 12, 1); g.fillRect(-6, 4, 12, 1);
+  g.fillStyle = '#c2352c'; g.fillRect(-1, -3, 2, 6); g.fillRect(-3, -1, 6, 2);   // 적십자
+  g.restore();
 }
 
 function drawAbomLight() {
@@ -2756,6 +2880,64 @@ function drawAbom() {
   g.fillStyle = ag;
   g.beginPath(); g.arc(B.x, y, 92 + wind * 28, 0, Math.PI * 2); g.fill();
   g.restore();
+
+  /* 모든 행동 공통 — 예비 동작 동안 몸 주위로 고리가 조여듭니다.
+     "지금 뭔가 나온다, 이만큼 남았다"를 한눈에 보여 주는 신호입니다. */
+  if (A && B.actT <= A.wind) {
+    const k = B.actT / A.wind;
+    g.save();
+    g.globalAlpha = .25 + k * .45;
+    g.strokeStyle = A.c; g.lineWidth = 1.5 + k * 2;
+    g.setLineDash([6, 5]); g.lineDashOffset = -G.t * .6;
+    g.beginPath(); g.arc(B.x, y, 108 - k * 46, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([]);
+    g.restore();
+  }
+
+  /* 내리찍기 — 어디에 떨어지는지를 바닥에 그려 줍니다.
+     확정 전(점선·따라다님) → 확정 후(굵은 고리가 조여들며 그림자가 커짐). */
+  if (B.act === 'claw' && B.actT <= ABOM_ACT.claw.wind + 16) {
+    const t = B.actT, w = ABOM_ACT.claw.wind;
+    const locked = t >= CLAW_LOCK;
+    g.save();
+    /* 표시하는 원은 실제 판정(반지름 62)과 정확히 같은 크기입니다 —
+       "여기까지가 위험" 이 눈에 보이는 대로여야 피할 수 있습니다. */
+    const R = 62;
+    if (!locked) {
+      // 아직 따라다니는 조준선
+      g.globalAlpha = .3 + (t / CLAW_LOCK) * .3;
+      g.strokeStyle = '#ff8a6a'; g.lineWidth = 1.4;
+      g.setLineDash([4, 4]); g.lineDashOffset = -G.t * .8;
+      g.beginPath(); g.arc(B.tx, B.ty, R, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(B.x, y); g.lineTo(B.tx, B.ty); g.stroke();
+      g.setLineDash([]);
+    } else {
+      // 확정 — 떨어질 자리에 그림자가 점점 커지고, 고리가 한가운데로 조여듭니다
+      const k = Math.min(1, (t - CLAW_LOCK) / (w - CLAW_LOCK));
+      g.globalAlpha = .16 + k * .26;
+      g.fillStyle = '#000';
+      g.beginPath(); g.arc(B.tx, B.ty, 22 + k * (R - 22), 0, Math.PI * 2); g.fill();
+
+      g.globalAlpha = .85;
+      g.strokeStyle = '#ff7a52'; g.lineWidth = 2.4;
+      g.beginPath(); g.arc(B.tx, B.ty, R, 0, Math.PI * 2); g.stroke();
+      // 조여드는 고리 — 이게 한가운데 닿는 순간 떨어집니다
+      g.globalAlpha = .95;
+      g.strokeStyle = '#ffe0c8'; g.lineWidth = 2;
+      g.beginPath(); g.arc(B.tx, B.ty, R * (1 - k) + 5, 0, Math.PI * 2); g.stroke();
+      // 네 귀퉁이 조준 표시
+      g.globalAlpha = .8; g.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const ax = i < 2 ? -1 : 1, ay = i % 2 ? 1 : -1;
+        g.beginPath();
+        g.moveTo(B.tx + ax * R, B.ty + ay * R * .42);
+        g.lineTo(B.tx + ax * R, B.ty + ay * R);
+        g.lineTo(B.tx + ax * R * .42, B.ty + ay * R);
+        g.stroke();
+      }
+    }
+    g.restore();
+  }
 
   // 촉수 채찍 — 예비 동작 때는 가는 예고선, 칠 때는 굵은 촉수
   if (B.act === 'lash') {

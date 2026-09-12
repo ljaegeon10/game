@@ -139,6 +139,13 @@ html,body{
 .heart.empty{ background:#3a3340; }
 .heart.hit{ animation:heartpop .3s ease-out 1; }
 @keyframes heartpop{ 0%{transform:scale(1.6)} 100%{transform:scale(1)} }
+/* 피팩을 삼켜 칸이 늘어날 때 — 없던 칸이 톡 튀어나옵니다 */
+.heart.gain{ animation:heartgain .52s cubic-bezier(.2,1.7,.4,1) 1; }
+@keyframes heartgain{
+  0%{ transform:scale(0); filter:drop-shadow(0 0 8px var(--jeok)); }
+  55%{ transform:scale(1.5); filter:drop-shadow(0 0 7px var(--jeok)); }
+  100%{ transform:scale(1); filter:drop-shadow(0 1px 0 rgba(0,0,0,.7)); }
+}
 
 #hudright{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
 #keyrow{ display:flex; gap:8px; align-items:center; }
