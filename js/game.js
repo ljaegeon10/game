@@ -95,7 +95,7 @@ const G = {
   gap: { x: 414, y: 26 },        // 이스터에그 ② — 숲 맨 위, 나무 사이의 틈
   sawDoc: false,
   creepyOn: false,
-  wellUsed: false, fallT: 0, landT: 0,
+  wellUsed: false, fallT: 0, landT: 0, wake: 0,
   butterflies: [], plants: []
 };
 
@@ -356,7 +356,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0;
+  G.rings = []; G.glare = 0; G.wake = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
@@ -382,7 +382,7 @@ $('againbtn').addEventListener('click', () => location.reload());
 function loadForest() {
   G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0;
+  G.rings = []; G.glare = 0; G.wake = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
@@ -412,24 +412,55 @@ function neighbourOf(id, d) {
    증표입니다. 예전에는 숫자를 직접 더하고 빼다 보니 (보상 연출 도중에 방을
    넘어가는 등) 분명 두 개를 먹었는데 관문이 안 열리는 일이 생겼습니다.
    그래서 개수를 저장하지 않고 방 상태에서 매번 다시 세도록 바꿨습니다. */
-function earnedDoorKeys() {
-  let n = 0;
-  for (const id in MAP)
-    if (MAP[id].clear === 'doorKey' && G.st[id] && G.st[id].rewarded) n++;
-  return n;
-}
+/* ═══════════ 진행 규칙 — 모드별로 완전히 분리 ═══════════
+   두 모드가 서로 다른 게임처럼 굴러야 해서, 관문 통과 조건을 한 군데
+   표로 몰아 두고 나머지 코드는 이 표만 봅니다.
+
+     타임어택 : 관문 열쇠 2개면 끝. 북쪽 방 · 남쪽 방만 들르면 되므로
+                갈림길에서 위아래만 찍고 곧장 중앙 → 관문으로 갑니다.
+     일반     : 관문 열쇠 2개 + EXPLORE_ROOMS 전부 밟기.
+
+   ⛨ 열쇠가 나오는 방은 MAP 에서 clear:'doorKey' 로 표시된 방(북·남)
+   뿐입니다. 상자 열쇠(✦)는 전혀 다른 물건이라 관문과 무관합니다.
+   ═══════════════════════════════════════════════════════ */
 const DOOR_KEYS_NEEDED = 2;
+
+const MODE_RULE = {
+  time:   { id: 'time',   name: '타임어택',
+            keys: DOOR_KEYS_NEEDED, needExplore: false },
+  normal: { id: 'normal', name: '일반',
+            keys: DOOR_KEYS_NEEDED, needExplore: true }
+};
+const rule = () => G.timeAttack ? MODE_RULE.time : MODE_RULE.normal;
+
+/* ⛨ 관문 열쇠가 나오는 방들 (MAP 에서 자동으로 뽑습니다) */
+const DOOR_KEY_ROOMS = Object.keys(MAP).filter(id => MAP[id].clear === 'doorKey');
+const roomHasDoorKey = id => DOOR_KEY_ROOMS.includes(id) && !(G.st[id] && G.st[id].rewarded);
+
+function earnedDoorKeys() {
+  return DOOR_KEY_ROOMS.filter(id => G.st[id] && G.st[id].rewarded).length;
+}
 const syncKeys = () => { G.doorKeys = earnedDoorKeys(); };
 
 /* 일반 모드에서 아직 밟지 않은 방 */
 const exploreDone = () => EXPLORE_ROOMS.filter(id => G.visited.has(id)).length;
 const exploreAll  = () => exploreDone() >= EXPLORE_ROOMS.length;
 
-/* 관문을 열 수 있는 상태인가 */
+/* 관문을 열 수 있는 상태인가 — 모드 규칙표만 봅니다 */
 function gateReady() {
   syncKeys();
-  if (G.doorKeys < DOOR_KEYS_NEEDED) return false;
-  return G.timeAttack ? true : exploreAll();
+  const R = rule();
+  if (G.doorKeys < R.keys) return false;
+  return R.needExplore ? exploreAll() : true;
+}
+
+/* 관문이 안 열리는 이유 (프롬프트·대사·문 표시가 전부 이걸 씁니다) */
+function gateBlocker() {
+  syncKeys();
+  const R = rule();
+  if (G.doorKeys < R.keys) return 'keys';
+  if (R.needExplore && !exploreAll()) return 'explore';
+  return null;
 }
 
 function doorLockReason(toId) {
@@ -496,9 +527,26 @@ function loadRoom(id, fromDir) {
   if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
 
   const after = r.boss && !G.bossDead ? queueBoss : null;
-  if (first && r.intro && r.intro.length) say(r.intro, after);
+  // 갈림길에 처음 서면 이 판의 통과 조건을 한 번 짚어 줍니다 (모드마다 다름)
+  const lines = (first && r.intro && r.intro.length) ? r.intro.slice() : [];
+  if (first && id === 'fork') lines.push(...modeBriefing());
+  if (lines.length) say(lines, after);
   else if (after) after();
   else G.mode = 'play';
+}
+
+/* 모드별 통과 조건 안내 — 규칙표(MODE_RULE)에서 그대로 뽑아 씁니다 */
+function modeBriefing() {
+  const names = DOOR_KEY_ROOMS.map(id => MAP[id].name).join(' · ');
+  const out = [{
+    t: `⛨ **관문 열쇠는 ${names}** 두 곳에서만 나온다. 그 방의 적을 전부 없애면 남는다.`,
+    w: true
+  }];
+  if (rule().needExplore)
+    out.push({ t: `일반 모드 — 관문은 열쇠 ${rule().keys}개와 **모든 방을 밟아야** 열린다.`, sys: true });
+  else
+    out.push({ t: `타임어택 — 관문은 열쇠 ${rule().keys}개만 있으면 열린다.`, sys: true });
+  return out;
 }
 
 function hash(s) {
@@ -676,9 +724,15 @@ function interact() {
   const gd = nearLockedGate();
   if (gd) {
     /* 관문 열쇠는 소모되지 않습니다 — 두 개를 모았다면 언제 눌러도 열립니다 */
-    if (G.doorKeys < DOOR_KEYS_NEEDED) {
-      say([{ t: `관문 열쇠 ${G.doorKeys} / ${DOOR_KEYS_NEEDED} — 아직 모자란다.`, sys: true }]);
-    } else if (!gateReady()) {
+    const blocked = gateBlocker();
+    if (blocked === 'keys') {
+      // 어느 방에 남아 있는지까지 알려 줍니다 (상자 열쇠 ✦ 와 헷갈리지 않도록)
+      const left = DOOR_KEY_ROOMS.filter(roomHasDoorKey).map(id => MAP[id].name);
+      say([
+        { t: `관문 열쇠 ${G.doorKeys} / ${rule().keys} — 아직 모자란다.`, sys: true },
+        { t: `⛨ 관문 열쇠는 **${left.join(' · ')}**의 적을 전부 없애야 나온다. (상자 열쇠 ✦ 와는 다른 물건이다.)`, w: true }
+      ]);
+    } else if (blocked === 'explore') {
       // 일반 모드 : 아직 둘러보지 않은 방이 남아 있습니다
       say([
         { t: `열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**`, w: true },
@@ -909,7 +963,18 @@ function shockRing(x, y, max, c, w = 4, life = 34) {
 }
 function glare(v) { G.glare = Math.min(1.4, Math.max(G.glare, v)); }
 
-/* 이펙트 · 충격파 · 섬광은 보스 연출 중에도 계속 돌아야 해서 따로 뺐습니다 */
+/* 화면 전체 연출 — 모드와 상관없이 매 프레임 흘러갑니다 (update() 맨 위) */
+function tickScreenFx() {
+  G.rings = G.rings.filter(r => {
+    r.life--;
+    const k = 1 - r.life / r.maxLife;
+    r.r = 6 + (r.max - 6) * (1 - Math.pow(1 - k, 2.4));   // 처음에 확 퍼지고 끝에서 느려짐
+    return r.life > 0;
+  });
+  if (G.glare > 0) G.glare = Math.max(0, G.glare - .055);
+}
+
+/* 월드 파티클 — 실제로 방이 돌아가는 동안에만 흘러갑니다 */
 function tickFx() {
   G.fx = G.fx.filter(f => {
     f.life--;
@@ -918,15 +983,9 @@ function tickFx() {
       f.x += (f.tx - f.x) * .17;
       f.y += (f.ty - f.y) * .17;
     }
+    else if (f.k === 'dust') { f.y += f.vy; f.vy *= 1.01; }   // 어둠 속 흙먼지
     return f.life > 0;
   });
-  G.rings = G.rings.filter(r => {
-    r.life--;
-    const k = 1 - r.life / r.maxLife;
-    r.r = 6 + (r.max - 6) * (1 - Math.pow(1 - k, 2.4));   // 처음에 확 퍼지고 끝에서 느려짐
-    return r.life > 0;
-  });
-  if (G.glare > 0) G.glare = Math.max(0, G.glare - .055);
 }
 
 function puff(x, y, c) {
@@ -938,8 +997,14 @@ function puff(x, y, c) {
 /* ═══════════ 업데이트 ═════════════════════════════════ */
 function update() {
   G.t++;
+  /* 화면 전체에 걸리는 연출(흔들림·섬광·충격파·암전 걷힘)은 대사창이 떠
+     있든 무슨 모드든 항상 흘러가야 합니다. 예전엔 이것들이 'play' 경로의
+     tickFx() 안에만 있어서, 착지 직후 방 인트로 대사가 뜨면 섬광과 충격파
+     고리가 그 자리에 얼어붙어 있었습니다. */
   if (G.shake > 0) G.shake *= .86;
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
+  if (G.wake > 0) G.wake--;
+  tickScreenFx();
 
   if (G.mode === 'talk') { tickTalk(); return; }
   if (G.mode === 'note') {
@@ -962,12 +1027,25 @@ function update() {
   }
   if (G.mode === 'landing') {
     G.landT++;
-    // 암전을 잠깐 붙잡아 뒀다가, 풀리는 순간 던전으로 들어서며 브금의
-    // "두둥"이 터집니다 — 우물 속으로 완전히 들어선 그 순간입니다.
+    const k = G.landT / LAND_BLACK;
+    // 암흑 속에서 울림이 점점 크게 — 뭔가 오고 있다는 예감
+    G.shake = Math.max(G.shake, 0.6 + k * k * 4.5);
+    if (G.landT === 6)  Sfx.landThump(0.30);     // 바닥에 닿는 둔탁한 충격
+    if (G.landT === 26) Sfx.landThump(0.18);     // 한 박자 뒤 되울림
+    // 어둠 속으로 흙먼지가 계속 떨어집니다
+    if (G.landT % 2 === 0)
+      G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
+                  vy: 1.2 + Math.random() * 2.6, life: 70, max: 70 });
+    tickFx();
+
+    // 암전이 터지듯 풀리는 순간 — 던전으로 들어서며 브금의 "두둥"이 겹칩니다
     if (G.landT === LAND_BLACK) {
       loadRoom('start', 'W');
       Sfx.dungeonBgm(true);
-      G.shake = Math.max(G.shake, 9); G.flash = Math.max(G.flash, .6);
+      G.wake = WAKE_DUR;
+      G.shake = 26; G.flash = 1; glare(1.3);
+      shockRing(W / 2, H / 2, 360, '255,236,198', 8, 44);
+      shockRing(W / 2, H / 2, 240, '227,178,60', 5, 34);
     }
     return;
   }
@@ -1251,8 +1329,9 @@ function updatePrompt() {
   else if (nearCreepyGap()) pr = '나무 사이 좁은 틈으로';
   else if (nearFinalLock()) pr = G.finalKey ? '마지막 열쇠 꽂기' : '잠금장치';
   else if (nearLockedGate()) {
-    if (gateReady()) pr = '관문 열기';
-    else if (G.doorKeys < DOOR_KEYS_NEEDED) pr = `관문 잠김 · 열쇠 ${G.doorKeys}/${DOOR_KEYS_NEEDED}`;
+    const blocked = gateBlocker();
+    if (!blocked) pr = '관문 열기';
+    else if (blocked === 'keys') pr = `관문 잠김 · ⛨ ${G.doorKeys}/${rule().keys}`;
     else pr = `관문 잠김 · 탐사 ${exploreDone()}/${EXPLORE_ROOMS.length}`;
   }
   if (pr) { $('prompt').classList.remove('hidden'); $('prompttext').textContent = pr; }
@@ -1392,8 +1471,10 @@ function render() {
   g.restore();
 
   if (G.mode === 'fall') renderFall();
-  if (G.mode === 'landing') { g.fillStyle = '#000'; g.fillRect(0, 0, W, H); }
-  if (!G.inForest && G.mode !== 'fall' && G.mode !== 'landing') drawMinimap();
+  if (G.mode === 'landing') renderLanding();
+  // 암전이 걷히는 동안엔 지도도 같이 드러납니다
+  if (!G.inForest && G.mode !== 'fall' && G.mode !== 'landing' && G.wake <= 0) drawMinimap();
+  if (G.wake > 0 && G.mode !== 'landing') renderWake();
 
   if (G.flash > .02) {
     g.save();
@@ -1679,12 +1760,13 @@ function drawDoors() {
       g.beginPath(); g.arc(c[0], c[1] - 4, 4, Math.PI, 0); g.stroke();
       g.fillStyle = '#15141b'; g.fillRect(c[0] - 1, c[1], 2, 4);
       if (dr.lock === 'keys') {
-        const short = G.doorKeys < DOOR_KEYS_NEEDED;
-        g.fillStyle = short ? '#e3b23c' : (gateReady() ? '#7de3c8' : '#c2352c');
+        const blocked = gateBlocker();
+        g.fillStyle = !blocked ? '#7de3c8' : (blocked === 'keys' ? '#e3b23c' : '#c2352c');
         g.font = 'bold 7px DungGeunMo, ui-monospace, monospace';
         g.textAlign = 'center';
-        g.fillText(short ? `${G.doorKeys}/${DOOR_KEYS_NEEDED}`
-                         : (gateReady() ? 'OPEN' : `${exploreDone()}/${EXPLORE_ROOMS.length}`),
+        g.fillText(!blocked ? 'OPEN'
+                   : blocked === 'keys' ? `${G.doorKeys}/${rule().keys}`
+                   : `${exploreDone()}/${EXPLORE_ROOMS.length}`,
                    c[0], c[1] + 16);
       }
     } else {
@@ -1765,6 +1847,18 @@ function drawMinimap() {
     }
     if (r.boss && seen) { g.fillStyle = '#c2352c'; g.fillRect(x + 3, y + 3, 3, 3); }
     if (r.final && seen) { g.fillStyle = '#7de3c8'; g.fillRect(x + 3, y + 3, 3, 3); }
+    // ⛨ 관문 열쇠가 아직 남아 있는 방 — 어디로 가야 하는지 한눈에 보이도록
+    // 깜빡입니다. (상자 열쇠 ✦ 와 헷갈려 헤매지 않게 하는 이정표입니다.)
+    if (roomHasDoorKey(id)) {
+      g.fillStyle = `rgba(227,178,60,${.55 + Math.sin(G.t * .11) * .45})`;
+      g.fillRect(x + 3, y + 2, 3, 5);
+      g.fillRect(x + 2, y + 3, 5, 3);
+    }
+    // 관문 방 자체 : 열리면 초록, 잠겨 있으면 자물쇠색
+    if (r.needKeys) {
+      g.fillStyle = G.gateOpen ? 'rgba(125,227,200,.9)' : 'rgba(227,178,60,.55)';
+      g.fillRect(x + cell / 2 - 1, y + cell / 2 - 1, 2, 2);
+    }
   });
   g.restore();
 }
@@ -2054,11 +2148,79 @@ function drawBoss() {
    고리들 + 회전하는 잔상 줄무늬 + 점점 작아지며 구르는 주인공을 겹칩니다.
    예전(168프레임)보다 살짝 느리게 떨어지도록 늘렸습니다.
 
-   이 소용돌이가 다 끝나면(FALL_DUR) 'landing' 단계로 넘어가 화면을
-   잠깐 암전으로 붙잡아 두고, 풀리는 순간 던전으로 들어서며 브금의
-   "두둥"이 겹치도록 맞춥니다(update() 의 LAND_BLACK 지점 참고). */
+   이 소용돌이가 다 끝나면(FALL_DUR) 'landing' 단계로 넘어갑니다 —
+   화면이 완전히 꺼져 아무것도 안 보이는 채로 숨을 죽이다가(LAND_BLACK),
+   그 암전이 터지듯 풀리는 순간 던전으로 들어서며 브금의 "두둥"이
+   정확히 겹칩니다. 암전 동안에는 울림이 점점 커지고, 어둠 속으로
+   흙먼지가 떨어지고, 마지막엔 가운데가 갈라지듯 빛이 새어 나옵니다. */
 const FALL_DUR = 185;
-const LAND_BLACK = 22;
+const LAND_BLACK = 54;    // 암전을 붙잡아 두는 시간 (약 0.9초)
+const WAKE_DUR  = 52;     // 암전이 걷히며 던전이 드러나는 시간
+
+/* 착지 직후 — 아무것도 보이지 않는 암전. 울림과 흙먼지만 남습니다.
+   마지막 몇 프레임에는 가운데가 갈라지듯 빛이 새어 나오며 "두둥" 을
+   예고합니다. */
+function renderLanding() {
+  const t = G.landT, k = Math.min(1, t / LAND_BLACK);
+  g.save();
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, W, H);
+
+  // 어둠 속에서 스쳐 내리는 흙먼지 (아주 희미하게만)
+  g.globalAlpha = .30;
+  g.fillStyle = '#6b6256';
+  G.fx.forEach(f => {
+    if (f.k !== 'dust') return;
+    g.globalAlpha = .10 + (f.life / f.max) * .22;
+    g.fillRect(f.x, f.y, 1, 2 + f.vy);
+  });
+  g.globalAlpha = 1;
+
+  // 심장이 뛰듯 아주 어둡게 번지는 붉은 기운
+  const beat = Math.max(0, Math.sin(t * .16)) * k;
+  if (beat > .02) {
+    const bg = g.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, 230);
+    bg.addColorStop(0, `rgba(90,20,18,${beat * .22})`);
+    bg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  }
+
+  // 마지막 10프레임 — 가운데가 갈라지며 빛이 샙니다
+  const left = LAND_BLACK - t;
+  if (left <= 10) {
+    const s = (10 - left) / 10;
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = s * .8;
+    const cg = g.createLinearGradient(0, H / 2 - 2, 0, H / 2 + 2);
+    cg.addColorStop(0, 'rgba(255,228,170,0)');
+    cg.addColorStop(.5, 'rgba(255,228,170,.9)');
+    cg.addColorStop(1, 'rgba(255,228,170,0)');
+    g.fillStyle = cg;
+    g.fillRect(W / 2 - (10 + s * 220) / 2, H / 2 - 2, 10 + s * 220, 4);
+  }
+  g.restore();
+}
+
+/* 암전이 걷히며 던전이 드러나는 순간 — 가운데부터 열리는 조리개 */
+function renderWake() {
+  const k = G.wake / WAKE_DUR;            // 1 → 0
+  const cx = W / 2, cy = H / 2;
+  g.save();
+  // 바깥쪽은 아직 검게 남아 있다가 안쪽부터 서서히 열립니다
+  const r = 40 + (1 - k) * (1 - k) * 620;
+  const vg = g.createRadialGradient(cx, cy, r * .45, cx, cy, r);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, `rgba(0,0,0,${Math.min(1, k * 1.25)})`);
+  g.fillStyle = vg;
+  g.fillRect(0, 0, W, H);
+  // 열리는 테두리에 남는 잔광
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = k * k * .55;
+  g.strokeStyle = 'rgba(255,226,170,.9)';
+  g.lineWidth = 1 + k * 6;
+  g.beginPath(); g.arc(cx, cy, r * .82, 0, Math.PI * 2); g.stroke();
+  g.restore();
+}
 
 function renderFall() {
   const dur = FALL_DUR;
@@ -2259,7 +2421,8 @@ function loop(now) {
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect, retry, respawn, hurt,
                   resetRun, loadRecords, fmtTime,
-                  EXPLORE_ROOMS, DOOR_KEYS_NEEDED, gateReady, exploreDone, exploreAll,
+                  EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
+                  gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 

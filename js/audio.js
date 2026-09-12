@@ -6,6 +6,9 @@
 const Sfx = (() => {
   let ac = null, master = null, ambGain = null, amb = [], started = false;
 
+  /* 던전 브금 볼륨 — 환경음(0.12~0.15)보다 확실히 앞에 서도록 올렸습니다 */
+  const BGM_VOL = 0.52;
+
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
     // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
@@ -97,6 +100,19 @@ const Sfx = (() => {
       env(g, t, 0.05, 1.9, 0.40);
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 2.1);
       noise(1.6, 0.20, 60, 700);
+    },
+
+    /* 우물 바닥에 닿는 둔탁한 충격 — 암전 속에서 울리는 저음 */
+    landThump(vol = 0.3) {
+      const c = ctx(), t = c.currentTime;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(120, t);
+      o.frequency.exponentialRampToValueAtTime(32, t + 0.55);
+      env(g, t, 0.006, 0.55, vol);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + 0.7);
+      noise(0.28, vol * 0.5, 40, 380);
     },
 
     bossRoar() {
@@ -246,7 +262,7 @@ const Sfx = (() => {
         lp.type = 'lowpass'; lp.frequency.value = 9500; lp.Q.value = 0.6;
         const g = c.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.32, t + 0.35);
+        g.gain.exponentialRampToValueAtTime(BGM_VOL, t + 0.35);
         src.connect(lp); lp.connect(g); g.connect(master);
         src.start(t, 0);
         api._dg = { src, g };
@@ -269,7 +285,7 @@ const Sfx = (() => {
       const c = ctx(), g = api._dg.g;
       g.gain.cancelScheduledValues(c.currentTime);
       g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), c.currentTime);
-      g.gain.exponentialRampToValueAtTime(down ? 0.07 : 0.32, c.currentTime + (down ? 0.4 : 0.9));
+      g.gain.exponentialRampToValueAtTime(down ? BGM_VOL * 0.22 : BGM_VOL, c.currentTime + (down ? 0.4 : 0.9));
     },
 
     /* ── 배경 앰비언스 ─────────────────────────────────── */
@@ -278,7 +294,7 @@ const Sfx = (() => {
       api.ambientStop();
       ambGain = c.createGain();
       ambGain.gain.value = 0;
-      ambGain.gain.linearRampToValueAtTime(kind === 'forest' ? 0.20 : 0.30, c.currentTime + 2);
+      ambGain.gain.linearRampToValueAtTime(kind === 'forest' ? 0.12 : 0.15, c.currentTime + 2);
       ambGain.connect(master);
 
       // 환풍기 / 공조기 소리 : 숲에서도 아주 작게 깔린다 (복선)
@@ -299,7 +315,7 @@ const Sfx = (() => {
       if (kind !== 'forest') {
         const o = c.createOscillator(), og = c.createGain();
         o.type = 'sine'; o.frequency.value = 48;
-        og.gain.value = 0.16;
+        og.gain.value = 0.09;
         o.connect(og); og.connect(ambGain); o.start();
         amb.push(o);
       }
