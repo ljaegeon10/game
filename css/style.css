@@ -306,12 +306,7 @@ html,body{
   font-style:normal;
   font-size:1.32em; font-weight:800;
   color:#e21f1f;             /* 확실한 빨강 */
-  -webkit-text-stroke:1.4px #000;   /* 윤곽선은 검정 */
-  paint-order:stroke fill;
-  text-shadow:
-    -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000,
-    -1.4px  1.4px 0 #000, 1.4px  1.4px 0 #000,
-    0 3px 0 rgba(0,0,0,.6);
+  text-shadow:0 2px 0 rgba(0,0,0,.6);
   animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
 }
 /* 강조 글자는 팡 터지는 연출 + 떨림을 같이 겁니다 */
