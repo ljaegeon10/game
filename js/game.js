@@ -552,14 +552,30 @@ function loadRoom(id, fromDir) {
   updateHud();                        // 탐사 진행도(일반 모드) 갱신
 
   if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
-  /* 눈 보스전 브금을 미리 디코딩해 둡니다. 착지 직후(start)에 하면 그 요란한
+  /* 보스 브금을 미리 디코딩해 둡니다. 착지 직후(start)에 하면 그 요란한
      연출 프레임에 걸려 한 번 덜컥하므로, 첫 방을 벗어난 뒤에 합니다. */
-  if (id !== 'start') Sfx.preloadBossBgm('boss2');
+  if (id !== 'start') { Sfx.preloadBossBgm('approach'); Sfx.preloadBossBgm('boss2'); }
+  syncRoomBgm(id);
 
   const after = r.boss && !G.bossDead ? queueBoss : null;
   if (first && r.intro && r.intro.length) say(r.intro, after);
   else if (after) after();
   else G.mode = 'play';
+}
+
+/* 방을 옮길 때마다 어떤 브금이 흘러야 하는지 한 군데서 정합니다 —
+   탐사 브금 → (관문) 잔잔한 브금 → (심층) 격렬한 보스 브금 순으로
+   조여듭니다. 심층은 queueBoss 가 따로 채기 때문에 여기서 건드리지
+   않고, 보스를 잡은 뒤로는 환경음만 남겨 둡니다. */
+function syncRoomBgm(id) {
+  if (id === 'boss' || G.bossDead) return;
+  if (id === 'gate') {                 // 보스방 바로 앞 — 숨을 죽입니다
+    Sfx.dungeonBgm(false);
+    Sfx.bossBgm('approach', true);
+  } else {
+    Sfx.bossBgm('approach', false);
+    Sfx.dungeonBgm(true);
+  }
 }
 
 function hash(s) {
@@ -638,9 +654,11 @@ function queueBoss() {
   /* 던전 탐사 브금은 여기까지 — 버퍼째로 버려서, 보스 브금 두 개를 올릴
      자리를 비워 둡니다 (이 뒤로는 다시 쓰지 않습니다). */
   Sfx.dropDungeonBgm();
-  Sfx.bossBgmStopAll(true);          // 다시 싸우는 경우, 이전 판 브금을 즉시 끊고
-  Sfx.bossBgm('boss2', true);        // 잔잔한 도입부 → track06 반복
-  Sfx.preloadBossBgm('boss3');       // 눈과 싸우는 동안 심연 브금을 미리 디코딩
+  Sfx.bossBgm('approach', false);     // 관문의 잔잔한 브금은 여운을 남기며 걷히고
+  Sfx.bossBgm('boss3', false, true);  // 이전 판의 심연 브금이 남아 있으면 즉시 끊고
+  Sfx.bossBgm('boss2', false, true);  // 다시 싸우는 경우 자기 자신도 처음부터
+  Sfx.bossBgm('boss2', true);         // 싸움이 시작되는 순간부터 격렬한 브금
+  Sfx.preloadBossBgm('boss3');        // 눈과 싸우는 동안 심연 브금을 미리 디코딩
 }
 
 function makeBoss() {
@@ -1518,7 +1536,7 @@ function killBoss() {
    싸움은 1:1 입니다 — 페이즈3에서는 졸개를 절대 부르지 않습니다.
    대신 낫질 · 집게 내리찍기 · 촉수 채찍 · 비명 파동 네 가지를 굵게 씁니다.
    ═════════════════════════════════════════════════════ */
-const MORPH_DUR   = 620;   // 약 10초
+const MORPH_DUR   = 880;   // 약 14.7초 (전엔 10.3초 — 너무 빨리 지나갔습니다)
 const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
 
 /* 각 행동의 [예비 동작, 그 뒤 길이] */
@@ -1585,13 +1603,13 @@ function beginMorph() {
 }
 
 /* 변신 컷신 진행 — update() 에서 매 프레임 호출 */
-/* 바닥이 갈라지며 무언가가 올라오는 구간 */
-const RISE_FROM = 100, RISE_TO = 380;
-const CRACK_AT = [110, 160, 215, 275, 335];
-const WAKE_AT = 520;                 // 각성하는 순간
+/* 바닥이 갈라지며 무언가가 올라오는 구간 — 7.2초에 걸쳐 천천히 솟습니다 */
+const RISE_FROM = 130, RISE_TO = 560;
+const CRACK_AT = [145, 215, 290, 365, 440, 510];
+const WAKE_AT = 760;                 // 각성하는 순간 (브금의 본편 진입과 맞춰 둔 값)
 
 /* 피팩이 튀어나와 → 바닥에 떨어지고 → 주인공에게 끌려가 → 삼켜지는 시점 */
-const PACK_LAND = 26, PACK_PULL = 44, PACK_EAT = 64;
+const PACK_LAND = 40, PACK_PULL = 110, PACK_EAT = 200;
 
 /* 관측 로그 타이핑 상태 — 프레임으로 굴려야 게임 속도와 어긋나지 않습니다 */
 let morphSysI = -1, morphSysN = 0;
@@ -1689,7 +1707,7 @@ function tickMorph() {
       if (morphSysN % 3 === 0) Sfx.beep(.03);
     }
   }
-  if (t === WAKE_AT + 26) clearMorphSys();     // 각성하면서 로그가 끊깁니다
+  if (t === WAKE_AT + 30) clearMorphSys();     // 각성하면서 로그가 끊깁니다
 
   // ① 눈이 안으로 무너지며 빛이 중심으로 빨려 들어갑니다
   if (t < 56) {
@@ -1732,8 +1750,11 @@ function tickMorph() {
     G.morphDark = 1;
     const k = (t - RISE_TO) / (WAKE_AT - RISE_TO);
     G.shake = Math.max(G.shake, 3 + k * 9);
+    // 3.3초를 비워 두지 않도록, 숨을 고르는 소리를 세 번 넣습니다
     if (t === RISE_TO + 30) Sfx.reveal();
-    if (t === RISE_TO + 96) { Sfx.breath(); G.shake = Math.max(G.shake, 9); }
+    if (t === RISE_TO + 80) { Sfx.breath(); G.shake = Math.max(G.shake, 8); }
+    if (t === RISE_TO + 140) { Sfx.breath(); G.shake = Math.max(G.shake, 11); }
+    if (t === RISE_TO + 176) { Sfx.hit(); G.shake = Math.max(G.shake, 14); glare(.35); }
     if (t % 9 === 0) {
       const a = Math.random() * 6.28;
       G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 190, y: G.morphY + Math.sin(a) * 190,
@@ -1749,8 +1770,8 @@ function tickMorph() {
       shockRing(G.morphX, G.morphY, 340, '224,72,60', 8, 46);
       shockRing(G.morphX, G.morphY, 230, '255,170,120', 6, 38);
     }
-    G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 36);
-    if (t === WAKE_AT + 40 && !G.boss) makeAbom();
+    G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 40);
+    if (t === WAKE_AT + 44 && !G.boss) makeAbom();
   }
   if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; clearMorphSys(); }
 }
@@ -2688,7 +2709,7 @@ function abomBody(x, y, sc, sil, alpha) {
   g.save();
   g.globalAlpha = alpha;
   g.translate(x, y); g.scale(sc, sc);
-  const im = sil > .01 ? tintedAbom(w, h, '#08050a', sil) : IMG.abom;
+  const im = sil > .01 ? tintedAbom(w, h, '#1a0608', sil) : IMG.abom;
   if (im) g.drawImage(im, -w / 2, -h / 2, w, h);
   else { g.fillStyle = '#3a1418'; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill(); }
   g.restore();
@@ -2700,8 +2721,10 @@ function drawMorphRise() {
   if (t < RISE_FROM) return;
   const rise = Math.min(1, (t - RISE_FROM) / (RISE_TO - RISE_FROM));
   const e = rise * rise * (3 - 2 * rise);                 // 부드럽게
-  // 다 올라온 뒤에야 색이 번집니다
-  const sil = t < RISE_TO ? 1 : Math.max(0, 1 - (t - RISE_TO) / 96);
+  /* 다 올라온 뒤에야 색이 번집니다. 솟는 동안에도 0.9 까지만 먹여서
+     원래 색이 10% 쯤 비치게 뒀습니다 — 완전한 먹색이면 어둠 속에서
+     아예 형태가 안 보였습니다. */
+  const sil = .9 * (t < RISE_TO ? 1 : Math.max(0, 1 - (t - RISE_TO) / 140));
   const x = G.morphX, y = G.morphY + (1 - e) * 20;
   const bottom = y + ABOM_H / 2;
 
@@ -2714,7 +2737,7 @@ function drawMorphRise() {
   // 가장자리를 훑는 붉은 테두리 빛
   g.save();
   g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = (.34 + Math.sin(t * .12) * .12) * (.55 + e * .45);
+  g.globalAlpha = (.46 + Math.sin(t * .12) * .14) * (.6 + e * .4);
   const rg = g.createRadialGradient(x, y + 10, 8, x, y + 10, 112);
   rg.addColorStop(0, 'rgba(255,120,92,.95)');
   rg.addColorStop(.45, 'rgba(224,72,60,.5)');

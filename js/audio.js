@@ -11,22 +11,27 @@ const Sfx = (() => {
   /* 맨 앞 "두둥" 을 1.5배로 키워 두는 시간 (그 뒤엔 본 곡 크기로 내려옴) */
   const BGM_HIT_HOLD = 1.6;
 
-  /* ── 보스전 브금 ───────────────────────────────────────────────────
-     두 곡 다 "도입부가 한 번 흐른 뒤 본편만 반복" 구조라서, 긴 버퍼 하나에
-     loopStart / loopEnd 를 걸어 두는 같은 틀로 돌립니다. 아래 숫자들은
-     tools/make_boss_bgm.py 가 잘라낸 실제 프레임 경계 값입니다.
+  /* ── 보스로 가는 길의 브금 세 단계 ────────────────────────────────
+     셋 다 "앞부분을 한 번 들려준 뒤 정해진 구간만 반복" 구조라서, 버퍼
+     하나에 loopStart / loopEnd 를 걸어 두는 같은 틀로 돌립니다. 아래
+     숫자들은 tools/make_boss_bgm.py 가 잘라낸 실제 프레임 경계 값입니다.
 
-     boss2 (눈 보스전) : 잔잔한 도입부 14.002s → track06(산업 소음) 반복.
-     boss3 (심연)      : 변신 컷신 시작과 함께 걸면, 클립 8.678s 의 본편
-                         진입이 각성 프레임(520/60 = 8.667s)과 맞습니다. */
+     approach (관문)   : 보스방 바로 앞. 무음에서 차오르는 도입을 한 번
+                         들려준 뒤 음량이 고른 3.0~12.9s 만 반복합니다.
+     boss2 (눈 보스전) : track06(산업 소음). 싸움이 시작되는 순간부터
+                         통째로 반복 — 잔잔한 대목은 관문으로 옮겼습니다.
+     boss3 (심연)      : 변신 컷신 시작과 함께 걸면, 클립 12.675s 의 본편
+                         진입이 각성 프레임(760/60 = 12.667s)과 맞습니다. */
   const BOSS_BGM = {
-    boss2: { src: () => (typeof BOSS2_BGM_B64 === 'undefined' ? null : BOSS2_BGM_B64),
-             loopStart: 14.002, loopEnd: 71.001, vol: 0.44, fade: 0.2 },
-    boss3: { src: () => (typeof BOSS3_BGM_B64 === 'undefined' ? null : BOSS3_BGM_B64),
-             loopStart: 8.678,  loopEnd: 53.656, vol: 0.52, fade: 1.5 }
+    approach: { src: () => (typeof APPROACH_BGM_B64 === 'undefined' ? null : APPROACH_BGM_B64),
+                loopStart: 3.000,  loopEnd: 12.900, vol: 0.40, fade: 1.6 },
+    boss2:    { src: () => (typeof BOSS2_BGM_B64 === 'undefined' ? null : BOSS2_BGM_B64),
+                loopStart: 0,      loopEnd: 56.999, vol: 0.46, fade: 0.5 },
+    boss3:    { src: () => (typeof BOSS3_BGM_B64 === 'undefined' ? null : BOSS3_BGM_B64),
+                loopStart: 12.675, loopEnd: 57.652, vol: 0.52, fade: 1.8 }
   };
   /* 곡별 상태 : { buf, loading, want, node } */
-  const bgmSt = { boss2: {}, boss3: {} };
+  const bgmSt = { approach: {}, boss2: {}, boss3: {} };
 
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
