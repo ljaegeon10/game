@@ -71,7 +71,7 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | boss-intro | creepy | ending | dead
+  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | creepy | ending | dead
   timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
@@ -95,7 +95,7 @@ const G = {
   gap: { x: 414, y: 26 },        // 이스터에그 ② — 숲 맨 위, 나무 사이의 틈
   sawDoc: false,
   creepyOn: false,
-  wellUsed: false, fallT: 0, landT: 0, wake: 0,
+  wellUsed: false, fallT: 0, landT: 0, eyeT: 0, wake: 0,
   butterflies: [], plants: []
 };
 
@@ -527,26 +527,9 @@ function loadRoom(id, fromDir) {
   if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
 
   const after = r.boss && !G.bossDead ? queueBoss : null;
-  // 갈림길에 처음 서면 이 판의 통과 조건을 한 번 짚어 줍니다 (모드마다 다름)
-  const lines = (first && r.intro && r.intro.length) ? r.intro.slice() : [];
-  if (first && id === 'fork') lines.push(...modeBriefing());
-  if (lines.length) say(lines, after);
+  if (first && r.intro && r.intro.length) say(r.intro, after);
   else if (after) after();
   else G.mode = 'play';
-}
-
-/* 모드별 통과 조건 안내 — 규칙표(MODE_RULE)에서 그대로 뽑아 씁니다 */
-function modeBriefing() {
-  const names = DOOR_KEY_ROOMS.map(id => MAP[id].name).join(' · ');
-  const out = [{
-    t: `⛨ **관문 열쇠는 ${names}** 두 곳에서만 나온다. 그 방의 적을 전부 없애면 남는다.`,
-    w: true
-  }];
-  if (rule().needExplore)
-    out.push({ t: `일반 모드 — 관문은 열쇠 ${rule().keys}개와 **모든 방을 밟아야** 열린다.`, sys: true });
-  else
-    out.push({ t: `타임어택 — 관문은 열쇠 ${rule().keys}개만 있으면 열린다.`, sys: true });
-  return out;
 }
 
 function hash(s) {
@@ -726,18 +709,9 @@ function interact() {
     /* 관문 열쇠는 소모되지 않습니다 — 두 개를 모았다면 언제 눌러도 열립니다 */
     const blocked = gateBlocker();
     if (blocked === 'keys') {
-      // 어느 방에 남아 있는지까지 알려 줍니다 (상자 열쇠 ✦ 와 헷갈리지 않도록)
-      const left = DOOR_KEY_ROOMS.filter(roomHasDoorKey).map(id => MAP[id].name);
-      say([
-        { t: `관문 열쇠 ${G.doorKeys} / ${rule().keys} — 아직 모자란다.`, sys: true },
-        { t: `⛨ 관문 열쇠는 **${left.join(' · ')}**의 적을 전부 없애야 나온다. (상자 열쇠 ✦ 와는 다른 물건이다.)`, w: true }
-      ]);
+      say([{ t: '잠금장치 두 개가 나란히 걸려 있다. 꽂을 게 없다.', w: false }]);
     } else if (blocked === 'explore') {
-      // 일반 모드 : 아직 둘러보지 않은 방이 남아 있습니다
-      say([
-        { t: `열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**`, w: true },
-        { t: `탐사 ${exploreDone()} / ${EXPLORE_ROOMS.length}`, sys: true }
-      ]);
+      say([{ t: '열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**', w: true }]);
     } else {
       G.gateOpen = true;
       buildDoors(G.room); updateHud();
@@ -1038,14 +1012,28 @@ function update() {
                   vy: 1.2 + Math.random() * 2.6, life: 70, max: 70 });
     tickFx();
 
-    // 암전이 터지듯 풀리는 순간 — 던전으로 들어서며 브금의 "두둥"이 겹칩니다
-    if (G.landT === LAND_BLACK) {
+    // 암전이 걷히면 1인칭 — 우물 바닥에 누운 채 천장을 올려다봅니다
+    if (G.landT >= LAND_BLACK) { G.mode = 'wakeup'; G.eyeT = 0; }
+    return;
+  }
+  if (G.mode === 'wakeup') {
+    G.eyeT++;
+    // 눈을 뜨고 감을 때마다 젖은 소리와 숨
+    if (G.eyeT === 27 || G.eyeT === 69 || G.eyeT === 113) Sfx.blink();
+    if (G.eyeT === 44 || G.eyeT === 100) Sfx.breath();
+    if (G.eyeT % 3 === 0)
+      G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
+                  vy: .6 + Math.random() * 1.5, life: 130, max: 130 });
+    tickFx();
+
+    /* 눈을 완전히 뜨는 순간 — 탑뷰로 확 바뀌면서 "두둥" 이 크게 터집니다 */
+    if (G.eyeT >= WAKE_EYE) {
       loadRoom('start', 'W');
       Sfx.dungeonBgm(true);
       G.wake = WAKE_DUR;
-      G.shake = 26; G.flash = 1; glare(1.3);
-      shockRing(W / 2, H / 2, 360, '255,236,198', 8, 44);
-      shockRing(W / 2, H / 2, 240, '227,178,60', 5, 34);
+      G.shake = 28; G.flash = 1; glare(1.4);
+      shockRing(W / 2, H / 2, 380, '255,236,198', 9, 46);
+      shockRing(W / 2, H / 2, 250, '227,178,60', 6, 36);
     }
     return;
   }
@@ -1463,8 +1451,9 @@ function render() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
-  // 추락·착지 중에는 지상/던전 화면이 뒤로 비쳐 보이면 안 되므로 아예 건너뜁니다
-  if (G.mode !== 'fall' && G.mode !== 'landing') {
+  // 추락·착지·1인칭 중에는 지상/던전 화면이 뒤로 비쳐 보이면 안 됩니다
+  const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup';
+  if (!cine) {
     if (G.floor) g.drawImage(G.floor, 0, 0);
     if (G.inForest) renderForest(); else renderDungeon();
   }
@@ -1472,9 +1461,10 @@ function render() {
 
   if (G.mode === 'fall') renderFall();
   if (G.mode === 'landing') renderLanding();
+  if (G.mode === 'wakeup') renderWakeup();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
-  if (!G.inForest && G.mode !== 'fall' && G.mode !== 'landing' && G.wake <= 0) drawMinimap();
-  if (G.wake > 0 && G.mode !== 'landing') renderWake();
+  if (!G.inForest && !cine && G.wake <= 0) drawMinimap();
+  if (G.wake > 0 && !cine) renderWake();
 
   if (G.flash > .02) {
     g.save();
@@ -2148,14 +2138,34 @@ function drawBoss() {
    고리들 + 회전하는 잔상 줄무늬 + 점점 작아지며 구르는 주인공을 겹칩니다.
    예전(168프레임)보다 살짝 느리게 떨어지도록 늘렸습니다.
 
-   이 소용돌이가 다 끝나면(FALL_DUR) 'landing' 단계로 넘어갑니다 —
-   화면이 완전히 꺼져 아무것도 안 보이는 채로 숨을 죽이다가(LAND_BLACK),
-   그 암전이 터지듯 풀리는 순간 던전으로 들어서며 브금의 "두둥"이
-   정확히 겹칩니다. 암전 동안에는 울림이 점점 커지고, 어둠 속으로
-   흙먼지가 떨어지고, 마지막엔 가운데가 갈라지듯 빛이 새어 나옵니다. */
-const FALL_DUR = 185;
-const LAND_BLACK = 54;    // 암전을 붙잡아 두는 시간 (약 0.9초)
-const WAKE_DUR  = 52;     // 암전이 걷히며 던전이 드러나는 시간
+   소용돌이가 끝나면 세 단계를 거쳐 던전으로 넘어갑니다 —
+   ① landing : 완전한 암전. 울림과 흙먼지, 바닥에 닿는 둔탁한 충격음.
+   ② wakeup  : **1인칭** — 우물 바닥에 누운 채 올려다본 천장. 눈을 몇 번
+                껌뻑이며 초점이 잡혀 갑니다. 반쯤 감겼을 땐 흐릿합니다.
+   ③ 전환    : 눈을 완전히 뜨는 순간 탑뷰로 확 바뀌면서, 섬광 · 충격파와
+                함께 브금의 "두둥"이 크게 터집니다. */
+const FALL_DUR   = 185;
+const LAND_BLACK = 26;    // 착지 직후 완전 암전
+const WAKE_EYE   = 140;   // 1인칭으로 눈을 껌뻑이며 뜨는 구간 (약 2.3초)
+const WAKE_DUR   = 52;    // 탑뷰로 바뀐 뒤 암전이 걷히는 구간
+
+/* 눈꺼풀이 열린 정도 (0 = 감김, 1 = 완전히 뜸).
+   떴다 감았다를 세 번 반복하며 점점 크게 뜹니다. */
+const EYE_KEYS = [
+  [0, 0], [16, 0], [27, .20], [39, .02], [55, .04],
+  [69, .52], [81, .07], [97, .10], [113, .90], [123, .64],
+  [135, 1], [WAKE_EYE, 1]
+];
+function eyeOpen(t) {
+  for (let i = 1; i < EYE_KEYS.length; i++) {
+    const [t0, v0] = EYE_KEYS[i - 1], [t1, v1] = EYE_KEYS[i];
+    if (t <= t1) {
+      const k = Math.max(0, (t - t0) / Math.max(1, t1 - t0));
+      return v0 + (v1 - v0) * (k * k * (3 - 2 * k));   // smoothstep
+    }
+  }
+  return 1;
+}
 
 /* 착지 직후 — 아무것도 보이지 않는 암전. 울림과 흙먼지만 남습니다.
    마지막 몇 프레임에는 가운데가 갈라지듯 빛이 새어 나오며 "두둥" 을
@@ -2197,6 +2207,124 @@ function renderLanding() {
     cg.addColorStop(1, 'rgba(255,228,170,0)');
     g.fillStyle = cg;
     g.fillRect(W / 2 - (10 + s * 220) / 2, H / 2 - 2, 10 + s * 220, 4);
+  }
+  g.restore();
+}
+
+/* 1인칭 — 우물 바닥에 누운 채 올려다본 천장.
+   저 위로 우물 입구가 작게 뚫려 있고, 그 빛이 먼지 사이로 내려옵니다.
+   눈이 덜 떠졌을 때는 초점이 안 맞아 흐릿하게 번집니다. */
+function renderWakeup() {
+  const t = G.eyeT, o = eyeOpen(t);
+  const cx = W / 2, cy = H * .40;
+  g.save();
+  g.fillStyle = '#06050a';
+  g.fillRect(0, 0, W, H);
+
+  // 초점 — 눈이 덜 떠졌을수록 흐립니다
+  const blur = (1 - o) * 5.5;
+  if (blur > .15) g.filter = `blur(${blur.toFixed(2)}px)`;
+
+  // 위로 좁아지는 우물 통로 — 돌을 쌓아 올린 단이 입구 쪽으로 모입니다
+  const RING_N = 9;
+  for (let i = RING_N; i >= 1; i--) {
+    const k = i / RING_N;                      // 1 = 가까운 아래쪽, 0 = 저 위
+    const rr = 26 + Math.pow(k, 1.3) * 300;
+    const oy = cy + k * 30;
+    const seg = 9 + (i % 3) * 2;               // 한 단에 박힌 돌 개수
+    const base = 9 + (1 - k) * 44;             // 위로 갈수록 빛을 받아 밝습니다
+    for (let s = 0; s < seg; s++) {
+      const a0 = (s / seg) * 6.283 + i * .43;
+      const a1 = a0 + (6.283 / seg) * .84;     // 돌 사이 이음매만큼 띄웁니다
+      const v = base + ((s * 37 + i * 53) % 15) - 7;
+      g.strokeStyle = `rgb(${v | 0},${v * .94 | 0},${v * 1.08 | 0})`;
+      g.lineWidth = 7 + (1 - k) * 8;
+      g.beginPath(); g.ellipse(cx, oy, rr, rr * .72, 0, a0, a1); g.stroke();
+    }
+  }
+
+  // 입구에서 쏟아지는 빛
+  const lg = g.createRadialGradient(cx, cy, 4, cx, cy, 200);
+  lg.addColorStop(0, 'rgba(170,184,208,.55)');
+  lg.addColorStop(.10, 'rgba(98,110,134,.26)');
+  lg.addColorStop(.45, 'rgba(40,44,58,.12)');
+  lg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = lg; g.fillRect(0, 0, W, H);
+
+  // 저 위의 우물 입구 (해 질 녘 하늘 한 조각)
+  g.fillStyle = 'rgba(156,172,196,.95)';
+  g.beginPath(); g.ellipse(cx, cy, 22, 15, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(98,112,138,.65)';
+  g.beginPath(); g.ellipse(cx, cy + 4, 22, 15, 0, .25, Math.PI - .25); g.fill();
+  // 입구 테두리 — 울퉁불퉁한 돌
+  g.strokeStyle = 'rgba(26,25,31,.95)'; g.lineWidth = 3;
+  g.beginPath();
+  for (let a = 0; a <= 6.32; a += .34) {
+    const w = 1 + Math.sin(a * 5.1) * .1;
+    const px = cx + Math.cos(a) * 23 * w, py = cy + Math.sin(a) * 16.5 * w;
+    a ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath(); g.stroke();
+
+  // 입구에서 내려오는 빛줄기 (아래로 퍼짐)
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .13 + o * .1;
+  const beam = g.createLinearGradient(0, cy, 0, H);
+  beam.addColorStop(0, 'rgba(150,168,200,.6)');
+  beam.addColorStop(1, 'rgba(150,168,200,0)');
+  g.fillStyle = beam;
+  g.beginPath();
+  g.moveTo(cx - 19, cy); g.lineTo(cx + 19, cy);
+  g.lineTo(cx + 160, H); g.lineTo(cx - 160, H);
+  g.closePath(); g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+
+  // 빛줄기 속을 떠도는 먼지
+  g.fillStyle = 'rgba(214,220,232,.6)';
+  G.fx.forEach(f => {
+    if (f.k !== 'dust') return;
+    const d = Math.abs(f.x - cx);
+    if (d > 150) return;
+    g.globalAlpha = (1 - d / 150) * (f.life / f.max) * .75;
+    g.fillRect(f.x, f.y, 1, 2);
+  });
+  g.globalAlpha = 1;
+  g.filter = 'none';
+
+  /* ── 눈꺼풀 ───────────────────────────────────────────
+     위아래에서 덮어 오되 안쪽 가장자리를 곡선으로 그려 눈 모양이
+     되도록 하고, 좌우 구석도 어둡게 눌러 시야를 좁힙니다. */
+  const half = H / 2 + 10;
+  const lid = (1 - o) * half;
+  g.fillStyle = '#000';
+  // 윗눈꺼풀
+  g.beginPath();
+  g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, lid);
+  g.quadraticCurveTo(cx, lid + 48 * o, 0, lid);
+  g.closePath(); g.fill();
+  // 아랫눈꺼풀
+  g.beginPath();
+  g.moveTo(0, H); g.lineTo(W, H); g.lineTo(W, H - lid);
+  g.quadraticCurveTo(cx, H - lid - 32 * o, 0, H - lid);
+  g.closePath(); g.fill();
+
+  // 좌우 눈초리 — 가운데만 보이도록 양옆을 어둡게
+  const sg = g.createLinearGradient(0, 0, W, 0);
+  sg.addColorStop(0, 'rgba(0,0,0,1)');
+  sg.addColorStop(.30, 'rgba(0,0,0,0)');
+  sg.addColorStop(.70, 'rgba(0,0,0,0)');
+  sg.addColorStop(1, 'rgba(0,0,0,1)');
+  g.fillStyle = sg; g.fillRect(0, 0, W, H);
+
+  // 속눈썹 그림자 — 눈꺼풀 안쪽에 옅은 띠
+  if (o > .05) {
+    g.globalAlpha = .5;
+    const eg = g.createLinearGradient(0, lid, 0, lid + 34);
+    eg.addColorStop(0, 'rgba(0,0,0,.9)');
+    eg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = eg; g.fillRect(0, lid, W, 34);
+    g.globalAlpha = 1;
   }
   g.restore();
 }

@@ -152,9 +152,8 @@ const MAP = {
       { t: 'shroom', x: 432, y: 100 }
     ],
     pots: [{ x: 480, y: 90 }],
-    key: { x: 120, y: 240 },
     chest: { x: 288, y: 160, note: 'n1', heal: 1 },
-    clear: 'doorKey'          // 전멸 → 관문 열쇠 ②
+    clear: 'doorKey'          // 전멸 → 관문 열쇠 ② (이 방은 ⛨ 만 줍니다)
   },
 
   mid: {
@@ -165,7 +164,6 @@ const MAP = {
       { t: 'shroom', x: 288, y: 90 }
     ],
     pots: [{ x: 108, y: 250 }, { x: 480, y: 90 }],
-    key: { x: 480, y: 250 },
     chest: { x: 288, y: 168, note: 'n2', heal: 1 }
   },
 
@@ -177,6 +175,7 @@ const MAP = {
       { t: 'shroom', x: 288, y: 230 }
     ],
     pots: [{ x: 288, y: 80 }],
+    key: { x: 480, y: 240 },                  // 바닥 열쇠 (중앙에서 옮겨 왔습니다)
     clear: 'key',                             // 전멸 → 상자 열쇠
     chest: { x: 144, y: 230, heal: 1 }        // 회복만 들어 있는 상자
   },
@@ -189,6 +188,7 @@ const MAP = {
       { t: 'shroom', x: 156, y: 240 }, { t: 'spitter', x: 444, y: 235 }
     ],
     pots: [{ x: 288, y: 250 }],
+    key: { x: 108, y: 90 },                   // 바닥 열쇠 (남쪽 방에서 옮겨 왔습니다)
     clear: 'key',                             // 전멸 → 상자 열쇠
     chest: { x: 288, y: 150, heal: 1 }        // 회복만 들어 있는 상자
   },

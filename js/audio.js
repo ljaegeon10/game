@@ -8,6 +8,8 @@ const Sfx = (() => {
 
   /* 던전 브금 볼륨 — 환경음(0.12~0.15)보다 확실히 앞에 서도록 올렸습니다 */
   const BGM_VOL = 0.52;
+  /* 맨 앞 "두둥" 을 1.5배로 키워 두는 시간 (그 뒤엔 본 곡 크기로 내려옴) */
+  const BGM_HIT_HOLD = 1.6;
 
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
@@ -101,6 +103,12 @@ const Sfx = (() => {
       o.connect(g); g.connect(master); o.start(t); o.stop(t + 2.1);
       noise(1.6, 0.20, 60, 700);
     },
+
+    /* 1인칭으로 눈을 껌뻑일 때 — 아주 작고 젖은 소리 */
+    blink() { noise(0.045, 0.08, 700, 3200); tone(210, 0.05, 'sine', 0.05, 130); },
+
+    /* 정신이 들며 몰아쉬는 숨 */
+    breath() { noise(0.42, 0.07, 240, 1500); },
 
     /* 우물 바닥에 닿는 둔탁한 충격 — 암전 속에서 울리는 저음 */
     landThump(vol = 0.3) {
@@ -261,8 +269,13 @@ const Sfx = (() => {
         const lp = c.createBiquadFilter();
         lp.type = 'lowpass'; lp.frequency.value = 9500; lp.Q.value = 0.6;
         const g = c.createGain();
+        /* 맨 앞의 "두둥" 한 방만 1.5배로 크게 때립니다. 그 울림이 잦아드는
+           동안(HIT_HOLD) 크기를 유지했다가, 뒤이어 흐르는 본 곡은 원래
+           크기로 내려와 깔립니다. */
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(BGM_VOL, t + 0.35);
+        g.gain.exponentialRampToValueAtTime(BGM_VOL * 1.5, t + 0.05);
+        g.gain.setValueAtTime(BGM_VOL * 1.5, t + BGM_HIT_HOLD);
+        g.gain.exponentialRampToValueAtTime(BGM_VOL, t + BGM_HIT_HOLD + 1.2);
         src.connect(lp); lp.connect(g); g.connect(master);
         src.start(t, 0);
         api._dg = { src, g };
