@@ -274,11 +274,13 @@ html,body{
    바깥에서 이 장면을 지켜보고 있는 누군가의 계기판 기록처럼 보여야
    합니다. 그래서 같은 청록 고정폭 · 넓은 자간 · 깜빡이는 커서를 씁니다. */
 #morphsys{
-  position:absolute; left:0; right:0; bottom:20px;
+  /* 엔딩의 #sysline 과 같은 자리 — 딱 한가운데보다 살짝 위라야 몸통이
+     솟아오르는 자리(화면 위쪽)와 안 겹칩니다 */
+  position:absolute; left:0; right:0; top:46%; transform:translateY(-50%);
   z-index:33; pointer-events:none;
   text-align:center; opacity:0; transition:opacity .4s ease-out;
   font-family:var(--font-ui);
-  font-size:11px; letter-spacing:.2em; color:#bfe9dd;
+  font-size:14px; letter-spacing:.2em; color:#bfe9dd;
   text-shadow:0 0 8px rgba(125,227,200,.45), 0 2px 0 rgba(0,0,0,.85);
   white-space:pre;
 }
@@ -286,8 +288,8 @@ html,body{
 /* 위협 등급이 올라가는 줄부터는 붉게 — "이건 기록이 아니라 경고다" */
 #morphsys.alert{ color:#ff8a7a; text-shadow:0 0 10px rgba(226,31,31,.5), 0 2px 0 rgba(0,0,0,.85); }
 #morphsys .caret{
-  display:inline-block; width:6px; height:11px; margin-left:3px;
-  background:currentColor; vertical-align:-1px;
+  display:inline-block; width:7px; height:14px; margin-left:3px;
+  background:currentColor; vertical-align:-2px;
   animation:blink .7s steps(1) infinite;
 }
 
@@ -2696,7 +2698,8 @@ const BALANCE = {
   /* 페이즈3 — 눈이 터진 자리에서 기어 나오는 것.
      졸개 없이 1:1 로만 싸우는 대신, 선공이 굵고 예비 동작이 짧습니다. */
   abomHp:        88,
-  abomSpeed:     0.50
+  abomSpeed:     0.50,
+  abomPlayerMax: 5      // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
 };
 
 /* ── 쪽지 ────────────────────────────────────────────────── */
@@ -3324,6 +3327,7 @@ function resetRun() {
   clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
+  P.max = BALANCE.playerHp;   // 페이즈3에서 늘었던 체력칸도 새 판에선 원래대로
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
   RUN.elapsed = 0;
   ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
@@ -3571,6 +3575,8 @@ function queueBoss() {
   // 보스방에 다시 들어오면(죽고 부활 포함) 눈부터 다시 싸웁니다
   G.morphed = false; G.morphT = 0; G.morphDark = 0;
   clearMorphSys();
+  // 페이즈3에서 늘었던 체력칸은 눈 보스부터 다시 싸울 땐 원래대로
+  if (P.max !== BALANCE.playerHp) { P.max = BALANCE.playerHp; P.hp = Math.min(P.hp, P.max); updateHud(); }
   Sfx.ambientStop();
   Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
 }
@@ -4596,8 +4602,7 @@ function tickMorph() {
     G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 36);
     if (t === WAKE_AT + 40 && !G.boss) {
       makeAbom();
-      // 두 번째 싸움을 맨몸으로 시작하지 않도록 하트 하나를 떨궈 줍니다
-      if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
+      healForAbom();
     }
   }
   if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; clearMorphSys(); }
@@ -4613,6 +4618,21 @@ function makeAbom() {
     bladeFrom: 0, bladeA: 0, lash: [], lashLen: 0, reach: 150,
     gap: 0, tx: 0, ty: 0, rise: 0, spiralA: 0, rayT: 120
   };
+}
+
+/* 스토리상 — 무너진 자리에 굴러 있던 피팩을 주워 먹은 걸로 칩니다.
+   페이즈3는 덩치도 패턴도 굵어서, 이전 체력 그대로 던져 넣으면 가혹합니다.
+   체력칸을 5개로 늘리고 그 자리에서 가득 채웁니다. */
+function healForAbom() {
+  P.max = BALANCE.abomPlayerMax;
+  P.hp = P.max;
+  updateHud();
+  Sfx.pickup();
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * 6.28, s = 1 + Math.random() * 2.2;
+    G.fx.push({ k: 'p', x: P.x, y: P.y - 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .6,
+                life: 28, max: 28, c: i % 2 ? '#ff6a7a' : '#ffd2d8' });
+  }
 }
 
 function updateAbom() {

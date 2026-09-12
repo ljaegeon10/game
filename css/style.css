@@ -251,11 +251,13 @@ html,body{
    바깥에서 이 장면을 지켜보고 있는 누군가의 계기판 기록처럼 보여야
    합니다. 그래서 같은 청록 고정폭 · 넓은 자간 · 깜빡이는 커서를 씁니다. */
 #morphsys{
-  position:absolute; left:0; right:0; bottom:20px;
+  /* 엔딩의 #sysline 과 같은 자리 — 딱 한가운데보다 살짝 위라야 몸통이
+     솟아오르는 자리(화면 위쪽)와 안 겹칩니다 */
+  position:absolute; left:0; right:0; top:46%; transform:translateY(-50%);
   z-index:33; pointer-events:none;
   text-align:center; opacity:0; transition:opacity .4s ease-out;
   font-family:var(--font-ui);
-  font-size:11px; letter-spacing:.2em; color:#bfe9dd;
+  font-size:14px; letter-spacing:.2em; color:#bfe9dd;
   text-shadow:0 0 8px rgba(125,227,200,.45), 0 2px 0 rgba(0,0,0,.85);
   white-space:pre;
 }
@@ -263,8 +265,8 @@ html,body{
 /* 위협 등급이 올라가는 줄부터는 붉게 — "이건 기록이 아니라 경고다" */
 #morphsys.alert{ color:#ff8a7a; text-shadow:0 0 10px rgba(226,31,31,.5), 0 2px 0 rgba(0,0,0,.85); }
 #morphsys .caret{
-  display:inline-block; width:6px; height:11px; margin-left:3px;
-  background:currentColor; vertical-align:-1px;
+  display:inline-block; width:7px; height:14px; margin-left:3px;
+  background:currentColor; vertical-align:-2px;
   animation:blink .7s steps(1) infinite;
 }
 

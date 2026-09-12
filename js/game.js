@@ -379,6 +379,7 @@ function resetRun() {
   clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
+  P.max = BALANCE.playerHp;   // 페이즈3에서 늘었던 체력칸도 새 판에선 원래대로
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
   RUN.elapsed = 0;
   ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
@@ -626,6 +627,8 @@ function queueBoss() {
   // 보스방에 다시 들어오면(죽고 부활 포함) 눈부터 다시 싸웁니다
   G.morphed = false; G.morphT = 0; G.morphDark = 0;
   clearMorphSys();
+  // 페이즈3에서 늘었던 체력칸은 눈 보스부터 다시 싸울 땐 원래대로
+  if (P.max !== BALANCE.playerHp) { P.max = BALANCE.playerHp; P.hp = Math.min(P.hp, P.max); updateHud(); }
   Sfx.ambientStop();
   Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
 }
@@ -1651,8 +1654,7 @@ function tickMorph() {
     G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 36);
     if (t === WAKE_AT + 40 && !G.boss) {
       makeAbom();
-      // 두 번째 싸움을 맨몸으로 시작하지 않도록 하트 하나를 떨궈 줍니다
-      if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
+      healForAbom();
     }
   }
   if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; clearMorphSys(); }
@@ -1668,6 +1670,21 @@ function makeAbom() {
     bladeFrom: 0, bladeA: 0, lash: [], lashLen: 0, reach: 150,
     gap: 0, tx: 0, ty: 0, rise: 0, spiralA: 0, rayT: 120
   };
+}
+
+/* 스토리상 — 무너진 자리에 굴러 있던 피팩을 주워 먹은 걸로 칩니다.
+   페이즈3는 덩치도 패턴도 굵어서, 이전 체력 그대로 던져 넣으면 가혹합니다.
+   체력칸을 5개로 늘리고 그 자리에서 가득 채웁니다. */
+function healForAbom() {
+  P.max = BALANCE.abomPlayerMax;
+  P.hp = P.max;
+  updateHud();
+  Sfx.pickup();
+  for (let i = 0; i < 12; i++) {
+    const a = Math.random() * 6.28, s = 1 + Math.random() * 2.2;
+    G.fx.push({ k: 'p', x: P.x, y: P.y - 4, vx: Math.cos(a) * s, vy: Math.sin(a) * s - .6,
+                life: 28, max: 28, c: i % 2 ? '#ff6a7a' : '#ffd2d8' });
+  }
 }
 
 function updateAbom() {
