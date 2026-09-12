@@ -263,6 +263,28 @@ html,body{
 #prompt b{ color:var(--hwang); }
 @keyframes bob{ 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,-3px)} }
 
+/* ── 보스 페이즈3 변신 중 흐르는 관측 로그 ────────────────
+   엔딩의 시스템 문구(#sysline)와 같은 결입니다 — 대사창이 아니라,
+   바깥에서 이 장면을 지켜보고 있는 누군가의 계기판 기록처럼 보여야
+   합니다. 그래서 같은 청록 고정폭 · 넓은 자간 · 깜빡이는 커서를 씁니다. */
+#morphsys{
+  position:absolute; left:0; right:0; bottom:20px;
+  z-index:33; pointer-events:none;
+  text-align:center; opacity:0; transition:opacity .4s ease-out;
+  font-family:var(--font-ui);
+  font-size:11px; letter-spacing:.2em; color:#bfe9dd;
+  text-shadow:0 0 8px rgba(125,227,200,.45), 0 2px 0 rgba(0,0,0,.85);
+  white-space:pre;
+}
+#morphsys.on{ opacity:1; }
+/* 위협 등급이 올라가는 줄부터는 붉게 — "이건 기록이 아니라 경고다" */
+#morphsys.alert{ color:#ff8a7a; text-shadow:0 0 10px rgba(226,31,31,.5), 0 2px 0 rgba(0,0,0,.85); }
+#morphsys .caret{
+  display:inline-block; width:6px; height:11px; margin-left:3px;
+  background:currentColor; vertical-align:-1px;
+  animation:blink .7s steps(1) infinite;
+}
+
 /* ── 자막 ──────────────────────────────────────────────── */
 #subtitle{
   position:absolute; left:14px; right:14px; bottom:12px; z-index:34;
@@ -1303,6 +1325,9 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 
     <!-- ── 상호작용 프롬프트 ───────────────────────────────── -->
     <div id="prompt" class="hidden"><b>SPACE</b> <span id="prompttext"></span></div>
+
+    <!-- ── 보스 페이즈3 변신 중 흐르는 관측 로그 ───────────── -->
+    <div id="morphsys"><span id="morphtext"></span><i class="caret"></i></div>
 
     <!-- ── 자막 / 나레이션 ────────────────────────────────── -->
     <div id="subtitle" class="hidden">
@@ -2847,12 +2872,17 @@ const GLITCH_LINES = [
   { t: '피가 튀지 않았다. 잠깐… **숫자 같은 게 흩어졌다.**', w: true }
 ];
 
-/* 페이즈3 변신 컷신에 겹쳐 뜨는 자막.
-   [프레임, 문구] — 대사창을 띄우면 연출이 끊기므로 화면에 직접 얹습니다. */
-const MORPH_CAPTIONS = [
-  [86,  '눈이 터진 자리에서… 무언가가 올라온다.'],
-  [150, '그건 죽은 게 아니었다.'],
-  [212, '껍데기를 하나 벗었을 뿐이다.']
+/* 페이즈3 변신 컷신 위로 흐르는 관측 로그.
+   주인공의 속마음(대사)이 아니라, 바깥에서 이 장면을 계기판으로 지켜보는
+   쪽의 기록입니다 — 엔딩의 시스템 문구와 같은 타이핑 효과로 찍힙니다.
+   [시작 프레임, 문구, 경고색 여부] */
+const MORPH_SYS = [
+  [ 46, 'SUBJECT 07 · DREAM SESSION 141', false],
+  [150, '개체 EYE-01 … 생체 신호 소실', false],
+  [245, '경고 — 미등록 인지체 발견', true],
+  [305, '심층 질량 재구성 … 진행 중', true],
+  [375, '위협 등급 재산정 … 3 ▸ 9', true],
+  [445, 'ENTITY 「심연」 · 동기화 완료', true]
 ];
 
 const BOSS_DEAD_LINES = [
@@ -3269,6 +3299,7 @@ function resetRun() {
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
   G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
@@ -3296,6 +3327,7 @@ function loadForest() {
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
   G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  clearMorphSys();
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
@@ -3508,11 +3540,13 @@ function dropSpore(x, y) {
 
 function queueBoss() {
   G.mode = 'boss-intro'; G.bossIntroT = 0;
+  $('prompt').classList.add('hidden');
   Sfx.bossRoar(); G.shake = 24; G.flash = 1;
   glare(1);
   G.rings = [];
   // 보스방에 다시 들어오면(죽고 부활 포함) 눈부터 다시 싸웁니다
   G.morphed = false; G.morphT = 0; G.morphDark = 0;
+  clearMorphSys();
   Sfx.ambientStop();
   Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
 }
@@ -4390,7 +4424,7 @@ function killBoss() {
    싸움은 1:1 입니다 — 페이즈3에서는 졸개를 절대 부르지 않습니다.
    대신 낫질 · 집게 내리찍기 · 촉수 채찍 · 비명 파동 네 가지를 굵게 씁니다.
    ═════════════════════════════════════════════════════ */
-const MORPH_DUR   = 268;
+const MORPH_DUR   = 620;   // 약 10초
 const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
 
 /* 각 행동의 [예비 동작, 그 뒤 길이] */
@@ -4424,6 +4458,7 @@ function beginMorph() {
   G.morphY = Math.max(TS + 64, Math.min(H - TS - 74, B.y));
   G.morphT = 0; G.morphDark = 0; G.morphed = true;
   G.mode = 'morph';
+  $('prompt').classList.add('hidden');   // 관측 로그와 자리가 겹칩니다
   G.boss = null;
   G.foes = [];                                   // 페이즈3는 오롯이 1:1
   G.clouds = [];
@@ -4437,67 +4472,111 @@ function beginMorph() {
 }
 
 /* 변신 컷신 진행 — update() 에서 매 프레임 호출 */
+/* 바닥이 갈라지며 무언가가 올라오는 구간 */
+const RISE_FROM = 100, RISE_TO = 380;
+const CRACK_AT = [110, 160, 215, 275, 335];
+const WAKE_AT = 520;                 // 각성하는 순간
+
+/* 관측 로그 타이핑 상태 — 프레임으로 굴려야 게임 속도와 어긋나지 않습니다 */
+let morphSysI = -1, morphSysN = 0;
+
+function clearMorphSys() {
+  morphSysI = -1; morphSysN = 0;
+  const el = $('morphsys');
+  el.classList.remove('on', 'alert');
+  $('morphtext').textContent = '';
+}
+
 function tickMorph() {
   const t = ++G.morphT;
   tickFx();
 
+  /* ── 바깥에서 이 장면을 지켜보는 쪽의 관측 로그 ── */
+  for (let i = 0; i < MORPH_SYS.length; i++) {
+    if (t !== MORPH_SYS[i][0]) continue;
+    morphSysI = i; morphSysN = 0;
+    const el = $('morphsys');
+    el.classList.add('on');
+    el.classList.toggle('alert', !!MORPH_SYS[i][2]);
+    $('morphtext').textContent = '';
+    if (MORPH_SYS[i][2]) { Sfx.glitch(); G.flash = Math.max(G.flash, .3); }
+  }
+  if (morphSysI >= 0) {
+    const line = MORPH_SYS[morphSysI][1];
+    if (morphSysN < line.length && t % 3 === 0) {
+      morphSysN++;
+      $('morphtext').textContent = line.slice(0, morphSysN);
+      if (morphSysN % 3 === 0) Sfx.beep(.03);
+    }
+  }
+  if (t === WAKE_AT + 26) clearMorphSys();     // 각성하면서 로그가 끊깁니다
+
   // ① 눈이 안으로 무너지며 빛이 중심으로 빨려 들어갑니다
-  if (t < 46) {
-    G.morphDark = Math.min(1, t / 40);
+  if (t < 56) {
+    G.morphDark = Math.min(1, t / 46);
     if (t % 2 === 0) {
       const a = Math.random() * 6.28, dist = 120 + Math.random() * 90;
       G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * dist, y: G.morphY + Math.sin(a) * dist,
                   tx: G.morphX, ty: G.morphY, life: 20, max: 20, c: '#c9a0ff' });
     }
-    G.shake = Math.max(G.shake, 2 + t * .08);
+    G.shake = Math.max(G.shake, 2 + t * .07);
   }
-  // ② 어둠과 정적 — 낮게 한 번
-  else if (t < 72) {
+  // ② 어둠과 정적 — 낮게 한 번. 이때부터 로그만 찍힙니다
+  else if (t < RISE_FROM) {
     G.morphDark = 1;
-    if (t === 50) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
+    if (t === 64) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
+    G.shake = Math.max(G.shake, 1.2);
   }
-  // ③ 바닥이 갈라지고 실루엣이 솟아오릅니다
-  else if (t < 170) {
+  // ③ 바닥이 다섯 번 갈라지고 실루엣이 천천히 솟아오릅니다
+  else if (t < RISE_TO) {
     G.morphDark = 1;
-    G.shake = Math.max(G.shake, 2 + (t - 72) / 98 * 9);
-    if (t === 78 || t === 104 || t === 130 || t === 156) {
+    const k = (t - RISE_FROM) / (RISE_TO - RISE_FROM);
+    G.shake = Math.max(G.shake, 1.8 + k * 8);
+    if (CRACK_AT.includes(t)) {
       Sfx.hit(); Sfx.pot();
       G.shake = Math.max(G.shake, 15);
-      shockRing(G.morphX, G.morphY + 34, 130 + (t - 78), '194,53,44', 4, 26);
+      shockRing(G.morphX, G.morphY + 34, 120 + k * 200, '194,53,44', 4, 26);
       for (let i = 0; i < 12; i++)
         G.fx.push({ k: 'p', x: G.morphX + (Math.random() - .5) * 90, y: G.morphY + 38,
                     vx: (Math.random() - .5) * 3, vy: -1 - Math.random() * 2.6,
                     life: 30, max: 30, c: '#6b4a3a' });
     }
-    if (t % 6 === 0) {
+    if (t % 7 === 0) {
       const a = Math.random() * 6.28;
-      G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 150, y: G.morphY + Math.sin(a) * 150,
-                  tx: G.morphX, ty: G.morphY, life: 24, max: 24, c: '#ff7a6a' });
+      G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 160, y: G.morphY + Math.sin(a) * 160,
+                  tx: G.morphX, ty: G.morphY, life: 26, max: 26, c: '#ff7a6a' });
     }
   }
-  // ④ 색이 번지고 가운데 눈이 달아오릅니다
-  else if (t < 206) {
+  // ④ 색이 번지고 가운데 눈이 달아오릅니다 — 숨을 고르는 구간
+  else if (t < WAKE_AT) {
     G.morphDark = 1;
-    G.shake = Math.max(G.shake, 6 + (t - 170) / 36 * 6);
-    if (t === 186) Sfx.reveal();
+    const k = (t - RISE_TO) / (WAKE_AT - RISE_TO);
+    G.shake = Math.max(G.shake, 3 + k * 9);
+    if (t === RISE_TO + 30) Sfx.reveal();
+    if (t === RISE_TO + 96) { Sfx.breath(); G.shake = Math.max(G.shake, 9); }
+    if (t % 9 === 0) {
+      const a = Math.random() * 6.28;
+      G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 190, y: G.morphY + Math.sin(a) * 190,
+                  tx: G.morphX, ty: G.morphY, life: 28, max: 28, c: '#ffd2a8' });
+    }
   }
   // ⑤ 각성
   else {
-    if (t === 206) {
+    if (t === WAKE_AT) {
       Sfx.bossRoar(); Sfx.glitch();
-      glare(1.4); G.flash = 1; G.shake = 40;
+      glare(1.4); G.flash = 1; G.shake = 44;
       shockRing(G.morphX, G.morphY, 460, '255,255,255', 11, 54);
       shockRing(G.morphX, G.morphY, 340, '224,72,60', 8, 46);
       shockRing(G.morphX, G.morphY, 230, '255,170,120', 6, 38);
     }
-    G.morphDark = Math.max(0, 1 - (t - 206) / 34);
-    if (t === 240 && !G.boss) {
+    G.morphDark = Math.max(0, 1 - (t - WAKE_AT) / 36);
+    if (t === WAKE_AT + 40 && !G.boss) {
       makeAbom();
       // 두 번째 싸움을 맨몸으로 시작하지 않도록 하트 하나를 떨궈 줍니다
       if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
     }
   }
-  if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; }
+  if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; clearMorphSys(); }
 }
 
 function makeAbom() {
@@ -5425,10 +5504,11 @@ function abomBody(x, y, sc, sil, alpha) {
 /* 변신 도중 — 바닥에서 아래부터 드러나며 솟아오르는 실루엣 */
 function drawMorphRise() {
   const t = G.morphT;
-  if (t < 72) return;
-  const rise = Math.min(1, (t - 72) / 98);
+  if (t < RISE_FROM) return;
+  const rise = Math.min(1, (t - RISE_FROM) / (RISE_TO - RISE_FROM));
   const e = rise * rise * (3 - 2 * rise);                 // 부드럽게
-  const sil = t < 170 ? 1 : Math.max(0, 1 - (t - 170) / 40);
+  // 다 올라온 뒤에야 색이 번집니다
+  const sil = t < RISE_TO ? 1 : Math.max(0, 1 - (t - RISE_TO) / 96);
   const x = G.morphX, y = G.morphY + (1 - e) * 20;
   const bottom = y + ABOM_H / 2;
 
@@ -5441,19 +5521,20 @@ function drawMorphRise() {
   // 가장자리를 훑는 붉은 테두리 빛
   g.save();
   g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = .30 + Math.sin(t * .18) * .1;
-  const rg = g.createRadialGradient(x, y, 10, x, y, 96);
-  rg.addColorStop(0, 'rgba(224,72,60,.9)');
+  g.globalAlpha = (.34 + Math.sin(t * .12) * .12) * (.55 + e * .45);
+  const rg = g.createRadialGradient(x, y + 10, 8, x, y + 10, 112);
+  rg.addColorStop(0, 'rgba(255,120,92,.95)');
+  rg.addColorStop(.45, 'rgba(224,72,60,.5)');
   rg.addColorStop(1, 'rgba(224,72,60,0)');
   g.fillStyle = rg;
-  g.beginPath(); g.arc(x, y, 96, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(x, y + 10, 112, 0, Math.PI * 2); g.fill();
   g.restore();
 
   abomBody(x, y, .94 + e * .06, sil, 1);
 
-  // 가운데 눈만 먼저 붉게 달아오릅니다
-  if (t > 130) {
-    const k = Math.min(1, (t - 130) / 70);
+  // 가운데 눈만 먼저 붉게 달아오릅니다 — 각성 직전까지 천천히 밝아집니다
+  if (t > RISE_FROM + 140) {
+    const k = Math.min(1, (t - RISE_FROM - 140) / (WAKE_AT - RISE_FROM - 140));
     g.save();
     g.globalCompositeOperation = 'lighter';
     g.globalAlpha = k * (.55 + Math.sin(t * .22) * .3);
@@ -5467,23 +5548,34 @@ function drawMorphRise() {
   }
   g.restore();
 
-  // 발밑에서 갈라진 바닥 틈
+  /* 발밑에서 갈라진 바닥 틈 — 별 모양으로 뻗으면 몸통을 뚫고 나온 것처럼
+     보여서, 바닥에 눌어붙도록 세로 성분을 눌러 옆으로 기어가게 하고
+     마디마다 꺾었습니다. 다 올라오고 나면 서서히 식습니다. */
+  const cool = t > RISE_TO ? Math.max(0, 1 - (t - RISE_TO) / 120) : 1;
+  const cy = bottom - 5;
   g.save();
   g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = .35 * e;
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2 + .4;
-    g.strokeStyle = '#ff6a4a'; g.lineWidth = 1 + e * 2;
-    g.beginPath(); g.moveTo(x, bottom - 6);
-    g.lineTo(x + Math.cos(a) * (30 + e * 62), bottom - 6 + Math.sin(a) * (10 + e * 22));
+  g.globalAlpha = .45 * e * cool;
+  g.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + .35;
+    const len = (26 + e * 58) * (.7 + (i % 3) * .2);
+    g.strokeStyle = '#ff7a52'; g.lineWidth = 1 + e * 2.2;
+    g.beginPath(); g.moveTo(x, cy);
+    // 세 마디로 꺾이며 뻗는 균열 (세로는 0.28 배로 눌러 바닥에 붙입니다)
+    for (let k = 1; k <= 3; k++) {
+      const ka = a + Math.sin(i * 2.3 + k) * .22;
+      g.lineTo(x + Math.cos(ka) * len * (k / 3),
+               cy + Math.sin(ka) * len * (k / 3) * .28);
+    }
     g.stroke();
   }
+  g.lineCap = 'butt';
   g.restore();
 }
 
 /* 변신 컷신의 암막과 자막 — 화면 전체에 얹습니다 */
 function renderMorph() {
-  const t = G.morphT;
   if (G.morphDark > .002) {
     g.save();
     g.globalAlpha = G.morphDark;
@@ -5511,23 +5603,6 @@ function renderMorph() {
 
   // 어둠 속에서도 몸통과 바닥 틈은 보여야 하므로 암막 위에 그립니다
   if (!G.boss) drawMorphRise();
-
-  // 자막
-  let cap = null;
-  for (const [ft, s] of MORPH_CAPTIONS) if (t >= ft && t < ft + 58) cap = [t - ft, s];
-  if (cap) {
-    const k = cap[0] < 10 ? cap[0] / 10 : cap[0] > 48 ? (58 - cap[0]) / 10 : 1;
-    g.save();
-    g.globalAlpha = k;
-    g.font = 'bold 13px DungGeunMo, ui-monospace, monospace';
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = 'rgba(0,0,0,.7)';
-    const tw = g.measureText(cap[1]).width;
-    g.fillRect(W / 2 - tw / 2 - 10, H - 44, tw + 20, 20);
-    g.fillStyle = '#e8d9c2';
-    g.fillText(cap[1], W / 2, H - 34);
-    g.restore();
-  }
 }
 
 function drawAbomLight() {
