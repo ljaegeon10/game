@@ -3012,9 +3012,22 @@ cv.addEventListener('mousedown', e => { e.preventDefault(); mouse.down = true; S
 addEventListener('mouseup', () => { mouse.down = false; });
 /* once:true 였던 걸 뺐습니다 — 아티팩트(iframe)처럼 삽입된 페이지는
    첫 클릭에서 아직 "사용자 조작"으로 인정받지 못해 AudioContext 가
-   풀리지 않는 경우가 있어서, 클릭할 때마다 계속 풀어 보려고 시도합니다. */
-addEventListener('pointerdown', () => Sfx.unlock());
-addEventListener('keydown', () => Sfx.unlock());
+   풀리지 않는 경우가 있어서, 건드릴 때마다 계속 풀어 보려고 시도합니다.
+
+   그리고 마우스·터치·키보드 중 뭘로 들어오든 — "시작하기" 버튼까지
+   누를 것도 없이, 이 페이지에 처음 닿는 그 순간 숲 앰비언스가 바로
+   나오게 합니다. 브라우저 자동재생 정책상 상호작용 없이 완전히
+   자동으로 틀 수는 없지만, 잡아 두는 이벤트 종류를 최대한 넓혀서
+   사실상 "들어오기만 해도" 로 느껴지게 합니다. */
+function kickAudio() {
+  Sfx.unlock();
+  // 아직 타이틀 · 모드 선택 화면이라면 여기서 바로 틀어 둡니다.
+  // startGame() 이 이어서 다시 ambient('forest') 를 걸어도 Sfx.started() 가
+  // 이미 true 라 겹쳐 울리지 않고 그대로 이어집니다.
+  if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel')) Sfx.ambient('forest');
+}
+['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click', 'wheel']
+  .forEach(evt => addEventListener(evt, kickAudio, { capture: true, passive: true }));
 
 const down = (...ks) => ks.some(k => key[k]);
 
@@ -3347,7 +3360,9 @@ function loadForest() {
     c: OBANG_LIST[(Math.random() * 5) | 0], gl: 0
   }));
   G.well.glow = 0; G.wellUsed = false;
-  Sfx.ambient('forest');
+  // 타이틀에서 이미 숲 앰비언스가 흐르고 있었다면(kickAudio) 여기서 다시
+  // 겹쳐 틀지 않습니다 — 그대로 자연스럽게 이어집니다.
+  if (!Sfx.started()) Sfx.ambient('forest');
   setDate(0);
   updateHud();
   say(FOREST.intro);
