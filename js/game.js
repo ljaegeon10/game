@@ -1004,8 +1004,9 @@ function update() {
     const k = G.landT / LAND_BLACK;
     // 암흑 속에서 울림이 점점 크게 — 뭔가 오고 있다는 예감
     G.shake = Math.max(G.shake, 0.6 + k * k * 4.5);
-    if (G.landT === 6)  Sfx.landThump(0.30);     // 바닥에 닿는 둔탁한 충격
-    if (G.landT === 26) Sfx.landThump(0.18);     // 한 박자 뒤 되울림
+    if (G.landT === 6)  Sfx.landThump(0.32);     // 바닥에 닿는 둔탁한 충격
+    if (G.landT === 30) Sfx.landThump(0.20);     // 한 박자 뒤 되울림
+    if (G.landT === 52) Sfx.landThump(0.11);     // 저 위에서 흙이 떨어져 내림
     // 어둠 속으로 흙먼지가 계속 떨어집니다
     if (G.landT % 2 === 0)
       G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
@@ -1019,8 +1020,8 @@ function update() {
   if (G.mode === 'wakeup') {
     G.eyeT++;
     // 눈을 뜨고 감을 때마다 젖은 소리와 숨
-    if (G.eyeT === 27 || G.eyeT === 69 || G.eyeT === 113) Sfx.blink();
-    if (G.eyeT === 44 || G.eyeT === 100) Sfx.breath();
+    if (G.eyeT === 40 || G.eyeT === 96 || G.eyeT === 152 || G.eyeT === 206) Sfx.blink();
+    if (G.eyeT === 62 || G.eyeT === 138 || G.eyeT === 194) Sfx.breath();
     if (G.eyeT % 3 === 0)
       G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
                   vy: .6 + Math.random() * 1.5, life: 130, max: 130 });
@@ -2166,17 +2167,25 @@ function drawBoss() {
                 껌뻑이며 초점이 잡혀 갑니다. 반쯤 감겼을 땐 흐릿합니다.
    ③ 전환    : 눈을 완전히 뜨는 순간 탑뷰로 확 바뀌면서, 섬광 · 충격파와
                 함께 브금의 "두둥"이 크게 터집니다. */
-const FALL_DUR   = 185;
-const LAND_BLACK = 26;    // 착지 직후 완전 암전
-const WAKE_EYE   = 140;   // 1인칭으로 눈을 껌뻑이며 뜨는 구간 (약 2.3초)
-const WAKE_DUR   = 52;    // 탑뷰로 바뀐 뒤 암전이 걷히는 구간
+const FALL_DUR   = 300;   // 소용돌이 낙하 (5.0초)
+const LAND_BLACK = 66;    // 착지 직후 완전 암전 (1.1초)
+const WAKE_EYE   = 250;   // 1인칭으로 눈을 껌뻑이며 뜨는 구간 (약 4.2초)
+const WAKE_DUR   = 66;    // 탑뷰로 바뀐 뒤 암전이 걷히는 구간
 
 /* 눈꺼풀이 열린 정도 (0 = 감김, 1 = 완전히 뜸).
-   떴다 감았다를 세 번 반복하며 점점 크게 뜹니다. */
+   떴다 감았다를 네 번 반복하며 점점 크게, 점점 오래 뜹니다.
+   중간에 한 번은 거의 다 떴다가 도로 감겨서, 정신을 붙잡으려다
+   놓치는 느낌을 냅니다. */
 const EYE_KEYS = [
-  [0, 0], [16, 0], [27, .20], [39, .02], [55, .04],
-  [69, .52], [81, .07], [97, .10], [113, .90], [123, .64],
-  [135, 1], [WAKE_EYE, 1]
+  [0, 0], [26, 0],
+  [40, .17], [56, .02],          // ① 실눈
+  [78, .03],
+  [96, .44], [112, .06],         // ② 조금 더
+  [132, .08],
+  [152, .78], [168, .30],        // ③ 거의 떴다가 도로 감김
+  [182, .22],
+  [206, .95], [218, .70],        // ④ 크게
+  [236, 1], [WAKE_EYE, 1]
 ];
 function eyeOpen(t) {
   for (let i = 1; i < EYE_KEYS.length; i++) {
@@ -2389,6 +2398,42 @@ function renderFall() {
   g.fillStyle = vg;
   g.fillRect(0, 0, W, H);
 
+  // 1.5) 저 위 우물 입구 — 떨어질수록 작아지며 멀어집니다.
+  //      떨어지고 있다는 게 눈으로 보여야 낙하가 길어도 지루하지 않습니다.
+  if (k < .52) {
+    const mk = k / .52;                        // 0 → 1
+    const mr = 26 * (1 - mk * .90);            // 점점 작아지고
+    const my = cy - 46 - mk * 66;              // 주인공 위로, 점점 멀어짐
+    const ma = (1 - mk) * .95;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    const mg = g.createRadialGradient(cx, my, 0, cx, my, mr * 5 + 10);
+    mg.addColorStop(0, `rgba(152,168,196,${ma * .55})`);
+    mg.addColorStop(1, 'rgba(152,168,196,0)');
+    g.fillStyle = mg;
+    g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = ma;
+    g.fillStyle = '#b3c4de';
+    g.beginPath(); g.ellipse(cx, my, mr, mr * .66, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = `rgba(20,18,24,${ma})`; g.lineWidth = 2;
+    g.beginPath(); g.ellipse(cx, my, mr, mr * .66, 0, 0, Math.PI * 2); g.stroke();
+    g.restore();
+  }
+
+  // 1.6) 같이 떨어지는 흙덩이 · 돌조각 — 위에서 아래로 스쳐 지나갑니다
+  for (let i = 0; i < 18; i++) {
+    const sp = .55 + ((i * 37) % 11) / 11 * .9;
+    const cyc = ((k * 3.1 * sp) + i / 18) % 1;
+    const dx = cx + Math.sin(i * 2.3 + k * 3) * (34 + (i % 5) * 46);
+    const dy = -14 + cyc * (H + 40);
+    const dl = 5 + (i % 4) * 6;
+    g.globalAlpha = Math.min(1, (1 - Math.abs(cyc - .5) * 1.4)) * .85;
+    g.fillStyle = i % 3 === 0 ? '#c3ae8e' : '#8f8270';
+    g.fillRect(dx, dy, 1.5 + (i % 3) * .9, dl);
+  }
+  g.globalAlpha = 1;
+
   // 2) 우물 안쪽 돌벽 — 고리가 계속 태어나 화면 밖으로 커지며 지나갑니다
   const spin = k * 2.2;
   for (let i = 0; i < 8; i++) {
@@ -2441,8 +2486,8 @@ function renderFall() {
     g.restore();
   }
 
-  // 5) 아주 짧게 스친 글리치 — 반전의 복선
-  if (t === 70) {
+  // 5) 아주 짧게 스친 글리치 — 반전의 복선 (낙하가 길어진 만큼 두 번)
+  if (t === 108 || t === 109 || t === 212) {
     g.fillStyle = 'rgba(125,227,200,.16)';
     g.fillRect(0, 0, W, H);
   }
