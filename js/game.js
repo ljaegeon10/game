@@ -1512,19 +1512,41 @@ function renderForest() {
   drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
 }
 
-/* 늙은 나무 밑동에 낀 서류 한 장 — 가까이 가면 살짝 밝아집니다 */
+/* 늙은 나무 밑동에 낀 서류 한 장 — 가까이 가면 살짝 밝아집니다.
+   오래 방치된 물건이라 깨끗한 새 종이가 아니라, 흙먼지에 절고
+   곰팡이 얼룩이 피고 가장자리가 해진 몰골이어야 자연스럽습니다. */
 function drawOldTreeDoc() {
   const o = G.oldTree, near = nearOldTree();
   g.save();
   g.globalAlpha = near ? .95 : .55;
-  // 접힌 종이 귀퉁이
-  g.fillStyle = '#d8d4c6';
+  // 접힌 종이 귀퉁이 — 누렇게 바랜 색
+  g.fillStyle = '#c4b998';
   g.beginPath();
   g.moveTo(o.x - 5, o.y + 4); g.lineTo(o.x + 5, o.y + 2);
   g.lineTo(o.x + 4, o.y + 9); g.lineTo(o.x - 6, o.y + 10);
   g.closePath(); g.fill();
-  g.fillStyle = '#a9a496';
+
+  // 곰팡이 · 물얼룩 — 짙은 갈색 반점 몇 개
+  g.fillStyle = 'rgba(70,54,30,.55)';
+  g.beginPath(); g.ellipse(o.x - 2, o.y + 5, 1.6, 1.1, .4, 0, 6.3); g.fill();
+  g.fillStyle = 'rgba(50,40,22,.4)';
+  g.beginPath(); g.ellipse(o.x + 2, o.y + 8, 1.2, 0.9, -.3, 0, 6.3); g.fill();
+  g.fillStyle = 'rgba(90,70,40,.3)';
+  g.fillRect(o.x - 4, o.y + 6, 2, 1);
+
+  // 흙먼지가 앉은 결 (가로 줄무늬처럼 탁하게)
+  g.fillStyle = 'rgba(60,48,28,.22)';
   g.fillRect(o.x - 5, o.y + 7, 9, 1);
+  g.fillStyle = 'rgba(60,48,28,.14)';
+  g.fillRect(o.x - 4, o.y + 5, 7, 1);
+
+  // 가장자리가 해져 삐죽삐죽한 티
+  g.strokeStyle = 'rgba(55,44,26,.5)'; g.lineWidth = .6;
+  g.beginPath();
+  g.moveTo(o.x - 6, o.y + 10); g.lineTo(o.x - 5, o.y + 9.3);
+  g.lineTo(o.x - 4.3, o.y + 10); g.lineTo(o.x - 3.4, o.y + 9.4);
+  g.stroke();
+
   if (near) {
     g.globalAlpha = .35 + Math.sin(G.t * .12) * .18;
     g.strokeStyle = '#e3b23c'; g.lineWidth = 1;

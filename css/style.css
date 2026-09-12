@@ -305,8 +305,13 @@ html,body{
   display:inline-block;
   font-style:normal;
   font-size:1.32em; font-weight:800;
-  color:#ffe3d6;
-  text-shadow:0 2px 0 rgba(0,0,0,.6);
+  color:#e21f1f;             /* 확실한 빨강 */
+  -webkit-text-stroke:1.4px #000;   /* 윤곽선은 검정 */
+  paint-order:stroke fill;
+  text-shadow:
+    -1.4px -1.4px 0 #000, 1.4px -1.4px 0 #000,
+    -1.4px  1.4px 0 #000, 1.4px  1.4px 0 #000,
+    0 3px 0 rgba(0,0,0,.6);
   animation:shockPop .32s cubic-bezier(.2,1.6,.4,1) 1;
 }
 /* 강조 글자는 팡 터지는 연출 + 떨림을 같이 겁니다 */
@@ -1092,7 +1097,7 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 }
 .cr-line{
   margin:0; font-size:13px; line-height:1.7; letter-spacing:.04em;
-  color:#efeae0;
+  color:#d9302a;
   animation:crLine .26s steps(3) 1, crShiver 2.2s steps(1) infinite;
 }
 @keyframes crLine{ 0%{ opacity:0; transform:translateY(4px) } 100%{ opacity:1 } }
@@ -1112,13 +1117,13 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   animation:crLogIn .3s steps(3) 1;
 }
 @keyframes crLogIn{ 0%{ opacity:0; transform:scale(1.06) } 100%{ opacity:1; transform:scale(1) } }
-.cr-log-h{ font-size:8px; letter-spacing:.26em; color:var(--danger); }
-.cr-log-s{ font-size:8px; letter-spacing:.3em; color:rgba(241,236,224,.5); }
+.cr-log-h{ font-size:8px; letter-spacing:.26em; color:#ff4a3c; }
+.cr-log-s{ font-size:8px; letter-spacing:.3em; color:rgba(217,48,42,.65); }
 .cr-log-n{
-  font-size:15px; font-weight:700; letter-spacing:.10em; color:#fff;
+  font-size:15px; font-weight:700; letter-spacing:.10em; color:#e2352c;
   animation:crShiver 1.4s steps(1) infinite;
 }
-.cr-log-f{ font-size:8px; letter-spacing:.12em; color:rgba(241,236,224,.42); }
+.cr-log-f{ font-size:8px; letter-spacing:.12em; color:rgba(217,48,42,.55); }
 
 /* 찢기는 순간 */
 #creepy.tear #cr-body{ animation:crTear .42s steps(2) 1; }
@@ -1161,11 +1166,11 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 #creepy.scare #cr-body{ opacity:0; }
 .cr-sclera{
   position:absolute; inset:0; border-radius:52% 48% 50% 50%;
-  background:radial-gradient(circle at 42% 40%, #fff 0 42%, #e9dccb 62%, #6d5f52 100%);
+  background:radial-gradient(circle at 42% 40%, #c7bdae 0 42%, #8f8271 62%, #362d22 100%);
   /* 위아래를 눌러 눈구멍에 박힌 것처럼 (자식이 덮으므로 흰자 쪽에 겁니다) */
-  box-shadow:inset 0 0 30px rgba(80,20,16,.8),
-             inset 0 26px 36px -16px rgba(6,2,4,.9),
-             inset 0 -22px 32px -16px rgba(6,2,4,.85);
+  box-shadow:inset 0 0 34px rgba(50,10,8,.9),
+             inset 0 26px 36px -16px rgba(4,1,2,.95),
+             inset 0 -22px 32px -16px rgba(4,1,2,.9);
 }
 /* 실핏줄 — 흰자 가장자리에서만 보이도록 마스크를 씌웁니다 */
 .cr-sclera::after{
@@ -1184,7 +1189,7 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 .cr-iris{
   position:absolute; left:50%; top:50%; width:104px; height:104px; margin:-52px 0 0 -52px;
   border-radius:50%;
-  background:radial-gradient(circle at 40% 36%, #b8453a 0 30%, #6d1c17 62%, #250807 100%);
+  background:radial-gradient(circle at 40% 36%, #7a2820 0 30%, #431009 62%, #120302 100%);
 }
 .cr-pupil{
   position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px;
@@ -1209,10 +1214,10 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 #creepy.wipe{ background:#000; }
 #creepy.wipe #cr-noise, #creepy.wipe #cr-bars{ opacity:.12; }
 .cr-wipe-line{
-  margin:0; font-size:11px; letter-spacing:.22em; color:rgba(241,236,224,.72);
+  margin:0; font-size:11px; letter-spacing:.22em; color:rgba(217,48,42,.78);
   animation:crLine .3s steps(3) 1;
 }
-.cr-wipe-line.d{ color:var(--danger); animation:crLine .3s steps(3) 1, flick 1s steps(2) infinite; }
+.cr-wipe-line.d{ color:#ff4a3c; animation:crLine .3s steps(3) 1, flick 1s steps(2) infinite; }
 
 /* ── 공통 ──────────────────────────────────────────────── */
 .hidden{ display:none !important; }

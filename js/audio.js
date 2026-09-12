@@ -190,20 +190,24 @@ const Sfx = (() => {
         const t = c.currentTime;
         const g = c.createGain();
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.30, t + 1.1);
+        g.gain.exponentialRampToValueAtTime(0.34, t + 1.1);
 
+        const sub = c.createOscillator();          // 몸으로 느껴지는 저음 무게
+        sub.type = 'sine'; sub.frequency.value = 24;
         const o1 = c.createOscillator(), o2 = c.createOscillator(), o3 = c.createOscillator();
-        o1.type = 'sawtooth'; o1.frequency.value = 38;
-        o2.type = 'sine';     o2.frequency.value = 39.4;   // 1.4Hz 맥놀이 — 속이 울렁거리는 간격
+        o1.type = 'sawtooth'; o1.frequency.value = 32;
+        o2.type = 'sine';     o2.frequency.value = 33.2;   // 1.2Hz 맥놀이 — 속이 울렁거리는 간격
         o3.type = 'square';   o3.frequency.value = 1870;   // 형광등처럼 새는 고음
-        const hi = c.createGain(); hi.gain.value = 0.012;
-        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+        const subG = c.createGain(); subG.gain.value = 0.55;
+        const hi = c.createGain(); hi.gain.value = 0.010;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 340;
 
+        sub.connect(subG); subG.connect(g);
         o3.connect(hi); hi.connect(g);
         o1.connect(lp); o2.connect(lp); lp.connect(g);
         g.connect(master);
-        o1.start(); o2.start(); o3.start();
-        api._cd = { nodes: [o1, o2, o3], g };
+        sub.start(); o1.start(); o2.start(); o3.start();
+        api._cd = { nodes: [sub, o1, o2, o3], g };
       } else if (api._cd) {
         const { nodes, g } = api._cd;
         g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.9);
@@ -214,24 +218,26 @@ const Sfx = (() => {
 
     /* 한 줄씩 찍히는 글씨 — 타자기보다 무전기에 가까운 소리 */
     creepType() {
-      noise(0.05, 0.16, 1800, 7000);
-      tone(96, 0.10, 'square', 0.10, 62);
+      noise(0.07, 0.20, 900, 4200);
+      tone(64, 0.16, 'square', 0.16, 38);
     },
 
-    /* 점프스케어 — 비명 대신, 귀 바로 옆에서 장비가 터지는 소리 */
+    /* 점프스케어 — 비명 대신, 귀 바로 옆에서 장비가 터지는 소리.
+       더 무겁게 — 화음을 한 옥타브 낮추고, 저음 두 겹 + 긴 꼬리를 깔았습니다. */
     scream() {
       const c = ctx(), t = c.currentTime;
-      [131, 139, 196, 208].forEach(f => {          // 일부러 어긋난 화음
+      [65, 70, 98, 104].forEach(f => {          // 일부러 어긋난 화음 (한 옥타브 아래)
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'sawtooth';
         o.frequency.setValueAtTime(f * 3, t);
-        o.frequency.exponentialRampToValueAtTime(f, t + 0.9);
-        env(g, t, 0.004, 0.9, 0.26);
+        o.frequency.exponentialRampToValueAtTime(f, t + 1.1);
+        env(g, t, 0.004, 1.3, 0.30);
         o.connect(g); g.connect(master);
-        o.start(t); o.stop(t + 1.0);
+        o.start(t); o.stop(t + 1.4);
       });
-      noise(0.9, 0.42, 200, 11000);
-      tone(44, 1.2, 'sine', 0.40, 28);
+      noise(1.1, 0.48, 90, 8000);
+      tone(30, 1.7, 'sine', 0.48, 18);
+      tone(20, 1.9, 'sine', 0.30, 14);         // 몸으로 느껴지는 저음 꼬리
     },
 
     /* ── 던전 탐사 브금 (우물 낙하 ~ 보스전 직전) ────────────
