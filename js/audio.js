@@ -348,7 +348,10 @@ const Sfx = (() => {
     },
 
     muteAll() { if (master) master.gain.value = 0; },
-    started() { return started; }
+    started() { return started; },
+    /* 실제 AudioContext 상태를 밖에서 들여다보기 위한 진단용 —
+       'running' 이 아니면 브라우저/호스트가 오디오를 막고 있는 겁니다. */
+    audioState() { return ac ? ac.state : 'none'; }
   };
   return api;
 })();

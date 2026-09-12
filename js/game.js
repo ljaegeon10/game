@@ -65,7 +65,11 @@ cv.addEventListener('mousemove', e => {
 });
 cv.addEventListener('mousedown', e => { e.preventDefault(); mouse.down = true; Sfx.unlock(); });
 addEventListener('mouseup', () => { mouse.down = false; });
-addEventListener('pointerdown', () => Sfx.unlock(), { once: true });
+/* once:true 였던 걸 뺐습니다 — 아티팩트(iframe)처럼 삽입된 페이지는
+   첫 클릭에서 아직 "사용자 조작"으로 인정받지 못해 AudioContext 가
+   풀리지 않는 경우가 있어서, 클릭할 때마다 계속 풀어 보려고 시도합니다. */
+addEventListener('pointerdown', () => Sfx.unlock());
+addEventListener('keydown', () => Sfx.unlock());
 
 const down = (...ks) => ks.some(k => key[k]);
 
@@ -2634,6 +2638,32 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
+
+/* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
+   오디오를 막고 있는 경우)을 위한 안내. 실제로 상호작용을 시작한
+   뒤(타이틀을 벗어난 뒤)에도 AudioContext 가 계속 'suspended' 라면,
+   막연히 "고장났나?" 하지 않도록 화면 아래 문구로 알려 줍니다. */
+(() => {
+  const hintEl = $('hint');
+  const original = hintEl.textContent;
+  let stuckCount = 0, warned = false;
+  setInterval(() => {
+    if (G.mode === 'title' || G.mode === 'modesel') return;   // 아직 상호작용 전
+    const st = Sfx.audioState();
+    if (st === 'running') {
+      stuckCount = 0;
+      if (warned) { hintEl.textContent = original; warned = false; }
+      return;
+    }
+    if (st === 'suspended' || st === 'none') {
+      stuckCount++;
+      if (stuckCount >= 3 && !warned) {
+        warned = true;
+        hintEl.textContent = '🔇 소리가 막혀 있는 것 같습니다 — 화면을 한 번 더 클릭해 보세요 (브라우저가 소리를 차단했을 수 있습니다)';
+      }
+    }
+  }, 1000);
+})();
 
 loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });
 
