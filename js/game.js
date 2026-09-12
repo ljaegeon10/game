@@ -75,7 +75,7 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | creepy | ending | dead
+  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
   timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
@@ -100,6 +100,7 @@ const G = {
   sawDoc: false,
   creepyOn: false,
   wellUsed: false, fallT: 0, landT: 0, eyeT: 0, wake: 0,
+  morphed: false, morphT: 0, morphX: 0, morphY: 0, morphDark: 0,
   butterflies: [], plants: []
 };
 
@@ -361,6 +362,7 @@ function resetRun() {
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
+  G.morphed = false; G.morphT = 0; G.morphDark = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   G.flash = 0; G.shake = 0;
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
@@ -387,6 +389,7 @@ function loadForest() {
   G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
+  G.morphed = false; G.morphT = 0; G.morphDark = 0;
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
@@ -602,12 +605,15 @@ function queueBoss() {
   Sfx.bossRoar(); G.shake = 24; G.flash = 1;
   glare(1);
   G.rings = [];
+  // 보스방에 다시 들어오면(죽고 부활 포함) 눈부터 다시 싸웁니다
+  G.morphed = false; G.morphT = 0; G.morphDark = 0;
   Sfx.ambientStop();
   Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
 }
 
 function makeBoss() {
   G.boss = {
+    kind: 'eye',
     x: W / 2, y: 118, r: 34, hp: BALANCE.bossHp, max: BALANCE.bossHp,
     sp: BALANCE.bossSpeed, phase: 1, t: 0, cd: 110, dash: 0, wind: 0,
     spiralA: 0, flash: 0, kx: 0, ky: 0, spawned: false, bob: 0, rayT: 60
@@ -1062,6 +1068,7 @@ function update() {
     if (G.bossIntroT > 130) G.mode = 'play';
     return;
   }
+  if (G.mode === 'morph') { tickMorph(); return; }
   if (G.mode !== 'play' && G.mode !== 'forest') return;
 
   const forest = G.inForest;
@@ -1145,10 +1152,12 @@ function update() {
       if (B && Math.hypot(b.x - B.x, b.y - B.y) < B.r + b.r) {
         B.hp -= BALANCE.bulletDmg; B.flash = BALANCE.foeFlash;
         const l = Math.hypot(b.vx, b.vy) || 1;
-        B.kx += b.vx / l * 1.6; B.ky += b.vy / l * 1.6;
+        // 페이즈3는 덩치가 커서 총알에 잘 밀리지 않습니다
+        const kb = B.kind === 'abom' ? .55 : 1.6;
+        B.kx += b.vx / l * kb; B.ky += b.vy / l * kb;
         spark(b.x, b.y, -b.vx, -b.vy);
         G.shake = Math.max(G.shake, 2.5); Sfx.hit();
-        if (B.hp <= 0) killBoss();
+        if (B.hp <= 0) (B.kind === 'abom' ? killBoss : beginMorph)();
         return false;
       }
     } else if (P.inv <= 0 && Math.hypot(b.x - P.x, b.y - P.y) < P.r + b.r) {
@@ -1227,10 +1236,13 @@ function update() {
   /* 방을 비웠는지는 "몹이 사라진 그 한 프레임"이 아니라 매 프레임 상태로 봅니다.
      보상 대사가 뜨는 동안 방을 넘어가거나 하면 그 순간을 놓칠 수 있었고,
      그게 열쇠를 분명 먹었는데 관문이 안 열리던 원인이었습니다. */
-  if (!G.inForest && !G.boss && !G.foes.length && !stateOf(G.room).cleared)
+  /* 'play' 일 때만 봅니다 — 총알이 보스의 마지막 체력을 깎아 변신 컷신으로
+     넘어간 그 프레임에, 아래 조건이 "방이 비었다"고 잘못 읽어서 보상 대사가
+     컷신 위로 튀어나오는 일이 있었습니다. */
+  if (!G.inForest && G.mode === 'play' && !G.boss && !G.foes.length && !stateOf(G.room).cleared)
     onRoomCleared();
 
-  if (G.boss) updateBoss();
+  if (G.boss) (G.boss.kind === 'abom' ? updateAbom : updateBoss)();
 
   /* ── 픽업 ─────────────────────────────────────────── */
   if (G.floorKey) {
@@ -1353,7 +1365,7 @@ function updateForest() {
 /* ═══════════ 보스 AI ══════════════════════════════════ */
 function updateBoss() {
   const B = G.boss;
-  if (B.hp <= 0) { killBoss(); return; }
+  if (B.hp <= 0) { beginMorph(); return; }
   B.t++; B.bob += .05;
   if (B.flash > 0) B.flash--;
   B.x += B.kx; B.y += B.ky; B.kx *= .8; B.ky *= .8;
@@ -1433,11 +1445,16 @@ function updateBoss() {
 function killBoss() {
   const B = G.boss;
   glitchDeath(B.x, B.y, true);
-  // 눈이 터지는 순간 — 충격파가 네 겹으로 퍼지고 화면이 하얗게 날아갑니다
+  // 심연이 무너지는 순간 — 충격파가 네 겹으로 퍼지고 화면이 하얗게 날아갑니다
   glare(1.4);
-  shockRing(B.x, B.y, 420, '255,255,255', 10, 52);
-  shockRing(B.x, B.y, 320, '125,227,200', 7, 46);
-  shockRing(B.x, B.y, 230, '150,60,220', 6, 40);
+  shockRing(B.x, B.y, 480, '255,255,255', 11, 56);
+  shockRing(B.x, B.y, 360, '224,72,60', 8, 48);
+  shockRing(B.x, B.y, 250, '125,227,200', 6, 40);
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * 6.28, s = 1.5 + Math.random() * 4;
+    G.fx.push({ k: 'p', x: B.x, y: B.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+                life: 34, max: 34, c: i % 3 ? '#8a3040' : '#d8c2a4' });
+  }
   setTimeout(() => { if (G.mode === 'play' || G.mode === 'talk') {
     glare(.9); G.shake = 18; shockRing(B.x, B.y, 300, '255,255,255', 6, 40);
   } }, 260);
@@ -1451,6 +1468,306 @@ function killBoss() {
     G.finalKey = true; updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
     say(BOSS_DEAD_LINES);
   }, 700);
+}
+
+/* ═══════════ 페이즈3 — 「심연」 ═══════════════════════════
+   눈을 터뜨렸다고 끝이 아닙니다. 터진 자리의 바닥이 갈라지고,
+   눈을 껍데기로 쓰고 있던 것이 쇳덩이와 살점을 끌며 기어 나옵니다.
+
+   변신 컷신(morph) 순서
+     ①   0~46  : 눈이 안으로 무너짐. 빛이 중심으로 빨려 들며 암전.
+     ②  46~72  : 완전한 어둠과 정적. 낮게 한 번 쿵.
+     ③  72~170 : 바닥이 갈라지고 실루엣이 아래에서부터 솟아오름.
+     ④ 170~206 : 색이 번지듯 드러나고, 가운데 눈이 붉게 달아오름.
+     ⑤ 206~    : 각성 — 포효 · 섬광 · 충격파 3겹. 240프레임에 전투 시작.
+
+   싸움은 1:1 입니다 — 페이즈3에서는 졸개를 절대 부르지 않습니다.
+   대신 낫질 · 집게 내리찍기 · 촉수 채찍 · 비명 파동 네 가지를 굵게 씁니다.
+   ═════════════════════════════════════════════════════ */
+const MORPH_DUR   = 268;
+const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
+
+/* 각 행동의 [예비 동작, 그 뒤 길이] */
+const ABOM_ACT = {
+  blade:  { wind: 40, dur: 80, c: '#ffb27a' },   // 왼팔의 녹슨 낫
+  claw:   { wind: 34, dur: 54, c: '#ff8a6a' },   // 오른팔의 집게를 내리찍기
+  lash:   { wind: 32, dur: 46, c: '#e07fb0' },   // 촉수 채찍
+  scream: { wind: 36, dur: 88, c: '#ff6a66' }    // 아래쪽 아가리의 비명
+};
+
+/* -π~π 로 접은 각도 차 */
+function angDiff(a, b) {
+  let x = a - b;
+  while (x > Math.PI) x -= Math.PI * 2;
+  while (x < -Math.PI) x += Math.PI * 2;
+  return x;
+}
+/* 점과 선분 사이 거리 — 촉수에 스쳤는지 판정할 때 씁니다 */
+function distToSeg(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy;
+  if (!l2) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+function beginMorph() {
+  const B = G.boss;
+  // 거체라서 벽에 박히지 않도록 방 안쪽으로 당겨 세웁니다
+  G.morphX = Math.max(TS + 86, Math.min(W - TS - 86, B.x));
+  G.morphY = Math.max(TS + 64, Math.min(H - TS - 74, B.y));
+  G.morphT = 0; G.morphDark = 0; G.morphed = true;
+  G.mode = 'morph';
+  G.boss = null;
+  G.foes = [];                                   // 페이즈3는 오롯이 1:1
+  G.clouds = [];
+  G.bullets = [];
+
+  glitchDeath(B.x, B.y, true);
+  glare(1.4); G.shake = 34; G.flash = 1;
+  shockRing(B.x, B.y, 420, '255,255,255', 10, 52);
+  shockRing(B.x, B.y, 300, '150,60,220', 7, 44);
+  Sfx.bossRoar(); Sfx.glitch();
+}
+
+/* 변신 컷신 진행 — update() 에서 매 프레임 호출 */
+function tickMorph() {
+  const t = ++G.morphT;
+  tickFx();
+
+  // ① 눈이 안으로 무너지며 빛이 중심으로 빨려 들어갑니다
+  if (t < 46) {
+    G.morphDark = Math.min(1, t / 40);
+    if (t % 2 === 0) {
+      const a = Math.random() * 6.28, dist = 120 + Math.random() * 90;
+      G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * dist, y: G.morphY + Math.sin(a) * dist,
+                  tx: G.morphX, ty: G.morphY, life: 20, max: 20, c: '#c9a0ff' });
+    }
+    G.shake = Math.max(G.shake, 2 + t * .08);
+  }
+  // ② 어둠과 정적 — 낮게 한 번
+  else if (t < 72) {
+    G.morphDark = 1;
+    if (t === 50) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
+  }
+  // ③ 바닥이 갈라지고 실루엣이 솟아오릅니다
+  else if (t < 170) {
+    G.morphDark = 1;
+    G.shake = Math.max(G.shake, 2 + (t - 72) / 98 * 9);
+    if (t === 78 || t === 104 || t === 130 || t === 156) {
+      Sfx.hit(); Sfx.pot();
+      G.shake = Math.max(G.shake, 15);
+      shockRing(G.morphX, G.morphY + 34, 130 + (t - 78), '194,53,44', 4, 26);
+      for (let i = 0; i < 12; i++)
+        G.fx.push({ k: 'p', x: G.morphX + (Math.random() - .5) * 90, y: G.morphY + 38,
+                    vx: (Math.random() - .5) * 3, vy: -1 - Math.random() * 2.6,
+                    life: 30, max: 30, c: '#6b4a3a' });
+    }
+    if (t % 6 === 0) {
+      const a = Math.random() * 6.28;
+      G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 150, y: G.morphY + Math.sin(a) * 150,
+                  tx: G.morphX, ty: G.morphY, life: 24, max: 24, c: '#ff7a6a' });
+    }
+  }
+  // ④ 색이 번지고 가운데 눈이 달아오릅니다
+  else if (t < 206) {
+    G.morphDark = 1;
+    G.shake = Math.max(G.shake, 6 + (t - 170) / 36 * 6);
+    if (t === 186) Sfx.reveal();
+  }
+  // ⑤ 각성
+  else {
+    if (t === 206) {
+      Sfx.bossRoar(); Sfx.glitch();
+      glare(1.4); G.flash = 1; G.shake = 40;
+      shockRing(G.morphX, G.morphY, 460, '255,255,255', 11, 54);
+      shockRing(G.morphX, G.morphY, 340, '224,72,60', 8, 46);
+      shockRing(G.morphX, G.morphY, 230, '255,170,120', 6, 38);
+    }
+    G.morphDark = Math.max(0, 1 - (t - 206) / 34);
+    if (t === 240 && !G.boss) {
+      makeAbom();
+      // 두 번째 싸움을 맨몸으로 시작하지 않도록 하트 하나를 떨궈 줍니다
+      if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
+    }
+  }
+  if (t >= MORPH_DUR) { G.morphDark = 0; G.mode = 'play'; }
+}
+
+function makeAbom() {
+  G.boss = {
+    kind: 'abom',
+    x: G.morphX, y: G.morphY, r: 46,
+    hp: BALANCE.abomHp, max: BALANCE.abomHp, sp: BALANCE.abomSpeed,
+    t: 0, cd: 72, stage: 1, bob: 0, flash: 0, kx: 0, ky: 0,
+    act: null, actT: 0, last: null, aim: 0, dir: 1,
+    bladeFrom: 0, bladeA: 0, lash: [], lashLen: 0, reach: 150,
+    gap: 0, tx: 0, ty: 0, rise: 0, spiralA: 0, rayT: 120
+  };
+}
+
+function updateAbom() {
+  const B = G.boss;
+  if (B.hp <= 0) { killBoss(); return; }
+  B.t++; B.bob += .045;
+  if (B.flash > 0) B.flash--;
+  if (B.rayT > 0) B.rayT--;
+  B.x += B.kx; B.y += B.ky; B.kx *= .84; B.ky *= .84;
+
+  // 반피 아래로 떨어지면 광란 — 예비 동작이 짧아지고 탄이 늘어납니다
+  const st = B.hp / B.max > .5 ? 1 : 2;
+  if (st !== B.stage) {
+    B.stage = st; G.shake = 26; G.flash = 1; Sfx.bossRoar();
+    glare(1.25); B.rayT = 110;
+    shockRing(B.x, B.y, 340, '255,255,255', 8, 44);
+    shockRing(B.x, B.y, 240, '224,72,60', 6, 36);
+    if (P.hp < P.max) G.pickups.push({ k: 'heart', x: W / 2, y: H - 72, bob: 0 });
+  }
+  G.shake = Math.max(G.shake, 1.4 + st * .8);
+
+  const dx = P.x - B.x, dy = P.y - B.y, d = Math.hypot(dx, dy) || 1;
+
+  if (B.act) runAbomAct(B, dx, dy, d);
+  else {
+    // 일정 거리를 두고 천천히 맴돕니다 (덩치가 커서 붙으면 답이 없으므로)
+    const sp = B.sp * (st === 2 ? 1.45 : 1);
+    const orbit = 108;
+    const pull = Math.max(-1, Math.min(1, (d - orbit) / orbit));
+    B.x += (dx / d) * sp * pull + (-dy / d) * sp * .55;
+    B.y += (dy / d) * sp * pull + (dx / d) * sp * .55;
+    if (--B.cd <= 0) startAbomAct(B);
+  }
+
+  // 상시 — 몸에 달린 작은 눈들이 나선으로 뱉는 탄
+  if (B.t % (st === 2 ? 9 : 13) === 0) {
+    B.spiralA += 1.07;
+    foeShot(B.x, B.y + 4, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.6);
+  }
+
+  // 덩치가 커서 벽에 반쯤 박혀 보이지 않도록 안쪽으로 넉넉히 잡습니다
+  B.x = Math.max(TS + 64, Math.min(W - TS - 64, B.x));
+  B.y = Math.max(TS + 48, Math.min(H - TS - 54, B.y));
+  if (d < B.r * .58 + P.r) hurt(1);
+}
+
+function startAbomAct(B) {
+  const pool = B.stage === 1
+    ? ['blade', 'lash', 'claw', 'scream']
+    : ['blade', 'scream', 'lash', 'claw', 'blade', 'scream'];
+  let k = pool[(Math.random() * pool.length) | 0];
+  if (k === B.last && Math.random() < .7) k = pool[(Math.random() * pool.length) | 0];
+  B.last = k; B.act = k; B.actT = 0;
+  B.aim = Math.atan2(P.y - B.y, P.x - B.x);
+  if (k === 'blade') {
+    B.dir = Math.random() < .5 ? 1 : -1;
+    B.bladeFrom = B.aim - B.dir * .95;
+    B.bladeA = B.bladeFrom;
+  } else if (k === 'lash') {
+    const offs = B.stage === 2 ? [-.72, -.36, 0, .36, .72] : [-.42, 0, .42];
+    B.lash = offs.map(o => B.aim + o);
+    B.reach = B.stage === 2 ? 172 : 150;
+    B.lashLen = 0;
+  } else if (k === 'scream') {
+    B.gap = Math.random() * 6.283;
+  }
+  Sfx.beep();
+}
+
+function runAbomAct(B, dx, dy, d) {
+  const A = ABOM_ACT[B.act];
+  const t = ++B.actT, w = A.wind, fast = B.stage === 2;
+
+  // 예비 동작 — 빛이 몸으로 빨려 들어가며 "온다"는 걸 보여 줍니다
+  if (t <= w) {
+    if (t % 3 === 0) {
+      const a = Math.random() * 6.28, dist = 80 + Math.random() * 50;
+      G.fx.push({ k: 'suck', x: B.x + Math.cos(a) * dist, y: B.y + Math.sin(a) * dist,
+                  tx: B.x, ty: B.y, life: 18, max: 18, c: A.c });
+    }
+    // 낫과 촉수는 예비 동작 중에도 아주 느리게 주인공을 따라 돕니다
+    if (B.act === 'blade' || B.act === 'lash') {
+      const want = Math.atan2(dy, dx);
+      B.aim += angDiff(want, B.aim) * .05;
+      if (B.act === 'blade') B.bladeFrom = B.aim - B.dir * .95;
+      else B.lash = B.lash.map((a, i) => a + angDiff(want, B.aim) * .05);
+    }
+  }
+
+  if (B.act === 'blade') {
+    const swing = fast ? 44 : 58;
+    if (t === w) { Sfx.bossRoar(); G.shake = Math.max(G.shake, 16); glare(.55); }
+    if (t > w && t <= w + swing) {
+      const k = (t - w) / swing;
+      B.bladeA = B.bladeFrom + B.dir * k * Math.PI * 1.62;
+      const bx = B.x + Math.cos(B.bladeA) * 98, by = B.y + Math.sin(B.bladeA) * 98;
+      G.fx.push({ k: 'trail', x: bx, y: by, life: 14, max: 14, r: 11 });
+      G.shake = Math.max(G.shake, 4);
+      // 낫날 — 몸통에서 42~132 거리의 좁은 부채꼴
+      const pd = Math.hypot(dx, dy);
+      if (pd > 42 && pd < 132 && Math.abs(angDiff(Math.atan2(dy, dx), B.bladeA)) < .27) hurt(1);
+      if (fast && (t - w) % 13 === 0)
+        foeShot(bx, by, Math.cos(B.bladeA + B.dir * 1.57), Math.sin(B.bladeA + B.dir * 1.57), 1.75);
+    }
+  }
+
+  else if (B.act === 'claw') {
+    if (t === w) { B.tx = P.x; B.ty = P.y; Sfx.bossRoar(); }
+    if (t > w && t <= w + 16) {
+      B.x += (B.tx - B.x) * .2; B.y += (B.ty - B.y) * .2;
+      B.rise = Math.sin((t - w) / 16 * Math.PI) * 14;
+      G.shake = Math.max(G.shake, 5);
+      G.fx.push({ k: 'trail', x: B.x, y: B.y, life: 14, max: 14, r: 26 });
+    }
+    if (t === w + 17) {
+      B.rise = 0;
+      G.shake = Math.max(G.shake, 28); glare(.9); Sfx.glitch(); Sfx.landThump(.4);
+      shockRing(B.x, B.y, 270, '236,120,80', 7, 34);
+      shockRing(B.x, B.y, 170, '255,255,255', 4, 24);
+      const n = fast ? 16 : 12, off = Math.random() * 6.28;
+      for (let i = 0; i < n; i++) {
+        const a = off + i / n * 6.283;
+        foeShot(B.x, B.y, Math.cos(a), Math.sin(a), 1.85);
+      }
+      if (Math.hypot(P.x - B.x, P.y - B.y) < 62) hurt(1);
+      for (let i = 0; i < 16; i++)
+        G.fx.push({ k: 'p', x: B.x, y: B.y + 16, vx: (Math.random() - .5) * 6,
+                    vy: (Math.random() - .5) * 5, life: 24, max: 24, c: '#8a6250' });
+    }
+  }
+
+  else if (B.act === 'lash') {
+    if (t === w) { Sfx.hit(); G.shake = Math.max(G.shake, 11); }
+    if (t > w && t <= w + 16) {
+      B.lashLen = B.reach * Math.min(1, (t - w) / 5);
+      for (const a of B.lash) {
+        const ex = B.x + Math.cos(a) * B.lashLen, ey = B.y + Math.sin(a) * B.lashLen;
+        if (distToSeg(P.x, P.y, B.x, B.y, ex, ey) < 11 + P.r * .4) { hurt(1); break; }
+      }
+    } else if (t > w + 16) {
+      B.lashLen = Math.max(0, B.lashLen - B.reach / 14);
+    }
+  }
+
+  else if (B.act === 'scream') {
+    const beats = fast ? [w, w + 26, w + 52] : [w, w + 34];
+    beats.forEach((bt, i) => {
+      if (t !== bt) return;
+      const n = 22, gapA = B.gap + i * 1.15, gapW = fast ? .5 : .7;
+      for (let j = 0; j < n; j++) {
+        const a = j / n * 6.283;
+        if (Math.abs(angDiff(a, gapA)) < gapW) continue;   // 빠져나갈 틈 하나
+        foeShot(B.x, B.y + 14, Math.cos(a), Math.sin(a), 1.55);
+      }
+      Sfx.glitch(); Sfx.bossRoar();
+      G.shake = Math.max(G.shake, 16); glare(.6);
+      shockRing(B.x, B.y + 14, 250, '255,120,110', 5, 30);
+    });
+  }
+
+  if (t >= w + A.dur) {
+    B.act = null; B.actT = 0; B.lashLen = 0; B.rise = 0;
+    B.cd = fast ? 50 : 76;
+  }
 }
 
 /* ═══════════ 렌더 ═════════════════════════════════════ */
@@ -1469,8 +1786,9 @@ function render() {
   if (G.mode === 'fall') renderFall();
   if (G.mode === 'landing') renderLanding();
   if (G.mode === 'wakeup') renderWakeup();
+  if (G.mode === 'morph') renderMorph();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
-  if (!G.inForest && !cine && G.wake <= 0) drawMinimap();
+  if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
 
   if (G.flash > .02) {
@@ -1665,9 +1983,9 @@ function renderDungeon() {
   }
 
   drawClouds();
-  if (G.boss) drawBossLight();
+  if (G.boss) (G.boss.kind === 'abom' ? drawAbomLight : drawBossLight)();
   G.foes.forEach(drawFoe);
-  if (G.boss) drawBoss();
+  if (G.boss) (G.boss.kind === 'abom' ? drawAbom : drawBoss)();
   drawPlayer();
   drawRings();
 
@@ -2161,6 +2479,316 @@ function drawBoss() {
   g.restore();
 }
 
+/* ── 페이즈3 「심연」 그리기 ────────────────────────────
+   원본 스프라이트를 실루엣으로 만들거나 색을 얹어야 해서, 작은 보조
+   캔버스에 한 번 그린 뒤 source-atop 으로 덮어 씁니다. 크기가 고정이라
+   캔버스 하나를 계속 재사용합니다. ── */
+let _tintCv = null;
+function tintedAbom(w, h, col, amt) {
+  if (!IMG.abom) return null;
+  if (!_tintCv) _tintCv = document.createElement('canvas');
+  const c = _tintCv;
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  const t = c.getContext('2d');
+  t.globalCompositeOperation = 'source-over';
+  t.globalAlpha = 1;
+  t.clearRect(0, 0, w, h);
+  t.drawImage(IMG.abom, 0, 0, w, h);
+  if (amt > 0) {
+    t.globalCompositeOperation = 'source-atop';
+    t.globalAlpha = Math.min(1, amt);
+    t.fillStyle = col;
+    t.fillRect(0, 0, w, h);
+    t.globalAlpha = 1;
+  }
+  return c;
+}
+
+/* 몸통 한 장. sil = 검게 먹인 정도(0 원색 ~ 1 완전 실루엣) */
+function abomBody(x, y, sc, sil, alpha) {
+  const w = ABOM_W, h = ABOM_H;
+  g.save();
+  g.globalAlpha = alpha;
+  g.translate(x, y); g.scale(sc, sc);
+  const im = sil > .01 ? tintedAbom(w, h, '#08050a', sil) : IMG.abom;
+  if (im) g.drawImage(im, -w / 2, -h / 2, w, h);
+  else { g.fillStyle = '#3a1418'; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill(); }
+  g.restore();
+}
+
+/* 변신 도중 — 바닥에서 아래부터 드러나며 솟아오르는 실루엣 */
+function drawMorphRise() {
+  const t = G.morphT;
+  if (t < 72) return;
+  const rise = Math.min(1, (t - 72) / 98);
+  const e = rise * rise * (3 - 2 * rise);                 // 부드럽게
+  const sil = t < 170 ? 1 : Math.max(0, 1 - (t - 170) / 40);
+  const x = G.morphX, y = G.morphY + (1 - e) * 20;
+  const bottom = y + ABOM_H / 2;
+
+  g.save();
+  // 아직 올라오지 않은 아랫부분은 바닥에 묻혀 있어야 합니다
+  g.beginPath();
+  g.rect(x - ABOM_W, bottom - ABOM_H * e - 2, ABOM_W * 2, ABOM_H * e + 4);
+  g.clip();
+
+  // 가장자리를 훑는 붉은 테두리 빛
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .30 + Math.sin(t * .18) * .1;
+  const rg = g.createRadialGradient(x, y, 10, x, y, 96);
+  rg.addColorStop(0, 'rgba(224,72,60,.9)');
+  rg.addColorStop(1, 'rgba(224,72,60,0)');
+  g.fillStyle = rg;
+  g.beginPath(); g.arc(x, y, 96, 0, Math.PI * 2); g.fill();
+  g.restore();
+
+  abomBody(x, y, .94 + e * .06, sil, 1);
+
+  // 가운데 눈만 먼저 붉게 달아오릅니다
+  if (t > 130) {
+    const k = Math.min(1, (t - 130) / 70);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = k * (.55 + Math.sin(t * .22) * .3);
+    const eg = g.createRadialGradient(x, y - 2, 1, x, y - 2, 26 + k * 12);
+    eg.addColorStop(0, 'rgba(255,240,235,.95)');
+    eg.addColorStop(.35, 'rgba(232,60,52,.75)');
+    eg.addColorStop(1, 'rgba(232,60,52,0)');
+    g.fillStyle = eg;
+    g.beginPath(); g.arc(x, y - 2, 38, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  g.restore();
+
+  // 발밑에서 갈라진 바닥 틈
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .35 * e;
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2 + .4;
+    g.strokeStyle = '#ff6a4a'; g.lineWidth = 1 + e * 2;
+    g.beginPath(); g.moveTo(x, bottom - 6);
+    g.lineTo(x + Math.cos(a) * (30 + e * 62), bottom - 6 + Math.sin(a) * (10 + e * 22));
+    g.stroke();
+  }
+  g.restore();
+}
+
+/* 변신 컷신의 암막과 자막 — 화면 전체에 얹습니다 */
+function renderMorph() {
+  const t = G.morphT;
+  if (G.morphDark > .002) {
+    g.save();
+    g.globalAlpha = G.morphDark;
+    g.fillStyle = '#040306';
+    g.fillRect(0, 0, W, H);
+    g.restore();
+  }
+  /* 암막 아래 깔린 입자들은 거의 보이지 않으므로, 이 연출에 꼭 필요한
+     것들(빨려 드는 빛 · 흙 부스러기)만 암막 위에 한 번 더 얹습니다. */
+  if (G.morphDark > .02) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    G.fx.forEach(f => {
+      const k = f.life / f.max;
+      if (f.k === 'suck') {
+        g.globalAlpha = (1 - k) * .9 * G.morphDark;
+        g.fillStyle = f.c; g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
+      } else if (f.k === 'p') {
+        g.globalAlpha = k * .8 * G.morphDark;
+        g.fillStyle = f.c; g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
+      }
+    });
+    g.restore();
+  }
+
+  // 어둠 속에서도 몸통과 바닥 틈은 보여야 하므로 암막 위에 그립니다
+  if (!G.boss) drawMorphRise();
+
+  // 자막
+  let cap = null;
+  for (const [ft, s] of MORPH_CAPTIONS) if (t >= ft && t < ft + 58) cap = [t - ft, s];
+  if (cap) {
+    const k = cap[0] < 10 ? cap[0] / 10 : cap[0] > 48 ? (58 - cap[0]) / 10 : 1;
+    g.save();
+    g.globalAlpha = k;
+    g.font = 'bold 13px DungGeunMo, ui-monospace, monospace';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(0,0,0,.7)';
+    const tw = g.measureText(cap[1]).width;
+    g.fillRect(W / 2 - tw / 2 - 10, H - 44, tw + 20, 20);
+    g.fillStyle = '#e8d9c2';
+    g.fillText(cap[1], W / 2, H - 34);
+    g.restore();
+  }
+}
+
+function drawAbomLight() {
+  const B = G.boss;
+  const pulse = .5 + Math.sin(G.t * .08) * .5;
+  const wind = B.act ? Math.min(1, B.actT / ABOM_ACT[B.act].wind) : 0;
+  const col = B.stage === 2 ? '236,60,44' : '198,58,58';
+  g.save();
+  g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip();
+  g.globalCompositeOperation = 'lighter';
+
+  g.globalAlpha = .18 + pulse * .1 + wind * .22;
+  const lg = g.createRadialGradient(B.x, B.y, 10, B.x, B.y, 200);
+  lg.addColorStop(0, `rgba(${col},.9)`);
+  lg.addColorStop(1, `rgba(${col},0)`);
+  g.fillStyle = lg; g.fillRect(0, 0, W, H);
+
+  const rays = B.stage === 2 ? 10 : 8;
+  const boost = B.rayT > 0 ? B.rayT / 110 : 0;
+  for (let i = 0; i < rays; i++) {
+    const a = G.t * .009 + (i / rays) * Math.PI * 2;
+    // 빛줄기는 어디까지나 분위기 — 몸통보다 눈에 띄면 탄이 안 보입니다
+    g.globalAlpha = .035 + pulse * .035 + wind * .08 + boost * .12;
+    g.strokeStyle = `rgb(${col})`;
+    g.lineWidth = 2.5 + wind * 7 + boost * 4;
+    g.beginPath(); g.moveTo(B.x, B.y);
+    g.lineTo(B.x + Math.cos(a) * 250, B.y + Math.sin(a) * 250);
+    g.stroke();
+  }
+  g.restore();
+}
+
+function drawAbom() {
+  const B = G.boss;
+  const A = B.act ? ABOM_ACT[B.act] : null;
+  const wind = A ? Math.min(1, B.actT / A.wind) : 0;
+  const sc = 1 + Math.sin(B.bob) * .03 + wind * .07;
+  const y = B.y - (B.rise || 0);
+
+  // 그림자 — 들어 올릴수록 작고 진해집니다
+  g.save();
+  g.fillStyle = 'rgba(0,0,0,.5)';
+  g.beginPath();
+  g.ellipse(B.x, B.y + 44, 52 - (B.rise || 0) * .9, 13, 0, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+
+  // 몸을 감싼 핏빛 아지랑이
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .22 + wind * .4;
+  const ag = g.createRadialGradient(B.x, y, 14, B.x, y, 92 + wind * 28);
+  ag.addColorStop(0, 'rgba(224,72,60,.6)');
+  ag.addColorStop(1, 'rgba(224,72,60,0)');
+  g.fillStyle = ag;
+  g.beginPath(); g.arc(B.x, y, 92 + wind * 28, 0, Math.PI * 2); g.fill();
+  g.restore();
+
+  // 촉수 채찍 — 예비 동작 때는 가는 예고선, 칠 때는 굵은 촉수
+  if (B.act === 'lash') {
+    g.save();
+    if (B.actT <= ABOM_ACT.lash.wind) {
+      g.globalAlpha = .3 + wind * .5;
+      g.strokeStyle = '#e07fb0'; g.lineWidth = 1.5;
+      g.setLineDash([5, 5]);
+      for (const a of B.lash) {
+        g.beginPath(); g.moveTo(B.x, y);
+        g.lineTo(B.x + Math.cos(a) * B.reach, y + Math.sin(a) * B.reach);
+        g.stroke();
+      }
+      g.setLineDash([]);
+    } else if (B.lashLen > 1) {
+      for (const a of B.lash) {
+        const ex = B.x + Math.cos(a) * B.lashLen, ey = y + Math.sin(a) * B.lashLen;
+        g.strokeStyle = '#7d3346'; g.lineWidth = 9; g.lineCap = 'round';
+        g.beginPath(); g.moveTo(B.x, y);
+        g.quadraticCurveTo(B.x + Math.cos(a + .4) * B.lashLen * .55,
+                           y + Math.sin(a + .4) * B.lashLen * .55, ex, ey);
+        g.stroke();
+        g.strokeStyle = '#b8596d'; g.lineWidth = 4;
+        g.beginPath(); g.moveTo(B.x, y);
+        g.quadraticCurveTo(B.x + Math.cos(a + .4) * B.lashLen * .55,
+                           y + Math.sin(a + .4) * B.lashLen * .55, ex, ey);
+        g.stroke();
+        g.fillStyle = '#e8a0b4';
+        g.beginPath(); g.arc(ex, ey, 4, 0, 6.3); g.fill();
+      }
+      g.lineCap = 'butt';
+    }
+    g.restore();
+  }
+
+  abomBody(B.x, y, sc, 0, 1);
+
+  // 피격 깜빡임
+  if (B.flash > 0 && (G.t >> 1) % 2) {
+    const im = tintedAbom(ABOM_W, ABOM_H, '#ffffff', .8);
+    if (im) {
+      g.save();
+      g.globalCompositeOperation = 'lighter'; g.globalAlpha = .55;
+      g.translate(B.x, y); g.scale(sc, sc);
+      g.drawImage(im, -ABOM_W / 2, -ABOM_H / 2, ABOM_W, ABOM_H);
+      g.restore();
+    }
+  }
+
+  // 왼팔의 녹슨 낫 — 예비 동작 때는 궤적 예고, 칠 때는 실제 날
+  if (B.act === 'blade') {
+    g.save();
+    const R0 = 42, R1 = 132;
+    if (B.actT <= ABOM_ACT.blade.wind) {
+      g.globalAlpha = .12 + wind * .3;
+      g.fillStyle = '#ffb27a';
+      g.beginPath();
+      g.arc(B.x, y, R1, B.bladeFrom, B.bladeFrom + B.dir * Math.PI * 1.62, B.dir < 0);
+      g.arc(B.x, y, R0, B.bladeFrom + B.dir * Math.PI * 1.62, B.bladeFrom, B.dir > 0);
+      g.closePath(); g.fill();
+    } else {
+      const a = B.bladeA;
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = .55;
+      g.strokeStyle = '#ffd2a8'; g.lineWidth = 7; g.lineCap = 'round';
+      g.beginPath();
+      g.arc(B.x, y, 96, a - B.dir * .55, a, B.dir < 0);
+      g.stroke();
+      g.globalAlpha = .95; g.lineWidth = 3;
+      g.strokeStyle = '#fff1e0';
+      g.beginPath();
+      g.moveTo(B.x + Math.cos(a) * R0, y + Math.sin(a) * R0);
+      g.lineTo(B.x + Math.cos(a) * R1, y + Math.sin(a) * R1);
+      g.stroke();
+      g.lineCap = 'butt';
+    }
+    g.restore();
+  }
+
+  // 아래쪽 아가리 — 비명 직전에 벌겋게 달아오릅니다
+  if (B.act === 'scream') {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .25 + wind * .6;
+    const mg = g.createRadialGradient(B.x + 16, y + 26, 2, B.x + 16, y + 26, 26);
+    mg.addColorStop(0, 'rgba(255,240,220,.9)');
+    mg.addColorStop(1, 'rgba(255,90,70,0)');
+    g.fillStyle = mg;
+    g.beginPath(); g.arc(B.x + 16, y + 26, 26, 0, 6.3); g.fill();
+    g.restore();
+  }
+
+  // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
+  const bw = 250, bx = (W - bw) / 2, by = H - 18;
+  g.save();
+  g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
+  g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
+  const hk = Math.max(0, B.hp / B.max);
+  g.fillStyle = B.stage === 2 ? '#e8483a' : '#a8262c';
+  g.fillRect(bx, by, bw * hk, 5);
+  g.fillStyle = 'rgba(255,255,255,.35)';
+  g.fillRect(bx + bw * .5, by - 1, 1, 7);
+  drawSaekdong(g, bx, by - 4, bw, 2, false, .55);
+  g.font = 'bold 9px DungGeunMo, ui-monospace, monospace';
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#c2352c';
+  g.fillText('심연', bx, by - 6);
+  g.restore();
+}
+
 /* ── 추락 ──────────────────────────────────────────── */
 /* 우물 추락 연출 — 화면 중앙으로 빨려 들어가는 소용돌이 우물 통로.
    지상 배경(renderForest)이 이미 그려진 위에, 안쪽으로 좁아지는 돌벽
@@ -2637,6 +3265,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
+                  beginMorph, makeAbom, MORPH_DUR, ABOM_ACT,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
