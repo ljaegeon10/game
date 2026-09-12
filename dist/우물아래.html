@@ -3923,8 +3923,10 @@ function update() {
   if (G.mode === 'wakeup') {
     G.eyeT++;
     // 눈을 뜨고 감을 때마다 젖은 소리와 숨
-    if (G.eyeT === 40 || G.eyeT === 96 || G.eyeT === 152 || G.eyeT === 206) Sfx.blink();
-    if (G.eyeT === 62 || G.eyeT === 138 || G.eyeT === 194) Sfx.breath();
+    if (G.eyeT === 40 || G.eyeT === 96 || G.eyeT === 152 || G.eyeT === 206 ||
+        G.eyeT === EYE_OPEN_T + 100 || G.eyeT === EYE_OPEN_T + 168) Sfx.blink();
+    if (G.eyeT === 62 || G.eyeT === 138 || G.eyeT === 194 ||
+        G.eyeT === EYE_OPEN_T + 40 || G.eyeT === EYE_OPEN_T + 140) Sfx.breath();
     if (G.eyeT % 3 === 0)
       G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
                   vy: .6 + Math.random() * 1.5, life: 130, max: 130 });
@@ -5068,17 +5070,23 @@ function drawBoss() {
    ① landing : 완전한 암전. 울림과 흙먼지, 바닥에 닿는 둔탁한 충격음.
    ② wakeup  : **1인칭** — 우물 바닥에 누운 채 올려다본 천장. 눈을 몇 번
                 껌뻑이며 초점이 잡혀 갑니다. 반쯤 감겼을 땐 흐릿합니다.
+                다 뜨고 나면, 자신이 떨어진 저 위 입구를 한참 올려다보며
+                누워 있습니다 — 숨을 고르는 동안 먼지가 계속 떨어지고,
+                자연스러운 깜빡임이 한두 번 더 스칩니다.
    ③ 전환    : 눈을 완전히 뜨는 순간 탑뷰로 확 바뀌면서, 섬광 · 충격파와
                 함께 브금의 "두둥"이 크게 터집니다. */
 const FALL_DUR   = 300;   // 소용돌이 낙하 (5.0초)
 const LAND_BLACK = 66;    // 착지 직후 완전 암전 (1.1초)
-const WAKE_EYE   = 250;   // 1인칭으로 눈을 껌뻑이며 뜨는 구간 (약 4.2초)
+const EYE_OPEN_T = 236;   // 여기까지가 "눈을 뜨는" 애니메이션
+const GAZE_HOLD  = 210;   // 다 뜬 채로 저 위 입구를 올려다보는 시간 (3.5초)
+const WAKE_EYE   = EYE_OPEN_T + GAZE_HOLD;   // 전체 1인칭 구간 (약 7.4초)
 const WAKE_DUR   = 66;    // 탑뷰로 바뀐 뒤 암전이 걷히는 구간
 
 /* 눈꺼풀이 열린 정도 (0 = 감김, 1 = 완전히 뜸).
    떴다 감았다를 네 번 반복하며 점점 크게, 점점 오래 뜹니다.
    중간에 한 번은 거의 다 떴다가 도로 감겨서, 정신을 붙잡으려다
-   놓치는 느낌을 냅니다. */
+   놓치는 느낌을 냅니다. 다 뜬 뒤로도 한참을 그대로 응시하다가,
+   자연스러운 깜빡임 두 번이 스치듯 지나갑니다. */
 const EYE_KEYS = [
   [0, 0], [26, 0],
   [40, .17], [56, .02],          // ① 실눈
@@ -5088,7 +5096,10 @@ const EYE_KEYS = [
   [152, .78], [168, .30],        // ③ 거의 떴다가 도로 감김
   [182, .22],
   [206, .95], [218, .70],        // ④ 크게
-  [236, 1], [WAKE_EYE, 1]
+  [EYE_OPEN_T, 1],
+  [EYE_OPEN_T + 90,  1], [EYE_OPEN_T + 100, .08], [EYE_OPEN_T + 112, 1],   // 자연스러운 깜빡임 1
+  [EYE_OPEN_T + 160, 1], [EYE_OPEN_T + 168, .12], [EYE_OPEN_T + 178, 1],   // 자연스러운 깜빡임 2
+  [WAKE_EYE, 1]
 ];
 function eyeOpen(t) {
   for (let i = 1; i < EYE_KEYS.length; i++) {
@@ -5150,7 +5161,10 @@ function renderLanding() {
    눈이 덜 떠졌을 때는 초점이 안 맞아 흐릿하게 번집니다. */
 function renderWakeup() {
   const t = G.eyeT, o = eyeOpen(t);
-  const cx = W / 2, cy = H * .40;
+  // 눈을 다 뜬 뒤로는 숨 쉬듯 시야가 아주 미세하게 오르내립니다 —
+  // 오래 응시하는 구간이 정지 화면처럼 굳어 보이지 않게 합니다.
+  const breathe = t > EYE_OPEN_T ? Math.sin((t - EYE_OPEN_T) * .045) * 2.2 : 0;
+  const cx = W / 2, cy = H * .40 + breathe;
   g.save();
   g.fillStyle = '#06050a';
   g.fillRect(0, 0, W, H);
