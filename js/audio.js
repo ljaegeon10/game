@@ -20,15 +20,16 @@ const Sfx = (() => {
                          들려준 뒤 음량이 고른 3.0~12.9s 만 반복합니다.
      boss2 (눈 보스전) : track06(산업 소음). 싸움이 시작되는 순간부터
                          통째로 반복 — 잔잔한 대목은 관문으로 옮겼습니다.
-     boss3 (심연)      : 변신 컷신 시작과 함께 걸면, 클립 12.675s 의 본편
-                         진입이 각성 프레임(760/60 = 12.667s)과 맞습니다. */
+     boss3 (심연)      : 잔잔한 도입 15.0s 뒤에 본편이 터집니다. 그래서
+                         컷신 시작이 아니라 BGM3_AT(각성 - 900프레임) 에
+                         걸어야 그 터지는 지점이 각성과 맞습니다. */
   const BOSS_BGM = {
     approach: { src: () => (typeof APPROACH_BGM_B64 === 'undefined' ? null : APPROACH_BGM_B64),
                 loopStart: 3.000,  loopEnd: 12.900, vol: 0.40, fade: 1.6 },
     boss2:    { src: () => (typeof BOSS2_BGM_B64 === 'undefined' ? null : BOSS2_BGM_B64),
                 loopStart: 0,      loopEnd: 56.999, vol: 0.46, fade: 0.5 },
     boss3:    { src: () => (typeof BOSS3_BGM_B64 === 'undefined' ? null : BOSS3_BGM_B64),
-                loopStart: 12.675, loopEnd: 57.652, vol: 0.52, fade: 1.8 }
+                loopStart: 15.000, loopEnd: 59.977, vol: 0.52, fade: 1.8 }
   };
   /* 곡별 상태 : { buf, loading, want, node } */
   const bgmSt = { approach: {}, boss2: {}, boss3: {} };

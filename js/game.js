@@ -1536,7 +1536,8 @@ function killBoss() {
    싸움은 1:1 입니다 — 페이즈3에서는 졸개를 절대 부르지 않습니다.
    대신 낫질 · 집게 내리찍기 · 촉수 채찍 · 비명 파동 네 가지를 굵게 씁니다.
    ═════════════════════════════════════════════════════ */
-const MORPH_DUR   = 880;   // 약 14.7초 (전엔 10.3초 — 너무 빨리 지나갔습니다)
+const MORPH_DUR   = 1070;  // 약 17.8초 — 명령을 읽고 심연이 받아 칠 시간
+const MORPH_TYPE  = 4;     // 한 글자에 몇 프레임 (클수록 느리게 찍힙니다)
 const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
 
 /* 각 행동의 [예비 동작, 그 뒤 길이] */
@@ -1595,21 +1596,23 @@ function beginMorph() {
   shockRing(B.x, B.y, 300, '150,60,220', 7, 44);
   Sfx.bossRoar(); Sfx.glitch();
 
-  /* 브금도 여기서 갈립니다 — 눈 브금은 여운을 남기며 걷히고, 심연 브금이
-     잔잔한 데서부터 깔립니다. 이 곡은 컷신 8.667초(= 각성 프레임)에
-     본편이 터지도록 잘라 뒀으므로, 지금 걸면 저절로 맞아떨어집니다. */
+  /* 눈 브금은 여운을 남기며 걷힙니다. 심연 브금은 여기서 바로 걸지 않고
+     BGM3_AT 프레임에 겁니다 — 곡의 잔잔한 도입이 15.0초라, 그때 걸어야
+     본편이 각성과 함께 터집니다. (tickMorph 가 챕니다) */
   Sfx.bossBgm('boss2', false);
-  Sfx.bossBgm('boss3', true);
 }
 
 /* 변신 컷신 진행 — update() 에서 매 프레임 호출 */
-/* 바닥이 갈라지며 무언가가 올라오는 구간 — 7.2초에 걸쳐 천천히 솟습니다 */
-const RISE_FROM = 130, RISE_TO = 560;
-const CRACK_AT = [145, 215, 290, 365, 440, 510];
-const WAKE_AT = 760;                 // 각성하는 순간 (브금의 본편 진입과 맞춰 둔 값)
+/* 바닥이 갈라지며 무언가가 올라오는 구간 — 9.2초에 걸쳐 천천히 솟습니다 */
+const RISE_FROM = 150, RISE_TO = 700;
+const CRACK_AT = [165, 250, 340, 430, 520, 610, 680];
+const WAKE_AT = 950;                 // 각성하는 순간
+/* 심연 브금은 컷신 시작이 아니라 이 프레임에 걸어야, 곡의 잔잔한 도입
+   15.0초가 그대로 흐른 뒤 본편이 각성과 함께 터집니다 (950 - 900). */
+const BGM3_AT = WAKE_AT - 900;
 
 /* 피팩이 튀어나와 → 바닥에 떨어지고 → 주인공에게 끌려가 → 삼켜지는 시점 */
-const PACK_LAND = 40, PACK_PULL = 110, PACK_EAT = 200;
+const PACK_LAND = 45, PACK_PULL = 120, PACK_EAT = 190;
 
 /* 관측 로그 타이핑 상태 — 프레임으로 굴려야 게임 속도와 어긋나지 않습니다 */
 let morphSysI = -1, morphSysN = 0;
@@ -1617,7 +1620,7 @@ let morphSysI = -1, morphSysN = 0;
 function clearMorphSys() {
   morphSysI = -1; morphSysN = 0;
   const el = $('morphsys');
-  el.classList.remove('on', 'alert');
+  el.classList.remove('on', 'alert', 'abyss');
   $('morphtext').textContent = '';
 }
 
@@ -1688,23 +1691,34 @@ function tickMorph() {
   const t = ++G.morphT;
   tickFx();
   tickMedpack(t);
+  // 심연 브금 — 잔잔한 도입 15.0초가 흐른 뒤 각성과 함께 본편이 터집니다
+  if (t === BGM3_AT) Sfx.bossBgm('boss3', true);
 
-  /* ── 바깥에서 이 장면을 지켜보는 쪽의 관측 로그 ── */
+  /* ── 처분 명령을 읽는 쪽과, 그걸 받아 치는 심연 ── */
   for (let i = 0; i < MORPH_SYS.length; i++) {
     if (t !== MORPH_SYS[i][0]) continue;
     morphSysI = i; morphSysN = 0;
+    const voice = MORPH_SYS[i][2];
     const el = $('morphsys');
     el.classList.add('on');
-    el.classList.toggle('alert', !!MORPH_SYS[i][2]);
+    el.classList.toggle('alert', voice === 'alert');
+    el.classList.toggle('abyss', voice === 'abyss');
     $('morphtext').textContent = '';
-    if (MORPH_SYS[i][2]) { Sfx.glitch(); G.flash = Math.max(G.flash, .3); }
+    if (voice === 'alert') { Sfx.glitch(); G.flash = Math.max(G.flash, .3); }
+    // 심연이 입을 열면 바닥부터 낮게 울립니다
+    if (voice === 'abyss') { Sfx.landThump(.22); G.shake = Math.max(G.shake, 7); }
   }
   if (morphSysI >= 0) {
     const line = MORPH_SYS[morphSysI][1];
-    if (morphSysN < line.length && t % 3 === 0) {
+    const abyss = MORPH_SYS[morphSysI][2] === 'abyss';
+    // 한 글자에 네 프레임 — 예전(세 프레임)보다 느긋하게 읽힙니다
+    if (morphSysN < line.length && t % MORPH_TYPE === 0) {
       morphSysN++;
       $('morphtext').textContent = line.slice(0, morphSysN);
-      if (morphSysN % 3 === 0) Sfx.beep(.03);
+      /* 찍는 소리도 목소리에 따라 갈립니다 — 계기판은 마른 비프,
+         심연은 젖은 소리가 낮게 깔립니다. */
+      if (abyss) { if (morphSysN % 2 === 0) Sfx.creepType(); }
+      else if (morphSysN % 3 === 0) Sfx.beep(.03);
     }
   }
   if (t === WAKE_AT + 30) clearMorphSys();     // 각성하면서 로그가 끊깁니다
@@ -1722,7 +1736,7 @@ function tickMorph() {
   // ② 어둠과 정적 — 낮게 한 번. 이때부터 로그만 찍힙니다
   else if (t < RISE_FROM) {
     G.morphDark = 1;
-    if (t === 84) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
+    if (t === 100) { Sfx.landThump(.55); G.shake = Math.max(G.shake, 12); }
     G.shake = Math.max(G.shake, 1.2);
   }
   // ③ 바닥이 다섯 번 갈라지고 실루엣이 천천히 솟아오릅니다
@@ -1751,10 +1765,10 @@ function tickMorph() {
     const k = (t - RISE_TO) / (WAKE_AT - RISE_TO);
     G.shake = Math.max(G.shake, 3 + k * 9);
     // 3.3초를 비워 두지 않도록, 숨을 고르는 소리를 세 번 넣습니다
-    if (t === RISE_TO + 30) Sfx.reveal();
-    if (t === RISE_TO + 80) { Sfx.breath(); G.shake = Math.max(G.shake, 8); }
-    if (t === RISE_TO + 140) { Sfx.breath(); G.shake = Math.max(G.shake, 11); }
-    if (t === RISE_TO + 176) { Sfx.hit(); G.shake = Math.max(G.shake, 14); glare(.35); }
+    if (t === RISE_TO + 34) Sfx.reveal();
+    if (t === RISE_TO + 96) { Sfx.breath(); G.shake = Math.max(G.shake, 8); }
+    if (t === RISE_TO + 164) { Sfx.breath(); G.shake = Math.max(G.shake, 11); }
+    if (t === RISE_TO + 218) { Sfx.hit(); G.shake = Math.max(G.shake, 14); glare(.35); }
     if (t % 9 === 0) {
       const a = Math.random() * 6.28;
       G.fx.push({ k: 'suck', x: G.morphX + Math.cos(a) * 190, y: G.morphY + Math.sin(a) * 190,
@@ -2724,7 +2738,7 @@ function drawMorphRise() {
   /* 다 올라온 뒤에야 색이 번집니다. 솟는 동안에도 0.9 까지만 먹여서
      원래 색이 10% 쯤 비치게 뒀습니다 — 완전한 먹색이면 어둠 속에서
      아예 형태가 안 보였습니다. */
-  const sil = .9 * (t < RISE_TO ? 1 : Math.max(0, 1 - (t - RISE_TO) / 140));
+  const sil = .9 * (t < RISE_TO ? 1 : Math.max(0, 1 - (t - RISE_TO) / 160));
   const x = G.morphX, y = G.morphY + (1 - e) * 20;
   const bottom = y + ABOM_H / 2;
 

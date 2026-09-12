@@ -269,8 +269,23 @@ html,body{
   white-space:pre;
 }
 #morphsys.on{ opacity:1; }
-/* 위협 등급이 올라가는 줄부터는 붉게 — "이건 기록이 아니라 경고다" */
+/* 위협 등급이 올라가고 처분 명령이 떨어지는 대목 — "이건 기록이 아니라 명령이다" */
 #morphsys.alert{ color:#ff8a7a; text-shadow:0 0 10px rgba(226,31,31,.5), 0 2px 0 rgba(0,0,0,.85); }
+/* 심연이 대답하는 대목 — 계기판이 찍는 글씨가 아니라, 크고 흐릿한 핏빛으로
+   흔들리며 떠오릅니다. 자간을 좁혀서 "읽어 내리는 명령문"이 아니라
+   "말"처럼 보이게 했습니다. */
+#morphsys.abyss{
+  color:#f2c4c4; font-size:17px; letter-spacing:.08em;
+  text-shadow:0 0 16px rgba(226,31,31,.65), 0 0 4px rgba(0,0,0,.95),
+              0 2px 0 rgba(0,0,0,.9);
+  animation:abyssWaver 2.4s ease-in-out infinite;
+}
+#morphsys.abyss .caret{ display:none; }   /* 기계가 찍는 글씨가 아닙니다 */
+@keyframes abyssWaver{
+  0%,100%{ transform:translateY(-50%) translateX(0) }
+  33%    { transform:translateY(-50%) translateX(-1.5px) }
+  66%    { transform:translateY(-50%) translateX(1.5px) }
+}
 #morphsys .caret{
   display:inline-block; width:7px; height:14px; margin-left:3px;
   background:currentColor; vertical-align:-2px;
