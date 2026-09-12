@@ -11,6 +11,23 @@ const Sfx = (() => {
   /* 맨 앞 "두둥" 을 1.5배로 키워 두는 시간 (그 뒤엔 본 곡 크기로 내려옴) */
   const BGM_HIT_HOLD = 1.6;
 
+  /* ── 보스전 브금 ───────────────────────────────────────────────────
+     두 곡 다 "도입부가 한 번 흐른 뒤 본편만 반복" 구조라서, 긴 버퍼 하나에
+     loopStart / loopEnd 를 걸어 두는 같은 틀로 돌립니다. 아래 숫자들은
+     tools/make_boss_bgm.py 가 잘라낸 실제 프레임 경계 값입니다.
+
+     boss2 (눈 보스전) : 잔잔한 도입부 14.002s → track06(산업 소음) 반복.
+     boss3 (심연)      : 변신 컷신 시작과 함께 걸면, 클립 8.678s 의 본편
+                         진입이 각성 프레임(520/60 = 8.667s)과 맞습니다. */
+  const BOSS_BGM = {
+    boss2: { src: () => (typeof BOSS2_BGM_B64 === 'undefined' ? null : BOSS2_BGM_B64),
+             loopStart: 14.002, loopEnd: 71.001, vol: 0.44, fade: 0.2 },
+    boss3: { src: () => (typeof BOSS3_BGM_B64 === 'undefined' ? null : BOSS3_BGM_B64),
+             loopStart: 8.678,  loopEnd: 53.656, vol: 0.52, fade: 1.5 }
+  };
+  /* 곡별 상태 : { buf, loading, want, node } */
+  const bgmSt = { boss2: {}, boss3: {} };
+
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
     // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
@@ -296,6 +313,86 @@ const Sfx = (() => {
           src.stop(c.currentTime + 1.6);
         } catch (e) {}
       }
+    },
+
+    /* 던전 탐사 브금 버퍼를 버립니다 — 보스전에 들어서면 다시 쓰지 않으므로
+       (약 20MB 의 PCM 이라) 보스 브금 두 개를 올리기 전에 비워 둡니다. */
+    dropDungeonBgm() {
+      api.dungeonBgm(false);
+      api._dgBuf = null;
+    },
+
+    /* ── 보스전 브금 ───────────────────────────────────── */
+    preloadBossBgm(which) {
+      const cfg = BOSS_BGM[which], st = bgmSt[which];
+      if (!cfg || !st || st.buf || st.loading) return;
+      const b64 = cfg.src();
+      if (!b64) return;
+      st.loading = true;
+      const c = ctx();
+      const bin = atob(b64);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      c.decodeAudioData(u8.buffer,
+        buf => { st.buf = buf; st.loading = false; if (st.want) api.bossBgm(which, true); },
+        ()  => { st.loading = false; });
+    },
+
+    /* hard = true 면 여운 없이 즉시 끊습니다 (죽어서 처음부터 다시 싸울 때 —
+       페이드로 겹치면 같은 곡이 두 겹으로 울려 이상해집니다) */
+    bossBgm(which, on, hard) {
+      const cfg = BOSS_BGM[which], st = bgmSt[which];
+      if (!cfg || !st) return;
+      const c = ctx();
+      if (on) {
+        st.want = true;
+        if (st.node) return;
+        if (!st.buf) { api.preloadBossBgm(which); return; }   // 디코딩 끝나면 자동 재생
+        const t = c.currentTime;
+        const src = c.createBufferSource();
+        src.buffer = st.buf;
+        src.loop = true;
+        src.loopStart = cfg.loopStart;      // 도입부는 한 번만, 그 뒤로는 본편만
+        src.loopEnd = Math.min(cfg.loopEnd, st.buf.duration);
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(cfg.vol, t + cfg.fade);
+        src.connect(g); g.connect(master);
+        src.start(t, 0);
+        st.node = { src, g };
+      } else {
+        st.want = false;
+        if (!st.node) return;
+        const { src, g } = st.node; st.node = null;
+        try {
+          g.gain.cancelScheduledValues(c.currentTime);
+          if (hard) {
+            g.gain.setValueAtTime(0.0001, c.currentTime);
+            src.stop(c.currentTime);
+          } else {
+            g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), c.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.1);
+            src.stop(c.currentTime + 1.3);
+          }
+        } catch (e) {}
+      }
+    },
+
+    bossBgmStopAll(hard) { Object.keys(BOSS_BGM).forEach(k => api.bossBgm(k, false, hard)); },
+
+    /* 사망 화면에서 플랫라인 비프가 묻히지 않도록, 흐르는 보스 브금을 낮춥니다 */
+    bossBgmDuck(down) {
+      const c = ctx();
+      Object.keys(BOSS_BGM).forEach(k => {
+        const st = bgmSt[k];
+        if (!st.node) return;
+        const g = st.node.g;
+        g.gain.cancelScheduledValues(c.currentTime);
+        g.gain.setValueAtTime(Math.max(g.gain.value, 0.0001), c.currentTime);
+        g.gain.exponentialRampToValueAtTime(
+          down ? BOSS_BGM[k].vol * 0.2 : BOSS_BGM[k].vol,
+          c.currentTime + (down ? 0.4 : 0.9));
+      });
     },
 
     /* 사망 화면 동안 살짝 낮췄다가 되돌립니다 (플랫라인 비프가 묻히지 않도록) */

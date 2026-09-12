@@ -363,6 +363,7 @@ function respawn() {
   G.flash = 0; G.shake = 0; G.glare = 0;
   P.hp = P.max; P.dead = false; P.inv = BALANCE.invFrames; P.slow = 0;
   Sfx.dungeonBgmDuck(false);   // 보스전 전이라면 브금 볼륨을 되돌립니다 (보스전엔 이미 꺼져 있어 무해)
+  Sfx.bossBgmStopAll(true);    // 보스방으로 되돌아가면 queueBoss 가 처음부터 다시 걸어 줍니다
   updateHud();
   if (G.room) loadRoom(G.room, 'W');
   else loadForest();
@@ -384,7 +385,7 @@ function resetRun() {
   P.hp = P.max; P.dead = false; P.inv = 0; P.slow = 0;
   RUN.elapsed = 0;
   ['dead', 'subtitle', 'prompt', 'noteoverlay', 'hud'].forEach(id => $(id).classList.add('hidden'));
-  Sfx.ambientStop(); Sfx.dungeonBgm(false);
+  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll(true);
   setDate(0); updateHud(); updateTimer();
   renderBestTimes();
   $('modesel').classList.add('hidden');
@@ -551,6 +552,9 @@ function loadRoom(id, fromDir) {
   updateHud();                        // 탐사 진행도(일반 모드) 갱신
 
   if (Sfx.started && id === 'start') Sfx.ambient('dungeon');
+  /* 눈 보스전 브금을 미리 디코딩해 둡니다. 착지 직후(start)에 하면 그 요란한
+     연출 프레임에 걸려 한 번 덜컥하므로, 첫 방을 벗어난 뒤에 합니다. */
+  if (id !== 'start') Sfx.preloadBossBgm('boss2');
 
   const after = r.boss && !G.bossDead ? queueBoss : null;
   if (first && r.intro && r.intro.length) say(r.intro, after);
@@ -631,7 +635,12 @@ function queueBoss() {
   // 페이즈3에서 늘었던 체력칸은 눈 보스부터 다시 싸울 땐 원래대로
   if (P.max !== BALANCE.playerHp) { P.max = BALANCE.playerHp; P.hp = Math.min(P.hp, P.max); updateHud(); }
   Sfx.ambientStop();
-  Sfx.dungeonBgm(false);   // 던전 탐사 브금은 여기까지 — 보스전은 무음/효과음 위주로
+  /* 던전 탐사 브금은 여기까지 — 버퍼째로 버려서, 보스 브금 두 개를 올릴
+     자리를 비워 둡니다 (이 뒤로는 다시 쓰지 않습니다). */
+  Sfx.dropDungeonBgm();
+  Sfx.bossBgmStopAll(true);          // 다시 싸우는 경우, 이전 판 브금을 즉시 끊고
+  Sfx.bossBgm('boss2', true);        // 잔잔한 도입부 → track06 반복
+  Sfx.preloadBossBgm('boss3');       // 눈과 싸우는 동안 심연 브금을 미리 디코딩
 }
 
 function makeBoss() {
@@ -940,7 +949,8 @@ function hurt(n) {
     $('dead').classList.toggle('casual', !G.timeAttack);
     $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : '이어서 다시 (R)';
     $('dead').classList.remove('hidden');
-    Sfx.flatline(true); Sfx.dungeonBgmDuck(true);   // 플랫라인 비프가 묻히지 않도록 브금을 낮춥니다
+    Sfx.flatline(true);
+    Sfx.dungeonBgmDuck(true); Sfx.bossBgmDuck(true);   // 플랫라인 비프가 묻히지 않도록 브금을 낮춥니다
     setTimeout(() => Sfx.flatline(false), 1400);
   }
 }
@@ -1482,6 +1492,7 @@ function killBoss() {
     glare(.9); G.shake = 18; shockRing(B.x, B.y, 300, '255,255,255', 6, 40);
   } }, 260);
   G.shake = 32; G.boss = null; G.bossDead = true;
+  Sfx.bossBgmStopAll();             // 보스전 브금은 여기서 끝납니다
   Sfx.ambient('dungeon');
   G.foes = [];
   G.bullets = G.bullets.filter(b => b.mine);
@@ -1565,6 +1576,12 @@ function beginMorph() {
   shockRing(B.x, B.y, 420, '255,255,255', 10, 52);
   shockRing(B.x, B.y, 300, '150,60,220', 7, 44);
   Sfx.bossRoar(); Sfx.glitch();
+
+  /* 브금도 여기서 갈립니다 — 눈 브금은 여운을 남기며 걷히고, 심연 브금이
+     잔잔한 데서부터 깔립니다. 이 곡은 컷신 8.667초(= 각성 프레임)에
+     본편이 터지도록 잘라 뒀으므로, 지금 걸면 저절로 맞아떨어집니다. */
+  Sfx.bossBgm('boss2', false);
+  Sfx.bossBgm('boss3', true);
 }
 
 /* 변신 컷신 진행 — update() 에서 매 프레임 호출 */
@@ -3425,7 +3442,7 @@ function beginEnding() {
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
   $('ending').classList.remove('hidden');
-  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.flatline(true);
+  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll(); Sfx.flatline(true);
   $('blackout').classList.add('on');
   G.flash = 1;
   setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);
