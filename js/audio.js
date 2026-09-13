@@ -18,18 +18,18 @@ const Sfx = (() => {
 
      approach (관문)   : 보스방 바로 앞. 무음에서 차오르는 도입을 한 번
                          들려준 뒤 음량이 고른 3.0~12.9s 만 반복합니다.
-     boss2 (눈 보스전) : track06(산업 소음). 싸움이 시작되는 순간부터
-                         통째로 반복 — 잔잔한 대목은 관문으로 옮겼습니다.
-     boss3 (심연)      : 잔잔한 도입 15.0s 뒤에 본편이 터집니다. 그래서
-                         컷신 시작이 아니라 BGM3_AT(각성 - 900프레임) 에
-                         걸어야 그 터지는 지점이 각성과 맞습니다. */
+     boss2 (눈 보스전) : 발소리·리버브 쪽. 본편만 잘라 통째로 반복합니다 —
+                         싸움은 시작부터 격렬해야 하므로 도입은 버렸습니다.
+     boss3 (심연)      : 산업 소음 쪽. 앞 11초가 조용하다가 11.4s 에서
+                         터지는데, 컷신 시작이 아니라 BGM3_AT(각성 -
+                         11.4초) 에 걸어야 그 지점이 각성과 맞습니다. */
   const BOSS_BGM = {
     approach: { src: () => (typeof APPROACH_BGM_B64 === 'undefined' ? null : APPROACH_BGM_B64),
                 loopStart: 3.000,  loopEnd: 12.900, vol: 0.40, fade: 1.6 },
     boss2:    { src: () => (typeof BOSS2_BGM_B64 === 'undefined' ? null : BOSS2_BGM_B64),
-                loopStart: 0,      loopEnd: 56.999, vol: 0.46, fade: 0.5 },
+                loopStart: 0,      loopEnd: 43.389, vol: 0.48, fade: 0.5 },
     boss3:    { src: () => (typeof BOSS3_BGM_B64 === 'undefined' ? null : BOSS3_BGM_B64),
-                loopStart: 15.000, loopEnd: 59.977, vol: 0.52, fade: 1.8 }
+                loopStart: 11.700, loopEnd: 54.800, vol: 0.50, fade: 1.8 }
   };
   /* 곡별 상태 : { buf, loading, want, node } */
   const bgmSt = { approach: {}, boss2: {}, boss3: {} };

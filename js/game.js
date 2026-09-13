@@ -1597,8 +1597,8 @@ function beginMorph() {
   Sfx.bossRoar(); Sfx.glitch();
 
   /* 눈 브금은 여운을 남기며 걷힙니다. 심연 브금은 여기서 바로 걸지 않고
-     BGM3_AT 프레임에 겁니다 — 곡의 잔잔한 도입이 15.0초라, 그때 걸어야
-     본편이 각성과 함께 터집니다. (tickMorph 가 챕니다) */
+     BGM3_AT 프레임에 겁니다 — 곡의 조용한 도입이 11.4초라, 그때 걸어야
+     터지는 지점이 각성과 맞습니다. (tickMorph 가 챕니다) */
   Sfx.bossBgm('boss2', false);
 }
 
@@ -1607,9 +1607,9 @@ function beginMorph() {
 const RISE_FROM = 150, RISE_TO = 700;
 const CRACK_AT = [165, 250, 340, 430, 520, 610, 680];
 const WAKE_AT = 950;                 // 각성하는 순간
-/* 심연 브금은 컷신 시작이 아니라 이 프레임에 걸어야, 곡의 잔잔한 도입
-   15.0초가 그대로 흐른 뒤 본편이 각성과 함께 터집니다 (950 - 900). */
-const BGM3_AT = WAKE_AT - 900;
+/* 심연 브금은 컷신 시작이 아니라 이 프레임에 걸어야, 곡의 조용한 도입
+   11.4초가 흐른 뒤 터지는 지점이 각성과 맞습니다 (11.4초 × 60프레임). */
+const BGM3_AT = WAKE_AT - 684;
 
 /* 피팩이 튀어나와 → 바닥에 떨어지고 → 주인공에게 끌려가 → 삼켜지는 시점 */
 const PACK_LAND = 45, PACK_PULL = 120, PACK_EAT = 190;
@@ -1691,7 +1691,7 @@ function tickMorph() {
   const t = ++G.morphT;
   tickFx();
   tickMedpack(t);
-  // 심연 브금 — 잔잔한 도입 15.0초가 흐른 뒤 각성과 함께 본편이 터집니다
+  // 심연 브금 — 조용한 도입 11.4초가 흐른 뒤 각성과 함께 터집니다
   if (t === BGM3_AT) Sfx.bossBgm('boss3', true);
 
   /* ── 처분 명령을 읽는 쪽과, 그걸 받아 치는 심연 ── */
