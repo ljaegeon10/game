@@ -2718,15 +2718,142 @@ function tintedAbom(w, h, col, amt) {
 }
 
 /* 몸통 한 장. sil = 검게 먹인 정도(0 원색 ~ 1 완전 실루엣) */
-function abomBody(x, y, sc, sil, alpha) {
+/* ── 심연의 골격 ───────────────────────────────────────────────────
+   그림은 한 장뿐이지만, 캔버스 클립으로 세 조각(왼쪽 낫 팔 · 오른쪽 집게
+   팔 · 몸통)으로 나눠 따로 움직입니다. 조각을 파일로 따로 뽑지 않으니
+   용량이 늘지 않고, 자르는 자리를 코드에서 바로 만질 수 있습니다.
+
+   몸통에서 지우는 범위(erase)를 팔이 그려지는 범위(draw)보다 좁게 잡아
+   관절에 그루터기를 남깁니다 — 그래서 팔이 돌아도 구멍이 안 보입니다.
+   좌표는 원본 그림(168×113) 기준이고, 그릴 때 크기에 맞춰 환산합니다. */
+const AB_L = { draw: 50,  bot: 72, erase: 40,  px: 46,  py: 30 };   // 왼쪽 낫 팔
+const AB_R = { draw: 120, bot: 74, erase: 130, px: 124, py: 26 };   // 오른쪽 집게 팔
+const AB_REST = { la: 0, ra: 0, lift: 0, lean: 0, sx: 1, sy: 1 };
+
+function abomBody(x, y, sc, sil, alpha, po, tint) {
   const w = ABOM_W, h = ABOM_H;
+  const im = tint ? tintedAbom(w, h, tint[0], tint[1])
+                  : sil > .01 ? tintedAbom(w, h, '#1a0608', sil) : IMG.abom;
+  po = po || AB_REST;
+  const sx = v => -w / 2 + v * (w / 168);          // 원본 px → 그리는 좌표
+  const sy = v => -h / 2 + v * (h / 113);
+
   g.save();
   g.globalAlpha = alpha;
-  g.translate(x, y); g.scale(sc, sc);
-  const im = sil > .01 ? tintedAbom(w, h, '#1a0608', sil) : IMG.abom;
-  if (im) g.drawImage(im, -w / 2, -h / 2, w, h);
-  else { g.fillStyle = '#3a1418'; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill(); }
+  g.translate(x, y);
+  if (po.lean) g.rotate(po.lean * Math.PI / 180);
+  g.scale(sc * po.sx, sc * po.sy);
+
+  if (!im) {   // 그림을 못 불러왔을 때를 위한 최소한의 대체
+    g.fillStyle = '#3a1418'; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill();
+    g.restore(); return;
+  }
+
+  // ① 몸통 — 두 팔 자리를 도려낸 나머지 (evenodd 로 구멍을 냅니다)
+  g.save();
+  g.beginPath();
+  g.rect(-w / 2, -h / 2, w, h);
+  g.rect(sx(0), sy(0), sx(AB_L.erase) - sx(0), sy(AB_L.bot - 10) - sy(0));
+  g.rect(sx(AB_R.erase), sy(0), sx(168) - sx(AB_R.erase), sy(AB_R.bot - 10) - sy(0));
+  g.clip('evenodd');
+  g.drawImage(im, -w / 2, -h / 2, w, h);
   g.restore();
+
+  // ② 두 팔 — 각자 관절을 축으로 돌고, 집게는 들어 올리기도 합니다
+  [[AB_L, po.la, 0, true], [AB_R, po.ra, -po.lift, false]].forEach(([A, ang, dy, isL]) => {
+    g.save();
+    g.translate(sx(A.px), sy(A.py) + dy);
+    g.rotate(ang * Math.PI / 180);
+    g.translate(-sx(A.px), -sy(A.py));
+    g.beginPath();
+    if (isL) g.rect(sx(0), sy(0), sx(A.draw) - sx(0), sy(A.bot) - sy(0));
+    else     g.rect(sx(A.draw), sy(0), sx(168) - sx(A.draw), sy(A.bot) - sy(0));
+    g.clip();
+    g.drawImage(im, -w / 2, -h / 2, w, h);
+    g.restore();
+  });
+  g.restore();
+}
+
+/* 지금 무슨 동작 중이냐에 따라 팔과 몸통이 잡는 자세.
+   그림이 한 장이라 자세는 전부 조각의 회전 · 들어 올림 · 기울임 · 눌림으로
+   냅니다. 가만히 있을 때도 두 팔이 서로 어긋난 주기로 꿈틀거립니다. */
+function abomPose(B) {
+  const ease = k => (k = Math.max(0, Math.min(1, k))) * k * (3 - 2 * k);
+  const idleL = Math.sin(B.bob) * 2.5;
+  const idleR = Math.sin(B.bob * .8 + 1.7) * 2;
+  const po = { la: idleL, ra: idleR, lift: 0,
+               lean: Math.sin(B.bob * .6) * 1.2, sx: 1, sy: 1 };
+  const t = B.actT, A = B.act ? ABOM_ACT[B.act] : null;
+
+  if (A && B.act === 'blade') {
+    const w = A.wind, sw = B.stage === 2 ? 44 : 58;
+    if (t <= w) {                                  // 낫을 뒤로 크게 당깁니다
+      const k = ease(t / w);
+      po.la = idleL - 34 * k; po.lean = 5 * k; po.sx = 1 + .04 * k;
+    } else if (t <= w + sw) {                      // 훑는 동안 팔이 같이 돕니다
+      const k = (t - w) / sw;
+      po.la = -34 + 78 * ease(k * 1.25);
+      po.lean = 5 - 11 * ease(k * 1.4);
+    } else {                                       // 되돌아옵니다
+      const k = ease((t - w - sw) / 20);
+      po.la = 44 * (1 - k) + idleL * k;
+      po.lean = -6 * (1 - k);
+    }
+  }
+  else if (A && B.act === 'claw') {
+    const w = A.wind;
+    if (t <= w) {                                  // 집게를 높이 들어 올립니다
+      const k = ease(t / w);
+      po.ra = idleR + 26 * k; po.lift = 11 * k;
+      po.sy = 1 + .06 * k; po.lean = -3 * k;
+    } else if (t <= w + 17) {                      // 그대로 내리찍습니다
+      const k = ease((t - w) / 17);
+      po.ra = 26 - 54 * k; po.lift = 11 - 16 * k;
+      po.sy = 1.06 - .14 * k; po.sx = 1 + .08 * k;
+    } else {                                       // 찍고 나서 천천히 일어납니다
+      const k = ease((t - w - 17) / 26);
+      po.ra = -28 * (1 - k) + idleR * k;
+      po.lift = -5 * (1 - k);
+      po.sy = .92 + .08 * k; po.sx = 1.08 - .08 * k;
+    }
+  }
+  else if (A && B.act === 'lash') {
+    const w = A.wind;
+    if (t <= w) {                                  // 웅크리며 양팔을 벌립니다
+      const k = ease(t / w);
+      po.la = idleL - 13 * k; po.ra = idleR + 15 * k;
+      po.sx = 1 + .07 * k; po.sy = 1 - .05 * k;
+    } else {                                       // 촉수가 뻗으며 앞으로 쏠립니다
+      const k = ease((t - w) / 14);
+      po.la = -13 + 13 * k; po.ra = 15 - 15 * k;
+      po.sx = 1.07 - .12 * k; po.sy = .95 + .11 * k;
+    }
+  }
+  else if (A && B.act === 'scream') {
+    const w = A.wind, fast = B.stage === 2;
+    if (t <= w) {                                  // 숨을 들이켜며 팔을 끌어안습니다
+      const k = ease(t / w);
+      po.la = idleL + 10 * k; po.ra = idleR - 11 * k;
+      po.sx = 1 + .09 * k; po.sy = 1 + .07 * k;
+    } else {                                       // 외칠 때마다 확 퍼집니다
+      let pulse = 0;
+      (fast ? [w, w + 26, w + 52] : [w, w + 34]).forEach(bt => {
+        const d = t - bt;
+        if (d >= 0 && d < 18) pulse = Math.max(pulse, 1 - d / 18);
+      });
+      const k = ease((t - w) / 60);
+      po.sx = 1.09 + .10 * pulse; po.sy = 1.07 - .06 * pulse;
+      po.la = 10 * (1 - k) + idleL * k; po.ra = -11 * (1 - k) + idleR * k;
+    }
+  }
+
+  if (B.flash > 0) {                               // 맞으면 움찔합니다
+    const k = B.flash / BALANCE.foeFlash;
+    po.lean += Math.sin(B.flash * 1.9) * 3 * k;
+    po.sx *= 1 - .05 * k; po.sy *= 1 + .05 * k;
+  }
+  return po;
 }
 
 /* 변신 도중 — 바닥에서 아래부터 드러나며 솟아오르는 실루엣 */
@@ -2760,7 +2887,13 @@ function drawMorphRise() {
   g.beginPath(); g.arc(x, y + 10, 112, 0, Math.PI * 2); g.fill();
   g.restore();
 
-  abomBody(x, y, .94 + e * .06, sil, 1);
+  /* 솟아오르는 동안에도 두 팔이 느리게 꿈틀거립니다 — 가만히 있는
+     그림 한 장이 아니라 "살아 있는 것"으로 보여야 합니다. */
+  abomBody(x, y, .94 + e * .06, sil, 1, {
+    la: Math.sin(t * .035) * 6 - 4, ra: Math.sin(t * .028 + 2.1) * 5 + 3,
+    lift: Math.sin(t * .03) * 2, lean: Math.sin(t * .022) * 1.6,
+    sx: 1, sy: 1
+  });
 
   // 가운데 눈만 먼저 붉게 달아오릅니다 — 각성 직전까지 천천히 밝아집니다
   if (t > RISE_FROM + 140) {
@@ -3027,18 +3160,15 @@ function drawAbom() {
     g.restore();
   }
 
-  abomBody(B.x, y, sc, 0, 1);
+  const po = abomPose(B);
+  abomBody(B.x, y, sc, 0, 1, po);
 
-  // 피격 깜빡임
+  // 피격 깜빡임 — 몸통과 같은 자세로 겹쳐야 팔이 따로 놀지 않습니다
   if (B.flash > 0 && (G.t >> 1) % 2) {
-    const im = tintedAbom(ABOM_W, ABOM_H, '#ffffff', .8);
-    if (im) {
-      g.save();
-      g.globalCompositeOperation = 'lighter'; g.globalAlpha = .55;
-      g.translate(B.x, y); g.scale(sc, sc);
-      g.drawImage(im, -ABOM_W / 2, -ABOM_H / 2, ABOM_W, ABOM_H);
-      g.restore();
-    }
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    abomBody(B.x, y, sc, 0, .55, po, ['#ffffff', .8]);
+    g.restore();
   }
 
   // 왼팔의 녹슨 낫 — 예비 동작 때는 궤적 예고, 칠 때는 실제 날
@@ -3578,7 +3708,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
-                  beginMorph, makeAbom, MORPH_DUR, ABOM_ACT,
+                  beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
