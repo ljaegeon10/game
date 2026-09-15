@@ -228,6 +228,22 @@ html,body{
 #explorebox.done{ border-color:rgba(125,227,200,.6); border-left-color:var(--glow); }
 #explorebox.done #exploretext{ color:var(--glow); }
 
+/* ── 일반 모드 난이도 표시 ─────────────────────────────── */
+#diffbox{
+  display:flex; align-items:baseline; gap:5px;
+  background:rgba(20,22,34,.85);
+  border:1px solid rgba(241,236,224,.22);
+  border-left:2px solid rgba(241,236,224,.45);
+  padding:2px 7px;
+  font-family:var(--font-ui);
+}
+#diffbox.hidden{ display:none; }
+#difftext{ font-size:12px; font-weight:700; letter-spacing:.06em; color:rgba(241,236,224,.82); }
+#diffbox.d-easy{ border-color:rgba(125,227,200,.45); border-left-color:var(--glow); }
+#diffbox.d-easy #difftext{ color:var(--glow); }
+#diffbox.d-hard{ border-color:rgba(194,53,44,.55); border-left-color:var(--jeok); }
+#diffbox.d-hard #difftext{ color:#e5817a; }
+
 /* ── 기록 목록 (타이틀 / 엔딩 공용) ────────────────────── */
 #bestlist, #records{
   list-style:none; margin:0; padding:0;
@@ -606,12 +622,19 @@ html,body{
 }
 @keyframes msIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 #modesel.hidden{ display:none; }
+/* 난이도 선택은 모드 선택과 같은 자리에 같은 모양새로 올라옵니다 */
+#diffsel{
+  margin-top:28px;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  animation:msIn .22s ease-out 1;
+}
+#diffsel.hidden{ display:none; }
 .ms-q{
   margin:0; font-size:9px; letter-spacing:.42em; text-indent:.42em;
   color:rgba(241,236,224,.42);
 }
 .ms-row{ display:flex; gap:12px; }
-.modebtn{
+.modebtn, .diffbtn{
   margin:0; width:158px;
   display:flex; flex-direction:column; align-items:center; gap:5px;
   padding:12px 8px 11px;
@@ -620,13 +643,13 @@ html,body{
   box-shadow:none; cursor:pointer;
   transition:border-color .15s, background .15s, transform .08s;
 }
-.modebtn b{ font-size:12px; font-weight:700; letter-spacing:.06em; }
-.modebtn span{
+.modebtn b, .diffbtn b{ font-size:12px; font-weight:700; letter-spacing:.06em; }
+.modebtn span, .diffbtn span{
   font-size:8px; letter-spacing:.03em; line-height:1.5;
   color:rgba(241,236,224,.42);
 }
-/* 모드마다 관문 조건이 다르므로, 고르기 전에 한 줄로 알려 줍니다 */
-.modebtn em{
+/* 모드·난이도마다 조건이 다르므로, 고르기 전에 한 줄로 알려 줍니다 */
+.modebtn em, .diffbtn em{
   font-style:normal; font-size:8px; line-height:1.5;
   padding-top:4px; margin-top:1px;
   border-top:1px solid rgba(241,236,224,.14);
@@ -634,7 +657,7 @@ html,body{
 }
 .modebtn[data-mode="time"] em{ color:rgba(227,178,60,.78); }
 .modebtn[data-mode="normal"] em{ color:rgba(159,198,239,.80); }
-.modebtn:hover{ background:rgba(15,14,20,.45); }
+.modebtn:hover, .diffbtn:hover{ background:rgba(15,14,20,.45); }
 .modebtn[data-mode="time"]:hover{
   border-color:rgba(227,178,60,.75); background:rgba(227,178,60,.10);
 }
@@ -643,15 +666,31 @@ html,body{
   border-color:rgba(47,111,181,.85); background:rgba(47,111,181,.14);
 }
 .modebtn[data-mode="normal"]:hover b{ color:#9fc6ef; }
-.modebtn:active{ transform:translateY(2px); box-shadow:none; }
-#msback{
+.modebtn:active, .diffbtn:active{ transform:translateY(2px); box-shadow:none; }
+/* 난이도 카드는 셋이 나란히 서므로 조금 좁게 */
+.diffbtn{ width:140px; }
+.diffbtn[data-diff="easy"] em{ color:rgba(125,227,200,.80); }
+.diffbtn[data-diff="normal"] em{ color:rgba(241,236,224,.62); }
+.diffbtn[data-diff="hard"] em{ color:rgba(229,129,122,.85); }
+.diffbtn[data-diff="easy"]:hover{
+  border-color:rgba(125,227,200,.75); background:rgba(125,227,200,.10);
+}
+.diffbtn[data-diff="easy"]:hover b{ color:var(--glow); }
+.diffbtn[data-diff="normal"]:hover{
+  border-color:rgba(241,236,224,.60); background:rgba(241,236,224,.08);
+}
+.diffbtn[data-diff="hard"]:hover{
+  border-color:rgba(194,53,44,.85); background:rgba(194,53,44,.14);
+}
+.diffbtn[data-diff="hard"]:hover b{ color:#e5817a; }
+#msback, #dsback{
   margin-top:2px; padding:5px 14px;
   font-size:9px; font-weight:400; letter-spacing:.16em;
   background:none; color:rgba(241,236,224,.34);
   border:none; box-shadow:none;
 }
-#msback:hover{ background:none; color:rgba(241,236,224,.7); }
-#msback:active{ transform:none; box-shadow:none; }
+#msback:hover, #dsback:hover{ background:none; color:rgba(241,236,224,.7); }
+#msback:active, #dsback:active{ transform:none; box-shadow:none; }
 
 /* 사망/엔딩 화면의 일반 버튼 */
 button{
@@ -1340,6 +1379,11 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
           <span class="datelabel">탐사</span>
           <span id="exploretext">0 / 7</span>
         </div>
+        <!-- 일반 모드 : 고른 난이도 -->
+        <div id="diffbox" class="hidden" title="난이도">
+          <span class="datelabel">난이도</span>
+          <span id="difftext">보통</span>
+        </div>
         <div id="datebox">
           <span class="datelabel">LOG DATE</span>
           <span id="datetext">2145 / 05 / 01</span>
@@ -1444,6 +1488,29 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
           </button>
         </div>
         <button id="msback">← 뒤로</button>
+      </div>
+
+      <!-- 일반 모드를 고르면 그 자리에 이어서 나오는 난이도 선택 -->
+      <div id="diffsel" class="hidden">
+        <p class="ms-q">난이도 선택</p>
+        <div class="ms-row">
+          <button class="diffbtn" data-diff="easy">
+            <b>쉬움</b>
+            <span>하트 4칸 · 느긋한 것들</span>
+            <em>처음 내려가 본다면</em>
+          </button>
+          <button class="diffbtn" data-diff="normal">
+            <b>보통</b>
+            <span>하트 3칸 · 기준 균형</span>
+            <em>우물이 원래 깊던 만큼</em>
+          </button>
+          <button class="diffbtn" data-diff="hard">
+            <b>어려움</b>
+            <span>하트 3칸 · 짧은 무적</span>
+            <em>더 굵고, 더 빠른 것들</em>
+          </button>
+        </div>
+        <button id="dsback">← 뒤로</button>
       </div>
 
       <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁</p>
@@ -2852,6 +2919,76 @@ const BALANCE = {
   abomPlayerMax: 5      // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
 };
 
+/* ── 난이도 ───────────────────────────────────────────────
+   위의 BALANCE 는 '보통' 값 그 자체입니다. 아래 표에는 그 위에 덮어쓸
+   값만 적어 두고, applyDifficulty() 가 판을 시작할 때마다 BALANCE 를
+   원본으로 되돌린 뒤 고른 난이도의 값을 얹습니다. 게임 코드 곳곳은
+   BALANCE.xxx 를 그때그때 읽으므로, 이 한 곳만 바꾸면 전부 따라옵니다.
+
+   타임어택은 기록 경쟁이라 난이도를 고르지 않고 언제나 '보통'입니다. */
+const BALANCE_BASE = Object.freeze({ ...BALANCE });
+
+const DIFF = {
+  /* 쉬움 — 하트가 한 칸 늘고, 무적 시간과 연사가 넉넉해집니다.
+     몹은 덜 단단하고 느리며, 예비 동작을 길게 보여 줍니다. */
+  easy: {
+    id: 'easy', name: '쉬움', tag: '처음 내려가 본다면',
+    desc: '하트 4칸 · 느긋한 것들',
+    over: {
+      playerHp: 4, abomPlayerMax: 6,
+      invFrames: 84, playerFireCd: 16, bulletLife: 56,
+
+      shroomHp: 2, shroomSpeed: 0.60,
+      spitterHp: 3, spitterSpeed: 0.38, spitterCd: 176, spore: 1.25,
+      sporerHp: 2, sporerSpeed: 0.28, sporerCd: 160, slowFrames: 70, slowMult: 0.55,
+      splitterHp: 3, splitterSpeed: 0.44, miniSpeed: 1.02,
+      chargerHp: 3, chargerSpeed: 0.25, chargerCd: 168, chargerWind: 46, chargerDash: 5.0,
+      blinkerHp: 2, blinkerSpeed: 0.21, blinkerCd: 190,
+      knockback: 9.0,
+
+      bossHp: 60, bossSpeed: 0.52,
+      abomHp: 66, abomSpeed: 0.43
+    }
+  },
+
+  /* 보통 — 지금까지의 균형 그대로 (덮어쓰는 값 없음) */
+  normal: {
+    id: 'normal', name: '보통', tag: '우물이 원래 깊던 만큼',
+    desc: '하트 3칸 · 기준 균형',
+    over: {}
+  },
+
+  /* 어려움 — 하트는 그대로 3칸인데 무적 시간이 짧아 연달아 맞습니다.
+     몹은 더 단단하고 빠르며, 돌진의 예비 동작이 눈에 띄게 짧습니다. */
+  hard: {
+    id: 'hard', name: '어려움', tag: '더 굵고, 더 빠른 것들',
+    desc: '하트 3칸 · 짧은 무적',
+    over: {
+      playerHp: 3, abomPlayerMax: 4,
+      invFrames: 50, playerFireCd: 24,
+
+      shroomHp: 4, shroomSpeed: 0.84,
+      spitterHp: 5, spitterSpeed: 0.55, spitterCd: 108, spore: 1.85,
+      sporerHp: 4, sporerSpeed: 0.42, sporerCd: 96, slowFrames: 120, slowMult: 0.34,
+      splitterHp: 5, splitterSpeed: 0.64, miniSpeed: 1.45,
+      chargerHp: 5, chargerSpeed: 0.38, chargerCd: 104, chargerWind: 26, chargerDash: 7.2,
+      blinkerHp: 4, blinkerSpeed: 0.33, blinkerCd: 116,
+      knockback: 5.5,
+
+      bossHp: 96, bossSpeed: 0.72,
+      abomHp: 108, abomSpeed: 0.60
+    }
+  }
+};
+const DIFF_ORDER = ['easy', 'normal', 'hard'];
+
+/* 고른 난이도를 BALANCE 에 얹고, 그 난이도 정보를 돌려줍니다 */
+function applyDifficulty(id) {
+  const d = DIFF[id] || DIFF.normal;
+  Object.assign(BALANCE, BALANCE_BASE, d.over);
+  return d;
+}
+
 /* ── 쪽지 ────────────────────────────────────────────────── */
 const NOTES = {
   n1: {
@@ -3166,8 +3303,14 @@ addEventListener('keydown', e => {
   if (k === 'r' && G.mode === 'dead') retry();
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startGame(true);
-    if (k === '2') startGame(false);
+    if (k === '2') openDiffSelect();
     if (k === 'escape' || k === 'backspace') closeModeSelect();
+  }
+  else if (G.mode === 'diffsel') {                  // 난이도는 1 / 2 / 3
+    if (k === '1') startGame(false, 'easy');
+    if (k === '2') startGame(false, 'normal');
+    if (k === '3') startGame(false, 'hard');
+    if (k === 'escape' || k === 'backspace') closeDiffSelect();
   }
 });
 addEventListener('keyup', e => { key[e.key] = false; });
@@ -3192,7 +3335,8 @@ function kickAudio() {
   // 아직 타이틀 · 모드 선택 화면이라면 여기서 바로 틀어 둡니다.
   // startGame() 이 이어서 다시 ambient('forest') 를 걸어도 Sfx.started() 가
   // 이미 true 라 겹쳐 울리지 않고 그대로 이어집니다.
-  if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel')) Sfx.ambient('forest');
+  if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel'))
+    Sfx.ambient('forest');
 }
 ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click', 'wheel']
   .forEach(evt => addEventListener(evt, kickAudio, { capture: true, passive: true }));
@@ -3201,8 +3345,10 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
+  mode: 'title',        // title | modesel | diffsel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
   timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
+  diff: 'normal',       // 일반 모드에서 고른 난이도 (타임어택은 언제나 보통)
+  diffName: '보통',
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
   t: 0, shake: 0, flash: 0,
@@ -3421,6 +3567,7 @@ function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title')  { openModeSelect(); return; }
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
+  if (G.mode === 'diffsel') return;            // 난이도도 마찬가지
   if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
   if (G.mode === 'dead')  { retry(); return; }
   if (G.mode === 'talk')  { advanceTalk(); return; }
@@ -3446,15 +3593,36 @@ function closeModeSelect() {
   G.mode = 'title';
 }
 
-/* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
-   timeAttack = false : 시계 없이 천천히. 죽으면 그 방에서 다시 시작합니다. */
-function startGame(timeAttack = true) {
-  G.timeAttack = timeAttack !== false;
+/* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
+   (타임어택은 기록 경쟁이라 언제나 '보통'으로 바로 시작합니다.) */
+function openDiffSelect() {
+  Sfx.unlock();
   $('modesel').classList.add('hidden');
+  $('diffsel').classList.remove('hidden');
+  G.mode = 'diffsel';
+}
+function closeDiffSelect() {
+  $('diffsel').classList.add('hidden');
+  $('modesel').classList.remove('hidden');
+  G.mode = 'modesel';
+}
+
+/* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
+   timeAttack = false : 시계 없이 천천히. 죽으면 그 방에서 다시 시작합니다.
+   diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
+function startGame(timeAttack = true, diffId = 'normal') {
+  G.timeAttack = timeAttack !== false;
+  /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
+  const d = applyDifficulty(G.timeAttack ? 'normal' : diffId);
+  G.diff = d.id; G.diffName = d.name;
+  P.max = BALANCE.playerHp; P.hp = P.max; P.inv = 0; P.slow = 0;
+  $('modesel').classList.add('hidden');
+  $('diffsel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
+  updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
@@ -3502,6 +3670,7 @@ function resetRun() {
   setDate(0); updateHud(); updateTimer();
   renderBestTimes();
   $('modesel').classList.add('hidden');
+  $('diffsel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
   $('title').classList.remove('hidden');
   G.mode = 'title';
@@ -3509,8 +3678,12 @@ function resetRun() {
 
 $('startbtn').addEventListener('click', openModeSelect);
 $('msback').addEventListener('click', closeModeSelect);
+$('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>
-  b.addEventListener('click', () => startGame(b.dataset.mode === 'time')));
+  b.addEventListener('click', () =>
+    b.dataset.mode === 'time' ? startGame(true) : openDiffSelect()));
+document.querySelectorAll('.diffbtn').forEach(b =>
+  b.addEventListener('click', () => startGame(false, b.dataset.diff)));
 $('retrybtn').addEventListener('click', retry);
 $('againbtn').addEventListener('click', () => location.reload());
 
@@ -4058,6 +4231,14 @@ function updateHud() {
     eb.classList.toggle('hidden', G.timeAttack || G.inForest || G.mode === 'title');
     $('exploretext').textContent = `${exploreDone()} / ${EXPLORE_ROOMS.length}`;
     eb.classList.toggle('done', exploreAll());
+  }
+  // 고른 난이도도 같은 자리에 (타임어택은 난이도가 없으므로 숨깁니다)
+  const db = $('diffbox');
+  if (db) {
+    db.classList.toggle('hidden', G.timeAttack || G.inForest || G.mode === 'title');
+    $('difftext').textContent = G.diffName;
+    db.classList.toggle('d-easy', G.diff === 'easy');
+    db.classList.toggle('d-hard', G.diff === 'hard');
   }
 }
 function bumpKeys(sel) {
@@ -4696,7 +4877,8 @@ function beginMorph() {
 
   /* 눈이 터질 때 뭔가 하나가 같이 튀어나옵니다 — 낡은 구급 팩.
      암전이 내려앉는 동안 주인공이 이걸 주워 삼키고, 그래서 페이즈3를
-     체력칸 5개로 시작합니다. (예전엔 설명 없이 체력만 늘어났습니다) */
+     체력칸이 늘어난 채로 시작합니다 (몇 칸이 되는지는 난이도에 따라).
+     예전엔 설명 없이 체력만 늘어났습니다. */
   // 주인공 발밑이 아니라, 자리가 넓은 쪽으로 조금 떨어진 곳에 떨어뜨립니다
   const side = (P.x - TS) > (W - TS - P.x) ? -1 : 1;
   const lx = Math.max(TS + 28, Math.min(W - TS - 28, P.x + side * 58));
@@ -4772,7 +4954,7 @@ function tickMedpack(t) {
   }
 }
 
-/* 구급 팩을 삼키는 순간 — 체력칸이 3개에서 5개로 늘고 가득 찹니다 */
+/* 구급 팩을 삼키는 순간 — 체력칸이 abomPlayerMax 까지 늘고 가득 찹니다 */
 function eatMedpack() {
   const m = G.medpack;
   if (m) m.eaten = true;
@@ -6816,12 +6998,14 @@ function loop(now) {
 
 /* 디버그용 (개발/테스트 편의) */
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
-                  startGame, openModeSelect, closeModeSelect, retry, respawn, hurt,
+                  startGame, openModeSelect, closeModeSelect,
+                  openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
+                  retry, respawn, hurt,
                   resetRun, loadRecords, fmtTime,
                   EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
-                  beginMorph, makeAbom, MORPH_DUR, ABOM_ACT,
+                  beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
@@ -6833,7 +7017,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
   const original = hintEl.textContent;
   let stuckCount = 0, warned = false;
   setInterval(() => {
-    if (G.mode === 'title' || G.mode === 'modesel') return;   // 아직 상호작용 전
+    if (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel') return;   // 아직 상호작용 전
     const st = Sfx.audioState();
     if (st === 'running') {
       stuckCount = 0;
