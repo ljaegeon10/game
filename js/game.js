@@ -53,8 +53,14 @@ addEventListener('keydown', e => {
   if (k === 'r' && G.mode === 'dead') retry();
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startGame(true);
-    if (k === '2') startGame(false);
+    if (k === '2') openDiffSelect();
     if (k === 'escape' || k === 'backspace') closeModeSelect();
+  }
+  else if (G.mode === 'diffsel') {                  // 난이도는 1 / 2 / 3
+    if (k === '1') startGame(false, 'easy');
+    if (k === '2') startGame(false, 'normal');
+    if (k === '3') startGame(false, 'hard');
+    if (k === 'escape' || k === 'backspace') closeDiffSelect();
   }
 });
 addEventListener('keyup', e => { key[e.key] = false; });
@@ -79,7 +85,8 @@ function kickAudio() {
   // 아직 타이틀 · 모드 선택 화면이라면 여기서 바로 틀어 둡니다.
   // startGame() 이 이어서 다시 ambient('forest') 를 걸어도 Sfx.started() 가
   // 이미 true 라 겹쳐 울리지 않고 그대로 이어집니다.
-  if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel')) Sfx.ambient('forest');
+  if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel'))
+    Sfx.ambient('forest');
 }
 ['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click', 'wheel']
   .forEach(evt => addEventListener(evt, kickAudio, { capture: true, passive: true }));
@@ -88,8 +95,10 @@ const down = (...ks) => ks.some(k => key[k]);
 
 /* ═══════════ 게임 상태 ═════════════════════════════════ */
 const G = {
-  mode: 'title',        // title | modesel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
+  mode: 'title',        // title | modesel | diffsel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
   timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
+  diff: 'normal',       // 일반 모드에서 고른 난이도 (타임어택은 언제나 보통)
+  diffName: '보통',
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
   t: 0, shake: 0, flash: 0,
@@ -308,6 +317,7 @@ function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title')  { openModeSelect(); return; }
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
+  if (G.mode === 'diffsel') return;            // 난이도도 마찬가지
   if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
   if (G.mode === 'dead')  { retry(); return; }
   if (G.mode === 'talk')  { advanceTalk(); return; }
@@ -333,15 +343,36 @@ function closeModeSelect() {
   G.mode = 'title';
 }
 
-/* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
-   timeAttack = false : 시계 없이 천천히. 죽으면 그 방에서 다시 시작합니다. */
-function startGame(timeAttack = true) {
-  G.timeAttack = timeAttack !== false;
+/* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
+   (타임어택은 기록 경쟁이라 언제나 '보통'으로 바로 시작합니다.) */
+function openDiffSelect() {
+  Sfx.unlock();
   $('modesel').classList.add('hidden');
+  $('diffsel').classList.remove('hidden');
+  G.mode = 'diffsel';
+}
+function closeDiffSelect() {
+  $('diffsel').classList.add('hidden');
+  $('modesel').classList.remove('hidden');
+  G.mode = 'modesel';
+}
+
+/* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
+   timeAttack = false : 시계 없이 천천히. 죽으면 그 방에서 다시 시작합니다.
+   diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
+function startGame(timeAttack = true, diffId = 'normal') {
+  G.timeAttack = timeAttack !== false;
+  /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
+  const d = applyDifficulty(G.timeAttack ? 'normal' : diffId);
+  G.diff = d.id; G.diffName = d.name;
+  P.max = BALANCE.playerHp; P.hp = P.max; P.inv = 0; P.slow = 0;
+  $('modesel').classList.add('hidden');
+  $('diffsel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
+  updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
@@ -389,6 +420,7 @@ function resetRun() {
   setDate(0); updateHud(); updateTimer();
   renderBestTimes();
   $('modesel').classList.add('hidden');
+  $('diffsel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
   $('title').classList.remove('hidden');
   G.mode = 'title';
@@ -396,8 +428,12 @@ function resetRun() {
 
 $('startbtn').addEventListener('click', openModeSelect);
 $('msback').addEventListener('click', closeModeSelect);
+$('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>
-  b.addEventListener('click', () => startGame(b.dataset.mode === 'time')));
+  b.addEventListener('click', () =>
+    b.dataset.mode === 'time' ? startGame(true) : openDiffSelect()));
+document.querySelectorAll('.diffbtn').forEach(b =>
+  b.addEventListener('click', () => startGame(false, b.dataset.diff)));
 $('retrybtn').addEventListener('click', retry);
 $('againbtn').addEventListener('click', () => location.reload());
 
@@ -945,6 +981,14 @@ function updateHud() {
     eb.classList.toggle('hidden', G.timeAttack || G.inForest || G.mode === 'title');
     $('exploretext').textContent = `${exploreDone()} / ${EXPLORE_ROOMS.length}`;
     eb.classList.toggle('done', exploreAll());
+  }
+  // 고른 난이도도 같은 자리에 (타임어택은 난이도가 없으므로 숨깁니다)
+  const db = $('diffbox');
+  if (db) {
+    db.classList.toggle('hidden', G.timeAttack || G.inForest || G.mode === 'title');
+    $('difftext').textContent = G.diffName;
+    db.classList.toggle('d-easy', G.diff === 'easy');
+    db.classList.toggle('d-hard', G.diff === 'hard');
   }
 }
 function bumpKeys(sel) {
@@ -1583,7 +1627,8 @@ function beginMorph() {
 
   /* 눈이 터질 때 뭔가 하나가 같이 튀어나옵니다 — 낡은 구급 팩.
      암전이 내려앉는 동안 주인공이 이걸 주워 삼키고, 그래서 페이즈3를
-     체력칸 5개로 시작합니다. (예전엔 설명 없이 체력만 늘어났습니다) */
+     체력칸이 늘어난 채로 시작합니다 (몇 칸이 되는지는 난이도에 따라).
+     예전엔 설명 없이 체력만 늘어났습니다. */
   // 주인공 발밑이 아니라, 자리가 넓은 쪽으로 조금 떨어진 곳에 떨어뜨립니다
   const side = (P.x - TS) > (W - TS - P.x) ? -1 : 1;
   const lx = Math.max(TS + 28, Math.min(W - TS - 28, P.x + side * 58));
@@ -1659,7 +1704,7 @@ function tickMedpack(t) {
   }
 }
 
-/* 구급 팩을 삼키는 순간 — 체력칸이 3개에서 5개로 늘고 가득 찹니다 */
+/* 구급 팩을 삼키는 순간 — 체력칸이 abomPlayerMax 까지 늘고 가득 찹니다 */
 function eatMedpack() {
   const m = G.medpack;
   if (m) m.eaten = true;
@@ -3703,7 +3748,9 @@ function loop(now) {
 
 /* 디버그용 (개발/테스트 편의) */
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
-                  startGame, openModeSelect, closeModeSelect, retry, respawn, hurt,
+                  startGame, openModeSelect, closeModeSelect,
+                  openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
+                  retry, respawn, hurt,
                   resetRun, loadRecords, fmtTime,
                   EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
@@ -3720,7 +3767,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
   const original = hintEl.textContent;
   let stuckCount = 0, warned = false;
   setInterval(() => {
-    if (G.mode === 'title' || G.mode === 'modesel') return;   // 아직 상호작용 전
+    if (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel') return;   // 아직 상호작용 전
     const st = Sfx.audioState();
     if (st === 'running') {
       stuckCount = 0;

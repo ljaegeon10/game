@@ -211,6 +211,22 @@ html,body{
 #explorebox.done{ border-color:rgba(125,227,200,.6); border-left-color:var(--glow); }
 #explorebox.done #exploretext{ color:var(--glow); }
 
+/* ── 일반 모드 난이도 표시 ─────────────────────────────── */
+#diffbox{
+  display:flex; align-items:baseline; gap:5px;
+  background:rgba(20,22,34,.85);
+  border:1px solid rgba(241,236,224,.22);
+  border-left:2px solid rgba(241,236,224,.45);
+  padding:2px 7px;
+  font-family:var(--font-ui);
+}
+#diffbox.hidden{ display:none; }
+#difftext{ font-size:12px; font-weight:700; letter-spacing:.06em; color:rgba(241,236,224,.82); }
+#diffbox.d-easy{ border-color:rgba(125,227,200,.45); border-left-color:var(--glow); }
+#diffbox.d-easy #difftext{ color:var(--glow); }
+#diffbox.d-hard{ border-color:rgba(194,53,44,.55); border-left-color:var(--jeok); }
+#diffbox.d-hard #difftext{ color:#e5817a; }
+
 /* ── 기록 목록 (타이틀 / 엔딩 공용) ────────────────────── */
 #bestlist, #records{
   list-style:none; margin:0; padding:0;
@@ -589,12 +605,19 @@ html,body{
 }
 @keyframes msIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
 #modesel.hidden{ display:none; }
+/* 난이도 선택은 모드 선택과 같은 자리에 같은 모양새로 올라옵니다 */
+#diffsel{
+  margin-top:28px;
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+  animation:msIn .22s ease-out 1;
+}
+#diffsel.hidden{ display:none; }
 .ms-q{
   margin:0; font-size:9px; letter-spacing:.42em; text-indent:.42em;
   color:rgba(241,236,224,.42);
 }
 .ms-row{ display:flex; gap:12px; }
-.modebtn{
+.modebtn, .diffbtn{
   margin:0; width:158px;
   display:flex; flex-direction:column; align-items:center; gap:5px;
   padding:12px 8px 11px;
@@ -603,13 +626,13 @@ html,body{
   box-shadow:none; cursor:pointer;
   transition:border-color .15s, background .15s, transform .08s;
 }
-.modebtn b{ font-size:12px; font-weight:700; letter-spacing:.06em; }
-.modebtn span{
+.modebtn b, .diffbtn b{ font-size:12px; font-weight:700; letter-spacing:.06em; }
+.modebtn span, .diffbtn span{
   font-size:8px; letter-spacing:.03em; line-height:1.5;
   color:rgba(241,236,224,.42);
 }
-/* 모드마다 관문 조건이 다르므로, 고르기 전에 한 줄로 알려 줍니다 */
-.modebtn em{
+/* 모드·난이도마다 조건이 다르므로, 고르기 전에 한 줄로 알려 줍니다 */
+.modebtn em, .diffbtn em{
   font-style:normal; font-size:8px; line-height:1.5;
   padding-top:4px; margin-top:1px;
   border-top:1px solid rgba(241,236,224,.14);
@@ -617,7 +640,7 @@ html,body{
 }
 .modebtn[data-mode="time"] em{ color:rgba(227,178,60,.78); }
 .modebtn[data-mode="normal"] em{ color:rgba(159,198,239,.80); }
-.modebtn:hover{ background:rgba(15,14,20,.45); }
+.modebtn:hover, .diffbtn:hover{ background:rgba(15,14,20,.45); }
 .modebtn[data-mode="time"]:hover{
   border-color:rgba(227,178,60,.75); background:rgba(227,178,60,.10);
 }
@@ -626,15 +649,31 @@ html,body{
   border-color:rgba(47,111,181,.85); background:rgba(47,111,181,.14);
 }
 .modebtn[data-mode="normal"]:hover b{ color:#9fc6ef; }
-.modebtn:active{ transform:translateY(2px); box-shadow:none; }
-#msback{
+.modebtn:active, .diffbtn:active{ transform:translateY(2px); box-shadow:none; }
+/* 난이도 카드는 셋이 나란히 서므로 조금 좁게 */
+.diffbtn{ width:140px; }
+.diffbtn[data-diff="easy"] em{ color:rgba(125,227,200,.80); }
+.diffbtn[data-diff="normal"] em{ color:rgba(241,236,224,.62); }
+.diffbtn[data-diff="hard"] em{ color:rgba(229,129,122,.85); }
+.diffbtn[data-diff="easy"]:hover{
+  border-color:rgba(125,227,200,.75); background:rgba(125,227,200,.10);
+}
+.diffbtn[data-diff="easy"]:hover b{ color:var(--glow); }
+.diffbtn[data-diff="normal"]:hover{
+  border-color:rgba(241,236,224,.60); background:rgba(241,236,224,.08);
+}
+.diffbtn[data-diff="hard"]:hover{
+  border-color:rgba(194,53,44,.85); background:rgba(194,53,44,.14);
+}
+.diffbtn[data-diff="hard"]:hover b{ color:#e5817a; }
+#msback, #dsback{
   margin-top:2px; padding:5px 14px;
   font-size:9px; font-weight:400; letter-spacing:.16em;
   background:none; color:rgba(241,236,224,.34);
   border:none; box-shadow:none;
 }
-#msback:hover{ background:none; color:rgba(241,236,224,.7); }
-#msback:active{ transform:none; box-shadow:none; }
+#msback:hover, #dsback:hover{ background:none; color:rgba(241,236,224,.7); }
+#msback:active, #dsback:active{ transform:none; box-shadow:none; }
 
 /* 사망/엔딩 화면의 일반 버튼 */
 button{

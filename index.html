@@ -37,6 +37,11 @@
           <span class="datelabel">탐사</span>
           <span id="exploretext">0 / 7</span>
         </div>
+        <!-- 일반 모드 : 고른 난이도 -->
+        <div id="diffbox" class="hidden" title="난이도">
+          <span class="datelabel">난이도</span>
+          <span id="difftext">보통</span>
+        </div>
         <div id="datebox">
           <span class="datelabel">LOG DATE</span>
           <span id="datetext">2145 / 05 / 01</span>
@@ -141,6 +146,29 @@
           </button>
         </div>
         <button id="msback">← 뒤로</button>
+      </div>
+
+      <!-- 일반 모드를 고르면 그 자리에 이어서 나오는 난이도 선택 -->
+      <div id="diffsel" class="hidden">
+        <p class="ms-q">난이도 선택</p>
+        <div class="ms-row">
+          <button class="diffbtn" data-diff="easy">
+            <b>쉬움</b>
+            <span>하트 4칸 · 느긋한 것들</span>
+            <em>처음 내려가 본다면</em>
+          </button>
+          <button class="diffbtn" data-diff="normal">
+            <b>보통</b>
+            <span>하트 3칸 · 기준 균형</span>
+            <em>우물이 원래 깊던 만큼</em>
+          </button>
+          <button class="diffbtn" data-diff="hard">
+            <b>어려움</b>
+            <span>하트 3칸 · 짧은 무적</span>
+            <em>더 굵고, 더 빠른 것들</em>
+          </button>
+        </div>
+        <button id="dsback">← 뒤로</button>
       </div>
 
       <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁</p>

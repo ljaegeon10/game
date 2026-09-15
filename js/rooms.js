@@ -75,6 +75,76 @@ const BALANCE = {
   abomPlayerMax: 5      // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
 };
 
+/* ── 난이도 ───────────────────────────────────────────────
+   위의 BALANCE 는 '보통' 값 그 자체입니다. 아래 표에는 그 위에 덮어쓸
+   값만 적어 두고, applyDifficulty() 가 판을 시작할 때마다 BALANCE 를
+   원본으로 되돌린 뒤 고른 난이도의 값을 얹습니다. 게임 코드 곳곳은
+   BALANCE.xxx 를 그때그때 읽으므로, 이 한 곳만 바꾸면 전부 따라옵니다.
+
+   타임어택은 기록 경쟁이라 난이도를 고르지 않고 언제나 '보통'입니다. */
+const BALANCE_BASE = Object.freeze({ ...BALANCE });
+
+const DIFF = {
+  /* 쉬움 — 하트가 한 칸 늘고, 무적 시간과 연사가 넉넉해집니다.
+     몹은 덜 단단하고 느리며, 예비 동작을 길게 보여 줍니다. */
+  easy: {
+    id: 'easy', name: '쉬움', tag: '처음 내려가 본다면',
+    desc: '하트 4칸 · 느긋한 것들',
+    over: {
+      playerHp: 4, abomPlayerMax: 6,
+      invFrames: 84, playerFireCd: 16, bulletLife: 56,
+
+      shroomHp: 2, shroomSpeed: 0.60,
+      spitterHp: 3, spitterSpeed: 0.38, spitterCd: 176, spore: 1.25,
+      sporerHp: 2, sporerSpeed: 0.28, sporerCd: 160, slowFrames: 70, slowMult: 0.55,
+      splitterHp: 3, splitterSpeed: 0.44, miniSpeed: 1.02,
+      chargerHp: 3, chargerSpeed: 0.25, chargerCd: 168, chargerWind: 46, chargerDash: 5.0,
+      blinkerHp: 2, blinkerSpeed: 0.21, blinkerCd: 190,
+      knockback: 9.0,
+
+      bossHp: 60, bossSpeed: 0.52,
+      abomHp: 66, abomSpeed: 0.43
+    }
+  },
+
+  /* 보통 — 지금까지의 균형 그대로 (덮어쓰는 값 없음) */
+  normal: {
+    id: 'normal', name: '보통', tag: '우물이 원래 깊던 만큼',
+    desc: '하트 3칸 · 기준 균형',
+    over: {}
+  },
+
+  /* 어려움 — 하트는 그대로 3칸인데 무적 시간이 짧아 연달아 맞습니다.
+     몹은 더 단단하고 빠르며, 돌진의 예비 동작이 눈에 띄게 짧습니다. */
+  hard: {
+    id: 'hard', name: '어려움', tag: '더 굵고, 더 빠른 것들',
+    desc: '하트 3칸 · 짧은 무적',
+    over: {
+      playerHp: 3, abomPlayerMax: 4,
+      invFrames: 50, playerFireCd: 24,
+
+      shroomHp: 4, shroomSpeed: 0.84,
+      spitterHp: 5, spitterSpeed: 0.55, spitterCd: 108, spore: 1.85,
+      sporerHp: 4, sporerSpeed: 0.42, sporerCd: 96, slowFrames: 120, slowMult: 0.34,
+      splitterHp: 5, splitterSpeed: 0.64, miniSpeed: 1.45,
+      chargerHp: 5, chargerSpeed: 0.38, chargerCd: 104, chargerWind: 26, chargerDash: 7.2,
+      blinkerHp: 4, blinkerSpeed: 0.33, blinkerCd: 116,
+      knockback: 5.5,
+
+      bossHp: 96, bossSpeed: 0.72,
+      abomHp: 108, abomSpeed: 0.60
+    }
+  }
+};
+const DIFF_ORDER = ['easy', 'normal', 'hard'];
+
+/* 고른 난이도를 BALANCE 에 얹고, 그 난이도 정보를 돌려줍니다 */
+function applyDifficulty(id) {
+  const d = DIFF[id] || DIFF.normal;
+  Object.assign(BALANCE, BALANCE_BASE, d.over);
+  return d;
+}
+
 /* ── 쪽지 ────────────────────────────────────────────────── */
 const NOTES = {
   n1: {
