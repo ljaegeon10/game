@@ -646,13 +646,15 @@ const FOE = {
   blinker:  { r: 12, hp: 'blinkerHp',  sp: 'blinkerSpeed',  hue: 160, eye: '#7de3c8' }
 };
 
-function spawnFoe(type, x, y) {
+function spawnFoe(type, x, y, side = 1) {
   const d = FOE[type] || FOE.shroom;
   G.foes.push({
     type, x, y, r: d.r,
-    hp: BALANCE[d.hp], sp: BALANCE[d.sp],
+    hp: BALANCE[d.hp], max: BALANCE[d.hp], sp: BALANCE[d.sp],
     cd: 40 + Math.random() * 90,
     wind: 0, dash: 0, dvx: 0, dvy: 0, warp: 0,
+    face: 1,          // 바라보는 쪽 — 나팔·머리판이 향할 방향
+    side,             // 새끼가 어느 쪽 반쪽이었는지 (찢긴 단면을 그립니다)
     flash: 0, kx: 0, ky: 0, bob: Math.random() * 6.28
   });
 }
@@ -665,7 +667,7 @@ function killFoe(f) {
     for (const sd of [-1, 1]) {
       const nx = Math.max(TS + 12, Math.min(W - TS - 12, f.x + sd * 13));
       const ny = Math.max(TS + 12, Math.min(H - TS - 12, f.y + 6));
-      spawnFoe('mini', nx, ny);
+      spawnFoe('mini', nx, ny, sd);
     }
   }
 }
@@ -1269,6 +1271,8 @@ function update() {
     f.x += f.kx; f.y += f.ky;               // 넉백
     f.kx *= .78; f.ky *= .78;
     const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1;
+    // 몸이 향하는 쪽 — 돌진 중에는 튀어나간 방향으로 굳습니다
+    f.face = f.dash > 0 ? (f.dvx < 0 ? -1 : 1) : (dx < 0 ? -1 : 1);
     if (f.type === 'spitter') {
       // 거리를 재며 침을 뱉습니다
       if (d < 120) { f.x -= dx / d * f.sp; f.y -= dy / d * f.sp; }
@@ -2583,18 +2587,10 @@ function drawClouds() {
   });
 }
 
-const FOE_GLOW = {
-  shroom: 'rgba(130,60,150,.30)', spitter: 'rgba(90,150,90,.30)',
-  sporer: 'rgba(180,170,60,.34)', splitter: 'rgba(140,80,210,.34)',
-  mini:   'rgba(140,80,210,.30)', charger: 'rgba(220,90,50,.34)',
-  blinker:'rgba(70,200,180,.34)'
-};
-
 function drawFoe(f) {
-  const dfn = FOE[f.type] || FOE.shroom;
+  const C = FOE_SKIN[f.type] || FOE_SKIN.shroom;
   const bob = Math.sin(f.bob) * 2;
-  const s = f.type === 'mini' ? 18 : f.type === 'splitter' ? 32 : f.type === 'shroom' ? 26 : 30;
-  const eyeC = dfn.eye;
+  const s = f.type === 'mini' ? 19 : f.type === 'splitter' ? 34 : f.type === 'shroom' ? 27 : 30;
 
   // 점멸체는 사라지는 동안 반쯤 비칩니다
   const warpK = f.warp ? Math.abs(Math.sin(f.warp * .32)) * .5 : 1;
@@ -2604,9 +2600,10 @@ function drawFoe(f) {
   g.fillStyle = 'rgba(0,0,0,.4)';
   g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill();
 
+  // 발밑에 깔리는 제 빛 — 어두운 방에서 뭐가 다가오는지 색으로 먼저 압니다
   g.globalAlpha = (.5 + Math.sin(f.bob * .7) * .12) * warpK;
   const ag = g.createRadialGradient(f.x, f.y + 4, 2, f.x, f.y + 4, s * .8);
-  ag.addColorStop(0, FOE_GLOW[f.type] || FOE_GLOW.shroom);
+  ag.addColorStop(0, `rgba(${C.glow},.32)`);
   ag.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = ag;
   g.beginPath(); g.arc(f.x, f.y + 4, s * .8, 0, Math.PI * 2); g.fill();
@@ -2628,25 +2625,16 @@ function drawFoe(f) {
   g.translate(f.x, f.y + bob);
   // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
   if (f.wind > 0) { const k = 1 - f.wind / BALANCE.chargerWind; g.scale(1 + k * .18, 1 - k * .14); }
-  if (dfn.hue) g.filter = `hue-rotate(${dfn.hue}deg) saturate(1.5) brightness(.92)`;
-  if (IMG.mob) g.drawImage(IMG.mob, -s / 2, -s / 2 - 2, s, s);
-  else { g.fillStyle = '#4a4055'; g.fillRect(-10, -10, 20, 20); }
-  g.filter = 'none';
+  if (f.dash > 0) g.scale(1.14, .90);      // 튀어나가는 동안엔 납작하게 늘어납니다
 
-  // 분열체 : 몸통에 갈라질 금이 가 있습니다
-  if (f.type === 'splitter') {
-    g.strokeStyle = 'rgba(20,10,30,.65)'; g.lineWidth = 1.4;
-    g.beginPath(); g.moveTo(0, -s / 2); g.lineTo(-2, 0); g.lineTo(1, s / 2 - 2); g.stroke();
-  }
+  // 몸통은 종류마다 다르게 — foeart.js
+  drawFoeBody(g, f, s, G.t);
 
-  const ex = s * .155, ey = s * .105;
-  g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = (.75 + Math.sin(G.t * .07 + f.bob) * .25) * warpK;
-  g.fillStyle = eyeC;
-  [-1, 1].forEach(sd => { g.beginPath(); g.arc(sd * ex, ey, 2.4, 0, Math.PI * 2); g.fill(); });
   if (f.flash > 0) {
-    g.globalAlpha = .6; g.fillStyle = '#ffffff';
-    g.fillRect(-s / 2, -s / 2 - 2, s, s);
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .45;
+    g.fillStyle = C.eye;
+    g.beginPath(); g.ellipse(0, 0, s * .46, s * .46, 0, 0, Math.PI * 2); g.fill();
   }
   g.restore();
 }
@@ -3756,6 +3744,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
+                  spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
