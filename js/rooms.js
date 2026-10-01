@@ -173,6 +173,15 @@ const NOTES = {
 };
 
 /* ── 지상 (숲) ──────────────────────────────────────────── */
+/* 오프닝 — 숲에서 막 눈을 떠 누운 채로 하는 생각 */
+const OPENING_LINES = [
+  { t: '…언제 잠들었지.', w: true },
+  { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
+  { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false }
+];
+/* 탑뷰로 바뀐 뒤 처음 손에 쥐어지는 조작 안내 */
+const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
+
 const FOREST = {
   kind: 'forest', date: '2145 / 05 / 01',
   intro: [
@@ -360,9 +369,12 @@ const BOSS_DEAD_LINES = [
   { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
 ];
 
+/* 세 줄로 나눠, 한 줄마다 화면이 한 단계씩 더 무너지게 합니다 (fx — game.js LINE_FX) */
 const ENDING_LINES = [
-  { t: '열쇠를 꽂는다. 딸깍.', w: false },
-  { t: '**…방이 일그러진다. 아니, 화면이.**', w: true }
+  { t: '열쇠를 꽂는다. 딸깍.', w: false, fx: 'click' },
+  { t: '…방이 **일그러진다.**', w: true, fx: 'warp1' },
+  { t: '아니.', w: true, fx: 'still' },
+  { t: '**화면이** 일그러진다.', w: true, fx: 'warp2' }
 ];
 
 /* ── 이스터에그 ② : 숲 맨 위, 나무 사이의 좁은 틈 ──────────

@@ -569,48 +569,75 @@ html,body{
   font-size:8px; color:#7d7052; letter-spacing:.05em;
 }
 
-/* ── 타이틀 ────────────────────────────────────────────── */
+/* ── 타이틀 ──────────────────────────────────────────────
+   위에서 내려다본 우물 하나. 검은 물 위로 심전도 한 줄이 뛰고, 뛸 때마다
+   물결이 번집니다 — 무엇의 심박인지는 엔딩에서 알게 됩니다.
+   모드·난이도를 고르는 동안엔 우물이 작아지며 위로 비켜섭니다. */
 #title{
   position:absolute; inset:0; z-index:60;
   background:
-    radial-gradient(ellipse at 50% 40%, rgba(194,53,44,.10), transparent 58%),
-    radial-gradient(ellipse at 50% 34%, rgba(227,178,60,.10), transparent 62%),
-    linear-gradient(180deg,#20232f,#111319);
+    radial-gradient(circle at 50% 30%, rgba(125,227,200,.05), transparent 34%),
+    #06070a;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:0; text-align:center;
 }
-#title .t-obang{ width:120px; margin-bottom:30px; opacity:.85; }
+.t-well{
+  width:124px; height:124px; margin-bottom:14px;
+  transition:width .35s ease, height .35s ease, margin .35s ease;
+}
+.t-well svg{ width:100%; height:100%; display:block; overflow:visible; }
+.tw-stones{ fill:none; stroke:#34303d; stroke-width:21; stroke-dasharray:21.5 3.3; }
+.tw-sky{ fill:rgba(233,227,213,.07); }                       /* 물에 비친 하늘 한 조각 */
+.tw-ekg{
+  fill:none; stroke:#7de3c8; stroke-width:1.4; stroke-linejoin:round; stroke-linecap:round;
+  stroke-dasharray:150 300; stroke-dashoffset:150;
+  animation:twSweep 2.6s linear infinite;
+}
+.tw-ekg.glow{ stroke-width:5; opacity:.18; }
+@keyframes twSweep{ from{ stroke-dashoffset:150; } to{ stroke-dashoffset:-300; } }
+.tw-ripple{
+  fill:none; stroke:#7de3c8; stroke-width:.8; opacity:0;
+  animation:twRipple 2.6s ease-out infinite; animation-delay:.9s;
+  transform-origin:100px 104px;
+}
+.tw-ripple.r2{ animation-delay:1.25s; }
+@keyframes twRipple{
+  0%  { transform:scale(1);  opacity:.45; }
+  100%{ transform:scale(14); opacity:0; }
+}
 #title h1{
-  margin:0; font-family:'WellDisplay','Playfair Display',Georgia,serif;
-  font-weight:900; font-size:50px; line-height:.9; letter-spacing:.005em;
-  color:#f2ece0;
-  text-shadow:
-    0 0 34px rgba(194,53,44,.32),
-    0 0 64px rgba(47,111,181,.20),
-    0 3px 0 rgba(0,0,0,.65);
+  margin:0; font-family:var(--font-ui);
+  font-weight:400; font-size:34px; line-height:1;
+  letter-spacing:.32em; text-indent:.32em;
+  color:#ece6d8;
+  text-shadow:0 0 18px rgba(125,227,200,.18), 0 2px 0 rgba(0,0,0,.8);
+  transition:font-size .35s ease;
 }
+.t-sub{
+  margin:9px 0 0; font-size:7px; letter-spacing:.62em; text-indent:.62em;
+  color:rgba(236,230,216,.32);
+}
+#title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
+#title.picking h1{ font-size:22px; }
 
-/* ── 시작 버튼 : 타이틀 전용, 은은하게 숨 쉬는 테두리형 ────── */
+/* ── 시작 : 상자 없이 글자 한 줄 ─────────────────────────── */
 #startbtn{
-  position:relative; margin-top:40px;
-  font-family:inherit; font-size:13px; font-weight:700;
-  letter-spacing:.4em; text-indent:.4em;
-  color:var(--hwang); background:rgba(15,14,20,.4);
-  border:1px solid rgba(227,178,60,.55);
-  padding:13px 34px; cursor:pointer;
-  transition:color .2s, background .2s, border-color .2s, transform .08s;
-  animation:startGlow 3.8s ease-in-out infinite;
+  position:relative; margin-top:30px;
+  font-family:inherit; font-size:11px; font-weight:400;
+  letter-spacing:.5em; text-indent:.5em;
+  color:rgba(236,230,216,.78); background:none;
+  border:none; box-shadow:none;
+  padding:8px 18px; cursor:pointer;
+  animation:startBreath 2.6s ease-in-out infinite;
 }
-#startbtn:hover{
-  color:#fff4d9; background:rgba(227,178,60,.14); border-color:var(--hwang);
-}
-#startbtn:active{ transform:translateY(2px); }
-@keyframes startGlow{
-  0%,100%{ box-shadow:0 0 12px rgba(227,178,60,.16), inset 0 0 12px rgba(227,178,60,.04); }
-  50%{ box-shadow:0 0 24px rgba(227,178,60,.34), inset 0 0 16px rgba(227,178,60,.10); }
-}
+#startbtn::before{ content:'▸ '; color:#7de3c8; letter-spacing:.2em; }
+#startbtn:hover, #startbtn:focus-visible{ color:#fff; animation:none; background:none; }
+#startbtn:focus-visible{ outline:1px solid rgba(125,227,200,.6); outline-offset:2px; }
+#startbtn:active{ transform:translateY(1px); box-shadow:none; }
+@keyframes startBreath{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
 @media (prefers-reduced-motion: reduce){
-  #startbtn{ animation:none; box-shadow:0 0 16px rgba(227,178,60,.22); }
+  #startbtn, .tw-ekg, .tw-ripple{ animation:none; }
+  .tw-ekg{ stroke-dashoffset:0; stroke-dasharray:none; }
 }
 
 #credits{
@@ -1109,8 +1136,38 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
-      <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-      <h1>THE WELL<br>BELOW</h1>
+      <!-- 위에서 내려다본 우물 — 검은 물 위로 심전도 한 줄이 뛰고, 뛸 때마다 물결이 번집니다.
+           무엇의 심박인지는 엔딩에서 알게 됩니다. -->
+      <div class="t-well" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <defs>
+            <radialGradient id="tw-water" cx="46%" cy="44%" r="60%">
+              <stop offset="0" stop-color="#0e1b1c"/>
+              <stop offset="1" stop-color="#020304"/>
+            </radialGradient>
+            <radialGradient id="tw-shade" cx="50%" cy="50%" r="50%">
+              <stop offset=".72" stop-color="#000" stop-opacity="0"/>
+              <stop offset="1" stop-color="#000" stop-opacity=".75"/>
+            </radialGradient>
+            <clipPath id="tw-clip"><circle cx="100" cy="100" r="56"/></clipPath>
+          </defs>
+          <circle cx="100" cy="100" r="84" fill="#1c1a22"/>
+          <circle class="tw-stones" cx="100" cy="100" r="72"/>
+          <circle cx="100" cy="100" r="83" fill="none" stroke="#4b4657" stroke-width="1.5"/>
+          <circle cx="100" cy="100" r="61" fill="#030305"/>
+          <circle cx="100" cy="100" r="56" fill="url(#tw-water)"/>
+          <g clip-path="url(#tw-clip)">
+            <ellipse class="tw-sky" cx="84" cy="86" rx="11" ry="9"/>
+            <circle class="tw-ripple" cx="100" cy="104" r="4"/>
+            <circle class="tw-ripple r2" cx="100" cy="104" r="4"/>
+            <polyline class="tw-ekg glow" points="36,104 70,104 76,104 81,98 85,104 92,104 96,112 101,70 106,122 110,104 120,104 127,97 135,104 164,104"/>
+            <polyline class="tw-ekg" points="36,104 70,104 76,104 81,98 85,104 92,104 96,112 101,70 106,122 110,104 120,104 127,97 135,104 164,104"/>
+            <circle cx="100" cy="100" r="56" fill="url(#tw-shade)"/>
+          </g>
+        </svg>
+      </div>
+      <h1>우물 아래</h1>
+      <p class="t-sub">THE WELL BELOW</p>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
@@ -4229,6 +4286,15 @@ const NOTES = {
 };
 
 /* ── 지상 (숲) ──────────────────────────────────────────── */
+/* 오프닝 — 숲에서 막 눈을 떠 누운 채로 하는 생각 */
+const OPENING_LINES = [
+  { t: '…언제 잠들었지.', w: true },
+  { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
+  { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false }
+];
+/* 탑뷰로 바뀐 뒤 처음 손에 쥐어지는 조작 안내 */
+const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
+
 const FOREST = {
   kind: 'forest', date: '2145 / 05 / 01',
   intro: [
@@ -4416,9 +4482,12 @@ const BOSS_DEAD_LINES = [
   { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
 ];
 
+/* 세 줄로 나눠, 한 줄마다 화면이 한 단계씩 더 무너지게 합니다 (fx — game.js LINE_FX) */
 const ENDING_LINES = [
-  { t: '열쇠를 꽂는다. 딸깍.', w: false },
-  { t: '**…방이 일그러진다. 아니, 화면이.**', w: true }
+  { t: '열쇠를 꽂는다. 딸깍.', w: false, fx: 'click' },
+  { t: '…방이 **일그러진다.**', w: true, fx: 'warp1' },
+  { t: '아니.', w: true, fx: 'still' },
+  { t: '**화면이** 일그러진다.', w: true, fx: 'warp2' }
 ];
 
 /* ── 이스터에그 ② : 숲 맨 위, 나무 사이의 좁은 틈 ──────────
@@ -4556,6 +4625,8 @@ const G = {
   doorKeys: 0,          // 관문 열쇠 — 비운 방에서 매번 다시 세는 파생값
   gateOpen: false,
   bossDead: false,
+  endWarp: 0,           // 엔딩 직전 화면 일그러짐 (0‥1)
+  opening: null,        // 1인칭 오프닝 진행 상태
   finalKey: false,      // 보스를 잡으면 손에 쥐어지는 마지막 열쇠
   visited: new Set(),
   st: {},               // 방별 저장 상태
@@ -4673,8 +4744,20 @@ function say(lines, cb) {
   G.mode = 'talk';
   showLine();
 }
+/* 대사 한 줄이 뜨는 순간에 거는 연출 — 엔딩 직전, 화면이 단계별로 무너집니다 */
+const LINE_FX = {
+  click: () => { Sfx.door(); G.shake = Math.max(G.shake, 6); },
+  warp1: () => { G.endWarp = .35; Sfx.landThump(.35); G.shake = Math.max(G.shake, 8); },
+  still: () => { G.endWarp = .12; },              // 한 박자 숨을 죽였다가
+  warp2: () => {
+    G.endWarp = 1; Sfx.glitch(); Sfx.landThump(.6);
+    G.shake = Math.max(G.shake, 16); G.flash = 1; glare(.6);
+    $('glitchbar').classList.remove('on'); void $('glitchbar').offsetWidth; $('glitchbar').classList.add('on');
+  }
+};
 function showLine() {
   const l = talk.q[0];
+  if (l && l.fx && LINE_FX[l.fx]) LINE_FX[l.fx]();
   if (!l) {
     $('subtitle').classList.add('hidden');
     G.mode = talk.back;
@@ -4783,11 +4866,13 @@ function openModeSelect() {
   $('startbtn').classList.add('hidden');
   $('besttimes').classList.add('hidden');
   $('modesel').classList.remove('hidden');
+  $('title').classList.add('picking');       // 우물이 작아지며 위로 비켜섭니다
   G.mode = 'modesel';
 }
 function closeModeSelect() {
   $('modesel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
+  $('title').classList.remove('picking');
   renderBestTimes();
   G.mode = 'title';
 }
@@ -4826,7 +4911,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
   if (G.timeAttack) startRun();
   else { RUN.running = false; RUN.elapsed = 0; }
-  loadForest();
+  loadForest(true);       // 일반 모드는 1인칭 오프닝부터 (타임어택은 loadForest 가 건너뜀)
 }
 
 /* 사망 처리 — 모드에 따라 갈립니다 */
@@ -4856,7 +4941,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0;
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   G.morphPre = MORPH_PRE; G.eyeMorph = null; G.corpse = null; G.deathT = 0;
   clearMorphSys();
@@ -4872,7 +4957,7 @@ function resetRun() {
   $('modesel').classList.add('hidden');
   $('diffsel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
-  $('title').classList.remove('hidden');
+  $('title').classList.remove('hidden', 'picking');
   G.mode = 'title';
 }
 
@@ -4888,7 +4973,7 @@ $('retrybtn').addEventListener('click', retry);
 $('againbtn').addEventListener('click', () => location.reload());
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
-function loadForest() {
+function loadForest(opening) {
   G.inForest = true; G.room = null; G.depth = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
@@ -4910,6 +4995,7 @@ function loadForest() {
   setDate(0);
   updateHud();
   if (G.timeAttack) G.mode = 'forest';     // 타임어택은 숲의 첫 독백 없이 바로
+  else if (opening) beginOpening();         // 일반 모드의 첫 시작은 1인칭으로
   else { say(FOREST.intro); talk.back = 'forest'; }
 }
 
@@ -5569,6 +5655,7 @@ function update() {
     return;
   }
   if (G.mode === 'doc') return;   // 서류를 보는 동안은 시간이 멈춥니다
+  if (G.mode === 'opening') { tickOpening(); return; }
   if (G.mode === 'fall') {
     G.fallT++;
     if (G.fallT > FALL_DUR) { G.mode = 'landing'; G.landT = 0; }
@@ -6483,7 +6570,7 @@ function render() {
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
   // 추락·착지·1인칭 중에는 지상/던전 화면이 뒤로 비쳐 보이면 안 됩니다
-  const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup';
+  const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
   if (!cine) {
     if (G.floor) g.drawImage(G.floor, 0, 0);
     if (G.inForest) renderForest(); else renderDungeon();
@@ -6493,6 +6580,7 @@ function render() {
   if (G.mode === 'fall') renderFall();
   if (G.mode === 'landing') renderLanding();
   if (G.mode === 'wakeup') renderWakeup();
+  if (G.opening) renderOpening();
   if (G.mode === 'morph') renderMorph();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
   if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath') drawMinimap();
@@ -6510,6 +6598,8 @@ function render() {
     g.restore();
   }
 
+  if (G.endWarp > 0) warpScreen(G.endWarp);
+
   // 보스전 섬광 — 화면 전체가 한 번 하얗게 날아갑니다
   if (G.glare > .02) {
     g.save();
@@ -6522,6 +6612,30 @@ function render() {
     g.fillStyle = gg; g.fillRect(0, 0, W, H);
     g.restore();
   }
+}
+
+/* 엔딩 직전 화면이 일그러지는 효과 — 그린 화면을 가로 띠로 잘라 물결처럼
+   밀고, 세질수록 띠가 찢어지고 색이 갈라집니다. k : 0‥1 */
+let _warpCv = null;
+function warpScreen(k) {
+  if (!_warpCv) { _warpCv = document.createElement('canvas'); _warpCv.width = W; _warpCv.height = H; }
+  const w = _warpCv.getContext('2d');
+  w.clearRect(0, 0, W, H); w.drawImage(cv, 0, 0);
+  g.save();
+  g.fillStyle = '#040408'; g.fillRect(0, 0, W, H);
+  const band = 4;
+  for (let y = 0; y < H; y += band) {
+    let dx = Math.sin(y * .045 + G.t * .09) * 9 * k + Math.sin(y * .013 - G.t * .05) * 5 * k;
+    if (k > .5 && Math.random() < (k - .5) * .12) dx += (Math.random() - .5) * 60 * k;   // 찢어지는 띠
+    g.drawImage(_warpCv, 0, y, W, band, dx, y, W, band);
+  }
+  if (k > .5) {                                   // 색이 갈라집니다
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = (k - .5) * .5;
+    g.drawImage(_warpCv, 3 * k, 0);
+    g.globalCompositeOperation = 'source-over';
+  }
+  g.restore();
 }
 
 /* ── 지상 ──────────────────────────────────────────── */
@@ -8374,6 +8488,230 @@ function renderLanding() {
 /* 1인칭 — 우물 바닥에 누운 채 올려다본 천장.
    저 위로 우물 입구가 작게 뚫려 있고, 그 빛이 먼지 사이로 내려옵니다.
    눈이 덜 떠졌을 때는 초점이 안 맞아 흐릿하게 번집니다. */
+/* ═══════════ 오프닝 — 1인칭으로 시작합니다 ═══════════════════
+   엔딩(실험실에서 깨어남)과 짝을 이루는 첫 장면입니다. 무엇인지 말해
+   주지는 않습니다 — 엔딩을 보고 나서야 무엇이었는지 알게 됩니다.
+
+     LAB    0‥450 : 잠드는 쪽. 흐릿한 흰 천장, 격자 조명, 가장자리에서
+                    내려다보는 누군가. "…들리세요? 숫자를 거꾸로…"
+                    느려지는 비프음과 함께 눈이 감깁니다.
+     DARK 450‥570 : 정적. 심장 한 번. 새소리가 번져 옵니다.
+     WOOD 570‥800 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
+                    첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
+     (대사)        : "…언제 잠들었지." 외 두 줄 — 이동 중엔 시계가 멈춥니다
+     RISE 800‥880 : 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
+     → 탑뷰 숲. 조리개가 열리듯 화면이 드러나고 조작 안내.
+   타임어택은 이 장면 전체를 건너뜁니다. */
+const OP = { LAB: 450, DARK: 570, LINES: 800, END: 880 };
+const OP_EYE = [
+  [0, 0], [30, .58], [90, .62], [118, .14], [140, .55], [220, .48], [248, .08], [272, .38],
+  [338, .26], [366, .03], [390, .14], [436, 0], [OP.DARK, 0],
+  [600, .22], [616, .03], [648, .52], [668, .14], [700, .86], [716, .58], [760, 1], [OP.END, 1]
+];
+const OP_TEXT = [
+  [40, 140, '…들리세요?'],
+  [152, 252, '천천히, 숫자를 거꾸로 세어 보세요.'],
+  [262, 300, '열.'], [300, 338, '아홉.'], [338, 376, '여덟.'], [376, 428, '일곱…']
+];
+const OP_BEEPS = [20, 80, 140, 202, 266, 334, 410];
+
+function opEye(t) {
+  for (let i = 1; i < OP_EYE.length; i++) {
+    const [t0, v0] = OP_EYE[i - 1], [t1, v1] = OP_EYE[i];
+    if (t <= t1) {
+      const k = Math.max(0, (t - t0) / Math.max(1, t1 - t0));
+      return v0 + (v1 - v0) * (k * k * (3 - 2 * k));
+    }
+  }
+  return 1;
+}
+
+function beginOpening() {
+  G.opening = {
+    t: 0,
+    // 나뭇잎 덩어리 — 화면 가장자리를 둘러싸고, 덩어리마다 작은 잎 뭉치 여러 개
+    clumps: Array.from({ length: 30 }, (_, i) => {
+      const a = i / 30 * Math.PI * 2 + Math.random() * .2, d = .62 + Math.random() * .38;
+      return { a, d, p: Math.random() * 6.28,
+               bits: Array.from({ length: 8 }, () => ({ dx: (Math.random() - .5) * 46, dy: (Math.random() - .5) * 30,
+                                                        r: 6 + Math.random() * 11 })) };
+    }),
+    // 줄기 — [바닥 쪽 x, y (화면 비율), 굵기, 휘는 정도]
+    trunks: [[.02, 1.08, 16, .08], [.24, 1.12, 11, -.05], [.8, 1.1, 13, .06], [1.0, .95, 15, -.08], [.96, -.08, 9, .05]]
+  };
+  G.mode = 'opening';
+  $('hud').classList.add('hidden');
+  Sfx.ambientStop();
+}
+
+function tickOpening() {
+  const O = G.opening, t = ++O.t;
+  if (OP_BEEPS.includes(t)) Sfx.beep(.05 - OP_BEEPS.indexOf(t) * .005);   // 점점 멀어지는 비프
+  if (t === 470) Sfx.landThump(.16);                                       // 어둠 속 심장 한 번
+  if (t === 500) Sfx.ambient('forest');                                    // 새소리가 번져 옴
+  if (t === 702) Sfx.breath();
+  if (t === OP.LINES) {                                                    // 누운 채로 생각
+    say(OPENING_LINES, () => { G.mode = 'opening'; });
+    talk.back = 'opening';
+  }
+  if (t === OP.END - 30) Sfx.landThump(.1);
+  if (t >= OP.END) {                                                       // 탑뷰로
+    G.opening = null;
+    G.mode = 'forest';
+    $('hud').classList.remove('hidden');
+    G.wake = WAKE_DUR;                    // 조리개가 열리듯 숲이 드러납니다
+    say(FOREST_HINT);
+  }
+}
+
+/* 위를 올려다본 천장 — 격자 조명 두 장. alpha 로 숲 장면 위에 유령처럼도 씁니다 */
+function drawOpCeiling(alpha, tilt) {
+  g.save();
+  g.globalAlpha = alpha;
+  g.translate(W / 2, H / 2); g.rotate(tilt); g.translate(-W / 2, -H / 2);
+  g.fillStyle = '#6f7884'; g.fillRect(-60, -60, W + 120, H + 120);
+  g.strokeStyle = 'rgba(40,46,56,.7)'; g.lineWidth = 2;
+  for (let x = -60; x < W + 60; x += 58) { g.beginPath(); g.moveTo(x, -60); g.lineTo(x, H + 60); g.stroke(); }
+  for (let y = -60; y < H + 60; y += 58) { g.beginPath(); g.moveTo(-60, y); g.lineTo(W + 60, y); g.stroke(); }
+  [[W / 2 - 145, H / 2 - 80], [W / 2 + 29, H / 2 - 80], [W / 2 - 145, H / 2 + 36], [W / 2 + 29, H / 2 + 36]].forEach(([x, y]) => {
+    g.fillStyle = '#e6eef9'; g.fillRect(x, y, 116, 44);
+    g.fillStyle = 'rgba(120,136,156,.9)';
+    for (let gx = x; gx <= x + 116; gx += 14.5) g.fillRect(gx, y, 1, 44);
+    g.fillRect(x, y + 22, 116, 1);
+  });
+  g.globalCompositeOperation = 'lighter';
+  const lg = g.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, 300);
+  lg.addColorStop(0, 'rgba(255,255,255,.22)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = lg; g.fillRect(0, 0, W, H);
+  g.restore();
+}
+
+/* 누워서 올려다본 숲 — 가장자리에서 모여드는 나무줄기, 해 질 녘 하늘 */
+function drawOpCanopy(O, offY) {
+  g.save();
+  g.translate(0, offY);
+  const sky = g.createRadialGradient(W * .55, H * .42, 8, W / 2, H / 2, W * .62);
+  sky.addColorStop(0, '#ffd9a0'); sky.addColorStop(.18, '#f3a46e'); sky.addColorStop(.42, '#b45d6a');
+  sky.addColorStop(.7, '#4a2f52'); sky.addColorStop(1, '#17121f');
+  g.fillStyle = sky; g.fillRect(0, -H, W, H * 3);
+
+  // 나무줄기 — 화면 가장자리에서 하늘 가운데로 솟으며 가늘어집니다 (아래에서 올려다본 원근)
+  const vx = W * .52, vy = H * .44;
+  g.lineCap = 'round';
+  O.trunks.forEach(([fx, fy, w, bend]) => {
+    const bx = fx * W, by = fy * H;
+    const tx = bx + (vx - bx) * .62, ty = by + (vy - by) * .62;
+    const cx = (bx + tx) / 2 + bend * W, cy = (by + ty) / 2;
+    const N = 12;
+    for (let k = 0; k < N; k++) {
+      const u0 = k / N, u1 = (k + 1) / N;
+      const P0 = [(1 - u0) ** 2 * bx + 2 * (1 - u0) * u0 * cx + u0 * u0 * tx, (1 - u0) ** 2 * by + 2 * (1 - u0) * u0 * cy + u0 * u0 * ty];
+      const P1 = [(1 - u1) ** 2 * bx + 2 * (1 - u1) * u1 * cx + u1 * u1 * tx, (1 - u1) ** 2 * by + 2 * (1 - u1) * u1 * cy + u1 * u1 * ty];
+      g.strokeStyle = '#0d0a11'; g.lineWidth = w * (1 - u0 * .8);
+      g.beginPath(); g.moveTo(P0[0], P0[1]); g.lineTo(P1[0], P1[1]); g.stroke();
+      g.strokeStyle = 'rgba(214,120,90,.22)'; g.lineWidth = 1;          // 노을을 받은 한쪽 테두리
+      const o2 = w * (1 - u0 * .8) * .45;
+      g.beginPath(); g.moveTo(P0[0] + o2, P0[1] - o2 * .3); g.lineTo(P1[0] + o2, P1[1] - o2 * .3); g.stroke();
+    }
+  });
+  g.lineCap = 'butt';
+
+  // 잎 덩어리 — 작은 잎 뭉치가 겹쳐 덤불처럼, 바람에 천천히 흔들립니다
+  O.clumps.forEach(c => {
+    const sw = Math.sin(G.t * .018 + c.p) * 3;
+    const x = vx + Math.cos(c.a) * c.d * W * .62 + sw;
+    const y = vy + Math.sin(c.a) * c.d * H * .8 + Math.cos(G.t * .015 + c.p) * 2;
+    g.fillStyle = '#110e16';
+    c.bits.forEach(b => { g.beginPath(); g.arc(x + b.dx, y + b.dy, b.r, 0, Math.PI * 2); g.fill(); });
+    // 하늘 쪽 가장자리에 노을빛 — 해에 가까운 잎일수록 밝게
+    const toSunX = W * .58 - x, toSunY = H * .38 - y, l = Math.hypot(toSunX, toSunY) || 1;
+    g.fillStyle = `rgba(243,150,100,${Math.max(0, .32 - l / 1400)})`;
+    c.bits.slice(0, 3).forEach(b => {
+      g.beginPath(); g.arc(x + b.dx + toSunX / l * b.r * .45, y + b.dy + toSunY / l * b.r * .45, b.r * .4, 0, Math.PI * 2); g.fill();
+    });
+  });
+  // 덤불 사이로 흩날리는 잎 몇 장
+  g.fillStyle = '#18131d';
+  for (let i = 0; i < 14; i++) {
+    const a = i * 2.39 + G.t * .002, d = .45 + (i % 4) * .06;
+    g.save();
+    g.translate(vx + Math.cos(a) * d * W * .62, vy + Math.sin(a) * d * H * .8);
+    g.rotate(a + Math.sin(G.t * .03 + i) * .4);
+    g.beginPath(); g.ellipse(0, 0, 4, 1.6, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
+  // 해 — 잎 사이로 새는 빛
+  g.globalCompositeOperation = 'lighter';
+  const sg = g.createRadialGradient(W * .58, H * .38, 2, W * .58, H * .38, 120);
+  sg.addColorStop(0, 'rgba(255,236,200,.9)'); sg.addColorStop(.3, 'rgba(255,190,130,.25)'); sg.addColorStop(1, 'rgba(255,160,100,0)');
+  g.fillStyle = sg; g.fillRect(0, -H, W, H * 3);
+  for (let i = 0; i < 5; i++) {                       // 빛줄기
+    const a = -.4 + i * .42 + Math.sin(G.t * .006 + i) * .05;
+    g.globalAlpha = .06;
+    g.fillStyle = '#ffd9a8';
+    g.beginPath(); g.moveTo(W * .58, H * .38);
+    g.lineTo(W * .58 + Math.cos(a) * 400, H * .38 + Math.sin(a) * 400);
+    g.lineTo(W * .58 + Math.cos(a + .08) * 400, H * .38 + Math.sin(a + .08) * 400);
+    g.closePath(); g.fill();
+  }
+  g.restore();
+}
+
+function renderOpening() {
+  const O = G.opening, t = O.t;
+  const o = opEye(t);
+  g.save();
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+
+  if (t < OP.LAB) {
+    // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
+    g.filter = `blur(${(1.2 + (1 - o) * 2.4).toFixed(1)}px)`;
+    drawOpCeiling(1, -.08 + Math.sin(t * .01) * .01);
+    // 가장자리에서 내려다보는 누군가 — 흐릿한 머리와 안경알
+    if (t > 160 && t < 330) {
+      const k = Math.min(1, (t - 160) / 40) * Math.min(1, (330 - t) / 40);
+      g.globalAlpha = .85 * k;
+      g.fillStyle = '#1c2026';
+      g.beginPath(); g.ellipse(W * .9, H * .36, 95, 110, -.3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(230,240,255,.8)';
+      g.beginPath(); g.ellipse(W * .8, H * .38, 7, 4, -.3, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    }
+    g.filter = 'none';
+  } else if (t >= OP.DARK) {
+    const rise = t > OP.LINES ? Math.min(1, (t - OP.LINES) / (OP.END - OP.LINES - 16)) : 0;
+    const e = rise * rise;
+    g.filter = `blur(${((1 - o) * 5 + e * 6).toFixed(1)}px)`;
+    // 몸을 일으키면 하늘이 위로 빠져나가고 시야가 기웁니다
+    g.translate(W / 2, H / 2); g.rotate(e * .12); g.translate(-W / 2, -H / 2);
+    drawOpCanopy(O, -e * H * .9);
+    // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
+    if ((t >= 598 && t <= 606) || (t >= 652 && t <= 655)) drawOpCeiling(.38, -.08);
+    g.filter = 'none';
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }
+  }
+
+  // 눈꺼풀 (우물 바닥에서 깨어날 때와 같은 모양)
+  drawEyelids(o);
+
+  // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게
+  OP_TEXT.forEach(([a, b, s]) => {
+    if (t < a || t >= b) return;
+    const k = Math.min(1, (t - a) / 14) * Math.min(1, (b - t) / 14);
+    g.save();
+    g.globalAlpha = k * (.8 - Math.max(0, t - 300) / 300);
+    g.filter = 'blur(.6px)';
+    g.font = '10px DungGeunMo, ui-monospace, monospace';
+    g.textAlign = 'center';
+    g.fillStyle = '#d8e6ef';
+    g.fillText(s, W / 2, H - 34);
+    g.restore();
+  });
+  g.restore();
+}
+
 function renderWakeup() {
   const t = G.eyeT, o = eyeOpen(t);
   // 눈을 다 뜬 뒤로는 숨 쉬듯 시야가 아주 미세하게 오르내립니다 —
@@ -8455,9 +8793,17 @@ function renderWakeup() {
   g.globalAlpha = 1;
   g.filter = 'none';
 
-  /* ── 눈꺼풀 ───────────────────────────────────────────
-     위아래에서 덮어 오되 안쪽 가장자리를 곡선으로 그려 눈 모양이
-     되도록 하고, 좌우 구석도 어둡게 눌러 시야를 좁힙니다. */
+  drawEyelids(o);
+  g.restore();
+}
+
+/* ── 눈꺼풀 ───────────────────────────────────────────
+   위아래에서 덮어 오되 안쪽 가장자리를 곡선으로 그려 눈 모양이
+   되도록 하고, 좌우 구석도 어둡게 눌러 시야를 좁힙니다.
+   (우물 바닥에서 깨어날 때와 오프닝이 같이 씁니다) */
+function drawEyelids(o) {
+  const cx = W / 2;
+  g.save();
   const half = H / 2 + 10;
   const lid = (1 - o) * half;
   g.fillStyle = '#000';
@@ -8639,7 +8985,7 @@ function renderFall() {
    SPACE 를 누르면 클리어 기록이 담긴 엔드 카드로 넘어갑니다. */
 let endingScene = null;
 function beginEnding() {
-  G.mode = 'ending';
+  G.mode = 'ending';     // G.endWarp 은 그대로 — 일그러진 화면이 그대로 붕괴로 이어집니다
   stopRun();                                   // 여기서 시계를 멈춥니다
 
   // 타임어택으로 깬 판만 기록에 남깁니다 (일반 모드는 시계 자체가 없습니다)

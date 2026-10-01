@@ -124,8 +124,38 @@
 
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
-      <div class="t-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-      <h1>THE WELL<br>BELOW</h1>
+      <!-- 위에서 내려다본 우물 — 검은 물 위로 심전도 한 줄이 뛰고, 뛸 때마다 물결이 번집니다.
+           무엇의 심박인지는 엔딩에서 알게 됩니다. -->
+      <div class="t-well" aria-hidden="true">
+        <svg viewBox="0 0 200 200">
+          <defs>
+            <radialGradient id="tw-water" cx="46%" cy="44%" r="60%">
+              <stop offset="0" stop-color="#0e1b1c"/>
+              <stop offset="1" stop-color="#020304"/>
+            </radialGradient>
+            <radialGradient id="tw-shade" cx="50%" cy="50%" r="50%">
+              <stop offset=".72" stop-color="#000" stop-opacity="0"/>
+              <stop offset="1" stop-color="#000" stop-opacity=".75"/>
+            </radialGradient>
+            <clipPath id="tw-clip"><circle cx="100" cy="100" r="56"/></clipPath>
+          </defs>
+          <circle cx="100" cy="100" r="84" fill="#1c1a22"/>
+          <circle class="tw-stones" cx="100" cy="100" r="72"/>
+          <circle cx="100" cy="100" r="83" fill="none" stroke="#4b4657" stroke-width="1.5"/>
+          <circle cx="100" cy="100" r="61" fill="#030305"/>
+          <circle cx="100" cy="100" r="56" fill="url(#tw-water)"/>
+          <g clip-path="url(#tw-clip)">
+            <ellipse class="tw-sky" cx="84" cy="86" rx="11" ry="9"/>
+            <circle class="tw-ripple" cx="100" cy="104" r="4"/>
+            <circle class="tw-ripple r2" cx="100" cy="104" r="4"/>
+            <polyline class="tw-ekg glow" points="36,104 70,104 76,104 81,98 85,104 92,104 96,112 101,70 106,122 110,104 120,104 127,97 135,104 164,104"/>
+            <polyline class="tw-ekg" points="36,104 70,104 76,104 81,98 85,104 92,104 96,112 101,70 106,122 110,104 120,104 127,97 135,104 164,104"/>
+            <circle cx="100" cy="100" r="56" fill="url(#tw-shade)"/>
+          </g>
+        </svg>
+      </div>
+      <h1>우물 아래</h1>
+      <p class="t-sub">THE WELL BELOW</p>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
