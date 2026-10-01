@@ -5082,6 +5082,7 @@ function resetRun() {
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null;
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
+  G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   G.morphPre = MORPH_PRE; G.eyeMorph = null; G.corpse = null; G.deathT = 0;
   clearMorphSys();
@@ -5781,6 +5782,7 @@ function update() {
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
   if (G.wake > 0) G.wake--;
   tickScreenFx();
+  tickAwayMsg();                                   // 이스터에그 ⑤ — 게임을 멈추지 않는 속삭임
 
   if (G.mode === 'talk') { tickTalk(); return; }
   if (G.mode === 'note') {
@@ -6725,6 +6727,7 @@ function render() {
   if (G.mode === 'wakeup') renderWakeup();
   if (G.opening) renderOpening();
   if (G.doze) renderDoze();
+  if (G.awayMsg) renderAwayMsg();
   if (G.mode === 'morph') renderMorph();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
   if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
@@ -9368,6 +9371,78 @@ function renderDoze() {
   g.restore();
 }
 
+/* ═══════════ 이스터에그 ⑤ — 화면 밖을 본 것 ═════════════════════
+   게임 도중 다른 탭이나 앱으로 눈을 돌리면, 브라우저 탭 제목이 대신 말을
+   걸어옵니다. 돌아오면 화면이 한 번 튀고, 관측자가 속삭입니다 —
+   "괜찮아요. 거기도 꿈이에요." 플레이어의 현실까지 세션 안으로 끌어들이는
+   장치입니다. 게임은 멈추지 않고, 속삭임은 한 판에 한 번 (타임어택은 탭
+   제목만). 아티팩트처럼 다른 페이지 안에 끼워진 경우엔 탭 제목은 바뀌지
+   않고 돌아왔을 때의 속삭임만 나옵니다. */
+const AWAY_TITLES = ['…어디 가요?', '피험자 07 — 시선 이탈', '돌아와요. 아직 안 끝났어요.'];
+const AWAY_SHORT = ['…방금, 화면 밖을 보셨죠.', '괜찮아요. 거기도 꿈이에요.'];
+const AWAY_LONG  = ['…오래 비우셨네요.', '그쪽 세상은 어땠어요? 여기랑 많이 다르던가요.'];
+const PLAYING = () => !['title', 'modesel', 'diffsel', 'devsel', 'ending', 'opening', 'dead'].includes(G.mode);
+let awayAt = 0, awayIv = null, homeTitle = document.title;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (!PLAYING()) return;
+    awayAt = performance.now();
+    homeTitle = document.title;
+    let i = 0;
+    document.title = AWAY_TITLES[0];
+    awayIv = setInterval(() => { document.title = AWAY_TITLES[++i % AWAY_TITLES.length]; }, 1500);
+  } else {
+    if (!awayAt) return;
+    clearInterval(awayIv); awayIv = null;
+    document.title = homeTitle;
+    const gone = (performance.now() - awayAt) / 1000;
+    awayAt = 0;
+    if (gone < 3 || G.awaySeen || G.timeAttack || !PLAYING()) return;
+    G.awaySeen = true;
+    G.awayMsg = { t: 0, lines: gone >= 60 ? AWAY_LONG : AWAY_SHORT };
+    Sfx.unlock(); Sfx.glitch();
+    G.shake = Math.max(G.shake, 8); G.flash = Math.max(G.flash, .6);
+    $('glitchbar').classList.remove('on'); void $('glitchbar').offsetWidth; $('glitchbar').classList.add('on');
+  }
+});
+function tickAwayMsg() {
+  if (!G.awayMsg) return;
+  const t = ++G.awayMsg.t;
+  if (t === 30 || t === 170) Sfx.beep(.04);
+  if (t > 330) G.awayMsg = null;
+}
+function renderAwayMsg() {
+  const M = G.awayMsg, t = M.t;
+  g.save();
+  // 돌아온 순간, 화면 위로 녹색 심전도가 한 번 지나갑니다 (현실 쪽 모니터)
+  if (t < 60) {
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = (1 - t / 60) * .6;
+    g.strokeStyle = '#3cff7a'; g.lineWidth = 1.5;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 3) {
+      const ph = ((x + t * 9) % 180) / 180;
+      const spike = ph > .46 && ph < .52 ? -30 * Math.sin((ph - .46) / .06 * Math.PI) : 0;
+      x ? g.lineTo(x, H * .45 + spike) : g.moveTo(x, H * .45 + spike);
+    }
+    g.stroke();
+    g.globalCompositeOperation = 'source-over';
+  }
+  // 속삭임 두 줄 — 화면 가운데 위쪽, 조금씩 떨리며
+  M.lines.forEach((s, i) => {
+    const a = 20 + i * 140, b = a + 150;
+    if (t < a || t >= b) return;
+    const k = Math.min(1, (t - a) / 16) * Math.min(1, (b - t) / 16);
+    g.globalAlpha = k * .9;
+    g.font = '11px DungGeunMo, ui-monospace, monospace';
+    g.textAlign = 'center';
+    g.fillStyle = i ? '#d8f0e4' : '#9fb0bf';
+    g.shadowColor = 'rgba(0,0,0,.9)'; g.shadowBlur = 6;
+    g.fillText(s, W / 2 + (Math.random() - .5) * 1.2, H * .3 + (Math.random() - .5) * 1.2);
+  });
+  g.restore();
+}
+
 /* ═══════════ 개발자 모드 ═════════════════════════════════
    타이틀의 로고를 세 번 누르면 켜집니다. 어느 방으로든, 어느 컷신으로든
    바로 갑니다 — 검증할 때마다 게임을 처음부터 깰 필요가 없습니다.
@@ -9382,7 +9457,8 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['doze', '이스터에그 : 졸음']
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['doze', '이스터에그 : 졸음'],
+  ['away', '이스터에그 : 화면 밖']
 ];
 
 let logoClicks = [];
@@ -9464,6 +9540,8 @@ function devJump(kind) {
     case 'abomdeath': devAbom(); killBoss(); break;
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
+    case 'away':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play';
+                      G.awayMsg = { t: 0, lines: AWAY_SHORT }; Sfx.glitch(); G.flash = .6; break;
     case 'doze':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play'; beginDoze(); break;
   }
 }
