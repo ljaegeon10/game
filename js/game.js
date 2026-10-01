@@ -3974,31 +3974,56 @@ function renderLanding() {
    엔딩(실험실에서 깨어남)과 짝을 이루는 첫 장면입니다. 무엇인지 말해
    주지는 않습니다 — 엔딩을 보고 나서야 무엇이었는지 알게 됩니다.
 
-     LAB    0‥640 : 잠드는 쪽. 흐릿한 흰 천장, 격자 조명, 가장자리에서
-                    내려다보는 누군가. "…들리세요? 숫자를 거꾸로…"
-                    느려지는 비프음과 함께 눈이 감깁니다.
-     DARK 640‥760 : 정적. 심장 한 번. 새소리가 번져 옵니다.
-     WOOD 760‥990 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
+     LAB   0‥1570 : 잠드는 쪽. 흐릿한 흰 천장과 격자 조명. 귀에 들어오는 건
+                    대화의 조각들뿐입니다 — 가까운 목소리(의사), 먼 목소리
+                    (조수), 짧고 차가운 지시 하나. 펜라이트가 눈을 훑고,
+                    "백마흔한 번째" (엔딩의 SESSION 141), "용량 올려" 뒤로
+                    시야가 무거워지고, 마지막엔 우물 이야기를 들려줍니다 —
+                    숲에서 "우물이 있다고 들었다"는 생각이 여기서 옵니다.
+                    그리고 숫자를 거꾸로 세며 눈이 감깁니다.
+     DARK 1570‥1690 : 정적. 심장 한 번. 새소리가 번져 옵니다.
+     WOOD 1690‥1920 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
                     첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
      (대사)        : "…언제 잠들었지." 외 두 줄 — 이동 중엔 시계가 멈춥니다
-     RISE 990‥1070: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
+     RISE 1920‥2000: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
      → 탑뷰 숲. 조리개가 열리듯 화면이 드러나고 조작 안내.
    타임어택은 이 장면 전체를 건너뜁니다. */
-const OP = { LAB: 640, DARK: 760, LINES: 990, END: 1070 };
+const OP = { LAB: 1570, DARK: 1690, LINES: 1920, END: 2000 };
 const OP_EYE = [
-  [0, 0], [30, .58], [90, .62], [118, .14], [140, .55], [220, .48], [248, .08], [272, .4],
+  [0, 0], [30, .58], [90, .62], [118, .14], [140, .55],
+  [200, .5], [212, .62], [220, .16], [244, .46],                 // 펜라이트에 움찔
+  [300, .52], [400, .48], [420, .12], [440, .5], [530, .44], [560, .4],
+  [690, .42], [705, .2], [730, .32],                             // "용량 올려" — 확 무거워짐
+  [830, .28], [850, .08], [870, .3], [950, .26], [975, .06], [1000, .24],
+  [1080, .22], [1100, .05], [1120, .2],
   // 숫자 하나에 한 번씩, 점점 무겁게 감겼다가 덜 뜹니다
-  [330, .32], [352, .06], [376, .28], [416, .22], [438, .04], [462, .17], [502, .12],
-  [524, .02], [550, .08], [600, .03], [626, 0], [OP.DARK, 0],
-  [790, .22], [806, .03], [838, .52], [858, .14], [890, .86], [906, .58], [950, 1], [OP.END, 1]
+  [1200, .18], [1260, .14], [1282, .04], [1300, .12], [1350, .1], [1366, .03], [1385, .08],
+  [1430, .05], [1450, .01], [1470, .04], [1540, .02], [1556, 0], [OP.DARK, 0],
+  [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [OP.END, 1]
 ];
+/* [시작, 끝, 대사, 목소리] — near : 가까이서 말 거는 목소리
+                               far  : 저쪽에서 들리는 조수의 목소리 (작고 흐리게)
+                               cold : 짧은 지시 하나 */
 const OP_TEXT = [
-  [40, 140, '…들리세요?'],
-  [152, 252, '천천히, 숫자를 거꾸로 세어 보세요.'],
+  [40, 140, '…들리세요?', 'near'],
+  [200, 290, '반응 있어요. 동공이 느리고.', 'far'],
+  [300, 400, '괜찮아요. 오늘도 금방 끝나요.', 'near'],
+  [420, 530, '…백마흔한 번째예요. 기억 안 나시겠지만.', 'near'],
+  [550, 625, '각성 수치 또 오르는데요.', 'far'],
+  [635, 690, '용량 올려.', 'cold'],
+  [720, 830, '자, 오늘은 우물 이야기를 해 드릴게요.', 'near'],
+  [840, 950, '숲 끝에, 오래된 우물이 하나 있어요.', 'near'],
+  [960, 1060, '그 아래로… 천천히 내려가 보는 거예요.', 'near'],
+  [1080, 1180, '숫자를 거꾸로 세어 보세요.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
-  [270, 354, '열.'], [354, 438, '아홉.'], [438, 522, '여덟.'], [522, 622, '일곱…']
+  [1200, 1284, '열.', 'near'], [1284, 1368, '아홉.', 'near'], [1368, 1452, '여덟.', 'near'], [1452, 1552, '일곱…', 'near']
 ];
-const OP_BEEPS = [20, 80, 140, 202, 268, 342, 424, 514, 612];   // 간격이 점점 벌어집니다
+/* 모니터 비프 — 평소엔 고르게, "용량 올려" 뒤로 느려지고, 셀 때는 점점 벌어집니다 */
+const OP_BEEPS = (() => {
+  const b = [];
+  for (let t = 20; t < 1150; t += t < 700 ? 64 : 82) b.push(t);
+  return b.concat([1220, 1312, 1414, 1526]);
+})();
 
 function opEye(t) {
   for (let i = 1; i < OP_EYE.length; i++) {
@@ -4031,10 +4056,12 @@ function beginOpening() {
 
 function tickOpening() {
   const O = G.opening, t = ++O.t;
-  if (OP_BEEPS.includes(t)) Sfx.beep(.05 - OP_BEEPS.indexOf(t) * .004);   // 점점 멀어지는 비프
+  if (OP_BEEPS.includes(t)) Sfx.beep(t < 1200 ? .045 : .035 - (t - 1200) / 20000);   // 셀수록 멀어지는 비프
+  if (t === 212) Sfx.beep(.02);                                            // 펜라이트 딸깍
+  if (t === 690) Sfx.landThump(.12);                                       // 약이 도는 묵직함
   if (t === OP.LAB + 20) Sfx.landThump(.16);                               // 어둠 속 심장 한 번
   if (t === OP.LAB + 50) Sfx.ambient('forest');                            // 새소리가 번져 옴
-  if (t === 892) Sfx.breath();
+  if (t === OP.DARK + 132) Sfx.breath();
   if (t === OP.LINES) {                                                    // 누운 채로 생각
     say(OPENING_LINES, () => { G.mode = 'opening'; });
     talk.back = 'opening';
@@ -4178,17 +4205,41 @@ function renderOpening() {
   if (t < OP.LAB) {
     // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
     drawOpCeiling(1, -.08 + Math.sin(t * .01) * .01);
-    // 가장자리에서 내려다보는 누군가 — 흐릿한 머리와 안경알
-    if (t > 160 && t < 400) {
-      const k = Math.min(1, (t - 160) / 40) * Math.min(1, (400 - t) / 40);
+    // 가장자리에서 내려다보는 누군가 — 흐릿한 머리와 안경알 (말을 걸 때마다 들여다봅니다)
+    [[30, 560], [710, 1190]].forEach(([a, b]) => {
+      if (t <= a || t >= b) return;
+      const k = Math.min(1, (t - a) / 40) * Math.min(1, (b - t) / 40);
+      const lean = Math.sin(t * .012) * 6;
       g.globalAlpha = .85 * k;
       g.fillStyle = '#1c2026';
-      g.beginPath(); g.ellipse(W * .9, H * .36, 95, 110, -.3, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(W * .9 + lean, H * .36, 95, 110, -.3, 0, Math.PI * 2); g.fill();
       g.fillStyle = 'rgba(230,240,255,.8)';
-      g.beginPath(); g.ellipse(W * .8, H * .38, 7, 4, -.3, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(W * .8 + lean, H * .38, 7, 4, -.3, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+    });
+    // 저쪽에서 지나가는 또 한 사람 — 조수
+    if (t > 540 && t < 700) {
+      const k = (t - 540) / 160;
+      g.globalAlpha = .7 * Math.sin(k * Math.PI);
+      g.fillStyle = '#20252c';
+      g.beginPath(); g.ellipse(-40 + k * 170, H * .2, 70, 60, .2, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
-    blurFrame(1.2 + (1 - o) * 2.4);
+    // 펜라이트 — 눈을 가로질러 훑고 지나갑니다
+    if (t > 206 && t < 250) {
+      const k = (t - 206) / 44;
+      const px = W * (.25 + k * .5), py = H * (.42 + Math.sin(k * Math.PI) * .06);
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = Math.sin(k * Math.PI);
+      const pl = g.createRadialGradient(px, py, 2, px, py, 120);
+      pl.addColorStop(0, 'rgba(255,255,250,1)'); pl.addColorStop(.2, 'rgba(240,248,255,.6)'); pl.addColorStop(1, 'rgba(240,248,255,0)');
+      g.fillStyle = pl; g.fillRect(0, 0, W, H);
+      g.restore();
+    }
+    const drug = t > 690 ? Math.min(1, (t - 690) / 120) : 0;
+    blurFrame(1.2 + (1 - o) * 2.4 + drug * 1.6);
+    if (drug > 0) { g.fillStyle = `rgba(20,30,48,${drug * .25})`; g.fillRect(0, 0, W, H); }
   } else if (t >= OP.DARK) {
     const rise = t > OP.LINES ? Math.min(1, (t - OP.LINES) / (OP.END - OP.LINES - 16)) : 0;
     const e = rise * rise;
@@ -4196,7 +4247,8 @@ function renderOpening() {
     g.translate(W / 2, H / 2); g.rotate(e * .12); g.translate(-W / 2, -H / 2);
     drawOpCanopy(O, -e * H * .9);
     // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
-    if ((t >= 788 && t <= 796) || (t >= 842 && t <= 845)) drawOpCeiling(.38, -.08);
+    const gt = t - OP.DARK;
+    if ((gt >= 28 && gt <= 36) || (gt >= 82 && gt <= 85)) drawOpCeiling(.38, -.08);
     g.setTransform(1, 0, 0, 1, 0, 0);
     blurFrame((1 - o) * 5 + e * 6);
     if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }
@@ -4206,16 +4258,30 @@ function renderOpening() {
   drawEyelids(o);
 
   // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게
-  OP_TEXT.forEach(([a, b, s]) => {
+  OP_TEXT.forEach(([a, b, s, who]) => {
     if (t < a || t >= b) return;
     const k = Math.min(1, (t - a) / 14) * Math.min(1, (b - t) / 14);
+    const fade = .85 - Math.max(0, t - 1200) / 700;        // 셀수록 목소리가 멀어집니다
     g.save();
-    g.globalAlpha = k * (.8 - Math.max(0, t - 270) / 700);     // 셀수록 목소리가 멀어집니다
-    g.filter = 'blur(.6px)';
-    g.font = '10px DungGeunMo, ui-monospace, monospace';
     g.textAlign = 'center';
-    g.fillStyle = '#d8e6ef';
-    g.fillText(s, W / 2, H - 34);
+    if (who === 'far') {                                     // 저쪽 — 작고 흐리게, 조금 위에서
+      g.globalAlpha = k * .68;
+      g.filter = 'blur(.5px)';
+      g.font = '9px DungGeunMo, ui-monospace, monospace';
+      g.fillStyle = '#9fb0bf';
+      g.fillText(s, W * .36, H - 52);
+    } else if (who === 'cold') {                             // 짧고 또렷한 지시
+      g.globalAlpha = k * .9;
+      g.font = '10px DungGeunMo, ui-monospace, monospace';
+      g.fillStyle = '#e8c9c0';
+      g.fillText(s, W * .64, H - 46);
+    } else {
+      g.globalAlpha = k * fade;
+      g.filter = 'blur(.6px)';
+      g.font = '10px DungGeunMo, ui-monospace, monospace';
+      g.fillStyle = '#d8e6ef';
+      g.fillText(s, W / 2, H - 34);
+    }
     g.restore();
   });
   g.restore();
