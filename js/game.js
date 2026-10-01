@@ -49,6 +49,10 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   key[e.key] = true;
   const k = e.key.toLowerCase();
+  if (G.dev) {                                      // 개발자 모드 단축키
+    if (e.code === 'Backquote') { devReturn(); return; }
+    if (k === 'k' && G.mode === 'play') { devKillAll(); return; }
+  }
   if (k === ' ') onConfirm();
   if (k === 'r' && G.mode === 'dead') retry();
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
@@ -1036,6 +1040,7 @@ function bumpKeys(sel) {
 
 function hurt(n) {
   if (P.inv > 0 || P.dead) return;
+  if (G.dev && G.devGod) return;          // 개발자 모드 · 무적
   P.hp -= n; P.inv = BALANCE.invFrames;
   Sfx.hurt(); G.shake = 11; G.flash = Math.max(G.flash, .5);
   updateHud();
@@ -3974,7 +3979,7 @@ function renderLanding() {
    엔딩(실험실에서 깨어남)과 짝을 이루는 첫 장면입니다. 무엇인지 말해
    주지는 않습니다 — 엔딩을 보고 나서야 무엇이었는지 알게 됩니다.
 
-     LAB   0‥1570 : 잠드는 쪽. 흐릿한 흰 천장과 격자 조명. 귀에 들어오는 건
+     LAB   (기준 0‥1570, 실제는 opT 로 늘림) : 잠드는 쪽. 흐릿한 흰 천장과 격자 조명. 귀에 들어오는 건
                     대화의 조각들뿐입니다 — 가까운 목소리(의사), 먼 목소리
                     (조수), 짧고 차가운 지시 하나. 펜라이트가 눈을 훑고,
                     "백마흔한 번째" (엔딩의 SESSION 141), "용량 올려" 뒤로
@@ -3988,7 +3993,12 @@ function renderLanding() {
      RISE 1920‥2000: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
      → 탑뷰 숲. 조리개가 열리듯 화면이 드러나고 조작 안내.
    타임어택은 이 장면 전체를 건너뜁니다. */
-const OP = { LAB: 1570, DARK: 1690, LINES: 1920, END: 2000 };
+/* 이야기의 빠르기 — 숫자 세기 전의 대화는 OP_SLOW 배로 늘려 들려줍니다.
+   아래 표들은 "기준 시간"으로 적고, opT() 로 실제 프레임에 옮깁니다.
+   (대화 구간은 배로 늘고, 그 뒤는 늘어난 만큼 통째로 밀립니다) */
+const OP_SLOW = 2, OP_STORY_END = 1190;
+const opT = t => t < OP_STORY_END ? t * OP_SLOW : t + OP_STORY_END * (OP_SLOW - 1);
+const OP = { LAB: opT(1570), DARK: opT(1690), LINES: opT(1920), END: opT(2000) };
 const OP_EYE = [
   [0, 0], [30, .58], [90, .62], [118, .14], [140, .55],
   [200, .5], [212, .62], [220, .16], [244, .46],                 // 펜라이트에 움찔
@@ -3998,9 +4008,9 @@ const OP_EYE = [
   [1080, .22], [1100, .05], [1120, .2],
   // 숫자 하나에 한 번씩, 점점 무겁게 감겼다가 덜 뜹니다
   [1200, .18], [1260, .14], [1282, .04], [1300, .12], [1350, .1], [1366, .03], [1385, .08],
-  [1430, .05], [1450, .01], [1470, .04], [1540, .02], [1556, 0], [OP.DARK, 0],
-  [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [OP.END, 1]
-];
+  [1430, .05], [1450, .01], [1470, .04], [1540, .02], [1556, 0], [1690, 0],
+  [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [2000, 1]
+].map(([t, v]) => [opT(t), v]);
 /* [시작, 끝, 대사, 목소리] — near : 가까이서 말 거는 목소리
                                far  : 저쪽에서 들리는 조수의 목소리 (작고 흐리게)
                                cold : 짧은 지시 하나 */
@@ -4017,12 +4027,13 @@ const OP_TEXT = [
   [1080, 1180, '숫자를 거꾸로 세어 보세요.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
   [1200, 1284, '열.', 'near'], [1284, 1368, '아홉.', 'near'], [1368, 1452, '여덟.', 'near'], [1452, 1552, '일곱…', 'near']
-];
+].map(([a, b, s, who]) => [opT(a), opT(b), s, who]);
 /* 모니터 비프 — 평소엔 고르게, "용량 올려" 뒤로 느려지고, 셀 때는 점점 벌어집니다 */
 const OP_BEEPS = (() => {
   const b = [];
-  for (let t = 20; t < 1150; t += t < 700 ? 64 : 82) b.push(t);
-  return b.concat([1220, 1312, 1414, 1526]);
+  // 심박은 이야기 빠르기와 상관없이 그대로 — 실제 프레임으로 찍습니다
+  for (let t = 20; t < opT(1150); t += t < opT(700) ? 64 : 82) b.push(t);
+  return b.concat([1220, 1312, 1414, 1526].map(opT));
 })();
 
 function opEye(t) {
@@ -4056,9 +4067,9 @@ function beginOpening() {
 
 function tickOpening() {
   const O = G.opening, t = ++O.t;
-  if (OP_BEEPS.includes(t)) Sfx.beep(t < 1200 ? .045 : .035 - (t - 1200) / 20000);   // 셀수록 멀어지는 비프
-  if (t === 212) Sfx.beep(.02);                                            // 펜라이트 딸깍
-  if (t === 690) Sfx.landThump(.12);                                       // 약이 도는 묵직함
+  if (OP_BEEPS.includes(t)) Sfx.beep(t < opT(1200) ? .045 : .035 - (t - opT(1200)) / 20000);   // 셀수록 멀어지는 비프
+  if (t === opT(206) + 6) Sfx.beep(.02);                                   // 펜라이트 딸깍
+  if (t === opT(690)) Sfx.landThump(.12);                                  // 약이 도는 묵직함
   if (t === OP.LAB + 20) Sfx.landThump(.16);                               // 어둠 속 심장 한 번
   if (t === OP.LAB + 50) Sfx.ambient('forest');                            // 새소리가 번져 옴
   if (t === OP.DARK + 132) Sfx.breath();
@@ -4206,7 +4217,8 @@ function renderOpening() {
     // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
     drawOpCeiling(1, -.08 + Math.sin(t * .01) * .01);
     // 가장자리에서 내려다보는 누군가 — 흐릿한 머리와 안경알 (말을 걸 때마다 들여다봅니다)
-    [[30, 560], [710, 1190]].forEach(([a, b]) => {
+    [[30, 560], [710, 1190]].forEach(([a0, b0]) => {
+      const a = opT(a0), b = opT(b0);
       if (t <= a || t >= b) return;
       const k = Math.min(1, (t - a) / 40) * Math.min(1, (b - t) / 40);
       const lean = Math.sin(t * .012) * 6;
@@ -4218,16 +4230,17 @@ function renderOpening() {
       g.globalAlpha = 1;
     });
     // 저쪽에서 지나가는 또 한 사람 — 조수
-    if (t > 540 && t < 700) {
-      const k = (t - 540) / 160;
+    if (t > opT(540) && t < opT(700)) {
+      const k = (t - opT(540)) / (opT(700) - opT(540));
       g.globalAlpha = .7 * Math.sin(k * Math.PI);
       g.fillStyle = '#20252c';
       g.beginPath(); g.ellipse(-40 + k * 170, H * .2, 70, 60, .2, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
     // 펜라이트 — 눈을 가로질러 훑고 지나갑니다
-    if (t > 206 && t < 250) {
-      const k = (t - 206) / 44;
+    const pl0 = opT(206);                     // 펜라이트는 이야기가 느려져도 휙 지나갑니다
+    if (t > pl0 && t < pl0 + 44) {
+      const k = (t - pl0) / 44;
       const px = W * (.25 + k * .5), py = H * (.42 + Math.sin(k * Math.PI) * .06);
       g.save();
       g.globalCompositeOperation = 'lighter';
@@ -4237,7 +4250,7 @@ function renderOpening() {
       g.fillStyle = pl; g.fillRect(0, 0, W, H);
       g.restore();
     }
-    const drug = t > 690 ? Math.min(1, (t - 690) / 120) : 0;
+    const drug = t > opT(690) ? Math.min(1, (t - opT(690)) / 120) : 0;
     blurFrame(1.2 + (1 - o) * 2.4 + drug * 1.6);
     if (drug > 0) { g.fillStyle = `rgba(20,30,48,${drug * .25})`; g.fillRect(0, 0, W, H); }
   } else if (t >= OP.DARK) {
@@ -4261,7 +4274,7 @@ function renderOpening() {
   OP_TEXT.forEach(([a, b, s, who]) => {
     if (t < a || t >= b) return;
     const k = Math.min(1, (t - a) / 14) * Math.min(1, (b - t) / 14);
-    const fade = .85 - Math.max(0, t - 1200) / 700;        // 셀수록 목소리가 멀어집니다
+    const fade = .85 - Math.max(0, t - opT(1200)) / 700;   // 셀수록 목소리가 멀어집니다
     g.save();
     g.textAlign = 'center';
     if (who === 'far') {                                     // 저쪽 — 작고 흐리게, 조금 위에서
@@ -4588,6 +4601,138 @@ function beginEnding() {
   endingScene.start();
 }
 
+/* ═══════════ 개발자 모드 ═════════════════════════════════
+   타이틀의 로고를 세 번 누르면 켜집니다. 어느 방으로든, 어느 컷신으로든
+   바로 갑니다 — 검증할 때마다 게임을 처음부터 깰 필요가 없습니다.
+   들어가면 일반 모드 · 보통 난이도이고, 모든 길이 열려 있습니다
+   (관문 열쇠 · 탐사 조건 충족, 고른 방 말고는 전부 클리어).
+   게임 중  K : 방의 적 전부 처치 (보스 포함)   ` : 개발자 화면으로 */
+const DEV_STAGES = [
+  ['forest', '숲'], ['start', '우물 아래'], ['fork', '갈림길'], ['north', '북쪽 방'],
+  ['south', '남쪽 방'], ['mid', '중앙'], ['ne', '북동 통로'], ['se', '남동 통로'],
+  ['gate', '관문'], ['boss', '심층 (보스)'], ['exit', '탈출구']
+];
+const DEV_CINES = [
+  ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
+  ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만']
+];
+
+let logoClicks = [];
+$('title').querySelector('h1').addEventListener('click', () => {
+  const now = performance.now();
+  logoClicks = logoClicks.filter(t => now - t < 900);
+  logoClicks.push(now);
+  if (logoClicks.length >= 3 && (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel')) {
+    logoClicks = [];
+    openDevPanel();
+  }
+});
+
+function openDevPanel() {
+  G.dev = true;
+  Sfx.unlock(); Sfx.glitch();
+  $('devbadge').classList.remove('hidden');
+  ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden'));
+  $('devpanel').classList.remove('hidden');
+  $('title').classList.add('picking');
+  G.mode = 'devsel';
+}
+function closeDevPanel() {
+  $('devpanel').classList.add('hidden');
+  $('startbtn').classList.remove('hidden');
+  $('title').classList.remove('picking');
+  renderBestTimes();
+  G.mode = 'title';
+}
+
+/* 판을 연 뒤 오프닝을 걷어 내고, 던전이면 모든 길을 열어 둡니다 */
+function devPrepare(dungeon) {
+  startGame(false, 'normal');
+  G.opening = null;
+  talk.q = []; talk.cb = null;
+  $('subtitle').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  G.mode = 'forest';
+  if (!dungeon) { Sfx.ambient('forest'); return; }
+  Sfx.ambientStop();
+  G.doorKeys = DOOR_KEYS_NEEDED; G.gateOpen = true; G.keys = 3;
+  Object.keys(MAP).forEach(id => { G.visited.add(id); stateOf(id).cleared = true; });
+}
+/* 그 방만 처음 상태로 (적이 있음) 들어갑니다 */
+function devRoom(id) {
+  stateOf(id).cleared = false;
+  if (!MAP[id].boss) Sfx.dungeonBgm(true);
+  loadRoom(id, id === 'exit' ? 'W' : 'S');
+  updateHud();
+}
+/* 보스방에서 곧장 3페이즈 「심연」으로 */
+function devAbom() {
+  devPrepare(true); devRoom('boss');
+  G.morphX = W / 2; G.morphY = 118; G.morphed = true;
+  G.mode = 'play';
+  eatMedpack(); makeAbom();
+  Sfx.bossBgm('boss2', false, true);
+  Sfx.bossBgm('boss3', true, false, true);
+}
+/* 탈출구 — 보스는 쓰러졌고 마지막 열쇠를 쥔 상태, 자물쇠 앞 */
+function devExit() {
+  devPrepare(true);
+  G.bossDead = true; G.finalKey = true;
+  devRoom('exit');
+  P.x = W - TS - 24; P.y = H / 2;
+}
+
+function devJump(kind) {
+  $('devpanel').classList.add('hidden');
+  $('title').classList.remove('picking');
+  if (kind === 'forest') { devPrepare(false); return; }
+  if (MAP[kind]) { devPrepare(true); devRoom(kind); return; }
+  switch (kind) {
+    case 'opening':   startGame(false, 'normal'); break;
+    case 'fall':      devPrepare(false); P.x = G.well.x; P.y = G.well.y + 20; interact(); break;
+    case 'bossintro': devPrepare(true); devRoom('boss'); break;
+    case 'morph':     devPrepare(true); devRoom('boss'); makeBoss(); G.mode = 'play'; beginMorph(); break;
+    case 'abom':      devAbom(); break;
+    case 'abomdeath': devAbom(); killBoss(); break;
+    case 'endlines':  devExit(); interact(); break;
+    case 'ending':    devExit(); beginEnding(); break;
+  }
+}
+
+/* K — 방의 적을 전부 쓰러뜨립니다 (분열체의 새끼까지, 보스는 그다음 단계로) */
+function devKillAll() {
+  for (let i = 0; i < 3 && G.foes.length; i++) G.foes.slice().forEach(f => { if (!f.dead) killFoe(f); });
+  G.foes = G.foes.filter(f => !f.dead);
+  if (G.boss) {
+    if (G.boss.kind === 'abom') killBoss();
+    else beginMorph();
+  }
+}
+/* ` — 어디서든 개발자 화면으로 */
+function devReturn() {
+  if (endingScene && endingScene.running) endingScene.stop();
+  $('ending').classList.add('hidden');
+  $('endcard').classList.remove('on');
+  resetRun();
+  openDevPanel();
+}
+
+DEV_STAGES.forEach(([id, name]) => {
+  const b = document.createElement('button');
+  b.className = 'dv-btn'; b.textContent = name; b.type = 'button';
+  b.addEventListener('click', () => devJump(id));
+  $('dv-stages').appendChild(b);
+});
+DEV_CINES.forEach(([id, name]) => {
+  const b = document.createElement('button');
+  b.className = 'dv-btn'; b.textContent = name; b.type = 'button';
+  b.addEventListener('click', () => devJump(id));
+  $('dv-cines').appendChild(b);
+});
+$('dvback').addEventListener('click', closeDevPanel);
+$('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
+
 /* ═══════════ 루프 ═════════════════════════════════════
    모든 움직임이 "1프레임당 몇 픽셀" 로 되어 있어서, 예전처럼 화면
    주사율에 그대로 맡기면 120Hz·144Hz 모니터에서 게임이 2배 넘게 빨라집니다.
@@ -4627,6 +4772,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
                   endingScene: () => endingScene,
                   killBoss, MORPH_PRE, AD, AD_DONE,
+                  devJump, openDevPanel, devKillAll, OP, opT,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이

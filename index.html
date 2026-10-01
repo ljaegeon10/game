@@ -49,6 +49,8 @@
       </div>
     </div>
 
+    <div id="devbadge" class="hidden">DEV</div>
+
     <!-- ── 상호작용 프롬프트 ───────────────────────────────── -->
     <div id="prompt" class="hidden"><b>SPACE</b> <span id="prompttext"></span></div>
 
@@ -198,6 +200,16 @@
           </button>
         </div>
         <button id="dsback">← 뒤로</button>
+      </div>
+
+      <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
+      <div id="devpanel" class="hidden">
+        <p class="ms-q">DEV MODE</p>
+        <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
+        <div class="dv-group"><span class="dv-label">컷신</span><div class="dv-row" id="dv-cines"></div></div>
+        <label class="dv-toggle"><input type="checkbox" id="dv-god"> 무적</label>
+        <p class="dv-hint">게임 중 <b>K</b> 방의 적 전부 처치 · <b>`</b> 이 화면으로 돌아오기</p>
+        <button id="dvback">← 뒤로</button>
       </div>
 
       <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁</p>

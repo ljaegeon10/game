@@ -613,6 +613,41 @@ html,body{
   .tw-ekg{ stroke-dashoffset:0; stroke-dasharray:none; }
 }
 
+/* ── 개발자 모드 ─────────────────────────────────────────── */
+#title h1{ cursor:default; user-select:none; }
+#devpanel{
+  margin-top:12px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  animation:msIn .22s ease-out 1;
+}
+#devpanel.hidden{ display:none; }
+#devpanel .ms-q{ color:#7de3c8; }
+.dv-group{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.dv-label{ font-size:7px; letter-spacing:.3em; color:rgba(236,230,216,.4); }
+.dv-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:540px; }
+.dv-btn{
+  margin:0; padding:4px 8px;
+  font-family:inherit; font-size:8px; font-weight:400; letter-spacing:.04em;
+  color:rgba(236,230,216,.82); background:rgba(15,14,20,.6);
+  border:1px solid rgba(236,230,216,.18); box-shadow:none; cursor:pointer;
+}
+.dv-btn:hover, .dv-btn:focus-visible{ color:#fff; border-color:#7de3c8; background:rgba(125,227,200,.12); }
+.dv-btn:active{ transform:translateY(1px); box-shadow:none; }
+.dv-toggle{ font-size:8px; color:rgba(236,230,216,.7); display:flex; align-items:center; gap:4px; cursor:pointer; }
+.dv-toggle input{ margin:0; accent-color:#7de3c8; }
+.dv-hint{ margin:0; font-size:7px; color:rgba(236,230,216,.4); }
+.dv-hint b{ color:rgba(236,230,216,.75); font-weight:400; }
+#dvback{
+  margin-top:0; padding:4px 14px; font-size:9px; font-weight:400; letter-spacing:.16em;
+  background:none; color:rgba(241,236,224,.34); border:none; box-shadow:none;
+}
+#dvback:hover{ background:none; color:rgba(241,236,224,.7); }
+#devbadge{
+  position:absolute; left:50%; top:3px; transform:translateX(-50%); z-index:95;
+  font-size:7px; letter-spacing:.3em; padding:1px 6px;
+  color:#0b1714; background:#7de3c8; opacity:.8; pointer-events:none;
+}
+
 #credits{
   position:absolute; left:0; right:0; bottom:10px;
   margin:0; font-size:8px; letter-spacing:.1em;
