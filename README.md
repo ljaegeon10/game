@@ -261,6 +261,17 @@ drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);  // 던전
 
 `js/audio.js` 상단 `master.gain.value` 한 곳에서 전체 크기를 다시 조절할 수 있습니다.
 
+### iPhone · iPad 무음 모드
+
+iOS 사파리는 웹 게임 소리를 알림음처럼 다뤄서, **무음 모드면 내장 스피커로는 소리가
+나지 않습니다** (이어폰은 들림). 그래서 화면을 처음 건드리는 순간 이 페이지를
+"미디어 재생"으로 바꿔, 동영상처럼 무음 모드에서도 들리게 합니다.
+
+- iOS 17 이상 : `navigator.audioSession.type = 'playback'`
+- 그보다 오래된 iOS : 무음 `<audio>` 를 반복 재생해 두는 방식
+- 손가락을 뗄 때(`touchend`)도 소리를 깨우고, 다른 앱에 다녀와 멈춘(`interrupted`)
+  소리도 다음 터치에 다시 켭니다.
+
 ---
 
 ## 🩸 보스 컷신 (일반 모드)

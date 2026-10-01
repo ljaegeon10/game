@@ -1407,9 +1407,55 @@ const Sfx = (() => {
   /* 곡별 상태 : { buf, loading, want, node } */
   const bgmSt = { approach: {}, boss2: {}, boss3: {} };
 
+  /* ── iPhone · iPad 무음 모드 ─────────────────────────────────
+     iOS 사파리는 Web Audio 를 "알림음"처럼 다뤄서, 기기가 무음 모드이면
+     내장 스피커로는 아무 소리도 내지 않습니다 (이어폰으로는 들림).
+     ① iOS 17 이상 : navigator.audioSession.type = 'playback' 한 줄이면
+        동영상처럼 "미디어 재생"으로 취급되어 무음 모드에서도 들립니다.
+     ② 그보다 오래된 iOS : 무음 <audio> 하나를 반복 재생해 두면 페이지가
+        미디어 재생 상태로 바뀌고, 그 덕에 Web Audio 도 함께 들립니다.
+        재생은 사용자가 화면을 건드린 순간에만 허락되므로, 실패하면 다음
+        터치에 다시 시도합니다. */
+  const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let keepAlive = null, mediaMode = 'none';
+  function silentWav() {                       // 0.25초짜리 무음 WAV (16bit · 8kHz · 모노)
+    const n = 2000, buf = new Uint8Array(44 + n * 2), dv = new DataView(buf.buffer);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) buf[o + i] = s.charCodeAt(i); };
+    w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, 8000, true); dv.setUint32(28, 16000, true);
+    dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    w(36, 'data'); dv.setUint32(40, n * 2, true);
+    let bin = '';
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+    return 'data:audio/wav;base64,' + btoa(bin);
+  }
+  function playThroughSilentMode() {
+    try {
+      if (navigator.audioSession && navigator.audioSession.type !== 'playback') {
+        navigator.audioSession.type = 'playback';
+      }
+      if (navigator.audioSession) { mediaMode = 'audioSession'; return; }
+    } catch (e) { /* 지원하지 않으면 ② 로 */ }
+    if (!IS_IOS || (keepAlive && !keepAlive.paused)) return;
+    try {
+      if (!keepAlive) {
+        keepAlive = new Audio(silentWav());
+        keepAlive.loop = true;
+        keepAlive.setAttribute('playsinline', '');
+        keepAlive.setAttribute('x-webkit-airplay', 'deny');
+      }
+      const p = keepAlive.play();
+      mediaMode = 'keepAlive';
+      if (p && p.catch) p.catch(() => { mediaMode = 'none'; });   // 다음 터치에 다시
+    } catch (e) { mediaMode = 'none'; }
+  }
+
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
     // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
+    playThroughSilentMode();
     try {
       if (!ac) {
         ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -1425,7 +1471,8 @@ const Sfx = (() => {
         master.connect(comp);
         comp.connect(ac.destination);
       }
-      if (ac.state === 'suspended') ac.resume();
+      // iOS 는 다른 앱에 다녀오거나 전화가 오면 'interrupted' 로 멈춥니다
+      if (ac.state === 'suspended' || ac.state === 'interrupted') ac.resume();
     } catch (e) { /* 소리 없이도 게임은 계속됩니다 */ }
     return ac;
   }
@@ -1834,7 +1881,9 @@ const Sfx = (() => {
     started() { return started; },
     /* 실제 AudioContext 상태를 밖에서 들여다보기 위한 진단용 —
        'running' 이 아니면 브라우저/호스트가 오디오를 막고 있는 겁니다. */
-    audioState() { return ac ? ac.state : 'none'; }
+    audioState() { return ac ? ac.state : 'none'; },
+    /* 무음 모드 우회가 어떤 방식으로 걸렸는지 (진단용) */
+    mediaState() { return { ios: IS_IOS, mode: mediaMode, keepAlive: keepAlive ? !keepAlive.paused : null }; }
   };
   return api;
 })();
@@ -3001,6 +3050,7 @@ function mixHex(a, b, k) {
 class EndSfx {
   constructor(getContext) { this.getContext = getContext; }
   unlock() {
+    EndSfx.silentModeFix();
     if (this.ac) { this.ac.resume(); return; }
     try { this.ac = this.getContext ? this.getContext() : null; } catch (e) { this.ac = null; }
     if (!this.ac) {
@@ -3015,6 +3065,33 @@ class EndSfx {
     this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  /* iPhone · iPad 무음 모드에서도 내장 스피커로 들리게 — 게임 안에서는 audio.js 가
+     이미 해 두지만, 엔딩만 따로 보는 페이지에선 여기서 직접 겁니다.
+     iOS 17+ 는 audioSession, 그보다 오래된 iOS 는 무음 <audio> 반복 재생. */
+  static silentModeFix() {
+    try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; return; } } catch (e) { /* 아래로 */ }
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!ios || (EndSfx.keep && !EndSfx.keep.paused)) return;
+    try {
+      if (!EndSfx.keep) {
+        const n = 2000, buf = new Uint8Array(44 + n * 2), dv = new DataView(buf.buffer);
+        const w = (o, t) => { for (let i = 0; i < t.length; i++) buf[o + i] = t.charCodeAt(i); };
+        w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+        dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+        dv.setUint32(24, 8000, true); dv.setUint32(28, 16000, true);
+        dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+        w(36, 'data'); dv.setUint32(40, n * 2, true);
+        let bin = '';
+        for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+        EndSfx.keep = new Audio('data:audio/wav;base64,' + btoa(bin));
+        EndSfx.keep.loop = true;
+        EndSfx.keep.setAttribute('playsinline', '');
+      }
+      const pr = EndSfx.keep.play();
+      if (pr && pr.catch) pr.catch(() => {});
+    } catch (e) { /* 소리 없이도 연출은 계속 */ }
   }
   /* 글리치 바탕의 지직거림 — 한 번 틀어 두고 크기만 움직입니다 */
   startNoise() {
@@ -4652,7 +4729,9 @@ function kickAudio() {
   if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel'))
     Sfx.ambient('forest');
 }
-['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click', 'wheel']
+/* touchend · pointerup 도 잡습니다 — 오래된 iPad 사파리는 손가락을 뗄 때만
+   "사용자 조작"으로 쳐서, touchstart 만으로는 소리가 풀리지 않았습니다. */
+['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'keydown', 'click', 'wheel']
   .forEach(evt => addEventListener(evt, kickAudio, { capture: true, passive: true }));
 
 const down = (...ks) => ks.some(k => key[k]);

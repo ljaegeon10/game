@@ -92,7 +92,9 @@ function kickAudio() {
   if (!Sfx.started() && (G.mode === 'title' || G.mode === 'modesel' || G.mode === 'diffsel'))
     Sfx.ambient('forest');
 }
-['pointerdown', 'touchstart', 'mousedown', 'keydown', 'click', 'wheel']
+/* touchend · pointerup 도 잡습니다 — 오래된 iPad 사파리는 손가락을 뗄 때만
+   "사용자 조작"으로 쳐서, touchstart 만으로는 소리가 풀리지 않았습니다. */
+['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'keydown', 'click', 'wheel']
   .forEach(evt => addEventListener(evt, kickAudio, { capture: true, passive: true }));
 
 const down = (...ks) => ks.some(k => key[k]);
