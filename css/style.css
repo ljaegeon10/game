@@ -590,6 +590,16 @@ html,body{
   text-shadow:0 0 18px rgba(125,227,200,.18), 0 2px 0 rgba(0,0,0,.8);
   transition:font-size .35s ease;
 }
+/* 이스터에그 ③ — 코나미 코드 : 우물 물이 붉게 물들고, 심전도가 튑니다 */
+#t-log{
+  position:absolute; left:0; right:0; bottom:26px; margin:0;
+  font-size:8px; letter-spacing:.08em; color:#ff8a7a; min-height:10px;
+  text-shadow:0 0 8px rgba(255,90,70,.4);
+}
+#title.konami .tw-ekg{ stroke:#ff5a4a; animation-duration:.7s; }
+#title.konami .tw-ripple{ stroke:#ff5a4a; animation-duration:.7s; }
+#title.konami .t-well svg{ filter:drop-shadow(0 0 10px rgba(255,70,60,.55)); }
+
 #title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
 #title.picking h1{ font-size:22px; }
 

@@ -607,6 +607,16 @@ html,body{
   text-shadow:0 0 18px rgba(125,227,200,.18), 0 2px 0 rgba(0,0,0,.8);
   transition:font-size .35s ease;
 }
+/* 이스터에그 ③ — 코나미 코드 : 우물 물이 붉게 물들고, 심전도가 튑니다 */
+#t-log{
+  position:absolute; left:0; right:0; bottom:26px; margin:0;
+  font-size:8px; letter-spacing:.08em; color:#ff8a7a; min-height:10px;
+  text-shadow:0 0 8px rgba(255,90,70,.4);
+}
+#title.konami .tw-ekg{ stroke:#ff5a4a; animation-duration:.7s; }
+#title.konami .tw-ripple{ stroke:#ff5a4a; animation-duration:.7s; }
+#title.konami .t-well svg{ filter:drop-shadow(0 0 10px rgba(255,70,60,.55)); }
+
 #title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
 #title.picking h1{ font-size:22px; }
 
@@ -1191,6 +1201,8 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
         </svg>
       </div>
       <h1>THE WELL BELOW</h1>
+      <!-- 이스터에그 ③ : 코나미 코드를 넣으면 관측 로그가 한 줄씩 찍힙니다 -->
+      <p id="t-log" aria-live="polite"></p>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
@@ -4677,6 +4689,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   key[e.key] = true;
   const k = e.key.toLowerCase();
+  konamiKey(e.code);
   if (G.dev) {                                      // 개발자 모드 단축키
     if (e.code === 'Backquote') { devReturn(); return; }
     if (k === 'k' && G.mode === 'play') { devKillAll(); return; }
@@ -5014,6 +5027,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'normal' : diffId);
+  if (G.konami && !G.timeAttack) { BALANCE.playerHp += 1; BALANCE.abomPlayerMax += 1; }   // 이스터에그 ③
   G.diff = d.id; G.diffName = d.name;
   P.max = BALANCE.playerHp; P.hp = P.max; P.inv = 0; P.slow = 0;
   $('modesel').classList.add('hidden');
@@ -5058,6 +5072,7 @@ function resetRun() {
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null;
+  G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
   G.morphPre = MORPH_PRE; G.eyeMorph = null; G.corpse = null; G.deathT = 0;
   clearMorphSys();
@@ -5832,6 +5847,7 @@ function update() {
   }
   if (G.mode === 'morph') { tickMorph(); return; }
   if (G.mode === 'abomdeath') { tickAbomDeath(); return; }
+  if (G.mode === 'doze') { tickDoze(); return; }
   if (G.mode !== 'play' && G.mode !== 'forest') return;
 
   const forest = G.inForest;
@@ -5866,6 +5882,7 @@ function update() {
   }
 
   clampPlayer(forest);
+  checkDoze();                                   // 이스터에그 ④ — 가만히 있으면 꿈속에서 졸기 시작
 
   if (P.inv > 0) P.inv--;
   if (P.fireCd > 0) P.fireCd--;
@@ -6698,9 +6715,10 @@ function render() {
   if (G.mode === 'landing') renderLanding();
   if (G.mode === 'wakeup') renderWakeup();
   if (G.opening) renderOpening();
+  if (G.doze) renderDoze();
   if (G.mode === 'morph') renderMorph();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
-  if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath') drawMinimap();
+  if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
 
   if (G.flash > .02) {
@@ -9231,6 +9249,116 @@ function beginEnding() {
   endingScene.start();
 }
 
+/* ═══════════ 이스터에그 ③ — 코나미 코드 (타이틀) ═══════════════
+   ↑ ↑ ↓ ↓ ← → ← → B A. 게임이라면 다들 한 번쯤 눌러 보는 그 코드입니다.
+   이 게임에선 관측자가 그걸 "규칙 위반"으로 기록하고는, 이번 한 번만
+   봐준다며 심장 하나를 더 얹어 줍니다 (일반 모드 다음 판 · 타임어택 제외). */
+const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+                'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+let konamiI = 0;
+function konamiKey(code) {
+  if (G.mode !== 'title' && G.mode !== 'modesel' && G.mode !== 'diffsel') { konamiI = 0; return; }
+  konamiI = code === KONAMI[konamiI] ? konamiI + 1 : (code === KONAMI[0] ? 1 : 0);
+  if (konamiI < KONAMI.length) return;
+  konamiI = 0;
+  if (G.konami) return;
+  G.konami = true;
+  Sfx.unlock(); Sfx.glitch();
+  setTimeout(() => Sfx.keyGet(), 900);
+  $('title').classList.add('konami');
+  const lines = ['규칙 위반 감지 — 피험자가 코드를 입력했습니다.',
+                 '…한 번만 봐 드리죠. 이번 세션, 심장 하나 더. (일반 모드)'];
+  let li = 0, n = 0;
+  const el = $('t-log');
+  const iv = setInterval(() => {
+    n++;
+    el.textContent = lines[li].slice(0, n);
+    if (n % 3 === 0) Sfx.beep(.03);
+    if (n >= lines[li].length) {
+      if (++li >= lines.length) { clearInterval(iv); setTimeout(() => $('title').classList.remove('konami'), 1600); return; }
+      n = 0;
+    }
+  }, 55);
+}
+
+/* ═══════════ 이스터에그 ④ — 꿈속에서 조는 것 ═══════════════════
+   적이 없는 방에서 45초 동안 아무것도 누르지 않으면, 꿈속에서 다시
+   잠들기 시작합니다. 눈꺼풀이 내려오고 바닥 위로 심전도가 비치다가,
+   다급한 목소리에 퍼뜩 깹니다. 한 판에 한 번만 (타임어택 제외). */
+const DOZE_AFTER = 60 * 45;
+const DOZE = { CLOSE: 380, SNAP: 560, END: 640 };
+const DOZE_TEXT = [
+  [40, 170, '…움직임이 없네요.', 'far'],
+  [190, 330, '수면 단계, 한 단계 더 내려갑니다.', 'far'],
+  [400, 540, '잠깐— 이 안에서 잠들면 안 돼요.', 'near']
+];
+function dozeEye(t) {                      // 1 = 뜸 → 0 = 감김, 끝에 번쩍 뜸
+  if (t >= DOZE.SNAP) return 1;
+  const k = Math.min(1, t / DOZE.CLOSE);
+  const droop = 1 - k * k;
+  const nod = t < DOZE.CLOSE ? Math.max(0, Math.sin(t * .05)) * .18 * k : 0;   // 꾸벅거림
+  return Math.max(0, droop + nod);
+}
+function checkDoze() {
+  if (G.dozeSeen || G.timeAttack || G.inForest || G.boss || G.foes.length || G.mode !== 'play') { G.idleT = 0; return; }
+  const busy = Object.values(key).some(Boolean) || mouse.down;
+  G.idleT = busy ? 0 : (G.idleT || 0) + 1;
+  if (G.idleT >= DOZE_AFTER) beginDoze();
+}
+function beginDoze() {
+  G.dozeSeen = true; G.idleT = 0;
+  G.doze = { t: 0 };
+  G.mode = 'doze';
+  $('prompt').classList.add('hidden');
+}
+function tickDoze() {
+  const D = G.doze, t = ++D.t;
+  if (t % 70 === 10 && t < DOZE.CLOSE) Sfx.beep(.03);          // 바닥 밑에서 들려오는 비프
+  if (t === 400) { Sfx.beep(.06); setTimeout(() => Sfx.beep(.06), 160); }
+  if (t === DOZE.SNAP) {                                         // 퍼뜩
+    Sfx.landThump(.6); Sfx.glitch();
+    G.shake = 18; G.flash = 1; glare(.8);
+  }
+  if (t >= DOZE.END) {
+    G.doze = null;
+    G.mode = 'play';
+    say([{ t: '…방금, 누가 말했지?', w: true }]);
+  }
+}
+function renderDoze() {
+  const t = G.doze.t, o = dozeEye(t);
+  const k = Math.min(1, t / DOZE.CLOSE);
+  g.save();
+  if (t < DOZE.SNAP) {
+    // 현실이 바닥 위로 비쳐 듭니다 — 녹색 심전도 한 줄
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .1 + k * .35;
+    g.strokeStyle = '#3cff7a'; g.lineWidth = 1.5;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 3) {
+      const ph = ((x + t * 2.4) % 160) / 160;
+      const spike = ph > .48 && ph < .54 ? -26 * Math.sin((ph - .48) / .06 * Math.PI) : 0;
+      const y = H / 2 + spike + Math.sin(x * .05) * 1.2;
+      x ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+    blurFrame(k * 3.5);
+    drawEyelids(o);
+  }
+  DOZE_TEXT.forEach(([a, b, s, who]) => {
+    if (t < a || t >= b) return;
+    const kk = Math.min(1, (t - a) / 14) * Math.min(1, (b - t) / 14);
+    g.globalAlpha = kk * (who === 'far' ? .7 : .95);
+    g.font = '10px DungGeunMo, ui-monospace, monospace';
+    g.textAlign = 'center';
+    g.fillStyle = who === 'far' ? '#9fb0bf' : '#ffd0c8';
+    g.fillText(s, W / 2, H - 34);
+  });
+  g.restore();
+}
+
 /* ═══════════ 개발자 모드 ═════════════════════════════════
    타이틀의 로고를 세 번 누르면 켜집니다. 어느 방으로든, 어느 컷신으로든
    바로 갑니다 — 검증할 때마다 게임을 처음부터 깰 필요가 없습니다.
@@ -9245,7 +9373,7 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만']
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['doze', '이스터에그 : 졸음']
 ];
 
 let logoClicks = [];
@@ -9327,6 +9455,7 @@ function devJump(kind) {
     case 'abomdeath': devAbom(); killBoss(); break;
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
+    case 'doze':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play'; beginDoze(); break;
   }
 }
 
@@ -9402,7 +9531,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
                   endingScene: () => endingScene,
                   killBoss, MORPH_PRE, AD, AD_DONE,
-                  devJump, openDevPanel, devKillAll, OP, opT,
+                  devJump, openDevPanel, devKillAll, OP, opT, beginDoze, DOZE_AFTER,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
