@@ -1,9 +1,4 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>우물 아래 — 깨어남</title>
+<title>우물 아래 깨어남</title>
 <style>
 /* ═══════════════════════════════════════════════════════════
    font.css — 둥근모꼴 (DungGeunMo) 웹폰트 임베드
@@ -71,9 +66,6 @@
   @keyframes pulse { 50% { opacity: .35; } }
   @media (prefers-reduced-motion: reduce) { .g-cta { animation: none; } }
 </style>
-</head>
-<body>
-
 <div id="wrap">
   <canvas id="screen" width="960" height="540" aria-label="엔딩 연출 화면"></canvas>
   <button id="gate" type="button">
@@ -87,24 +79,25 @@
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════
-   우물 아래 — 제3막 : 실험실 깨어남 (엔딩 씬)
+   ending.js — 제3막 : 실험실 깨어남 (엔딩 씬)
+
+   마지막 자물쇠를 연 순간의 방을 그대로 받아 글리치로 무너뜨리고,
+   칠흑 속 심전도와 터미널로 "이 모든 게 수면 실험이었다"를 밝힙니다.
+   Canvas 2D 와 WebAudio 만 쓰고, 본 게임 전역을 더럽히지 않도록
+   전체를 즉시 실행 함수로 감싸 EndingScene 하나만 밖으로 냅니다.
 
    상태 머신
-     crash   ─▶ awaken ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
-     (현실 붕괴)  (바이탈)   (진실)    (SPACE 대기)  (페이드)
+     crash ─▶ awaken ─▶ reveal ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
+     현실 붕괴   심전도     모니터→실험실  타자기·눈 뜸  SPACE 대기   페이드
 
-   구성 요소
-     Dungeon     : 보스가 무너지는 마지막 던전 한 장면 (저해상도)
-     GlitchFX    : 띠 밀림 · 블록 손상 · RGB 분리 · 노이즈 · 롤링 바
-     EKGMonitor  : lineTo 로 그려 나가는 심전도 + 잔광(bloom)
-     Terminal    : 한 글자씩 찍히는 타자기 출력
-     Sfx         : WebAudio 로 직접 만든 소리 (파일 없음)
-
-   붙이는 법
-     const ending = new EndingScene(canvas, { onReturn: () => 타이틀로() });
-     ending.start();      // 보스 처치 직후 호출. 메인 루프는 그동안 멈춰 두세요.
+   쓰는 법 (game.js 의 beginEnding)
+     new EndingScene(canvas, {
+       source:   () => 게임 화면 캔버스,   // 매 프레임 이걸 받아 무너뜨림 (없으면 대역 던전)
+       audio:    () => AudioContext,       // 게임과 같은 오디오 컨텍스트
+       onReturn: () => 엔드 카드 띄우기
+     }).start();
    ═══════════════════════════════════════════════════════════════ */
-
+(() => {
 const W = 960, H = 540;        // 표시 해상도
 const LW = 320, LH = 180;      // 픽셀 연출 버퍼 — ×3 으로 키워 찍습니다
 const STEP = 1000 / 60;        // 논리는 60Hz 고정
@@ -136,13 +129,18 @@ function mixHex(a, b, k) {
 }
 
 /* ═════════════ 소리 ═════════════════════════════════════════
-   파일 없이 오실레이터와 노이즈 버퍼만으로 만듭니다. */
-class Sfx {
+   파일 없이 오실레이터와 노이즈 버퍼만으로 만듭니다.
+   본 게임의 AudioContext 를 빌려, 브라우저 잠금이 이미 풀린 상태로 시작합니다. */
+class EndSfx {
+  constructor(getContext) { this.getContext = getContext; }
   unlock() {
     if (this.ac) { this.ac.resume(); return; }
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    this.ac = new AC();
+    try { this.ac = this.getContext ? this.getContext() : null; } catch (e) { this.ac = null; }
+    if (!this.ac) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ac = new AC();
+    }
     this.master = this.ac.createGain();
     this.master.gain.value = .55;
     this.master.connect(this.ac.destination);
@@ -188,9 +186,43 @@ class Sfx {
   rip()      { this.tone(160, 1.0, { type: 'sawtooth', vol: .22, slideTo: 28 }); }
   powerOff() { this.tone(1400, .4, { vol: .1, slideTo: 50 }); }
   confirm()  { this.tone(660, .3, { vol: .1, slideTo: 330 }); }
+  /* 형광등이 튀며 켜지는 소리 */
+  tink()     { this.tone(2600, .05, { type: 'square', vol: .045, attack: .001 });
+               this.tone(170, .09, { type: 'square', vol: .035, attack: .001 }); }
+  /* 불 켜진 실험실의 낮은 웅웅거림 */
+  humStart() {
+    if (!this.ac || this.hum) return;
+    const g = this.ac.createGain(); g.gain.value = 0;
+    g.gain.setTargetAtTime(1, this.ac.currentTime, .4);
+    g.connect(this.master);
+    this.hum = [[100, 'sine', .035], [200, 'sine', .012], [120, 'square', .004]].map(([f, type, v]) => {
+      const o = this.ac.createOscillator(), og = this.ac.createGain();
+      o.type = type; o.frequency.value = f; og.gain.value = v;
+      o.connect(og).connect(g); o.start();
+      return o;
+    });
+    this.humGain = g;
+  }
+  humStop() {
+    if (!this.hum) return;
+    this.hum.forEach(o => { try { o.stop(); } catch (e) { /* 이미 멈춤 */ } });
+    this.hum = null;
+  }
+  /* 눈을 뜨는 순간 — 짧게 들이쉬는 숨 */
+  gasp() {
+    if (!this.ac) return;
+    const t = this.ac.currentTime;
+    const s = this.ac.createBufferSource(); s.buffer = this.noiseBuf;
+    const lp = this.ac.createBiquadFilter(); lp.type = 'bandpass'; lp.frequency.value = 1100; lp.Q.value = .6;
+    const g = this.ac.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.3, t + .18); g.gain.exponentialRampToValueAtTime(.0001, t + .7);
+    s.connect(lp).connect(g).connect(this.master);
+    s.start(t); s.stop(t + .75);
+  }
 }
 
-/* ═════════════ 마지막 던전 ═════════════════════════════════
+/* ═════════════ 대역 던전 ═══════════════════════════════════
+   게임 밖에서 엔딩만 돌릴 때(source 없음) 무너뜨릴 장면입니다.
    보스(거대한 눈)가 무너지는 순간. 바닥과 벽은 한 번 구워 두고,
    매 프레임엔 눈과 빛과 포자만 다시 그립니다. */
 class Dungeon {
@@ -228,8 +260,8 @@ class Dungeon {
       b.fillStyle = '#2b3b3a'; b.fillRect(m.x | 0, m.y | 0, 1, 3);
       b.fillStyle = PAL.teal;  b.fillRect((m.x | 0) - 1, (m.y | 0) - 1, 3, 1);
     }
-    this.glow    = Dungeon.glowSprite('125,227,200');
-    this.redGlow = Dungeon.glowSprite('194,53,44');
+    this.glow    = glowSprite('125,227,200');
+    this.redGlow = glowSprite('194,53,44');
     this.veins = Array.from({ length: 8 }, () => ({ a: rand(6.28), len: rand(.45, .8), bend: rand(-.35, .35) }));
     this.cracks = Array.from({ length: 7 }, () => {
       let a = rand(6.28), r = 2; const pts = [[0, 0]];
@@ -237,13 +269,6 @@ class Dungeon {
       return pts;
     });
     this.spores = Array.from({ length: 44 }, () => ({ x: rand(LW), y: rand(LH), v: rand(.1, .35), p: rand(6.28) }));
-  }
-  static glowSprite(rgb) {
-    const [c, g] = makeCanvas(32, 32);
-    const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-    gr.addColorStop(0, `rgba(${rgb},.9)`); gr.addColorStop(1, `rgba(${rgb},0)`);
-    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
-    return c;
   }
   /* k : 무너지는 정도 0‥1 */
   draw(x, t, k) {
@@ -332,6 +357,303 @@ class Dungeon {
     x.globalAlpha = 1;
   }
 }
+
+/* ═════════════ 실험실 ═══════════════════════════════════════
+   심전도는 사실 벽에 걸린 모니터 화면이었습니다. 카메라가 그 화면에서
+   물러나면 피험자가 누운 방이 드러납니다. 던전에서 본 것들의 진짜 모습이
+   여기 다 있습니다 — 해골은 골격 모형, 피는 링거의 붉은 배양액, 열쇠는
+   문의 키카드, 단청 격자는 천장 조명, 오방색은 전극선의 색.
+
+   480×270 버퍼에 그리고 ×2 로 키웁니다. 움직이지 않는 것은 한 번 굽고,
+   매 프레임엔 숨·눈·링거 방울·불빛·관찰자만 다시 그립니다. */
+const LBW = 480, LBH = 270;
+const SCR = { x: 388, y: 42, w: 64, h: 36 };    // 벽걸이 모니터의 화면 (16:9)
+const FACE = { x: 184, y: 124 };                // 마지막에 카메라가 다가갈 얼굴
+const ELECTRODES = [[176, 121], [178, 117], [182, 116], [177, 126]];
+
+function glowSprite(rgb) {
+  const [c, g] = makeCanvas(32, 32);
+  const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, `rgba(${rgb},.9)`); gr.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+  return c;
+}
+
+class Lab {
+  constructor() {
+    [this.cv, this.cx] = makeCanvas(LBW, LBH);
+    this.base = Lab.bake();
+    this.monGlow = glowSprite('40,255,90');
+    this.winGlow = glowSprite('90,140,200');
+    const [cone, k] = makeCanvas(64, 150);          // 형광등 아래 빛기둥
+    const lg = k.createLinearGradient(0, 0, 0, 150);
+    lg.addColorStop(0, 'rgba(225,238,255,.6)'); lg.addColorStop(1, 'rgba(225,238,255,0)');
+    k.fillStyle = lg;
+    k.beginPath(); k.moveTo(10, 0); k.lineTo(54, 0); k.lineTo(64, 150); k.lineTo(0, 150); k.closePath(); k.fill();
+    this.cone = cone;
+  }
+
+  static bake() {
+    const [c, x] = makeCanvas(LBW, LBH);
+    const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+
+    // 천장과 조명 격자 (던전 벽의 단청 격자 → 천장 조명 격자)
+    R('#0f131a', 0, 0, LBW, 22);
+    for (let i = 0; i < 4; i++) {
+      const lx = 22 + i * 118, lw = 86;
+      R('#262e39', lx - 2, 6, lw + 4, 13);
+      R('#e3ecf8', lx, 8, lw, 9);
+      x.fillStyle = '#9fb0c4';
+      for (let gx = lx; gx <= lx + lw; gx += 11) x.fillRect(gx, 8, 1, 9);
+      x.fillRect(lx, 12, lw, 1);
+    }
+    R('#1a212b', 0, 21, LBW, 2);
+
+    // 벽 — 판넬 이음새와 난간
+    const wg = x.createLinearGradient(0, 23, 0, 178);
+    wg.addColorStop(0, '#2c3747'); wg.addColorStop(1, '#1b222c');
+    x.fillStyle = wg; x.fillRect(0, 23, LBW, 155);
+    for (let px = 34; px < LBW; px += 58) R('#171e27', px, 23, 1, 151);
+    R('#3a4757', 0, 130, LBW, 3); R('#131920', 0, 133, LBW, 1);
+    R('#0e1218', 0, 174, LBW, 6);
+
+    // 바닥 — 앞으로 벌어지는 타일 줄
+    const fg = x.createLinearGradient(0, 180, 0, LBH);
+    fg.addColorStop(0, '#252d39'); fg.addColorStop(1, '#10151b');
+    x.fillStyle = fg; x.fillRect(0, 180, LBW, LBH - 180);
+    x.strokeStyle = 'rgba(70,84,102,.45)'; x.lineWidth = 1;
+    for (let i = 0, y = 184; y < LBH; i++, y += 4 + i * 3) { x.beginPath(); x.moveTo(0, y + .5); x.lineTo(LBW, y + .5); x.stroke(); }
+    for (let i = -14; i <= 14; i++) { x.beginPath(); x.moveTo(240 + i * 20 + .5, 180); x.lineTo(240 + i * 64 + .5, LBH); x.stroke(); }
+
+    // 문과 키카드 잠금장치 (열쇠·상자 → 키카드)
+    R('#3a4656', 10, 50, 52, 126); R('#283140', 13, 53, 46, 123);
+    R('#0b1018', 20, 60, 32, 14); R('#1e2a38', 21, 61, 30, 4);
+    R('#4c5868', 50, 108, 6, 3);
+    for (let i = 0; i < 6; i++) R(i % 2 ? '#e3b23c' : '#15141b', 13 + i * 8, 168, 8, 5);   // 황·흑 경고 띠
+    R('#1a212b', 66, 96, 10, 18); R('#3a4656', 67, 97, 8, 16); R('#0b0f14', 69, 108, 4, 1);
+
+    Lab.skeleton(x);
+
+    // 관찰창 틀과 감시 카메라 (유리 안쪽은 매 프레임 — 어둠 속에서도 보여야 해서)
+    R('#3a4656', 192, 32, 112, 64);
+    R('#1a212b', 242, 24, 10, 5); R('#0b0f14', 250, 25, 3, 3);
+
+    // 뇌파 증폭기 카트
+    R('#5b6674', 128, 140, 26, 2); R('#3d4652', 130, 142, 2, 34); R('#3d4652', 150, 142, 2, 34);
+    R('#20262e', 129, 176, 4, 3); R('#20262e', 149, 176, 4, 3);
+    R('#2c3644', 130, 118, 22, 22); R('#3e4a5a', 130, 118, 22, 2);
+    for (let i = 0; i < 4; i++) R('#11161d', 132 + i * 5, 132, 3, 4);
+
+    // 링거대와 붉은 배양액 (던전의 피 → 링거)
+    R('#8e9aa8', 351, 52, 2, 144); R('#8e9aa8', 345, 52, 14, 1);
+    x.strokeStyle = '#6b7684';
+    x.beginPath(); x.moveTo(352, 195.5); x.lineTo(340, 199.5); x.moveTo(352, 195.5); x.lineTo(364, 199.5); x.stroke();
+    R('#20262e', 338, 199, 4, 3); R('#20262e', 362, 199, 4, 3);
+    R('#d9cfcf', 345, 56, 15, 6); R('#a8232a', 345, 62, 15, 16); R('#c43a3e', 346, 63, 4, 13);
+    R('#7d1b20', 357, 62, 3, 16); R('#f1ece0', 348, 66, 9, 4);
+    R('#a8232a', 351, 78, 3, 2); R('#d9dee6', 351, 80, 3, 8);
+
+    Lab.bed(x);
+    Lab.subject(x);
+
+    // 링거 줄 — 백에서 팔의 반창고까지
+    x.strokeStyle = 'rgba(196,58,62,.9)'; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(352.5, 88); x.bezierCurveTo(352, 150, 300, 160, 239, 134); x.stroke();
+    // 전극선 — 청·적·황·백. 던전을 물들인 오방색은 여기서 왔습니다
+    ['#2f6fb5', '#c2352c', '#e3b23c', '#e9e3d5'].forEach((col, i) => {
+      const [ex, ey] = ELECTRODES[i];
+      x.strokeStyle = col;
+      x.beginPath(); x.moveTo(151, 121 + i * 3);
+      x.bezierCurveTo(160, 100 + i * 4, 168, 104 + i * 3, ex, ey + 1);
+      x.stroke();
+    });
+
+    // 사이드 레일 — 이불보다 앞쪽
+    R('#9aa6b4', 214, 140, 96, 1);
+    for (const px of [214, 262, 309]) R('#9aa6b4', px, 140, 1, 8);
+
+    // 벽걸이 모니터 두 대
+    R('#2a313b', 456, 52, 18, 4); R('#2a313b', 468, 56, 4, 46);
+    R('#262d37', 384, 38, 72, 44); R('#465262', 384, 38, 72, 1); R('#11161d', 386, 40, 68, 40);
+    R('#262d37', 390, 92, 62, 32); R('#465262', 390, 92, 62, 1);
+    return c;
+  }
+
+  /* 골격 모형 — 던전 바닥에 굴러다니던 해골의 진짜 모습 */
+  static skeleton(x) {
+    const B = '#ddd6c4', D = '#9d9684';
+    const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+    const L = (pts, w = 1.5) => {
+      x.strokeStyle = B; x.lineWidth = w;
+      x.beginPath(); x.moveTo(pts[0][0], pts[0][1]);
+      for (const [px, py] of pts.slice(1)) x.lineTo(px, py);
+      x.stroke();
+    };
+    R('#5b6674', 93, 74, 2, 100); R('#3d4652', 84, 173, 20, 3);      // 거치대
+    x.fillStyle = B; x.beginPath(); x.ellipse(94, 62, 6, 7, 0, 0, 7); x.fill();
+    R(B, 90, 67, 8, 4);
+    R('#141018', 91, 61, 2, 3); R('#141018', 95, 61, 2, 3); R('#141018', 93, 65, 2, 1);
+    R(D, 91, 70, 6, 1);
+    for (let y = 72; y < 112; y += 3) R(B, 93, y, 2, 2);               // 척추
+    R(B, 85, 75, 18, 1);                                               // 쇄골
+    x.strokeStyle = B; x.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {                                       // 갈비
+      const yy = 79 + i * 4, rx = 9 - i * .8;
+      x.beginPath(); x.moveTo(93, yy); x.quadraticCurveTo(94 - rx, yy - 1, 95 - rx, yy + 3); x.stroke();
+      x.beginPath(); x.moveTo(95, yy); x.quadraticCurveTo(94 + rx, yy - 1, 93 + rx, yy + 3); x.stroke();
+    }
+    L([[85, 76], [82, 96], [83, 114]]); L([[103, 76], [106, 96], [105, 114]]);   // 팔
+    R(B, 82, 114, 2, 4); R(B, 104, 114, 2, 4);
+    R(B, 88, 112, 12, 3); R(B, 87, 115, 4, 3); R(B, 97, 115, 4, 3);             // 골반
+    L([[90, 118], [89, 145], [90, 170]]); L([[98, 118], [99, 145], [98, 170]]);  // 다리
+    R(B, 87, 170, 4, 2); R(B, 97, 170, 4, 2);
+  }
+
+  static bed(x) {
+    const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+    for (const lx of [170, 330]) { R('#6b7684', lx, 152, 3, 42); R('#20262e', lx - 2, 194, 7, 4); }
+    R('#8e9aa8', 160, 100, 5, 54); R('#b4bfcc', 160, 100, 5, 1);     // 머리판
+    R('#8e9aa8', 337, 116, 5, 38); R('#b4bfcc', 337, 116, 5, 1);     // 발판
+    R('#8e9aa8', 160, 148, 182, 5); R('#5b6674', 160, 152, 182, 1);  // 틀
+    R('#d9dee6', 165, 137, 172, 11); R('#b4bcc8', 165, 146, 172, 2);   // 매트리스
+    x.fillStyle = '#eef1f5';
+    x.beginPath(); x.ellipse(184, 133, 17, 5, 0, 0, 7); x.fill();
+    R('#ccd3dc', 170, 135, 30, 2);
+  }
+
+  /* 피험자 — 반듯이 누워 얼굴은 천장을 향합니다 (눈은 매 프레임) */
+  static subject(x) {
+    const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+    const SKIN = '#d6b49a', SKIND = '#b8927a';
+    // 이불 — 어깨 · 가슴 · 배 · 무릎 · 발끝
+    const blanket = () => {
+      x.beginPath(); x.moveTo(194, 147); x.lineTo(194, 138); x.lineTo(197, 130);
+      x.quadraticCurveTo(206, 126, 222, 127);
+      x.quadraticCurveTo(246, 129, 262, 130);
+      x.quadraticCurveTo(282, 123, 296, 126);
+      x.quadraticCurveTo(316, 130, 324, 127);
+      x.lineTo(332, 128); x.lineTo(336, 140); x.lineTo(336, 147); x.closePath();
+    };
+    x.fillStyle = '#7f93a8'; blanket(); x.fill();
+    x.strokeStyle = '#a3b5c8'; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(197, 130);
+    x.quadraticCurveTo(206, 126, 222, 127); x.quadraticCurveTo(246, 129, 262, 130);
+    x.quadraticCurveTo(282, 123, 296, 126); x.quadraticCurveTo(316, 130, 324, 127);
+    x.stroke();
+    x.strokeStyle = '#62768c';
+    [[250, 135, 256, 145], [288, 132, 284, 144], [312, 133, 318, 144]].forEach(([a, b, c2, d]) => {
+      x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d); x.stroke();
+    });
+    R('#e9edf2', 196, 129, 12, 3);                       // 접어 내린 홑청
+
+    // 이불 밖으로 나온 팔 — 링거 바늘이 여기 꽂혀 있습니다
+    R('#9fb3c6', 198, 131, 10, 4);
+    x.strokeStyle = SKIN; x.lineWidth = 3;
+    x.beginPath(); x.moveTo(208, 133); x.lineTo(244, 135); x.stroke();
+    x.fillStyle = SKIN; x.beginPath(); x.ellipse(246, 135, 3, 2, 0, 0, 7); x.fill();
+    R('#f1ece0', 236, 133, 4, 3);
+
+    // 머리
+    R(SKIN, 190, 124, 6, 5);                            // 목
+    x.fillStyle = SKIN; x.beginPath(); x.ellipse(184, 124, 8, 6.5, 0, 0, 7); x.fill();
+    x.fillStyle = '#2b2420';                            // 정수리 · 뒤통수의 머리칼
+    x.beginPath(); x.ellipse(183, 125, 8, 6.5, 0, Math.PI * .55, Math.PI * 1.42); x.lineTo(183, 125); x.fill();
+    R(SKIN, 187, 115, 2, 3);                             // 코
+    R(SKIND, 188, 117, 1, 1);
+    R('#3a2b26', 182, 117, 4, 1);                        // 눈썹
+    R(SKIND, 190, 120, 2, 1);                            // 입
+    R(SKIND, 181, 123, 2, 3);                            // 귀
+    // 뇌파 캡 — 머리띠와 전극
+    x.strokeStyle = '#cfd6de'; x.lineWidth = 1;
+    x.beginPath(); x.ellipse(184, 124, 9, 7.5, 0, Math.PI * .95, Math.PI * 1.6); x.stroke();
+    ['#2f6fb5', '#c2352c', '#e3b23c', '#e9e3d5'].forEach((col, i) => {
+      const [ex, ey] = ELECTRODES[i]; R(col, ex - 1, ey - 1, 2, 2);
+    });
+  }
+
+  /* L : 형광등 밝기 0‥1,  awake : 눈을 떴는가 */
+  draw(t, L, awake) {
+    const x = this.cx;
+    const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+    x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+    x.drawImage(this.base, 0, 0);
+
+    // 숨 — 가슴께 이불이 아주 조금 오르내립니다 (깬 뒤엔 가빠집니다)
+    if (Math.sin(t * (awake ? .09 : .035)) > .2) { R('#8a9db1', 209, 125, 16, 2); R('#a3b5c8', 209, 125, 16, 1); }
+    // 눈
+    if (awake) {
+      R('#f1ece4', 183, 118, 3, 2); R('#1a1210', 185, 118, 1, 2); R('#4a3530', 183, 117, 3, 1);
+    } else {
+      R('#4a3530', 183, 119, 3, 1);
+    }
+    // 링거 방울
+    R('#c43a3e', 352, 81 + ((t * .025) % 1) * 6 | 0, 1, 1);
+
+    // 불이 꺼져 있으면 방 전체가 가라앉습니다
+    if (L < 1) { x.fillStyle = `rgba(3,5,10,${(1 - L) * .9})`; x.fillRect(0, 0, LBW, LBH); }
+
+    x.globalCompositeOperation = 'lighter';
+    if (L > 0) {
+      x.globalAlpha = L * .16;
+      for (let i = 0; i < 4; i++) x.drawImage(this.cone, 22 + i * 118 - 10, 18, 106, 160);
+    }
+    x.globalAlpha = .5;  x.drawImage(this.monGlow, 340, -10, 160, 140);     // 모니터 빛
+    x.globalAlpha = .22; x.drawImage(this.monGlow, 240, 10, 280, 220);      // 침대까지 번지는 빛
+    x.globalAlpha = .4;  x.drawImage(this.winGlow, 176, 14, 144, 100);      // 관찰창 너머
+    x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+
+    // 관찰창 — 유리 너머 누군가 늘 지켜보고 있습니다 (어둠 속에서도 보입니다)
+    const gl = x.createLinearGradient(0, 35, 0, 93);
+    gl.addColorStop(0, '#1d3046'); gl.addColorStop(1, '#0c141e');
+    x.fillStyle = gl; x.fillRect(195, 35, 106, 58);
+    const ox = 262 + Math.sin(t * .006) * 3 | 0;
+    x.fillStyle = '#060a0f';
+    x.beginPath(); x.ellipse(ox, 58, 5, 6, 0, 0, 7); x.fill();
+    x.beginPath(); x.moveTo(ox - 11, 93); x.lineTo(ox - 8, 67); x.lineTo(ox + 8, 67); x.lineTo(ox + 11, 93); x.closePath(); x.fill();
+    R('#101a25', ox - 14, 73, 6, 9);                     // 클립보드
+    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox + 1, 57, 2, 1);   // 안경알이 번뜩
+    x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(205, 92); x.lineTo(230, 36); x.moveTo(222, 92); x.lineTo(240, 52); x.stroke();
+
+    // 스스로 빛나는 것들 — LED 와 둘째 모니터
+    if ((t >> 5) & 1) R('#ff3030', 250, 25, 2, 2);                       // 감시 카메라
+    R('#d0302a', 70, 100, 2, 2);                                         // 키카드 : 잠김
+    for (let i = 0; i < 4; i++) if (Math.sin(t * .3 + i * 1.7) > 0) R('#5bff8a', 133 + i * 5, 122, 2, 2);
+    R('#40ff70', 450, 79, 1, 1);
+    R('#000', 393, 95, 56, 26);
+    // 세포 영상 — 던전의 버섯들이 이 색이었습니다
+    [['#8a60bd', 400, 101], ['#6ea15f', 406, 113], ['#4fa39b', 412, 103]].forEach(([col, cx, cy], i) => {
+      x.fillStyle = col; x.globalAlpha = .6 + .4 * Math.sin(t * .05 + i * 2);
+      x.beginPath(); x.arc(cx, cy, 3 + Math.sin(t * .04 + i) * .8, 0, 7); x.fill();
+    });
+    x.globalAlpha = 1;
+    x.fillStyle = '#5fe0b0';
+    for (let i = 0; i < 3; i++) for (let xx = 0; xx < 29; xx++)
+      x.fillRect(418 + xx, 100 + i * 8 + Math.round(Math.sin(xx * .7 + t * .15 + i * 2) * 2), 1, 1);
+
+    // 주 모니터 화면 자리 — 심전도는 화면 공간에서 따로, 선명하게 그립니다
+    R('#000', SCR.x, SCR.y, SCR.w, SCR.h);
+  }
+}
+
+/* 카메라 — 실험실 버퍼에서 어디를 화면 가득 보여 줄지 */
+const smooth = k => k * k * (3 - 2 * k);
+/* 모니터 화면에서 방 전체로 — 배율은 로그로 줄여야 일정한 속도로 물러납니다 */
+function revealView(e) {
+  const z = Math.exp(lerp(Math.log(LBW / SCR.w), 0, e));
+  const w = LBW / z, h = LBH / z;
+  const q = (w - SCR.w) / (LBW - SCR.w);
+  return { x: lerp(SCR.x, 0, q), y: lerp(SCR.y, 0, q), w, h };
+}
+/* 방 전체에서 얼굴로 — 얼굴이 터미널 위쪽에 오도록 */
+const FACE_VIEW = (() => {
+  const w = LBW / 3, h = LBH / 3;
+  return { x: FACE.x - w * .5, y: FACE.y - h * .42, w, h };
+})();
+function lerpView(a, b, k) {
+  return { x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), w: lerp(a.w, b.w, k), h: lerp(a.h, b.h, k) };
+}
+const FULL_VIEW = { x: 0, y: 0, w: LBW, h: LBH };
 
 /* ═════════════ 글리치 ══════════════════════════════════════
    모든 연산을 320×180 버퍼에서 하고 마지막에 한 번만 키웁니다.
@@ -438,7 +760,7 @@ class EKGMonitor {
   reset() {
     this.cx.clearRect(0, 0, LW, LH);
     this.running = false; this.time = 0; this.prev = null;
-    this.beats = []; this.nextBeat = 0; this.period = 0;
+    this.beats = []; this.nextBeat = 0; this.period = 0; this.target = 60;
     this.beatCount = 0; this.bpm = 0; this.pulse = 0;
   }
   start() {
@@ -465,7 +787,7 @@ class EKGMonitor {
       this.beats.push(this.nextBeat);
       this.lastPeriod = this.period;
       this.nextBeat += this.period;
-      this.period = lerp(this.period, 60, .35) + rand(-1.5, 1.5);
+      this.period = lerp(this.period, this.target, .35) + rand(-1.5, 1.5);
     }
     this.beats = this.beats.filter(b => this.time - b < 60);
     for (const b of this.beats) {
@@ -578,7 +900,7 @@ const GLITCH_WORDS = ['SIGNAL LOST', 'DREAM DEPTH 4 → 0', 'ERR 0x07', 'REM ▓
    s.t 는 상태에 들어온 뒤 지난 프레임 수입니다. */
 
 /* Phase 1 — 현실 붕괴 (약 5초)
-     0‥50   : 무너지는 보스, 가끔 튀는 글리치
+     0‥50   : 마지막 방 그대로, 가끔 튀는 글리치
      50‥170 : 글리치가 차오름
      170‥215: 화면이 가로로 찢어지며 하얗게
      215‥235: 완전한 백색
@@ -613,7 +935,13 @@ const CrashState = {
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
 
     if (t < 215) {
-      s.dungeon.draw(s.sx, s.frame, clamp01(t / 170));
+      // 마지막 방을 매 프레임 받아 와 320×180 으로 줄여 담습니다
+      if (s.source) {
+        s.sx.imageSmoothingEnabled = true;
+        s.sx.drawImage(s.source(), 0, 0, LW, LH);
+      } else {
+        s.dungeon.draw(s.sx, s.frame, clamp01(t / 170));
+      }
       const out = s.glitch.apply(s.src, s.gk, s.frame);
       if (t >= 170) {
         // 가로로 찢어지는 틈 — 들쭉날쭉한 흰 띠가 번져 화면을 먹습니다
@@ -666,37 +994,66 @@ const CrashState = {
   }
 };
 
-/* Phase 2 — 바이탈 사인 (약 7초)
+/* Phase 2 — 바이탈 사인 (약 6.5초)
    칠흑 속에서 청록 점 하나가 납작한 선을 긋다가, 첫 박동과 함께
    삐— 소리가 납니다. 선의 색은 터미널 녹색으로 식어 갑니다. */
 const AwakenState = {
-  enter(s) { s.ekg.reset(); s.ekgDy = 0; s.hudA = 0; },
+  enter(s) { s.ekg.reset(); s.hudA = 0; },
   update(s) {
     if (s.t === 40) s.ekg.start();
     s.ekg.update();
     if (s.t > 150) s.hudA = Math.min(1, s.hudA + .015);
-    if (s.t >= 430) s.go('truth');
+    if (s.t >= 390) s.go('reveal');
   },
   draw(s, c) {
-    c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
-    if (s.hudA > 0) { c.globalAlpha = s.hudA; c.drawImage(s.grid, 0, 0); c.globalAlpha = 1; }
-    s.ekg.draw(c, s.ekgDy);
-    drawVitalsHud(s, c);
+    drawMonitorScreen(s, c, { x: 0, y: 0, w: W, h: H });
   }
 };
 
-/* Phase 3 — 진실 : 심전도가 위로 비켜 서고, 터미널이 떠오릅니다 */
+/* Phase 3 — 모니터 밖 (약 6초)
+   카메라가 화면에서 물러나면 그 심전도가 벽에 걸린 모니터였다는 게
+   드러납니다. 어두운 방엔 모니터 빛과 관찰창만 보이다가, 형광등이
+   두어 번 튀고 켜지며 누워 있는 피험자가 드러납니다. */
+const RevealState = {
+  enter(s) { s.camP = 0; s.light = 0; s.view = revealView(0); },
+  light(t) {
+    if (t < 170) return 0;
+    if (t < 172) return 1;
+    if (t < 179) return 0;
+    if (t < 181) return .9;
+    if (t < 192) return .12;
+    return clamp01(.12 + (t - 192) / 45 * .88);
+  },
+  update(s) {
+    const t = s.t;
+    s.ekg.update();
+    s.camP = clamp01((t - 30) / 290);
+    s.view = revealView(smooth(s.camP));
+    s.light = RevealState.light(t);
+    if (t === 170 || t === 179 || t === 192) s.sfx.tink();
+    if (t === 192) s.sfx.humStart();
+    if (t >= 350) s.go('truth');
+  },
+  draw(s, c) { drawLabView(s, c); }
+};
+
+/* Phase 4 — 진실 : 터미널이 떠오르고, 다 찍히면 카메라가 얼굴로 다가가
+   피험자가 눈을 뜹니다. 심박이 빨라집니다. */
 const TruthState = {
-  enter(s) { s.term.reset(); s.panelA = 0; },
+  enter(s) { s.term.reset(); s.panelA = 0; s.pushT = 0; },
   update(s) {
     s.ekg.update();
-    s.ekgDy = lerp(s.ekgDy, -H * .17, .035);
     s.panelA = Math.min(1, s.panelA + .025);
     if (s.panelA > .6) s.term.update();
-    if (s.term.done && s.term.doneT > 70) s.go('standby');
+    if (s.term.done) {
+      s.pushT++;
+      if (s.pushT === 130) { s.awake = true; s.sfx.gasp(); s.ekg.target = 46; }
+    }
+    s.view = lerpView(FULL_VIEW, FACE_VIEW, smooth(clamp01((s.pushT - 20) / 180)));
+    if (s.pushT >= 220) s.go('standby');
   },
   draw(s, c) {
-    AwakenState.draw(s, c);
+    drawLabView(s, c);
     drawTerminal(s, c);
   }
 };
@@ -717,11 +1074,47 @@ const StandbyState = {
     if ('letterSpacing' in c) c.letterSpacing = '5px';
     c.textAlign = 'center'; c.textBaseline = 'alphabetic';
     c.fillStyle = PAL.cold;
-    c.fillText('PRESS SPACE TO RETURN', W / 2, H - 22);
+    c.fillText('PRESS SPACE TO RETURN', W / 2, H - 16);
     c.restore();
   },
   input(s, key) { if (key === 'space' && s.promptA > .5) s.go('exit'); }
 };
+
+/* 모니터 화면 하나 (격자 + 심전도 + 수치) — 화면 전체든 벽의 작은 모니터든
+   960×540 기준으로 그린 뒤 그 사각형에 맞춰 줄여 넣습니다. */
+function drawMonitorScreen(s, c, r) {
+  c.save();
+  c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip();
+  c.translate(r.x, r.y);
+  c.scale(r.w / W, r.h / H);
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  if (s.hudA > 0) { c.globalAlpha = s.hudA; c.drawImage(s.grid, 0, 0); c.globalAlpha = 1; }
+  s.ekg.draw(c, 0);
+  drawVitalsHud(s, c);
+  // 작아질수록 유리 한 장이 앞에 있는 게 보입니다
+  const glass = 1 - r.w / W;
+  if (glass > 0) {
+    c.globalAlpha = glass * .5;
+    c.fillStyle = 'rgba(200,230,255,.10)';
+    c.beginPath(); c.moveTo(W * .1, 0); c.lineTo(W * .38, 0); c.lineTo(W * .12, H); c.lineTo(-W * .16, H); c.fill();
+  }
+  c.restore();
+}
+
+/* 실험실 한 장면 — 버퍼를 카메라 사각형만큼 잘라 키우고, 그 위 모니터 자리에
+   심전도 화면을 정확히 겹쳐 그립니다. */
+function drawLabView(s, c) {
+  const V = s.view;
+  s.lab.draw(s.frame, s.light, s.awake);
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  c.imageSmoothingEnabled = false;
+  c.drawImage(s.lab.cv, V.x, V.y, V.w, V.h, 0, 0, W, H);
+  const r = {
+    x: (SCR.x - V.x) * W / V.w, y: (SCR.y - V.y) * H / V.h,
+    w: SCR.w * W / V.w,         h: SCR.h * H / V.h
+  };
+  if (r.x < W && r.y < H && r.x + r.w > 0 && r.y + r.h > 0) drawMonitorScreen(s, c, r);
+}
 
 const ExitState = {
   enter(s) { s.sfx.confirm(); },
@@ -767,10 +1160,10 @@ function drawTerminal(s, c) {
   const a = easeOut(s.panelA);
   if (a <= 0) return;
   const T = s.term;
-  const pw = 680, ph = 172, px = (W - pw) / 2, py = H - ph - 54 + (1 - a) * 16;
+  const pw = 640, ph = 150, px = (W - pw) / 2, py = H - ph - 40 + (1 - a) * 16;
   c.save();
   c.globalAlpha = a;
-  c.fillStyle = 'rgba(2,12,6,.9)';
+  c.fillStyle = 'rgba(2,12,6,.88)';
   c.fillRect(px, py, pw, ph);
   c.strokeStyle = 'rgba(0,255,0,.38)'; c.lineWidth = 1;
   c.strokeRect(px + .5, py + .5, pw - 1, ph - 1);
@@ -789,9 +1182,9 @@ function drawTerminal(s, c) {
 
   c.font = `21px ${MONO}`;
   c.textBaseline = 'alphabetic';
-  let curX = px + 46, curY = py + 64;
+  let curX = px + 46, curY = py + 58;
   for (let i = 0; i <= T.li; i++) {
-    const y = py + 64 + i * 36;
+    const y = py + 58 + i * 34;
     c.fillStyle = 'rgba(0,255,0,.55)';
     c.fillText('>', px + 20, y);
     c.fillStyle = T.lines[i].color;
@@ -809,20 +1202,23 @@ function drawTerminal(s, c) {
 
 /* ═════════════ 씬 본체 ═════════════════════════════════════ */
 class EndingScene {
-  constructor(canvas, { onReturn } = {}) {
+  constructor(canvas, { source, audio, onReturn } = {}) {
     this.canvas = canvas;
     canvas.width = W; canvas.height = H;
     this.ctx = canvas.getContext('2d');
+    this.source = source;
     this.onReturn = onReturn || (() => {});
-    this.sfx = new Sfx();
-    this.dungeon = new Dungeon();
+    this.sfx = new EndSfx(audio);
     [this.src, this.sx] = makeCanvas(LW, LH);
+    if (!source) this.dungeon = new Dungeon();
+    this.lab = new Lab();
     this.glitch = new GlitchFX();
     this.ekg = new EKGMonitor(this.sfx);
     this.term = new Terminal(TRUTH_LINES, this.sfx);
     this.overlay = bakeOverlay();
     this.grid = bakeGrid();
-    this.states = { crash: CrashState, awaken: AwakenState, truth: TruthState, standby: StandbyState, exit: ExitState };
+    this.states = { crash: CrashState, awaken: AwakenState, reveal: RevealState,
+                    truth: TruthState, standby: StandbyState, exit: ExitState };
     this.loop = this.loop.bind(this);
     this.onKey = this.onKey.bind(this);
     this.running = false;
@@ -830,6 +1226,7 @@ class EndingScene {
   start() {
     this.sfx.unlock();
     this.frame = 0;
+    this.awake = false; this.light = 0; this.view = FULL_VIEW;
     this.go('crash');
     this.running = true;
     this.acc = 0;
@@ -842,6 +1239,7 @@ class EndingScene {
     cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.onKey);
     this.sfx.stopNoise();
+    this.sfx.humStop();
   }
   go(name) {
     if (this.state && this.state.exit) this.state.exit(this);
@@ -884,11 +1282,14 @@ class EndingScene {
   }
 }
 window.EndingScene = EndingScene;
+})();
 
-/* ═════════════ 시연용 연결 ═════════════════════════════════ */
-const canvas = document.getElementById('screen');
+</script>
+<script>
+/* 게임 없이 엔딩만 돌려 보는 시연 페이지.
+   source 를 주지 않으면 엔딩이 대역 던전(무너지는 눈 보스)을 씁니다. */
 const gate = document.getElementById('gate');
-const ending = new EndingScene(canvas, {
+const ending = new EndingScene(document.getElementById('screen'), {
   onReturn() {
     gate.querySelector('.g-cta').textContent = '▶ 다시 보기';
     gate.hidden = false;
@@ -903,5 +1304,3 @@ gate.addEventListener('click', async () => {
   ending.start();
 });
 </script>
-</body>
-</html>

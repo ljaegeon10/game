@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>우물 아래 깨어남</title>
+<link rel="stylesheet" href="../css/font.css">
+<style>
+  /* 화면 하나를 꽉 채우는 16:9 무대. 엔딩은 어두운 한 가지 모습만 갖습니다. */
+  :root {
+    color-scheme: dark;
+    --void: #000;
+    --cold: #e6f1ff;
+    --term: #00ff00;
+    --teal: #7de3c8;
+    --dim:  #5d6b66;
+    --pix:  'DungGeunMo', 'D2Coding', 'Nanum Gothic Coding', ui-monospace, Menlo, Consolas, monospace;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--void); color: var(--cold);
+    display: grid; place-items: center; overflow: hidden;
+    padding-inline: 16px; box-sizing: border-box;
+    font-family: var(--pix);
+  }
+  #wrap {
+    position: relative;
+    width: min(100%, calc((100vh - 32px) * 16 / 9));
+    max-width: 100%; aspect-ratio: 16 / 9;
+  }
+  #screen {
+    display: block; width: 100%; height: 100%;
+    background: var(--void);
+    image-rendering: pixelated;
+  }
+  /* 소리는 사용자가 한 번 눌러야 켜지므로, 시작은 버튼으로 받습니다 */
+  #gate {
+    position: absolute; inset: 0;
+    display: grid; place-content: center; justify-items: center; gap: 14px;
+    background: radial-gradient(ellipse at 50% 55%, #0b1613 0%, #000 70%);
+    border: 0; color: var(--cold); cursor: pointer;
+    font: inherit;
+  }
+  #gate:focus-visible { outline: 2px solid var(--term); outline-offset: -6px; }
+  .g-obang { display: flex; gap: 3px; }
+  .g-obang i { width: 22px; height: 4px; display: block; }
+  .g-obang i:nth-child(1) { background: #2f6fb5; }
+  .g-obang i:nth-child(2) { background: #e9e3d5; }
+  .g-obang i:nth-child(3) { background: #c2352c; }
+  .g-obang i:nth-child(4) { background: #15141b; outline: 1px solid #333; }
+  .g-obang i:nth-child(5) { background: #e3b23c; }
+  .g-title { font-size: clamp(22px, 5vw, 44px); letter-spacing: .12em; color: var(--teal); }
+  .g-sub   { font-size: clamp(12px, 1.8vw, 16px); letter-spacing: .3em; color: var(--dim); }
+  .g-cta   { margin-top: 18px; font-size: clamp(12px, 1.7vw, 15px); letter-spacing: .14em;
+             color: var(--cold); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .g-cta { animation: none; } }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="screen" width="960" height="540" aria-label="엔딩 연출 화면"></canvas>
+  <button id="gate" type="button">
+    <span class="g-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <span class="g-title">THE WELL BELOW</span>
+    <span class="g-sub">제3막 · 깨어남</span>
+    <span class="g-cta">▶ 눌러서 재생 · 소리 켜짐</span>
+  </button>
+</div>
+
+<script src="../js/ending.js"></script>
+<script>
+/* 게임 없이 엔딩만 돌려 보는 시연 페이지.
+   source 를 주지 않으면 엔딩이 대역 던전(무너지는 눈 보스)을 씁니다. */
+const gate = document.getElementById('gate');
+const ending = new EndingScene(document.getElementById('screen'), {
+  onReturn() {
+    gate.querySelector('.g-cta').textContent = '▶ 다시 보기';
+    gate.hidden = false;
+    gate.focus();
+  }
+});
+window.__ending = ending;   // 디버그용
+gate.addEventListener('click', async () => {
+  gate.hidden = true;
+  // 캔버스 글자는 웹폰트가 준비된 뒤에 그려야 대체 글꼴로 새지 않습니다
+  try { await document.fonts.load(`21px 'DungGeunMo'`); } catch (e) { /* 대체 글꼴로 진행 */ }
+  ending.start();
+});
+</script>
+</body>
+</html>

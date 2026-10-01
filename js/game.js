@@ -3695,6 +3695,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
+                  endingScene: () => endingScene,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
