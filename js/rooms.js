@@ -362,20 +362,7 @@ const BOSS_DEAD_LINES = [
 
 const ENDING_LINES = [
   { t: '열쇠를 꽂는다. 딸깍.', w: false },
-  { t: '**…불이 전부 꺼졌다.**', w: true }
-];
-
-const ENDING_SYS = [
-  'SUBJECT 07 · DREAM SESSION 141',
-  '실험체 뇌파 안정화 단계 진입',
-  '수면 심도 4 → 2 … 각성 프로토콜 개시'
-];
-
-/* 마지막 한 방 — 깨어난 게 끝이 아니라는 것 (쪽지 n3 의 "누가 계속 다시 재우는 거다") */
-const ENDING_LAST = [
-  'SUBJECT 07 — 각성 확인',
-  '기록 초기화 … 완료',
-  'DREAM SESSION 142 … 준비 중'
+  { t: '**…방이 일그러진다. 아니, 화면이.**', w: true }
 ];
 
 /* ── 이스터에그 ② : 숲 맨 위, 나무 사이의 좁은 틈 ──────────

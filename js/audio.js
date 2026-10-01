@@ -451,6 +451,9 @@ const Sfx = (() => {
     },
 
     muteAll() { if (master) master.gain.value = 0; },
+    /* 엔딩 씬(ending.js)이 자기 소리를 같은 컨텍스트에 얹을 때 씁니다 —
+       새 컨텍스트를 만들면 브라우저 잠금을 다시 풀어야 하니까요. */
+    context() { return ctx(); },
     started() { return started; },
     /* 실제 AudioContext 상태를 밖에서 들여다보기 위한 진단용 —
        'running' 이 아니면 브라우저/호스트가 오디오를 막고 있는 겁니다. */

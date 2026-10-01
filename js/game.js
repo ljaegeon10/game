@@ -3623,7 +3623,11 @@ function renderFall() {
   g.restore();
 }
 
-/* ═══════════ 엔딩 ═════════════════════════════════════ */
+/* ═══════════ 엔딩 ═════════════════════════════════════
+   마지막 자물쇠를 연 바로 그 방이 글리치로 무너지고, 칠흑 속 심전도와
+   터미널로 수면 실험이었다는 게 드러납니다 (연출 본체는 ending.js).
+   SPACE 를 누르면 클리어 기록이 담긴 엔드 카드로 넘어갑니다. */
+let endingScene = null;
 function beginEnding() {
   G.mode = 'ending';
   stopRun();                                   // 여기서 시계를 멈춥니다
@@ -3641,71 +3645,17 @@ function beginEnding() {
 
   $('prompt').classList.add('hidden');
   $('hud').classList.add('hidden');
+  $('subtitle').classList.add('hidden');
   $('ending').classList.remove('hidden');
-  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll(); Sfx.flatline(true);
-  $('blackout').classList.add('on');
-  G.flash = 1;
-  setTimeout(() => { $('sysline').classList.add('on'); typeSys(0); }, 2500);
-}
-/* 시스템 문구를 한 줄씩 타이핑합니다 (엔딩 도입부·마지막 각성 로그 공용) */
-function typeSysLines(lines, i, done) {
-  if (i >= lines.length) { setTimeout(done, 1100); return; }
-  const line = lines[i];
-  let n = 0;
-  $('systext').textContent = '';
-  const iv = setInterval(() => {
-    n++; $('systext').textContent = line.slice(0, n);
-    if (n % 3 === 0) Sfx.beep(.03);
-    if (n >= line.length) {
-      clearInterval(iv);
-      setTimeout(() => typeSysLines(lines, i + 1, done), i === lines.length - 1 ? 900 : 700);
-    }
-  }, 48);
-}
-function typeSys(i) { typeSysLines(ENDING_SYS, i, openEyes); }
-function openEyes() {
-  const E = $('ending');
-  $('sysline').classList.remove('on');
-  Sfx.flatline(false);
-  E.classList.add('open');
+  Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll();
 
-  const lid = (v, sec) => {
-    E.style.setProperty('--lidT', sec + 's');
-    E.style.setProperty('--lid', v);
-  };
-  const at = (ms, fn) => setTimeout(fn, ms);
-
-  /* ① 눈을 뜨는 리듬 — 실눈 → 깜빡 → 반쯤 → 깜빡 → 완전히.
-        초점이 안 맞은 채 조명이 확 밀려들었다가 서서히 또렷해집니다. */
-  lid(.26, .55);
-  E.classList.add('wash');
-  at(700,  () => { lid(.04, .26); Sfx.beep(.03); });
-  at(1150, () => lid(.48, .6));
-  at(1950, () => { lid(.10, .28); Sfx.beep(.03); });
-  at(2400, () => lid(1, 2.8));
-  at(2600, () => E.classList.add('focus'));      // 초점이 맞기 시작
-  at(3200, () => E.classList.add('zoomout'));    // 카메라가 천천히 물러남
-
-  // 심박 — 처음엔 느리다가 깨어나며 조금씩 또렷해집니다
-  let beats = 0;
-  const hb = setInterval(() => { Sfx.beep(.05); if (++beats > 30) clearInterval(hb); }, 900);
-
-  /* ② 한동안 연구실을 그대로 보여줍니다 — 설명 없이 보게 두는 시간 */
-  const T1 = 11500;
-  at(T1, () => {
-    clearInterval(hb);
-    const st = $('monstatus');
-    if (st) { st.textContent = 'AWAKE'; st.classList.add('alert'); }
-    $('alertwash').classList.add('on');
-    Sfx.glitch();
-    at(900, () => {
-      $('sysline').classList.add('on');
-      typeSysLines(ENDING_LAST, 0, () => {
-        $('sysline').classList.remove('on');
-        at(700, () => $('endcard').classList.add('on'));
-      });
-    });
+  endingScene = new EndingScene($('endcv'), {
+    // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
+    source: () => { render(); return cv; },
+    audio: () => Sfx.context(),
+    onReturn: () => $('endcard').classList.add('on')
   });
+  endingScene.start();
 }
 
 /* ═══════════ 루프 ═════════════════════════════════════
