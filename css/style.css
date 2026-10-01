@@ -583,16 +583,12 @@ html,body{
   100%{ transform:scale(14); opacity:0; }
 }
 #title h1{
-  margin:0; font-family:var(--font-ui);
-  font-weight:400; font-size:34px; line-height:1;
-  letter-spacing:.32em; text-indent:.32em;
+  margin:0; font-family:'WellDisplay','Playfair Display',Georgia,serif;
+  font-weight:900; font-size:34px; line-height:1;
+  letter-spacing:.06em; text-indent:.06em;
   color:#ece6d8;
   text-shadow:0 0 18px rgba(125,227,200,.18), 0 2px 0 rgba(0,0,0,.8);
   transition:font-size .35s ease;
-}
-.t-sub{
-  margin:9px 0 0; font-size:7px; letter-spacing:.62em; text-indent:.62em;
-  color:rgba(236,230,216,.32);
 }
 #title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
 #title.picking h1{ font-size:22px; }
