@@ -107,7 +107,9 @@ html,body{
 }
 #glitchbar.on{
   opacity:1;
-  animation:glitchflash .28s steps(6) 1;
+  /* forwards : 끝난 뒤 투명한 채로 남아야 합니다. 없으면 .on 의 opacity:1 로
+     되돌아가서, 몹을 한 번 잡은 뒤로 줄무늬가 화면에 계속 걸려 있었습니다. */
+  animation:glitchflash .28s steps(6) 1 forwards;
   background:
     linear-gradient(transparent 0 42%, rgba(125,227,200,.30) 42% 46%, transparent 46%),
     linear-gradient(transparent 0 63%, rgba(226,50,60,.28) 63% 65%, transparent 65%),

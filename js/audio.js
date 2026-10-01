@@ -345,13 +345,16 @@ const Sfx = (() => {
     },
 
     /* hard = true 면 여운 없이 즉시 끊습니다 (죽어서 처음부터 다시 싸울 때 —
-       페이드로 겹치면 같은 곡이 두 겹으로 울려 이상해집니다) */
-    bossBgm(which, on, hard) {
+       페이드로 겹치면 같은 곡이 두 겹으로 울려 이상해집니다)
+       skipIntro = true 면 도입부를 건너뛰고 반복 구간부터 (타임어택은 변신
+       컷신이 없어서, 조용한 도입을 기다려 줄 시간이 없습니다) */
+    bossBgm(which, on, hard, skipIntro) {
       const cfg = BOSS_BGM[which], st = bgmSt[which];
       if (!cfg || !st) return;
       const c = ctx();
       if (on) {
         st.want = true;
+        if (skipIntro) st.skip = true;
         if (st.node) return;
         if (!st.buf) { api.preloadBossBgm(which); return; }   // 디코딩 끝나면 자동 재생
         const t = c.currentTime;
@@ -364,7 +367,8 @@ const Sfx = (() => {
         g.gain.setValueAtTime(0.0001, t);
         g.gain.exponentialRampToValueAtTime(cfg.vol, t + cfg.fade);
         src.connect(g); g.connect(master);
-        src.start(t, 0);
+        src.start(t, st.skip ? cfg.loopStart : 0);
+        st.skip = false;
         st.node = { src, g };
       } else {
         st.want = false;
