@@ -687,6 +687,7 @@ html,body{
   color:rgba(241,236,224,.28);
   text-align:center;
 }
+#credits span{ display:block; margin-top:3px; font-size:7px; color:rgba(241,236,224,.26); }
 
 /* ── 모드 선택 ────────────────────────────────────────────
    시작하기를 누르면 타이틀 로고는 그대로 두고, 기록·시작 버튼 자리에
@@ -870,6 +871,18 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
   display:flex; flex-direction:column; align-items:center; gap:4px;
 }
 .er-label{ font-size:8px; letter-spacing:.24em; color:#97a6bb; }
+
+/* 크레딧 — 엔드 카드가 다 밝아진 뒤 천천히 떠오릅니다 */
+.e-credits{
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  margin:12px 0 4px; opacity:0;
+}
+#endcard.on .e-credits{ animation:ecIn 1.8s ease-out 1.4s forwards; }
+@keyframes ecIn{ from{ opacity:0; transform:translateY(4px) } to{ opacity:1; transform:none } }
+.ec-label{ font-size:7px; letter-spacing:.3em; text-indent:.3em; color:#6f7c8e; }
+.ec-names{ font-size:9px; letter-spacing:.14em; color:#c9cfd8; }
+.ec-thanks{ margin-top:6px; }
+.ec-thanks-name{ color:var(--glow); text-shadow:0 0 6px rgba(125,227,200,.35); }
 
 /* ═══════════════════════════════════════════════════════
    이스터에그 ② — 숲 밖으로 나가려 하면 끼어드는 관찰자
@@ -1267,7 +1280,7 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
         <button id="dvback">← 뒤로</button>
       </div>
 
-      <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁</p>
+      <p id="credits">made by 이재건 · 장도우 · 박하늘 · 문서혁<span>special thanks 최지원</span></p>
     </div>
 
     <!-- ── 사망 ───────────────────────────────────────────── -->
@@ -1298,6 +1311,14 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
         <div class="e-records">
           <span class="er-label">기록</span>
           <ol id="records"></ol>
+        </div>
+
+        <!-- 크레딧 — 끝까지 온 사람에게. 카드가 뜨고 조금 뒤에 떠오릅니다 -->
+        <div class="e-credits">
+          <span class="ec-label">MADE BY</span>
+          <span class="ec-names">이재건 · 장도우 · 박하늘 · 문서혁</span>
+          <span class="ec-label ec-thanks">SPECIAL THANKS</span>
+          <span class="ec-names ec-thanks-name">최지원</span>
         </div>
 
         <button id="againbtn">처음부터 다시</button>
