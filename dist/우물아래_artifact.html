@@ -1598,13 +1598,6 @@ const Sfx = (() => {
       tone(63, 1.0, 'sine', 0.30, 30);
     },
 
-    /* 오프닝 — 어둠 속 눈이 이쪽을 볼 때. 반음끼리 부딪는 날카로운 덩어리 */
-    sting() {
-      [233, 247, 349, 370].forEach((f, i) => tone(f, 1.3 - i * .1, 'sawtooth', 0.11, f * .94));
-      tone(46, 1.4, 'sine', 0.36, 30);
-      noise(0.5, 0.22, 900, 9000);
-    },
-
     /* 오프닝 — 숫자를 세며 가라앉을 때. 아주 낮게 길게 꺼져 드는 음과 바람 */
     sink(sec = 6) {
       const c = ctx(), t = c.currentTime;
@@ -8677,16 +8670,13 @@ function renderLanding() {
        ▸ 하강 1190‥1556 : 숫자를 거꾸로 세는 동안 천장이 멀어지며 돌로 쌓은
                     통로가 시야를 둘러쌉니다 — 병실 천장이 우물 입구가 됩니다.
                     "일곱…" 에서 바닥이 꺼지듯 한 번 툭 떨어지고 눈이 감깁니다.
-     DARK 1570‥1770 : 정적. 심장 한 번.
-       ▸ 어둠 속 눈 : 어둠 한가운데서 커다란 눈 하나가 열려 이쪽을 봅니다.
-                    동공엔 천장 격자 조명이 비쳐 있습니다. 눈이 마주치는 순간
-                    날카로운 소리와 함께 감기고, 새소리가 번져 옵니다.
-     WOOD 1770‥2000 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
+     DARK 1570‥1690 : 정적. 심장 한 번. 새소리가 번져 옵니다.
+     WOOD 1690‥1920 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
                     첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
        ▸ 지켜보는 이 : 두 번째 깜빡임 사이, 가지 틈에 안경 쓴 머리가 내려다봅니다.
                     다시 눈을 뜨면 없고 — 새들이 그 자리에서 날아오릅니다.
      (대사)        : "…언제 잠들었지." 외 두 줄 — 이동 중엔 시계가 멈춥니다
-     RISE 2000‥2080: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
+     RISE 1920‥2000: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
      → 탑뷰 숲. 조리개가 열리듯 화면이 드러나고 조작 안내.
    타임어택은 이 장면 전체를 건너뜁니다. */
 /* 이야기의 빠르기 — 숫자 세기 전의 대화는 OP_SLOW 배로 늘려 들려줍니다.
@@ -8694,11 +8684,9 @@ function renderLanding() {
    (대화 구간은 배로 늘고, 그 뒤는 늘어난 만큼 통째로 밀립니다) */
 const OP_SLOW = 2, OP_STORY_END = 1190;
 const opT = t => t < OP_STORY_END ? t * OP_SLOW : t + OP_STORY_END * (OP_SLOW - 1);
-const OP = { LAB: opT(1570), DARK: opT(1770), LINES: opT(2000), END: opT(2080),
+const OP = { LAB: opT(1570), DARK: opT(1690), LINES: opT(1920), END: opT(2000),
              CR0: opT(552), CR1: opT(694),                   // 각성 위기 — 눈이 번쩍 뜨이고 약이 들어갈 때까지
              SINK0: opT(1190), SINK1: opT(1556), DROP: opT(1522) };   // 우물 아래로 가라앉음 · 툭 떨어짐
-/* 어둠 속 눈 — DARK 시작(OP.LAB)에서 몇 프레임 뒤인지 */
-const OP_DEYE = { OPEN: 50, LOOK: 92, SHUT: 128, END: 134 };
 const OP_EYE = [
   [0, 0], [30, .58], [90, .62], [118, .14], [140, .55],
   [200, .5], [212, .62], [220, .16], [244, .46],                 // 펜라이트에 움찔
@@ -8710,8 +8698,8 @@ const OP_EYE = [
   // 숫자 하나에 한 번씩, 점점 무겁게 감겼다가 덜 뜹니다
   // 가라앉는 통로가 보이도록 반쯤은 떠 있고, "일곱…" 에서 툭 떨어질 때 번쩍 뜨였다 감깁니다
   [1200, .44], [1260, .4], [1282, .1], [1300, .38], [1350, .36], [1366, .08], [1385, .32],
-  [1430, .3], [1450, .06], [1470, .28], [1518, .24], [1526, .62], [1538, .4], [1556, 0], [1770, 0],
-  [1800, .22], [1816, .03], [1848, .52], [1868, .14], [1900, .86], [1916, .58], [1960, 1], [2080, 1]
+  [1430, .3], [1450, .06], [1470, .28], [1518, .24], [1526, .62], [1538, .4], [1556, 0], [1690, 0],
+  [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [2000, 1]
 ].map(([t, v]) => [opT(t), v]);
 /* [시작, 끝, 대사, 목소리] — near : 가까이서 말 거는 목소리
                                far  : 저쪽에서 들리는 조수의 목소리 (작고 흐리게)
@@ -8784,14 +8772,7 @@ function tickOpening() {
   if (t === OP.SINK0 + 20) Sfx.sink((OP.SINK1 - OP.SINK0) / 60);
   if (t === OP.DROP) { Sfx.landThump(.28); Sfx.fall(); O.shake = 10; }
   if (t === OP.LAB + 20) Sfx.landThump(.16);                               // 어둠 속 심장 한 번
-  // 어둠 속 눈
-  const d = t - OP.LAB;
-  if (d === OP_DEYE.OPEN) Sfx.blink();
-  if (d === OP_DEYE.LOOK) { Sfx.sting(); O.shake = 7; }
-  if (d === OP_DEYE.SHUT) { Sfx.blink(); Sfx.landThump(.3); O.shake = 4; }
-  if (d === OP_DEYE.SHUT + 34) Sfx.landThump(.12);                         // 쿵— 쿵
-  if (d === OP_DEYE.SHUT + 44) Sfx.landThump(.09);
-  if (d === OP_DEYE.SHUT + 40) Sfx.ambient('forest');                      // 새소리가 번져 옴
+  if (t === OP.LAB + 50) Sfx.ambient('forest');                            // 새소리가 번져 옴
   if (t === OP.DARK + 132) Sfx.breath();
   // 지켜보는 이가 사라진 자리에서 새들이 날아오릅니다
   const w = t - OP.DARK;
@@ -8974,86 +8955,6 @@ function drawOpShaft(t, e) {
   g.restore();
 }
 
-/* 어둠 속 눈 — 눈을 감은 채로 보입니다. 동공엔 천장 조명이 비칩니다. */
-function drawOpDarkEye(d) {
-  const { OPEN, LOOK, SHUT } = OP_DEYE;
-  let op;
-  if (d < OPEN) return;
-  else if (d < OPEN + 22) op = ease01((d - OPEN) / 22);
-  else if (d < SHUT) op = 1;
-  else if (d < SHUT + 5) op = 1 - (d - SHUT) / 5;
-  else return;
-  const cx = W / 2, cy = H / 2 + 4, EW = 236, EH = 96 * op;
-  const look = d >= LOOK ? ease01((d - LOOK) / 4) : 0;
-  // 두리번거리다 — 이쪽을 찾아 멈춥니다
-  const sac = d < OPEN + 16 ? [-52, 10] : d < OPEN + 30 ? [46, -4] : [-24, 6];
-  const ix = cx + sac[0] * (1 - look) + (look ? (Math.random() - .5) * 1.5 : 0);
-  const iy = cy + sac[1] * (1 - look);
-  const almond = () => {
-    g.beginPath();
-    g.moveTo(cx - EW, cy);
-    g.quadraticCurveTo(cx, cy - EH * 2, cx + EW, cy);
-    g.quadraticCurveTo(cx, cy + EH * 1.7, cx - EW, cy);
-    g.closePath();
-  };
-  g.save();
-  g.globalAlpha = .9;
-  almond(); g.save(); g.clip();
-  // 흰자 — 누렇고 탁한, 핏발 선
-  const sc = g.createRadialGradient(ix, iy, 30, cx, cy, EW);
-  sc.addColorStop(0, '#a99c86'); sc.addColorStop(.5, '#7a665a'); sc.addColorStop(1, '#2a1416');
-  g.fillStyle = sc; g.fillRect(cx - EW, cy - 200, EW * 2, 400);
-  g.strokeStyle = 'rgba(150,26,26,.55)'; g.lineWidth = 1;
-  for (let i = 0; i < 16; i++) {
-    const ang = i * 2.4, side = Math.cos(ang) > 0 ? 1 : -1;
-    let x = cx + side * EW * (.95 - (i % 3) * .05), y = cy + Math.sin(ang) * 40;
-    g.beginPath(); g.moveTo(x, y);
-    for (let k = 1; k <= 6; k++) {
-      x += -side * (12 + (i * k) % 9); y += Math.sin(i * 1.7 + k * 2.1) * 6;
-      g.lineTo(x, y);
-    }
-    g.stroke();
-  }
-  // 홍채 — 바큇살 무늬
-  const IR = 60;
-  const ir = g.createRadialGradient(ix, iy, 6, ix, iy, IR);
-  ir.addColorStop(0, '#5d7564'); ir.addColorStop(.7, '#2a3c32'); ir.addColorStop(1, '#0b100d');
-  g.fillStyle = ir; g.beginPath(); g.arc(ix, iy, IR, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = 'rgba(10,16,12,.6)';
-  for (let k = 0; k < 40; k++) {
-    const ang = k / 40 * 6.283;
-    g.beginPath(); g.moveTo(ix + Math.cos(ang) * 18, iy + Math.sin(ang) * 18);
-    g.lineTo(ix + Math.cos(ang + .05) * IR, iy + Math.sin(ang + .05) * IR); g.stroke();
-  }
-  // 동공 — 이쪽을 보는 순간 바늘처럼 좁아집니다
-  const pr = 30 - look * 19;
-  g.fillStyle = '#020203'; g.beginPath(); g.arc(ix, iy, pr, 0, Math.PI * 2); g.fill();
-  // 각막에 비친 것 — 격자 조명 네 장 (무엇인지는 엔딩에서)
-  g.fillStyle = 'rgba(230,240,255,.85)';
-  [[-22, -24], [-10, -24], [-22, -17], [-10, -17]].forEach(([dx, dy]) => g.fillRect(ix + dx, iy + dy, 10, 5));
-  g.fillStyle = 'rgba(255,255,255,.12)';
-  g.beginPath(); g.ellipse(ix - 14, iy - 18, 26, 16, -.4, 0, Math.PI * 2); g.fill();
-  // 눈꺼풀 안쪽 그림자
-  const sh = g.createLinearGradient(0, cy - EH * 1.2, 0, cy + EH);
-  sh.addColorStop(0, 'rgba(0,0,0,.75)'); sh.addColorStop(.35, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,.35)');
-  g.fillStyle = sh; g.fillRect(cx - EW, cy - 200, EW * 2, 400);
-  g.restore();
-  // 눈 테두리와 속눈썹
-  g.strokeStyle = '#000'; g.lineWidth = 3; almond(); g.stroke();
-  g.strokeStyle = 'rgba(0,0,0,.9)'; g.lineWidth = 2;
-  for (let k = 1; k < 18; k++) {
-    const u = k / 18, x = cx - EW + u * EW * 2;
-    const y = (1 - u) * (1 - u) * cy + 2 * (1 - u) * u * (cy - EH * 2) + u * u * cy;
-    g.beginPath(); g.moveTo(x, y); g.lineTo(x + (u - .5) * 22, y - 10 - Math.sin(u * Math.PI) * 10); g.stroke();
-  }
-  g.restore();
-  blurFrame(.7);
-  // 어둠이 가장자리를 먹습니다
-  const vg = g.createRadialGradient(cx, cy, 140, cx, cy, W * .55);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.95)');
-  g.fillStyle = vg; g.fillRect(0, 0, W, H);
-}
-
 /* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 머리 하나, 그리고 날아오르는 새 */
 function drawOpWatcher(w) {
   const hx = W * .63, hy = H * .3;
@@ -9188,8 +9089,6 @@ function renderOpening() {
 
   // 눈꺼풀 (우물 바닥에서 깨어날 때와 같은 모양)
   drawEyelids(o);
-  // 어둠 속 눈 — 감은 눈꺼풀 너머로 보입니다
-  if (t >= OP.LAB && t < OP.DARK) drawOpDarkEye(t - OP.LAB);
 
   // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게
   OP_TEXT.forEach(([a, b, s, who]) => {
