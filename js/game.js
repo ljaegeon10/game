@@ -4783,9 +4783,30 @@ function beginEnding() {
     // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
     source: () => { render(); return cv; },
     audio: () => Sfx.context(),
-    onReturn: () => $('endcard').classList.add('on')
+    onReturn: () => beginEscape()        // 눈을 뜬 그 자리에서 1인칭으로 이어집니다
   });
   endingScene.start();
+}
+
+/* ═══════════ 제4막 (시제품) — 연구소 탈출, 1인칭 ═══════════════
+   엔딩에서 눈을 뜬 뒤, 비상구 앞에서 나갈지 말지를 고릅니다 (js/escape.js).
+   어떻게 끝났는지에 따라 엔드 카드의 한 줄이 달라집니다. */
+let escapeScene = null;
+const END_SUB = {
+  stay:    '2145 / 05 / 20 · 실험체 07 · 다시 잠듦 — 세션 142 예약',
+  caught:  '2145 / 05 / 20 · 실험체 07 · 이탈 시도 — 세션 142 예약',
+  escaped: '2145 / 05 / 20 · 실험체 07 · 세션 이탈 — 위치 확인 불가'
+};
+function beginEscape() {
+  escapeScene = new EscapeScene($('endcv'), {
+    audio: () => Sfx.context(),
+    onDone: result => {
+      escapeScene = null;
+      $('endcard').querySelector('.e-sub').textContent = END_SUB[result] || END_SUB.stay;
+      $('endcard').classList.add('on');
+    }
+  });
+  escapeScene.start();
 }
 
 /* ═══════════ 이스터에그 ③ — 코나미 코드 (타이틀) ═══════════════
@@ -4984,7 +5005,7 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['doze', '이스터에그 : 졸음'],
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 시제품)'], ['doze', '이스터에그 : 졸음'],
   ['away', '이스터에그 : 화면 밖']
 ];
 
@@ -5068,6 +5089,10 @@ function devJump(kind) {
     case 'abomdeath': devAbom(); killBoss(); break;
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
+    case 'escape':    devExit(); G.mode = 'ending'; stopRun();
+                      ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
+                      $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
+                      beginEscape(); break;
     case 'away':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play';
                       G.awayMsg = { t: 0, lines: AWAY_SHORT }; Sfx.glitch(); G.flash = .6; break;
     case 'doze':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play'; beginDoze(); break;
@@ -5086,6 +5111,7 @@ function devKillAll() {
 /* ` — 어디서든 개발자 화면으로 */
 function devReturn() {
   if (endingScene && endingScene.running) endingScene.stop();
+  if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
   $('ending').classList.add('hidden');
   $('endcard').classList.remove('on');
   resetRun();
@@ -5144,7 +5170,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
-                  endingScene: () => endingScene,
+                  endingScene: () => endingScene, escapeScene: () => escapeScene, beginEscape,
                   killBoss, MORPH_PRE, AD, AD_DONE,
                   devJump, openDevPanel, devKillAll, OP, opT, beginDoze, DOZE_AFTER,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };

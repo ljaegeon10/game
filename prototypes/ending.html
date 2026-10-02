@@ -71,16 +71,20 @@
 </div>
 
 <script src="../js/ending.js"></script>
+<script src="../js/escape.js"></script>
 <script>
 /* 게임 없이 엔딩만 돌려 보는 시연 페이지.
    source 를 주지 않으면 엔딩이 대역 던전(무너지는 눈 보스)을 씁니다. */
 const gate = document.getElementById('gate');
-const ending = new EndingScene(document.getElementById('screen'), {
-  onReturn() {
-    gate.querySelector('.g-cta').textContent = '▶ 다시 보기';
-    gate.hidden = false;
-    gate.focus();
-  }
+const screen = document.getElementById('screen');
+const backToGate = () => {
+  gate.querySelector('.g-cta').textContent = '▶ 다시 보기';
+  gate.hidden = false;
+  gate.focus();
+};
+/* 엔딩이 끝나면 — 눈을 뜬 자리에서 1인칭 탈출(시제품)로 이어집니다 */
+const ending = new EndingScene(screen, {
+  onReturn() { new EscapeScene(screen, { audio: () => ending.sfx.ac, onDone: backToGate }).start(); }
 });
 window.__ending = ending;   // 디버그용
 gate.addEventListener('click', async () => {
