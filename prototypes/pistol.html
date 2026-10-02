@@ -44,7 +44,8 @@
    ═══════════════════════════════════════════════════════════════ */
 const CW = 960, CH = 764;
 const VW = 192, VH = 108, VS = 5;          // 장면 버퍼 — ×5 로 키워 960×540
-const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, LIFT, SPR_MAG, SPR_CASE, C, OBANG, gx0 } = window.PistolArt;
+const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, SPR_MAG, SPR_CASE, AT, OBANG } = window.PistolArt;
+const C = { ...window.PistolArt.C, G4: '#4f5967', G5: '#7c8899' };
 const STEP = 1000 / 60;
 const FONT = "'DungGeunMo', ui-monospace, Menlo, Consolas, monospace";
 
@@ -155,32 +156,31 @@ const st = {
   mags: [], cases: [], frame: 0
 };
 const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;
-const SY = -LIFT;                                    // 옆모습 칸의 세로 보정
 
 function startReload() { if (st.mode === 'reload') return; st.mode = 'reload'; st.seq = 0; st.seqT = 0; fireEvent(SEQ[0][3]); }
 
 function fireEvent(ev) {
-  const gx = GUN_X + st.kx, gy = GUN_Y + st.dy + st.kick + SY;
+  const gx = GUN_X + st.kx, gy = GUN_Y + st.dy + st.kick;
   switch (ev) {
     case 'cant': st.dy = 16; break;                          // 총을 옆으로 눕히며 내려옵니다
-    case 'press': Sfx.press(); for (let i = 0; i < 4; i++) emit(gx + 67, gy + 49, (Math.random() - .5) * .6, -.4 - Math.random() * .4, C.T, 14, 0, true, false); break;
+    case 'press': Sfx.press(); for (let i = 0; i < 4; i++) emit(gx + AT.release[0], gy + AT.release[1], (Math.random() - .5) * .6, -.4 - Math.random() * .4, C.T, 14, 0, true, false); break;
     case 'release': Sfx.drop(); break;
     case 'drop':                                              // 빈 탄창이 떨어져 나갑니다
-      st.mags.push({ x: gx + gx0(82) - 2, y: gy + 49 + 15, vx: -.25 + Math.random() * .2, vy: .6, tilt: 0, dead: false });
+      st.mags.push({ x: gx + AT.magDrop[0], y: gy + AT.magDrop[1], vx: -.25 + Math.random() * .2, vy: .6, tilt: 0, dead: false });
       break;
     case 'bring': Sfx.tink(); break;
     case 'seat':                                              // 철컥 — 손바닥으로 밀어 넣음
       Sfx.seat(); st.kick = -3;
-      for (let i = 0; i < 8; i++) emit(gx + gx0(82) + 4 + Math.random() * 10, gy + 84, (Math.random() - .5) * 1.4, -Math.random() * 1.2, i % 3 ? C.G5 : C.T, 18, .08, i % 3 === 0);
+      for (let i = 0; i < 8; i++) emit(gx + AT.seat[0] - 8 + Math.random() * 14, gy + AT.seat[1], (Math.random() - .5) * 1.4, -Math.random() * 1.2, i % 3 ? C.G5 : C.T, 18, .08, i % 3 === 0);
       break;
     case 'grab': Sfx.tink(); break;
     case 'pull': Sfx.rack(); break;
     case 'eject':                                             // 챔버의 탄이 튀어나갑니다
-      st.cases.push({ x: gx + 64, y: gy + 29, vx: 1.2 + Math.random() * .5, vy: -2.4, f: 0, dead: false });
+      st.cases.push({ x: gx + AT.port[0], y: gy + AT.port[1], vx: 1.2 + Math.random() * .5, vy: -2.4, f: 0, dead: false });
       break;
     case 'snap':                                              // 놓으면 제자리로 — 톱니 빛이 뒤로 흘러갑니다
       Sfx.snap(); st.kick = 2;
-      for (let i = 0; i < 18; i++) emit(gx + 78 + Math.random() * 12, gy + 30 + Math.random() * 10, 1.6 + Math.random() * 1.8, (Math.random() - .5) * .3, C.T, 14 + (Math.random() * 8 | 0), 0, true, false);
+      for (let i = 0; i < 18; i++) emit(gx + AT.serr[0] + 2 + Math.random() * 12, gy + AT.serr[1] + Math.random() * 10, 1.6 + Math.random() * 1.8, (Math.random() - .5) * .3, C.T, 14 + (Math.random() * 8 | 0), 0, true, false);
       break;
   }
 }
@@ -229,7 +229,7 @@ function update() {
   st.col = col; st.row = row; st.kx = 0;
   // 슬라이드를 당기는 동안 톱니 빛이 계속 흘러나옵니다
   if (col === 3 && (row === 1 || row === 2) && st.frame % 2 === 0)
-    emit(GUN_X + 82 + Math.random() * 10, GUN_Y + SY + st.dy + 30 + Math.random() * 10, 1.2 + Math.random(), 0, C.T, 10, 0, true, false);
+    emit(GUN_X + AT.serr[0] + 4 + Math.random() * 10, GUN_Y + st.dy + AT.serr[1] + Math.random() * 10, 1.2 + Math.random(), 0, C.T, 10, 0, true, false);
   if (++st.seqT >= dur) {
     st.seqT = 0; st.seq++;
     if (st.seq >= SEQ.length) { st.mode = 'idle'; st.idleT = 0; st.dy = 14; return; }   // 다시 들어 올림

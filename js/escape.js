@@ -363,7 +363,7 @@ const PA = window.PistolArt || null;
 const RELOAD_SPEED = .8;                       // 시연보다 조금 빠르게 — 달리는 중이니까
 const RSEQ = PA ? PA.SEQ.map(([c, r, d, ev]) => [c, r, Math.max(3, Math.round(d * RELOAD_SPEED)), ev]) : [[0, 0, 70, null]];
 const RELOAD_LEN = RSEQ.reduce((a, q) => a + q[2], 0);
-const GUN_DX = LW - 128 - 6, GUN_DY = LH - 96 + 12;   // 화면 오른쪽 아래 — 가운데 길은 가리지 않게
+const GUN_DX = LW - 128 - 6, GUN_DY = LH - 96 + 4;   // 화면 오른쪽 아래 — 가운데 길은 가리지 않게
 
 function startReload(s) {
   const G = s.gun;
@@ -382,18 +382,18 @@ function tickReload(s) {
 }
 /* 장전 중의 순간들 — 탄창이 떨어지고, 탄피가 튀고, 톱니 빛이 흘러갑니다 */
 function reloadEvent(s, ev) {
-  const G = s.gun, gx = G.x, gy = G.y - (PA ? PA.LIFT : 0);
+  const G = s.gun, gx = G.x, gy = G.y, A = PA ? PA.AT : null;
   switch (ev) {
     case 'cant': G.dy = 16; break;
     case 'press': s.sfx.press(); break;
     case 'release': s.sfx.magOut(); break;
-    case 'drop': if (PA) s.drops.push({ k: 'mag', x: gx + PA.gx0(82) - 2, y: gy + 64, vx: -.3, vy: .8 }); break;
+    case 'drop': if (A) s.drops.push({ k: 'mag', x: gx + A.magDrop[0], y: gy + A.magDrop[1], vx: -.3, vy: .8 }); break;
     case 'bring': case 'grab': s.sfx.tink(); break;
-    case 'seat': s.sfx.seat(); G.kick = -3; for (let i = 0; i < 6; i++) s.bits.push({ x: gx + 82 + Math.random() * 10, y: gy + 84, vx: (Math.random() - .5) * 1.2, vy: -Math.random(), life: 16, c: i % 2 ? '#7b8696' : '#00ffd5' }); break;
+    case 'seat': s.sfx.seat(); G.kick = -3; for (let i = 0; i < 6; i++) s.bits.push({ x: gx + (A ? A.seat[0] : 86) - 6 + Math.random() * 12, y: gy + (A ? A.seat[1] : 79), vx: (Math.random() - .5) * 1.2, vy: -Math.random(), life: 16, c: i % 2 ? '#7b8696' : '#00ffd5' }); break;
     case 'pull': s.sfx.rack(); break;
-    case 'eject': if (PA) s.drops.push({ k: 'case', x: gx + 64, y: gy + 29, vx: 1.3, vy: -2.2, f: 0 }); break;
+    case 'eject': if (A) s.drops.push({ k: 'case', x: gx + A.port[0], y: gy + A.port[1], vx: 1.3, vy: -2.2, f: 0 }); break;
     case 'snap': s.sfx.snap(); G.kick = 2;
-      for (let i = 0; i < 14; i++) s.bits.push({ x: gx + 80 + Math.random() * 12, y: gy + 30 + Math.random() * 10, vx: 1.6 + Math.random() * 1.8, vy: 0, life: 12 + (Math.random() * 8 | 0), c: '#00ffd5', glow: true });
+      for (let i = 0; i < 14; i++) s.bits.push({ x: gx + (A ? A.serr[0] : 82) + Math.random() * 12, y: gy + (A ? A.serr[1] : 30) + Math.random() * 10, vx: 1.6 + Math.random() * 1.8, vy: 0, life: 12 + (Math.random() * 8 | 0), c: '#00ffd5', glow: true });
       break;
   }
 }
@@ -915,12 +915,12 @@ function drawViewGun(s, b) {
   b.save(); b.globalCompositeOperation = 'lighter'; b.globalAlpha = .28;
   [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => b.drawImage(mask, col * FW, row * FH, FW, FH, G.x + ox, G.y + oy, FW, FH));
   b.restore();
-  // 총구 섬광 — 가늠쇠 위로
-  const mx = G.x + 64, my = G.y + 20;
+  // 총구 섬광 — 총구 앞으로
+  const mx = G.x + PA.AT.muzzle[0], my = G.y + PA.AT.muzzle[1];
   if (G.flash > 0) {
     b.save(); b.globalCompositeOperation = 'lighter';
-    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(mx, my - 2, 6 + G.flash * 2, 0, Math.PI * 2); b.fill();
-    b.fillStyle = 'rgba(0,255,213,.5)'; b.beginPath(); b.arc(mx, my - 2, 10 + G.flash * 3, 0, Math.PI * 2); b.fill();
+    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(mx - 5, my, 6 + G.flash * 2, 0, Math.PI * 2); b.fill();
+    b.fillStyle = 'rgba(0,255,213,.5)'; b.beginPath(); b.arc(mx - 6, my, 10 + G.flash * 3, 0, Math.PI * 2); b.fill();
     b.restore();
   }
   if (G.tracer) {                                                         // 총알 궤적
