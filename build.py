@@ -6,6 +6,7 @@ build.py — 단일 HTML 파일로 묶습니다.
 
 결과: dist/우물아래.html       (더블클릭하면 바로 실행)
       dist/우물아래_엔딩.html  (엔딩만 따로 보는 시연 페이지)
+      dist/우물아래_피스톨.html (1인칭 피스톨 · 장전 모션 시트 시연)
 CSS·JS·이미지가 전부 한 파일에 들어가므로 인터넷/서버 없이 동작합니다.
 """
 import re, pathlib
@@ -17,6 +18,7 @@ OUT_DIR = ROOT / "dist"
 PAGES = [
     (ROOT / "index.html",               OUT_DIR / "우물아래.html"),
     (ROOT / "prototypes" / "ending.html", OUT_DIR / "우물아래_엔딩.html"),
+    (ROOT / "prototypes" / "pistol.html", OUT_DIR / "우물아래_피스톨.html"),
 ]
 
 

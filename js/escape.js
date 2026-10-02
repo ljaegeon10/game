@@ -124,6 +124,12 @@ class EscSfx {
   enemyShot()    { this.noise(.12, .22, 600, 9000); this.tone(320, .08, 'square', .1, 120); }
   empty()        { this.tone(1400, .03, 'square', .06); this.noise(.04, .08, 2000, 8000); }
   reloadStart()  { this.noise(.08, .1, 1200, 6000); this.tone(500, .05, 'square', .05, 0, .05); }
+  press()        { this.tone(1800, .03, 'square', .05); }
+  magOut()       { this.noise(.08, .1, 1500, 8000); this.tone(300, .06, 'triangle', .05); }
+  seat()         { this.noise(.05, .18, 2500, 9000); this.tone(520, .05, 'square', .08); }
+  rack()         { this.noise(.07, .14, 2000, 9000); this.tone(900, .04, 'square', .05, 600); }
+  snap()         { this.noise(.05, .2, 3000, 10000); this.tone(1200, .04, 'square', .07); }
+  tink()         { this.tone(3200, .05, 'triangle', .035); }
   reload()       { this.noise(.06, .12, 1500, 7000); this.tone(700, .04, 'square', .07, 0, .06); this.tone(420, .05, 'square', .06, 0, .14); }
   charge()       { this.tone(500, .9, 'sine', .035, 1400); }
   lock()         { this.tone(1760, .07, 'square', .05); this.tone(1760, .07, 'square', .05, 0, .1); }
@@ -333,6 +339,7 @@ const RunState = {
       }
     }
     updateGun(s);
+    tickGunBits(s);
     // 진행하며 들리는 말
     RUN_LINES.forEach(([z, txt, who], i) => { if (!(s.saidMask & (1 << i)) && s.z >= z) { s.saidMask |= 1 << i; s.say(txt, who, who === 'doc' ? 130 : 110); } });
 
@@ -348,11 +355,59 @@ const RunState = {
   draw(s, b) { drawWorld(s, b); }
 };
 
-/* ═════════════ 총격전 ═════════════════════════════════════ */
+/* ═════════════ 총격전 ═════════════════════════════════════
+   총은 js/pistol.js 가 구운 픽셀 시트로 그립니다 — 대기 네 장(숨),
+   탄을 다 쓰거나 R 을 누르면 장전 열두 장(탄창 배출 → 삽입 → 슬라이드).
+   시트가 없으면(모듈을 안 불렀을 때) 장전은 시간만 흐릅니다. */
+const PA = window.PistolArt || null;
+const RELOAD_SPEED = .8;                       // 시연보다 조금 빠르게 — 달리는 중이니까
+const RSEQ = PA ? PA.SEQ.map(([c, r, d, ev]) => [c, r, Math.max(3, Math.round(d * RELOAD_SPEED)), ev]) : [[0, 0, 70, null]];
+const RELOAD_LEN = RSEQ.reduce((a, q) => a + q[2], 0);
+const GUN_DX = LW - 128 - 6, GUN_DY = LH - 96 + 12;   // 화면 오른쪽 아래 — 가운데 길은 가리지 않게
+
+function startReload(s) {
+  const G = s.gun;
+  if (!G || G.reload > 0 || G.ammo >= MAG) return;
+  G.reload = RELOAD_LEN; G.step = -1;
+  s.sfx.reloadStart();
+}
+function tickReload(s) {
+  const G = s.gun;
+  if (G.reload <= 0) return;
+  const el = RELOAD_LEN - G.reload;
+  let acc = 0, i = 0;
+  while (i < RSEQ.length - 1 && el >= acc + RSEQ[i][2]) { acc += RSEQ[i][2]; i++; }
+  if (i !== G.step) { G.step = i; reloadEvent(s, RSEQ[i][3]); }
+  if (--G.reload === 0) { G.ammo = MAG; G.step = -1; G.dy = 12; s.sfx.reload(); }
+}
+/* 장전 중의 순간들 — 탄창이 떨어지고, 탄피가 튀고, 톱니 빛이 흘러갑니다 */
+function reloadEvent(s, ev) {
+  const G = s.gun, gx = G.x, gy = G.y - (PA ? PA.LIFT : 0);
+  switch (ev) {
+    case 'cant': G.dy = 16; break;
+    case 'press': s.sfx.press(); break;
+    case 'release': s.sfx.magOut(); break;
+    case 'drop': if (PA) s.drops.push({ k: 'mag', x: gx + PA.gx0(82) - 2, y: gy + 64, vx: -.3, vy: .8 }); break;
+    case 'bring': case 'grab': s.sfx.tink(); break;
+    case 'seat': s.sfx.seat(); G.kick = -3; for (let i = 0; i < 6; i++) s.bits.push({ x: gx + 82 + Math.random() * 10, y: gy + 84, vx: (Math.random() - .5) * 1.2, vy: -Math.random(), life: 16, c: i % 2 ? '#7b8696' : '#00ffd5' }); break;
+    case 'pull': s.sfx.rack(); break;
+    case 'eject': if (PA) s.drops.push({ k: 'case', x: gx + 64, y: gy + 29, vx: 1.3, vy: -2.2, f: 0 }); break;
+    case 'snap': s.sfx.snap(); G.kick = 2;
+      for (let i = 0; i < 14; i++) s.bits.push({ x: gx + 80 + Math.random() * 12, y: gy + 30 + Math.random() * 10, vx: 1.6 + Math.random() * 1.8, vy: 0, life: 12 + (Math.random() * 8 | 0), c: '#00ffd5', glow: true });
+      break;
+  }
+}
+function tickGunBits(s) {
+  for (const d of s.drops) { d.vy += .25; d.x += d.vx; d.y += d.vy; if (d.f !== undefined) d.f++; }
+  s.drops = s.drops.filter(d => d.y < LH + 20);
+  for (const p of s.bits) { p.vy += p.glow ? 0 : .08; p.x += p.vx; p.y += p.vy; p.life--; }
+  s.bits = s.bits.filter(p => p.life > 0);
+}
+
 function updateGun(s) {
   // 줍기 — 바닥에 떨어진 권총
   if (!s.gun && !s.gunDone && s.z >= GUN_Z) {
-    s.gun = { ammo: MAG, reload: 0, recoil: 0, flash: 0, tracer: null };
+    s.gun = { ammo: MAG, reload: 0, step: -1, recoil: 0, flash: 0, tracer: null, dy: 18, kick: 0, rx: 0, x: GUN_DX, y: GUN_DY };
     s.sfx.reload(); s.flash = 0;
     s.gunHint = 1;
   }
@@ -361,7 +416,9 @@ function updateGun(s) {
     if (G.recoil > 0) G.recoil *= .7;
     if (G.flash > 0) G.flash--;
     if (G.tracer && --G.tracer.t <= 0) G.tracer = null;
-    if (G.reload > 0 && --G.reload === 0) { G.ammo = MAG; s.sfx.reload(); }
+    G.dy *= .82; G.kick *= .7;
+    G.rx += ((G.reload > 0 ? -28 : 0) - G.rx) * .15;        // 장전 땐 눕힌 총이 다 보이게 왼쪽으로
+    tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
     if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 110); s.sfx.empty(); }
   }
@@ -397,11 +454,11 @@ function updateGun(s) {
 function fireAt(s, bx, by) {
   const G = s.gun;
   if (!G || G.reload > 0) return;
-  if (G.ammo <= 0) { s.sfx.empty(); G.reload = 70; s.sfx.reloadStart(); return; }
+  if (G.ammo <= 0) { s.sfx.empty(); startReload(s); return; }
   G.ammo--; G.recoil = 1; G.flash = 4;
   G.tracer = { x: bx, y: by, t: 4 };
   s.sfx.shot();
-  if (G.ammo === 0) { G.reload = 70; s.sfx.reloadStart(); }
+  if (G.ammo === 0) startReload(s);
   if (s.view === 'back') {                                         // 뒤의 그를 쏘면 — 잠깐 비틀거립니다
     const b = pursuerBox(s);
     if (b && bx > b.x0 && bx < b.x1 && by > b.y0 && by < b.y1) {
@@ -832,27 +889,43 @@ function drawPickup(s, b) {
   b.restore();
   b.fillStyle = '#15161a'; b.fillRect(a[0], a[1] - 1, c[0] - a[0], Math.max(2, c[1] - a[1] + 1));
 }
-/* 손에 든 권총 — 오른쪽 아래, 겨누는 쪽으로 살짝 따라가고 쏘면 튑니다 */
+/* 손에 든 권총 — 픽셀 시트(js/pistol.js)에서 지금 칸을 잘라 오른쪽 아래에 찍습니다.
+   겨누는 쪽으로 살짝 따라가고, 쏘면 튀고, 장전 중엔 장전 칸을 차례로. */
 function drawViewGun(s, b) {
-  const G = s.gun; if (!G || s.view !== 'fwd') return;
-  const ax = (s.mx / SC - LW / 2) * .12, ay = (s.my / SC - LH / 2) * .08;
-  const rl = G.reload > 0 ? Math.sin(Math.PI * (1 - G.reload / 70)) * 40 : 0;   // 재장전 — 아래로 내렸다 올림
-  const x = 214 + ax, y = 120 + ay + G.recoil * 8 + rl + Math.sin(s.bob * 2) * 1.5;
-  b.save();
-  b.translate(x, y); b.rotate(-.12 - G.recoil * .18);
-  b.fillStyle = '#c9a58e'; b.fillRect(30, 26, 26, 40);                    // 손
-  b.fillStyle = '#1b1c20'; b.fillRect(0, 0, 66, 15);                      // 슬라이드
-  b.fillStyle = '#26282d'; b.fillRect(36, 12, 18, 34);                    // 손잡이
-  b.fillStyle = '#3a3d44'; b.fillRect(2, 2, 60, 3);
-  b.fillStyle = '#0c0c0e'; b.fillRect(-2, 5, 4, 5);                       // 총구
-  if (G.flash > 0) {
-    b.globalCompositeOperation = 'lighter';
-    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(-6, 7, 9 + G.flash * 2, 0, Math.PI * 2); b.fill();
+  const G = s.gun;
+  // 떨어지는 탄창 · 탄피 · 불티는 총이 없어도 마저
+  if (s.pistol) {
+    const { sheet } = s.pistol;
+    for (const d of s.drops) {
+      const r = d.k === 'mag' ? PA.SPR_MAG : PA.SPR_CASE[(d.f >> 2) % 2];
+      b.drawImage(sheet, r[0], r[1], r[2], r[3], Math.round(d.x), Math.round(d.y), r[2], r[3]);
+    }
   }
+  for (const p of s.bits) { b.globalAlpha = Math.min(1, p.life / 8); b.fillStyle = p.c; b.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  b.globalAlpha = 1;
+  if (!G || s.view !== 'fwd') return;
+  const ax = (s.mx / SC - LW / 2) * .08, ay = (s.my / SC - LH / 2) * .05;
+  G.x = Math.round(GUN_DX + ax + G.rx); G.y = Math.round(GUN_DY + ay + G.recoil * 5 + G.dy + G.kick + Math.sin(s.bob * 2) * 1.2);
+  if (!s.pistol) return;
+  const { sheet, mask } = s.pistol, FW = PA.FW, FH = PA.FH;
+  let col = 0, row = Math.floor(s.frame / 18) % PA.SUBS;              // 대기 — 숨
+  if (G.reload > 0 && G.step >= 0) { col = RSEQ[G.step][0]; row = RSEQ[G.step][1]; }
+  b.drawImage(sheet, col * FW, row * FH, FW, FH, G.x, G.y, FW, FH);
+  // 청록 빛번짐 — 마스크를 한 픽셀씩 비껴 네 번 더합니다
+  b.save(); b.globalCompositeOperation = 'lighter'; b.globalAlpha = .28;
+  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => b.drawImage(mask, col * FW, row * FH, FW, FH, G.x + ox, G.y + oy, FW, FH));
   b.restore();
+  // 총구 섬광 — 가늠쇠 위로
+  const mx = G.x + 64, my = G.y + 20;
+  if (G.flash > 0) {
+    b.save(); b.globalCompositeOperation = 'lighter';
+    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(mx, my - 2, 6 + G.flash * 2, 0, Math.PI * 2); b.fill();
+    b.fillStyle = 'rgba(0,255,213,.5)'; b.beginPath(); b.arc(mx, my - 2, 10 + G.flash * 3, 0, Math.PI * 2); b.fill();
+    b.restore();
+  }
   if (G.tracer) {                                                         // 총알 궤적
     b.strokeStyle = `rgba(255,236,190,${G.tracer.t / 4})`; b.lineWidth = 1;
-    b.beginPath(); b.moveTo(x - 4, y + 4); b.lineTo(G.tracer.x, G.tracer.y); b.stroke();
+    b.beginPath(); b.moveTo(mx, my); b.lineTo(G.tracer.x, G.tracer.y); b.stroke();
   }
 }
 
@@ -1066,7 +1139,8 @@ class EscapeScene {
     this.frame = 0; this.subs = []; this.bob = 0; this.shake = 0; this.flash = 0; this.flick = 0;
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.alarm = 0; this.lights = .55; this.doorOpen = .06;
-    this.obs = []; this.guards = []; this.gun = null; this.view = 'fwd';
+    this.obs = []; this.guards = []; this.gun = null; this.drops = []; this.bits = []; this.view = 'fwd';
+    this.pistol = PA ? PA.bake() : null;
     this.mx = W / 2; this.my = H / 2;
     this.go('door');
     this.running = true; this.acc = 0; this.last = performance.now();
@@ -1093,7 +1167,7 @@ class EscapeScene {
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.stumble = 0; this.immune = 0;
     this.obs = genObstacles(); this.saidMask = 0; this.lookedBack = false; this.view = 'fwd';
-    this.guards = genGuards(); this.gun = null; this.gunDone = false; this.kills = 0; this.shotOnce = false; this.shotDoc = false;
+    this.guards = genGuards(); this.gun = null; this.drops = []; this.bits = []; this.gunDone = false; this.kills = 0; this.shotOnce = false; this.shotDoc = false;
     this.doorOpen = .06; this.lights = .55; this.alarm = 0; this.lastStep = 0;
     this.sfx.hum(true);
   }
@@ -1183,7 +1257,7 @@ class EscapeScene {
     if (e.code === 'KeyQ') return this.look(true);
     if (this.gun && this.stateName === 'run') {
       if (e.code === 'KeyF') { e.preventDefault(); return autoFire(this); }
-      if (e.code === 'KeyR' && this.gun.reload <= 0 && this.gun.ammo < MAG) { e.preventDefault(); this.gun.reload = 70; this.sfx.reloadStart(); return; }
+      if (e.code === 'KeyR') { e.preventDefault(); return startReload(this); }
     }
     if (this.choice && (e.code === 'Digit1' || e.code === 'Digit2')) return this.pickChoice(e.code === 'Digit1' ? 0 : 1);
     if (map[e.code]) this.act(map[e.code]);
