@@ -72,7 +72,14 @@ const BALANCE = {
      졸개 없이 1:1 로만 싸우는 대신, 선공이 굵고 예비 동작이 짧습니다. */
   abomHp:        88,
   abomSpeed:     0.50,
-  abomPlayerMax: 5      // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
+  abomPlayerMax: 5,     // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
+
+  /* 보스 패턴 배율 — 1 이 기준. 공격 간격·예비 동작은 클수록 느긋하고,
+     탄속은 작을수록 느리며, 나선탄 간격은 클수록 드문드문 쏩니다.
+     boss* = 페이즈2(눈), abom* = 페이즈3(심연) */
+  bossCdMul:     1,  bossWindMul: 1,  bossShotMul: 1,  bossSpiralMul: 1,
+  abomCdMul:     1,  abomWindMul: 1,  abomShotMul: 1,  abomSpiralMul: 1,
+  abomGapAdd:    0      // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다
 };
 
 /* ── 난이도 ───────────────────────────────────────────────
@@ -102,8 +109,14 @@ const DIFF = {
       blinkerHp: 2, blinkerSpeed: 0.21, blinkerCd: 190,
       knockback: 9.0,
 
-      bossHp: 60, bossSpeed: 0.52,
-      abomHp: 66, abomSpeed: 0.43
+      /* 보스는 페이즈2(눈) · 페이즈3(심연)을 같은 폭으로 한 번 더 낮춥니다 —
+         체력 −15%, 느리게, 공격 간격 ×1.3, 예비 동작 ×1.25, 탄속 ×0.85,
+         나선탄 ×1.4 드물게. 심연은 비명의 틈도 넓어집니다. */
+      bossHp: 51, bossSpeed: 0.46,
+      bossCdMul: 1.3, bossWindMul: 1.25, bossShotMul: .85, bossSpiralMul: 1.4,
+      abomHp: 56, abomSpeed: 0.38,
+      abomCdMul: 1.3, abomWindMul: 1.25, abomShotMul: .85, abomSpiralMul: 1.4,
+      abomGapAdd: .18
     }
   },
 

@@ -1562,7 +1562,7 @@ function updateBoss() {
         const n = ph === 1 ? 8 : 12, off = Math.random() * 6.28;
         for (let i = 0; i < n; i++) {
           const a = off + (i / n) * Math.PI * 2;
-          foeShot(B.x, B.y, Math.cos(a), Math.sin(a), BALANCE.spore + (ph - 1) * .25);
+          foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (BALANCE.spore + (ph - 1) * .25) * BALANCE.bossShotMul);
         }
         Sfx.glitch();
         G.shake = Math.max(G.shake, 12); glare(.75);
@@ -1572,14 +1572,14 @@ function updateBoss() {
   } else {
     B.x += dx / d * sp; B.y += dy / d * sp;
     if (--B.cd <= 0) {
-      B.cd = ph === 1 ? 150 : ph === 2 ? 120 : 96;
-      B.wind = 32;
+      B.cd = Math.round((ph === 1 ? 150 : ph === 2 ? 120 : 96) * BALANCE.bossCdMul);
+      B.wind = Math.round(32 * BALANCE.bossWindMul);
       B.windKind = (ph >= 2 && Math.random() < .45) ? 'dash' : 'ring';
     }
   }
-  if (ph === 3 && B.t % 11 === 0) {
+  if (ph === 3 && B.t % Math.round(11 * BALANCE.bossSpiralMul) === 0) {
     B.spiralA += .78;
-    foeShot(B.x, B.y, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.5);
+    foeShot(B.x, B.y, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.5 * BALANCE.bossShotMul);
   }
   B.x = Math.max(TS + B.r, Math.min(W - TS - B.r, B.x));
   B.y = Math.max(TS + B.r, Math.min(H - TS - B.r, B.y));
@@ -1628,6 +1628,9 @@ const ABOM_ACT = {
    주인공을 따라다니고, 확정된 뒤로는 더 안 따라옵니다 — 언제 빠져나가야
    하는지가 눈에 보여야 피할 수 있습니다. */
 const CLAW_LOCK = 26;
+/* 난이도에 따라 늘어난 예비 동작 길이 / 자리 확정 시점 — AI 와 그림이 같이 씁니다 */
+const abomWind = act => Math.round(ABOM_ACT[act].wind * BALANCE.abomWindMul);
+const abomLock = () => Math.round(CLAW_LOCK * BALANCE.abomWindMul);
 
 /* -π~π 로 접은 각도 차 */
 function angDiff(a, b) {
@@ -1912,9 +1915,9 @@ function updateAbom() {
   }
 
   // 상시 — 몸에 달린 작은 눈들이 나선으로 뱉는 탄
-  if (B.t % (st === 2 ? 9 : 13) === 0) {
+  if (B.t % Math.round((st === 2 ? 9 : 13) * BALANCE.abomSpiralMul) === 0) {
     B.spiralA += 1.07;
-    foeShot(B.x, B.y + 4, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.6);
+    foeShot(B.x, B.y + 4, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.6 * BALANCE.abomShotMul);
   }
 
   // 덩치가 커서 벽에 반쯤 박혀 보이지 않도록 안쪽으로 넉넉히 잡습니다
@@ -1948,7 +1951,8 @@ function startAbomAct(B) {
 
 function runAbomAct(B, dx, dy, d) {
   const A = ABOM_ACT[B.act];
-  const t = ++B.actT, w = A.wind, fast = B.stage === 2;
+  const t = ++B.actT, w = abomWind(B.act), fast = B.stage === 2;
+  const lock = abomLock(), shot = BALANCE.abomShotMul;
 
   // 예비 동작 — 빛이 몸으로 빨려 들어가며 "온다"는 걸 보여 줍니다
   if (t <= w) {
@@ -1979,7 +1983,7 @@ function runAbomAct(B, dx, dy, d) {
       const pd = Math.hypot(dx, dy);
       if (pd > 42 && pd < 132 && Math.abs(angDiff(Math.atan2(dy, dx), B.bladeA)) < .27) hurt(1);
       if (fast && (t - w) % 13 === 0)
-        foeShot(bx, by, Math.cos(B.bladeA + B.dir * 1.57), Math.sin(B.bladeA + B.dir * 1.57), 1.75);
+        foeShot(bx, by, Math.cos(B.bladeA + B.dir * 1.57), Math.sin(B.bladeA + B.dir * 1.57), 1.75 * shot);
     }
   }
 
@@ -1988,15 +1992,15 @@ function runAbomAct(B, dx, dy, d) {
        것만으로도 "뛰어든다"는 게 읽힙니다. */
     if (t <= w) {
       B.rise = (t / w) * 20;
-      if (t < CLAW_LOCK) { B.tx = P.x; B.ty = P.y; }      // 아직은 따라다닙니다
-      if (t === CLAW_LOCK) {                              // 여기서 자리 확정
+      if (t < lock) { B.tx = P.x; B.ty = P.y; }           // 아직은 따라다닙니다
+      if (t === lock) {                                   // 여기서 자리 확정
         B.tx = P.x; B.ty = P.y;
         Sfx.beep(.18); Sfx.hit();
         G.shake = Math.max(G.shake, 9);
         shockRing(B.tx, B.ty, 130, '255,138,106', 3, 22);
       }
       // 확정된 자리에 흙먼지가 들썩입니다 — 여기 떨어진다는 신호
-      if (t > CLAW_LOCK && t % 4 === 0)
+      if (t > lock && t % 4 === 0)
         G.fx.push({ k: 'p', x: B.tx + (Math.random() - .5) * 40, y: B.ty + (Math.random() - .5) * 22,
                     vx: (Math.random() - .5) * 1.2, vy: -.6 - Math.random(),
                     life: 18, max: 18, c: '#c08a68' });
@@ -2016,7 +2020,7 @@ function runAbomAct(B, dx, dy, d) {
       const n = fast ? 16 : 12, off = Math.random() * 6.28;
       for (let i = 0; i < n; i++) {
         const a = off + i / n * 6.283;
-        foeShot(B.x, B.y, Math.cos(a), Math.sin(a), 1.85);
+        foeShot(B.x, B.y, Math.cos(a), Math.sin(a), 1.85 * shot);
       }
       if (Math.hypot(P.x - B.x, P.y - B.y) < 62) hurt(1);
       for (let i = 0; i < 16; i++)
@@ -2042,11 +2046,11 @@ function runAbomAct(B, dx, dy, d) {
     const beats = fast ? [w, w + 26, w + 52] : [w, w + 34];
     beats.forEach((bt, i) => {
       if (t !== bt) return;
-      const n = 22, gapA = B.gap + i * 1.15, gapW = fast ? .5 : .7;
+      const n = 22, gapA = B.gap + i * 1.15, gapW = (fast ? .5 : .7) + BALANCE.abomGapAdd;
       for (let j = 0; j < n; j++) {
         const a = j / n * 6.283;
         if (Math.abs(angDiff(a, gapA)) < gapW) continue;   // 빠져나갈 틈 하나
-        foeShot(B.x, B.y + 14, Math.cos(a), Math.sin(a), 1.55);
+        foeShot(B.x, B.y + 14, Math.cos(a), Math.sin(a), 1.55 * shot);
       }
       Sfx.glitch(); Sfx.bossRoar();
       G.shake = Math.max(G.shake, 16); glare(.6);
@@ -2056,7 +2060,7 @@ function runAbomAct(B, dx, dy, d) {
 
   if (t >= w + A.dur) {
     B.act = null; B.actT = 0; B.lashLen = 0; B.rise = 0;
-    B.cd = fast ? 50 : 76;
+    B.cd = Math.round((fast ? 50 : 76) * BALANCE.abomCdMul);
   }
 }
 
@@ -2880,7 +2884,7 @@ function abomPose(B) {
   const t = B.actT, A = B.act ? ABOM_ACT[B.act] : null;
 
   if (A && B.act === 'blade') {
-    const w = A.wind, sw = B.stage === 2 ? 44 : 58;
+    const w = abomWind(B.act), sw = B.stage === 2 ? 44 : 58;
     if (t <= w) {                                  // 낫을 뒤로 크게 당깁니다
       const k = ease(t / w);
       po.la = idleL - 34 * k; po.lean = 5 * k; po.sx = 1 + .04 * k;
@@ -2895,7 +2899,7 @@ function abomPose(B) {
     }
   }
   else if (A && B.act === 'claw') {
-    const w = A.wind;
+    const w = abomWind(B.act);
     if (t <= w) {                                  // 집게를 높이 들어 올립니다
       const k = ease(t / w);
       po.ra = idleR + 26 * k; po.lift = 11 * k;
@@ -2912,7 +2916,7 @@ function abomPose(B) {
     }
   }
   else if (A && B.act === 'lash') {
-    const w = A.wind;
+    const w = abomWind(B.act);
     if (t <= w) {                                  // 웅크리며 양팔을 벌립니다
       const k = ease(t / w);
       po.la = idleL - 13 * k; po.ra = idleR + 15 * k;
@@ -2924,7 +2928,7 @@ function abomPose(B) {
     }
   }
   else if (A && B.act === 'scream') {
-    const w = A.wind, fast = B.stage === 2;
+    const w = abomWind(B.act), fast = B.stage === 2;
     if (t <= w) {                                  // 숨을 들이켜며 팔을 끌어안습니다
       const k = ease(t / w);
       po.la = idleL + 10 * k; po.ra = idleR - 11 * k;
@@ -3670,7 +3674,7 @@ function quickAbomDeath(B) {
 function drawAbomLight() {
   const B = G.boss;
   const pulse = .5 + Math.sin(G.t * .08) * .5;
-  const wind = B.act ? Math.min(1, B.actT / ABOM_ACT[B.act].wind) : 0;
+  const wind = B.act ? Math.min(1, B.actT / abomWind(B.act)) : 0;
   const col = B.stage === 2 ? '236,60,44' : '198,58,58';
   g.save();
   g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip();
@@ -3700,7 +3704,7 @@ function drawAbomLight() {
 function drawAbom() {
   const B = G.boss;
   const A = B.act ? ABOM_ACT[B.act] : null;
-  const wind = A ? Math.min(1, B.actT / A.wind) : 0;
+  const wind = A ? Math.min(1, B.actT / abomWind(B.act)) : 0;
   const sc = 1 + Math.sin(B.bob) * .03 + wind * .07;
   const y = B.y - (B.rise || 0);
 
@@ -3725,8 +3729,8 @@ function drawAbom() {
 
   /* 모든 행동 공통 — 예비 동작 동안 몸 주위로 고리가 조여듭니다.
      "지금 뭔가 나온다, 이만큼 남았다"를 한눈에 보여 주는 신호입니다. */
-  if (A && B.actT <= A.wind) {
-    const k = B.actT / A.wind;
+  if (A && B.actT <= abomWind(B.act)) {
+    const k = B.actT / abomWind(B.act);
     g.save();
     g.globalAlpha = .25 + k * .45;
     g.strokeStyle = A.c; g.lineWidth = 1.5 + k * 2;
@@ -3738,16 +3742,16 @@ function drawAbom() {
 
   /* 내리찍기 — 어디에 떨어지는지를 바닥에 그려 줍니다.
      확정 전(점선·따라다님) → 확정 후(굵은 고리가 조여들며 그림자가 커짐). */
-  if (B.act === 'claw' && B.actT <= ABOM_ACT.claw.wind + 16) {
-    const t = B.actT, w = ABOM_ACT.claw.wind;
-    const locked = t >= CLAW_LOCK;
+  if (B.act === 'claw' && B.actT <= abomWind('claw') + 16) {
+    const t = B.actT, w = abomWind('claw');
+    const locked = t >= abomLock();
     g.save();
     /* 표시하는 원은 실제 판정(반지름 62)과 정확히 같은 크기입니다 —
        "여기까지가 위험" 이 눈에 보이는 대로여야 피할 수 있습니다. */
     const R = 62;
     if (!locked) {
       // 아직 따라다니는 조준선
-      g.globalAlpha = .3 + (t / CLAW_LOCK) * .3;
+      g.globalAlpha = .3 + (t / abomLock()) * .3;
       g.strokeStyle = '#ff8a6a'; g.lineWidth = 1.4;
       g.setLineDash([4, 4]); g.lineDashOffset = -G.t * .8;
       g.beginPath(); g.arc(B.tx, B.ty, R, 0, Math.PI * 2); g.stroke();
@@ -3755,7 +3759,7 @@ function drawAbom() {
       g.setLineDash([]);
     } else {
       // 확정 — 떨어질 자리에 그림자가 점점 커지고, 고리가 한가운데로 조여듭니다
-      const k = Math.min(1, (t - CLAW_LOCK) / (w - CLAW_LOCK));
+      const k = Math.min(1, (t - abomLock()) / (w - abomLock()));
       g.globalAlpha = .16 + k * .26;
       g.fillStyle = '#000';
       g.beginPath(); g.arc(B.tx, B.ty, 22 + k * (R - 22), 0, Math.PI * 2); g.fill();
@@ -3784,7 +3788,7 @@ function drawAbom() {
   // 촉수 채찍 — 예비 동작 때는 가는 예고선, 칠 때는 굵은 촉수
   if (B.act === 'lash') {
     g.save();
-    if (B.actT <= ABOM_ACT.lash.wind) {
+    if (B.actT <= abomWind('lash')) {
       g.globalAlpha = .3 + wind * .5;
       g.strokeStyle = '#e07fb0'; g.lineWidth = 1.5;
       g.setLineDash([5, 5]);
@@ -3830,7 +3834,7 @@ function drawAbom() {
   if (B.act === 'blade') {
     g.save();
     const R0 = 42, R1 = 132;
-    if (B.actT <= ABOM_ACT.blade.wind) {
+    if (B.actT <= abomWind('blade')) {
       g.globalAlpha = .12 + wind * .3;
       g.fillStyle = '#ffb27a';
       g.beginPath();
