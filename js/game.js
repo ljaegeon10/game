@@ -5005,7 +5005,7 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 시제품)'], ['doze', '이스터에그 : 졸음'],
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 시제품)'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
   ['away', '이스터에그 : 화면 밖']
 ];
 
@@ -5089,10 +5089,13 @@ function devJump(kind) {
     case 'abomdeath': devAbom(); killBoss(); break;
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
-    case 'escape':    devExit(); G.mode = 'ending'; stopRun();
+    case 'escape':
+    case 'gunfight':  devExit(); G.mode = 'ending'; stopRun();
                       ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
                       $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
-                      beginEscape(); break;
+                      beginEscape();
+                      if (kind === 'gunfight') escapeScene.jumpTo(270);
+                      break;
     case 'away':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play';
                       G.awayMsg = { t: 0, lines: AWAY_SHORT }; Sfx.glitch(); G.flash = .6; break;
     case 'doze':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play'; beginDoze(); break;

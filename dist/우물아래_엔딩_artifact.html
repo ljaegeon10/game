@@ -1327,9 +1327,15 @@ window.EndingScene = EndingScene;
                 흰 실험실 복도는 달릴수록 누런 벽지의 "백룸"으로 바뀝니다 —
                 여기가 정말 현실인지는 알려 주지 않습니다.
 
+   중간 (286~450m) — 총격전. 바닥에 떨어진 권총을 줍고, 앞을 막아서는
+   경비원들과 맞섭니다. 경비원은 붉은 조준선을 겨눈 뒤 쏩니다 — 그사이
+   옆 칸으로 비키거나 미끄러지면 빗나갑니다. 맞은 경비원은 피가 아니라
+   코드처럼 깨져 흩어집니다 (여기가 아직 꿈인지도 모릅니다).
+
    조작
      A D / ← →        옆 칸으로        W / SPACE / ↑   뛰어넘기
      S / SHIFT / ↓    미끄러지기       Q (누르고 있기)  뒤돌아보기
+     마우스 조준 · 클릭 사격 (F : 가장 가까운 적에게)   R  재장전
      터치 : 좌우로 쓸기 · 위로 쓸기(점프) · 아래로 쓸기(슬라이드) · 두 손가락(뒤)
 
    상태 머신
@@ -1357,6 +1363,9 @@ const RUN_LEN = 640;             // 비상구에서 바깥 문까지
 const START_Z = -2.6;            // 처음 서 있는 자리 (문 앞)
 const JUMP = 42, SLIDE = 46;     // 점프 · 슬라이드 길이 (프레임)
 const CHASE0 = 13;               // 추격자와의 처음 거리
+const GUN_Z = 286, ZONE0 = 300, ZONE1 = 450;   // 총을 줍는 자리 · 총격전 구간
+const MAG = 12;                  // 탄창
+const AIM_T = 72, LOCK_T = 54;   // 경비원 조준 길이 · 조준선이 고정되는 시점
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -1423,6 +1432,15 @@ class EscSfx {
   grab()         { [233, 247, 349, 370].forEach((f, i) => this.tone(f, 1.1 - i * .1, 'sawtooth', .08, f * .94));
                    this.tone(44, 1.3, 'sine', .32, 30); this.noise(.5, .2, 900, 9000); }
   inject()       { this.noise(.9, .14, 3000, 11000); this.tone(420, 1.1, 'sine', .18, 48); }
+  shot()         { this.noise(.16, .32, 200, 7000); this.tone(150, .14, 'square', .18, 50); }
+  enemyShot()    { this.noise(.12, .22, 600, 9000); this.tone(320, .08, 'square', .1, 120); }
+  empty()        { this.tone(1400, .03, 'square', .06); this.noise(.04, .08, 2000, 8000); }
+  reloadStart()  { this.noise(.08, .1, 1200, 6000); this.tone(500, .05, 'square', .05, 0, .05); }
+  reload()       { this.noise(.06, .12, 1500, 7000); this.tone(700, .04, 'square', .07, 0, .06); this.tone(420, .05, 'square', .06, 0, .14); }
+  charge()       { this.tone(500, .9, 'sine', .035, 1400); }
+  lock()         { this.tone(1760, .07, 'square', .05); this.tone(1760, .07, 'square', .05, 0, .1); }
+  thud()         { this.tone(140, .08, 'square', .1, 70); this.noise(.06, .1, 400, 3000); }
+  glitch()       { for (let i = 0; i < 6; i++) this.tone(300 + Math.random() * 2400, .03, 'square', .07, 0, i * .022); this.noise(.14, .16, 2000, 12000); }
   bird()         { const b = 1900 + Math.random() * 700; this.tone(b, .07, 'sine', .07, b * 1.35); this.tone(b * 1.2, .06, 'sine', .05, b * .85, .09); }
   swell() {
     const c = this.ctx(); if (!c) return;
@@ -1488,6 +1506,7 @@ function genObstacles() {
   const list = [mkObs('barrier', 42, ALL), mkObs('pipe', 82, ALL), mkObs('cart', 120, [0])];
   let z = 152;
   while (z < RUN_LEN - 34) {
+    if (z > GUN_Z - 16 && z < ZONE1 + 6) { z = ZONE1 + 8; continue; }   // 총격전 구간은 따로
     const p = z / RUN_LEN, r = Math.random();
     const free = ALL[(Math.random() * 3) | 0];
     const others = ALL.filter(l => l !== free);
@@ -1501,7 +1520,17 @@ function genObstacles() {
     if (p > .45 && Math.random() < .3) { z += 7; list.push(mkObs(Math.random() < .5 ? 'pipe' : 'barrier', z, ALL)); }
     z += lerp(25, 14, p) + Math.random() * 6;
   }
+  // 총격전 구간 — 경비원 몇은 카트 뒤에 숨어 있습니다 (카트는 피해야 하고)
+  GUARDS.forEach(([gz, lane, cover]) => { if (cover) list.push(mkObs('cart', gz - 1.6, [lane])); });
+  list.push(mkObs('pipe', 372, ALL), mkObs('barrier', 418, ALL));
   return list;
+}
+
+/* 경비원 — [z, 칸, 엄폐물 뒤인지] */
+const GUARDS = [[318, 0, false], [334, -1, true], [350, 1, false], [366, 0, true],
+                [384, -1, false], [398, 1, true], [412, 0, false], [430, -1, true], [442, 1, false]];
+function genGuards() {
+  return GUARDS.map(([z, lane, cover]) => ({ z, x: lane * LANE, cover, hp: 2, st: 'wait', t: 0, lockX: 0, flash: 0, hitT: 0 }));
 }
 
 /* 지나가며 들려오는 목소리 · 혼잣말 — [z, 대사, 누구] */
@@ -1509,8 +1538,11 @@ const RUN_LINES = [
   [8,   '달려.', 'me'],
   [60,  '어디 가요, 07.', 'doc'],
   [180, '거긴 출구가 아니에요.', 'doc'],
-  [300, '…이 복도, 이렇게 길었나.', 'me'],
-  [420, '돌아와요. 아직 안 끝났어요.', 'doc'],
+  [GUN_Z - 6, '…총?', 'me'],
+  [ZONE0 + 4, '경비원들이다.', 'me'],
+  [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
+  [ZONE1 + 14, '…이 복도, 이렇게 길었나.', 'me'],
+  [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
   [560, '…빛이다.', 'me']
 ];
 
@@ -1612,6 +1644,7 @@ const RunState = {
         if (s.dist < 6) s.say(['넘어지면 안 돼…!', '…가깝다.', '숨소리가 바로 뒤에서.'][(Math.random() * 3) | 0], 'me', 80);
       }
     }
+    updateGun(s);
     // 진행하며 들리는 말
     RUN_LINES.forEach(([z, txt, who], i) => { if (!(s.saidMask & (1 << i)) && s.z >= z) { s.saidMask |= 1 << i; s.say(txt, who, who === 'doc' ? 130 : 110); } });
 
@@ -1626,6 +1659,98 @@ const RunState = {
   },
   draw(s, b) { drawWorld(s, b); }
 };
+
+/* ═════════════ 총격전 ═════════════════════════════════════ */
+function updateGun(s) {
+  // 줍기 — 바닥에 떨어진 권총
+  if (!s.gun && !s.gunDone && s.z >= GUN_Z) {
+    s.gun = { ammo: MAG, reload: 0, recoil: 0, flash: 0, tracer: null };
+    s.sfx.reload(); s.flash = 0;
+    s.gunHint = 1;
+  }
+  if (s.gun) {
+    const G = s.gun;
+    if (G.recoil > 0) G.recoil *= .7;
+    if (G.flash > 0) G.flash--;
+    if (G.tracer && --G.tracer.t <= 0) G.tracer = null;
+    if (G.reload > 0 && --G.reload === 0) { G.ammo = MAG; s.sfx.reload(); }
+    // 구간을 지나면 — 빈 총을 버립니다
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 110); s.sfx.empty(); }
+  }
+  // 경비원
+  for (const g of s.guards) {
+    const dz = g.z - s.z;
+    if (g.flash > 0) g.flash--;
+    if (g.hitT > 0) g.hitT--;
+    if (g.st === 'gone') continue;
+    if (g.st === 'die') { if (++g.t > 26) g.st = 'gone'; continue; }
+    if (dz < 3) { g.st = 'gone'; continue; }                       // 지나쳤습니다
+    if (g.st === 'wait') { if (dz < 34) { g.st = 'pop'; g.t = 0; } continue; }
+    g.t++;
+    if (g.st === 'pop' && g.t >= 20) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
+    else if (g.st === 'aim') {
+      if (g.t < LOCK_T) g.lockX = s.x;                              // 조준선이 따라옵니다
+      if (g.t === LOCK_T) s.sfx.lock();                            // 고정 — 이제 비켜야 합니다
+      if (g.t >= AIM_T) {
+        g.st = 'cool'; g.t = 0; g.flash = 5;
+        s.sfx.enemyShot();
+        const dodged = Math.abs(s.x - g.lockX) > .55 || slideK(s) > .5;
+        if (!dodged && s.immune <= 0) {
+          s.stumble = 40; s.immune = 30; s.shake = 14; s.flash = .9; s.sfx.hit();
+          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 조준선이 붉어지면 비켜야 해.', 'me', 120); }
+        }
+      }
+    }
+    else if (g.st === 'cool' && g.t >= 46) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
+  }
+}
+
+/* 사격 — 버퍼 좌표 (bx, by) 를 겨눕니다. 가까운 것부터 맞습니다 */
+function fireAt(s, bx, by) {
+  const G = s.gun;
+  if (!G || G.reload > 0) return;
+  if (G.ammo <= 0) { s.sfx.empty(); G.reload = 70; s.sfx.reloadStart(); return; }
+  G.ammo--; G.recoil = 1; G.flash = 4;
+  G.tracer = { x: bx, y: by, t: 4 };
+  s.sfx.shot();
+  if (G.ammo === 0) { G.reload = 70; s.sfx.reloadStart(); }
+  if (s.view === 'back') {                                         // 뒤의 그를 쏘면 — 잠깐 비틀거립니다
+    const b = pursuerBox(s);
+    if (b && bx > b.x0 && bx < b.x1 && by > b.y0 && by < b.y1) {
+      s.dist = Math.min(22, s.dist + 2.4); s.chaseHit = 8; s.sfx.hit();
+      if (!s.shotDoc) { s.shotDoc = true; s.say('…그래도 안 끝나요.', 'doc', 120); }
+    }
+    return;
+  }
+  const order = s.guards.filter(g => g.st === 'pop' || g.st === 'aim' || g.st === 'cool').sort((a, b) => a.z - b.z);
+  for (const g of order) {
+    const box = guardBox(s, g);
+    if (!box || bx < box.x0 || bx > box.x1 || by < box.y0 || by > box.y1) continue;
+    const head = by < box.headY;
+    g.hp -= head ? 2 : 1; g.hitT = 6;
+    if (g.hp <= 0) { g.st = 'die'; g.t = 0; s.sfx.glitch(); s.kills = (s.kills || 0) + 1; }
+    else s.sfx.thud();
+    return;
+  }
+}
+function autoFire(s) {
+  if (s.view === 'back') { const b = pursuerBox(s); if (b) fireAt(s, (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2); return; }
+  const g = s.guards.filter(g => g.st === 'aim' || g.st === 'pop' || g.st === 'cool').sort((a, b) => a.z - b.z)[0];
+  const box = g && guardBox(s, g);
+  if (box) fireAt(s, (box.x0 + box.x1) / 2, (box.headY + box.y1) / 2); else fireAt(s, LW / 2, LH / 2);
+}
+/* 화면에서 경비원이 차지하는 칸 (맞았는지 판정용) */
+function guardBox(s, g) {
+  const dz = g.z - s.z;
+  if (dz <= NEAR) return null;
+  const a = P(s, g.x - .3, 1.86, dz), c = P(s, g.x + .3, g.cover ? 1.0 : 0, dz);
+  return { x0: a[0], y0: a[1], x1: c[0], y1: c[1], headY: P(s, 0, 1.52, dz)[1] };
+}
+function pursuerBox(s) {
+  const dz = Math.max(.32, s.dist), px = -s.chaseX;
+  const a = P(s, px - .34, 1.86, dz), c = P(s, px + .34, 0, dz);
+  return { x0: a[0], y0: a[1], x1: c[0], y1: c[1] };
+}
 
 function passes(s, o) {
   const inLane = o.lanes.some(l => Math.abs(s.x - l * LANE) < LANE * .62);
@@ -1732,10 +1857,12 @@ function drawWorld(s, b) {
     drawObstacles(s, b);
     drawDoorWall(s, b);
     drawChaseShadow(s, b);
+    drawLasers(s, b);
   } else {
     drawPursuer(s, b);
   }
   b.restore();
+  drawViewGun(s, b);
 
   // 위험할수록 가장자리가 붉게 조여 옵니다
   const dg = s.danger || 0;
@@ -1876,8 +2003,13 @@ function box(s, b, x0, x1, y0, y1, d0, d1, col, z) {
 
 function drawObstacles(s, b) {
   const vis = s.obs.filter(o => o.z + o.d - s.z > NEAR && o.z - s.z < VIEW);
+  // 경비원 · 바닥의 권총도 같은 깊이 순서로 섞어 그립니다
+  (s.guards || []).forEach(g => { if (g.st !== 'gone' && g.st !== 'wait' && g.z - s.z > NEAR) vis.push({ guard: g, z: g.z }); });
+  if (!s.gun && !s.gunDone && GUN_Z - s.z > NEAR && GUN_Z - s.z < VIEW) vis.push({ pickup: true, z: GUN_Z });
   vis.sort((a, c) => c.z - a.z);
   for (const o of vis) {
+    if (o.guard) { drawGuard(s, b, o.guard); continue; }
+    if (o.pickup) { drawPickup(s, b); continue; }
     const d0 = o.z - s.z, d1 = d0 + o.d;
     const spans = o.lanes.length === 3 ? [[-HW, HW]] : o.lanes.map(l => [l * LANE - .55, l * LANE + .55]);
     for (const [x0, x1] of spans) {
@@ -1922,6 +2054,102 @@ function drawObstacles(s, b) {
         }
       }
     }
+  }
+}
+
+/* 경비원 — 짙은 제복, 모자 챙 아래 바이저. 겨눌 땐 바이저가 붉게 켜집니다 */
+function drawGuard(s, b, g) {
+  const dz = g.z - s.z, k = FOC / dz;
+  const pop = g.st === 'pop' ? clamp01(g.t / 20) : 1;
+  const pt = (x, y) => P(s, g.x + x, y, dz);
+  if (g.st === 'die') {                                   // 코드처럼 깨져 흩어집니다
+    const a = pt(-.3, 1.86), c = pt(.3, 0), h = c[1] - a[1], n = 7;
+    for (let i = 0; i < n; i++) {
+      if (hash(i * 31 + g.t * 7 + (g.z | 0)) < g.t / 30) continue;
+      const off = (hash(i + g.t * 13) - .5) * g.t * 1.6;
+      b.fillStyle = ['#2f6fb5', '#c2352c', '#7de3c8', '#e9e3d5'][(i + g.t) % 4];
+      b.globalAlpha = 1 - g.t / 26;
+      b.fillRect(a[0] + off, a[1] + h * i / n, c[0] - a[0], Math.max(1, h / n - 1));
+    }
+    b.globalAlpha = 1;
+    return;
+  }
+  b.save();
+  b.globalAlpha = pop;
+  const uni = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [40, 50, 78], dz, g.z));
+  const dark = css(shade(s, [16, 18, 24], dz, g.z));
+  // 다리 · 몸통
+  b.fillStyle = dark;
+  [[-.16, -.04], [.04, .16]].forEach(([x0, x1]) => { const a = pt(x0, .9), c = pt(x1, 0); b.fillRect(a[0], a[1], c[0] - a[0], c[1] - a[1]); });
+  quad(b, [pt(-.26, 1.5), pt(.26, 1.5), pt(.22, .86), pt(-.22, .86)], uni);
+  // 총을 든 팔 — 가슴 앞으로 겨눕니다
+  const aiming = g.st === 'aim' || g.st === 'cool';
+  b.fillStyle = uni;
+  const arm0 = pt(-.22, 1.36), arm1 = pt(.08, aiming ? 1.3 : 1.05);
+  b.fillRect(arm0[0], arm0[1], arm1[0] - arm0[0], Math.max(1, .1 * k));
+  if (aiming) { b.fillStyle = dark; const gn = pt(.02, 1.36), gn2 = pt(.14, 1.28); b.fillRect(gn[0], gn[1], gn2[0] - gn[0], Math.max(1, gn2[1] - gn[1])); }
+  // 머리 · 모자 · 바이저
+  const hd = pt(0, 1.66);
+  b.fillStyle = css(shade(s, [170, 150, 135], dz, g.z));
+  b.beginPath(); b.arc(hd[0], hd[1], Math.max(1, .12 * k), 0, Math.PI * 2); b.fill();
+  b.fillStyle = dark; const cap = pt(-.15, 1.86), cap2 = pt(.15, 1.74); b.fillRect(cap[0], cap[1], cap2[0] - cap[0], cap2[1] - cap[1]);
+  const vz = pt(-.1, 1.7), vz2 = pt(.1, 1.64);
+  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .15;
+  b.fillStyle = `rgba(255,${60 - lit * 40},${50 - lit * 30},${.4 + lit * .6})`;
+  b.fillRect(vz[0], vz[1], vz2[0] - vz[0], Math.max(1, vz2[1] - vz[1]));
+  // 총구 섬광
+  if (g.flash > 0) {
+    const m = pt(.14, 1.32);
+    b.globalCompositeOperation = 'lighter'; b.fillStyle = 'rgba(255,220,140,.9)';
+    b.beginPath(); b.arc(m[0], m[1], Math.max(2, .16 * k), 0, Math.PI * 2); b.fill();
+  }
+  b.restore();
+}
+/* 경비원의 조준선 — 화면 앞쪽(내가 있던 자리)으로 뻗습니다. 고정되면 굵고 붉게 */
+function drawLasers(s, b) {
+  for (const g of s.guards || []) {
+    if (g.st !== 'aim') continue;
+    const dz = g.z - s.z; if (dz <= NEAR) continue;
+    const m = P(s, g.x + .14, 1.32, dz), tgt = P(s, g.lockX, s.camY - .25, 1.1);
+    const locked = g.t >= LOCK_T;
+    b.strokeStyle = locked ? `rgba(255,40,30,${.75 + .25 * Math.sin(s.frame * .9)})` : `rgba(255,70,60,${.25 + g.t / AIM_T * .35})`;
+    b.lineWidth = locked ? 2 : 1;
+    b.beginPath(); b.moveTo(m[0], m[1]); b.lineTo(tgt[0], tgt[1]); b.stroke();
+  }
+}
+/* 바닥에 떨어진 권총 — 깜빡이며 빛납니다 */
+function drawPickup(s, b) {
+  const dz = GUN_Z - s.z, a = P(s, -.18, .06, dz), c = P(s, .18, 0, dz);
+  const gl = .5 + .5 * Math.sin(s.frame * .2);
+  b.save(); b.globalCompositeOperation = 'lighter';
+  const mx = (a[0] + c[0]) / 2, my = (a[1] + c[1]) / 2, r = Math.max(4, (c[0] - a[0]) * 1.5);
+  const g = b.createRadialGradient(mx, my, 1, mx, my, r);
+  g.addColorStop(0, `rgba(255,230,160,${.35 + gl * .3})`); g.addColorStop(1, 'rgba(255,230,160,0)');
+  b.fillStyle = g; b.fillRect(mx - r, my - r, r * 2, r * 2);
+  b.restore();
+  b.fillStyle = '#15161a'; b.fillRect(a[0], a[1] - 1, c[0] - a[0], Math.max(2, c[1] - a[1] + 1));
+}
+/* 손에 든 권총 — 오른쪽 아래, 겨누는 쪽으로 살짝 따라가고 쏘면 튑니다 */
+function drawViewGun(s, b) {
+  const G = s.gun; if (!G || s.view !== 'fwd') return;
+  const ax = (s.mx / SC - LW / 2) * .12, ay = (s.my / SC - LH / 2) * .08;
+  const rl = G.reload > 0 ? Math.sin(Math.PI * (1 - G.reload / 70)) * 40 : 0;   // 재장전 — 아래로 내렸다 올림
+  const x = 214 + ax, y = 120 + ay + G.recoil * 8 + rl + Math.sin(s.bob * 2) * 1.5;
+  b.save();
+  b.translate(x, y); b.rotate(-.12 - G.recoil * .18);
+  b.fillStyle = '#c9a58e'; b.fillRect(30, 26, 26, 40);                    // 손
+  b.fillStyle = '#1b1c20'; b.fillRect(0, 0, 66, 15);                      // 슬라이드
+  b.fillStyle = '#26282d'; b.fillRect(36, 12, 18, 34);                    // 손잡이
+  b.fillStyle = '#3a3d44'; b.fillRect(2, 2, 60, 3);
+  b.fillStyle = '#0c0c0e'; b.fillRect(-2, 5, 4, 5);                       // 총구
+  if (G.flash > 0) {
+    b.globalCompositeOperation = 'lighter';
+    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(-6, 7, 9 + G.flash * 2, 0, Math.PI * 2); b.fill();
+  }
+  b.restore();
+  if (G.tracer) {                                                         // 총알 궤적
+    b.strokeStyle = `rgba(255,236,190,${G.tracer.t / 4})`; b.lineWidth = 1;
+    b.beginPath(); b.moveTo(x - 4, y + 4); b.lineTo(G.tracer.x, G.tracer.y); b.stroke();
   }
 }
 
@@ -2077,6 +2305,29 @@ function drawHud(s, c) {
     c.textAlign = 'center'; c.font = `14px ${MONO}`; c.fillStyle = 'rgba(255,120,110,.8)';
     c.fillText('— 뒤 —', W / 2, 92);
   }
+  if (s.gun) {
+    // 조준점
+    const x = s.mx, y = s.my;
+    c.strokeStyle = 'rgba(230,241,255,.85)'; c.lineWidth = 2;
+    c.beginPath(); c.arc(x, y, 9, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.moveTo(x - 16, y); c.lineTo(x - 6, y); c.moveTo(x + 6, y); c.lineTo(x + 16, y);
+    c.moveTo(x, y - 16); c.lineTo(x, y - 6); c.moveTo(x, y + 6); c.lineTo(x, y + 16); c.stroke();
+    // 탄
+    c.textAlign = 'right'; c.font = `15px ${MONO}`;
+    if (s.gun.reload > 0) { c.fillStyle = '#e3b23c'; c.fillText('재장전…', W - 26, H - 30); }
+    else {
+      for (let i = 0; i < MAG; i++) { c.fillStyle = i < s.gun.ammo ? '#e9e3d5' : 'rgba(233,227,213,.18)'; c.fillRect(W - 30 - i * 9, H - 40, 5, 16); }
+    }
+    c.fillStyle = 'rgba(230,241,255,.5)'; c.font = `12px ${MONO}`;
+    c.fillText(`처치 ${s.kills || 0}`, W - 26, H - 56);
+    // 처음 줍는 순간 알림
+    if (s.gunHint && s.z < ZONE0 + 18) {
+      c.textAlign = 'center'; c.font = `16px ${MONO}`;
+      c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(W / 2 - 240, 46, 480, 30);
+      c.fillStyle = '#e3b23c';
+      c.fillText(s.touch ? '적을 눌러 쏘기 · 조준선이 붉어지면 옆으로 비키기' : '마우스 조준 · 클릭 사격 (F 자동 조준) · R 재장전', W / 2, 62);
+    }
+  }
   c.restore();
 }
 
@@ -2105,18 +2356,20 @@ class EscapeScene {
     this.overlay = bakeOverlay();
     this.states = { door: DoorState, stay: StayState, open: OpenState, run: RunState, caught: CaughtState, free: FreeState };
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onTouchStart', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
+    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onMove', 'onTouchStart', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
     this.running = false;
   }
   start() {
     this.frame = 0; this.subs = []; this.bob = 0; this.shake = 0; this.flash = 0; this.flick = 0;
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.alarm = 0; this.lights = .55; this.doorOpen = .06;
-    this.obs = []; this.view = 'fwd';
+    this.obs = []; this.guards = []; this.gun = null; this.view = 'fwd';
+    this.mx = W / 2; this.my = H / 2;
     this.go('door');
     this.running = true; this.acc = 0; this.last = performance.now();
     addEventListener('keydown', this.onKey); addEventListener('keyup', this.onKeyUp);
     this.canvas.addEventListener('pointerdown', this.onDown);
+    this.canvas.addEventListener('pointermove', this.onMove);
     this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
     this.canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
     this.raf = requestAnimationFrame(this.loop);
@@ -2126,6 +2379,8 @@ class EscapeScene {
     cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.onKey); removeEventListener('keyup', this.onKeyUp);
     this.canvas.removeEventListener('pointerdown', this.onDown);
+    this.canvas.removeEventListener('pointermove', this.onMove);
+    this.canvas.style.cursor = '';
     this.canvas.removeEventListener('touchstart', this.onTouchStart);
     this.canvas.removeEventListener('touchend', this.onTouchEnd);
     this.sfx.stopAll();
@@ -2135,8 +2390,18 @@ class EscapeScene {
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.stumble = 0; this.immune = 0;
     this.obs = genObstacles(); this.saidMask = 0; this.lookedBack = false; this.view = 'fwd';
+    this.guards = genGuards(); this.gun = null; this.gunDone = false; this.kills = 0; this.shotOnce = false; this.shotDoc = false;
     this.doorOpen = .06; this.lights = .55; this.alarm = 0; this.lastStep = 0;
     this.sfx.hum(true);
+  }
+  /* 개발자 모드 — 문을 연 상태로 z 지점부터 바로 달립니다 */
+  jumpTo(z) {
+    this.resetRun();
+    this.z = z; this.doorOpen = 1; this.lights = 1; this.alarm = 1;
+    this.sfx.alarm(true); this.sfx.humVol(1);
+    RUN_LINES.forEach(([lz], i) => { if (lz < z) this.saidMask |= 1 << i; });
+    this.subs = [];
+    this.go('run');
   }
   go(name) {
     this.state = this.states[name]; this.stateName = name; this.t = 0;
@@ -2172,6 +2437,7 @@ class EscapeScene {
   }
   draw() {
     const c = this.ctx;
+    this.canvas.style.cursor = this.gun ? 'none' : '';
     this.state.draw(this, this.b);
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.imageSmoothingEnabled = false;
@@ -2212,6 +2478,10 @@ class EscapeScene {
     if (map[e.code] || e.code === 'KeyQ' || e.code === 'Digit1' || e.code === 'Digit2') e.preventDefault();
     if (e.repeat) return;
     if (e.code === 'KeyQ') return this.look(true);
+    if (this.gun && this.stateName === 'run') {
+      if (e.code === 'KeyF') { e.preventDefault(); return autoFire(this); }
+      if (e.code === 'KeyR' && this.gun.reload <= 0 && this.gun.ammo < MAG) { e.preventDefault(); this.gun.reload = 70; this.sfx.reloadStart(); return; }
+    }
     if (this.choice && (e.code === 'Digit1' || e.code === 'Digit2')) return this.pickChoice(e.code === 'Digit1' ? 0 : 1);
     if (map[e.code]) this.act(map[e.code]);
   }
@@ -2220,7 +2490,12 @@ class EscapeScene {
     const r = this.canvas.getBoundingClientRect();
     return [(clientX - r.left) * W / r.width, (clientY - r.top) * H / r.height];
   }
+  onMove(e) { const [x, y] = this.toLocal(e.clientX, e.clientY); this.mx = x; this.my = y; }
   onDown(e) {
+    if (this.gun && this.stateName === 'run' && e.pointerType !== 'touch') {
+      const [x, y] = this.toLocal(e.clientX, e.clientY); this.mx = x; this.my = y;
+      return fireAt(this, x / SC, y / SC);
+    }
     if (!this.choice || e.pointerType === 'touch') return;
     const [x, y] = this.toLocal(e.clientX, e.clientY);
     choiceRects(this).forEach((r, i) => { if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) { this.choice.sel = i; this.pickChoice(i); } });
@@ -2241,7 +2516,10 @@ class EscapeScene {
       choiceRects(this).forEach((r, i) => { if (x >= r.x && x <= r.x + r.w && y >= r.y - 20 && y <= r.y + r.h + 20) { this.choice.sel = i; this.pickChoice(i); } });
       return;
     }
-    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return this.act('jump');   // 톡 — 점프
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) {                          // 톡 — 총이 있으면 그 자리를 쏘고, 없으면 점프
+      if (this.gun && this.stateName === 'run') { const [x, y] = this.toLocal(t.clientX, t.clientY); this.mx = x; this.my = y; return fireAt(this, x / SC, y / SC); }
+      return this.act('jump');
+    }
     if (Math.abs(dx) > Math.abs(dy)) this.act(dx < 0 ? 'left' : 'right');
     else this.act(dy < 0 ? 'jump' : 'slide');
   }
