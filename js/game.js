@@ -5001,6 +5001,7 @@ $('title').querySelector('h1').addEventListener('click', () => {
 
 function openDevPanel() {
   G.dev = true;
+  document.body.classList.add('dev');          // 개발자 모드 동안엔 제작진 크레딧을 숨깁니다 (css)
   Sfx.unlock(); Sfx.glitch();
   $('devbadge').classList.remove('hidden');
   ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden'));

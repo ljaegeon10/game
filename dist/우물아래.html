@@ -882,6 +882,8 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 .ec-label{ font-size:7px; letter-spacing:.3em; text-indent:.3em; color:#6f7c8e; }
 .ec-names{ font-size:9px; letter-spacing:.14em; color:#c9cfd8; }
 .ec-thanks{ margin-top:6px; }
+/* 개발자 모드 — 타이틀 하단 · 엔드 카드의 제작진 크레딧을 띄우지 않습니다 */
+body.dev #credits, body.dev .e-credits{ display:none; }
 .ec-thanks-name{ color:var(--glow); text-shadow:0 0 6px rgba(125,227,200,.35); }
 
 /* ═══════════════════════════════════════════════════════
@@ -9711,6 +9713,7 @@ $('title').querySelector('h1').addEventListener('click', () => {
 
 function openDevPanel() {
   G.dev = true;
+  document.body.classList.add('dev');          // 개발자 모드 동안엔 제작진 크레딧을 숨깁니다 (css)
   Sfx.unlock(); Sfx.glitch();
   $('devbadge').classList.remove('hidden');
   ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden'));
