@@ -209,6 +209,40 @@ const Sfx = (() => {
     /* ⚠ 복선 : 숲속에 어울리지 않는 기계 비프 */
     beep(vol = 0.07) { tone(1046, 0.055, 'square', vol); },
 
+    /* 오프닝 — 피험자가 깨려 할 때 울리는 모니터 경보 (높게-낮게 두 음) */
+    alarm() {
+      tone(1320, 0.11, 'triangle', 0.13);
+      setTimeout(() => tone(990, 0.15, 'triangle', 0.12), 130);
+    },
+
+    /* 오프닝 — "용량 올려" 뒤 약이 들어가는 순간: 차가운 쉿 소리와 가라앉는 저음 */
+    inject() {
+      noise(0.9, 0.16, 3000, 11000);
+      tone(420, 1.2, 'sine', 0.22, 48);
+      tone(63, 1.0, 'sine', 0.30, 30);
+    },
+
+    /* 오프닝 — 어둠 속 눈이 이쪽을 볼 때. 반음끼리 부딪는 날카로운 덩어리 */
+    sting() {
+      [233, 247, 349, 370].forEach((f, i) => tone(f, 1.3 - i * .1, 'sawtooth', 0.11, f * .94));
+      tone(46, 1.4, 'sine', 0.36, 30);
+      noise(0.5, 0.22, 900, 9000);
+    },
+
+    /* 오프닝 — 숫자를 세며 가라앉을 때. 아주 낮게 길게 꺼져 드는 음과 바람 */
+    sink(sec = 6) {
+      const c = ctx(), t = c.currentTime;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(130, t);
+      o.frequency.exponentialRampToValueAtTime(34, t + sec);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.2, t + sec * .7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + sec + .4);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + sec + .5);
+      noise(sec, 0.06, 120, 900);
+    },
+
     /* 대사 중 충격적인 사실이 "팡" 하고 커질 때 */
     reveal() {
       tone(52, 0.32, 'sine', 0.30, 40);
