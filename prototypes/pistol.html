@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Well Below Pistol</title>
+<style>
+  /* 어두운 실험실 한 가지 모습만 갖는 시연 화면 */
+  :root { color-scheme: dark; --void: #05070a; --teal: #00ffd5; --dim: #4f6a66; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--void); color: #cfe9e3;
+    display: grid; place-items: center;
+    padding: 16px; box-sizing: border-box; overflow-x: hidden;
+    font-family: 'DungGeunMo', ui-monospace, Menlo, Consolas, monospace;
+  }
+  #wrap { width: min(100%, calc((100vh - 64px) * 960 / 764)); }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: #000; }
+  p { margin: 10px 0 0; font-size: 12px; color: var(--dim); text-align: center; letter-spacing: .06em; line-height: 1.7; }
+  kbd { color: var(--teal); font: inherit; border: 1px solid #1d3a35; padding: 0 5px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv" width="960" height="764" aria-label="1인칭 픽셀 피스톨 장전 모션"></canvas>
+  <p><kbd>R</kbd> 장전 &nbsp; <kbd>SPACE</kbd> 일시정지 &nbsp; <kbd>← →</kbd> 한 장씩 (정지 중) &nbsp; <kbd>S</kbd> 시트 전체 보기 &nbsp; · 화면을 누르면 소리가 켜집니다</p>
+</div>
+
+<script>
+'use strict';
+(() => {
+/* ═══════════════════════════════════════════════════════════════
+   <우물 아래> — 1인칭 픽셀 피스톨 · 장전 모션 시트
+
+   시트 구조 (한 칸 128×96)
+            col 0        col 1          col 2          col 3
+     row0   IDLE ★       배출 준비       탄창 아래       손이 슬라이드에
+     row1   숨 (위)      버튼 누름       밀어 넣는 중 ★  당기기 시작
+     row2   숨 (위)      탄창 빠짐 ★     거의 다         끝까지 — 챔버 열림 ★
+     row3   숨           빈 손잡이       철컥 (손바닥)   놓음 — 제자리로
+     row4   [낙하 탄창 · 탄피 — 낱개 스프라이트]
+     ★ = 하단 4×1 시트에 보여 주는 대표 프레임
+   ═══════════════════════════════════════════════════════════════ */
+const CW = 960, CH = 764;
+const VW = 192, VH = 108, VS = 5;          // 장면 버퍼 — ×5 로 키워 960×540
+const FW = 128, FH = 96;                   // 스프라이트 한 칸
+const COLS = 4, SUBS = 4, UTIL_ROW = 4;
+const KEY = [0, 2, 1, 2];                  // 단계마다 대표 프레임 (하단 4×1)
+const LABEL = [['01', 'IDLE', '대기'], ['02', 'MAG RELEASE', '탄창 배출'],
+               ['03', 'INSERT MAG', '새 탄창 삽입'], ['04', 'RACK SLIDE', '슬라이드 당기기']];
+const STEP = 1000 / 60;
+const FONT = "'DungGeunMo', ui-monospace, Menlo, Consolas, monospace";
+
+/* 팔레트 — 흑·냉회색 본체, 형광 청록 작동부, 오방색 그립 */
+const C = {
+  K: '#07080b', G1: '#16191f', G2: '#252a33', G3: '#363d49', G4: '#525c6b', G5: '#7b8696',
+  T: '#00ffd5', T2: '#00b89a', T3: '#00574b',
+  R: '#c2352c', B: '#2f6fb5', Y: '#e3b23c', W: '#e9e3d5', Bk: '#15141b',
+  GL1: '#1b1e22', GL2: '#2a2e35', GL3: '#3d434d', GL4: '#565d68', PAD: '#0f1114',
+  SL1: '#121826', SL2: '#1c2536', SL3: '#2a364b',
+  BR: '#a8842f', BR2: '#e2c272'
+};
+const OBANG = [C.B, C.W, C.R, C.Bk, C.Y];
+
+/* ═════════════ 픽셀 붓 ═══════════════════════════════════════
+   px  : 본 시트에 찍고, 같은 자리의 글로우 마스크는 지웁니다 (가려지면 안 빛남)
+   glow: 본 시트와 글로우 마스크 둘 다에 찍습니다 */
+function makeBrush(ctx, gctx) {
+  let ox = 0, oy = 0;
+  const b = {
+    at(x, y) { ox = x; oy = y; },
+    px(c, x, y, w = 1, h = 1) {
+      if (w <= 0 || h <= 0) return;
+      x = ox + Math.round(x); y = oy + Math.round(y);
+      ctx.fillStyle = c; ctx.fillRect(x, y, w, h);
+      gctx.clearRect(x, y, w, h);
+    },
+    glow(c, x, y, w = 1, h = 1) {
+      if (w <= 0 || h <= 0) return;
+      x = ox + Math.round(x); y = oy + Math.round(y);
+      ctx.fillStyle = c; ctx.fillRect(x, y, w, h);
+      gctx.fillStyle = c; gctx.fillRect(x, y, w, h);
+    },
+    clr(x, y, w = 1, h = 1) { x = ox + Math.round(x); y = oy + Math.round(y); ctx.clearRect(x, y, w, h); gctx.clearRect(x, y, w, h); },
+    /* 줄마다 [x0, x1] 을 주는 비스듬한 면 — col(x, y, x0, x1) 이 색을 돌려줍니다 */
+    span(y0, y1, edge, col) {
+      for (let y = y0; y <= y1; y++) {
+        const [a, c] = edge(y), x0 = Math.round(a), x1 = Math.round(c);
+        for (let x = x0; x <= x1; x++) { const k = col(x, y, x0, x1); if (k) b.px(k, x, y); }
+      }
+    },
+    box(x, y, w, h, fill, line = C.K) { b.px(line, x, y, w, h); b.px(fill, x + 1, y + 1, w - 2, h - 2); }
+  };
+  return b;
+}
+
+/* 단청 띠 — 황 · 흑 · (적/청 꽃 + 백 테두리) · 흑 · 청 이 7줄마다 되풀이됩니다 */
+function dancheong(x, y, x0, phase = 0) {
+  const yy = y + phase, r = ((yy % 7) + 7) % 7, cx = (((x - x0) % 6) + 6) % 6;
+  if (r === 0) return C.Y;
+  if (r === 6) return C.B;
+  if (r === 1 || r === 5) return C.Bk;
+  const band = Math.floor(yy / 7);
+  const d = Math.abs(cx - 2.5) + Math.abs(r - 3);
+  if (d <= 1) return band % 2 ? C.R : C.B;
+  if (d <= 2) return C.W;
+  return C.Bk;
+}
+
+/* ═════════════ 장갑 낀 손 · 소매 ════════════════════════════ */
+function glove(x, y, x0, x1, top) {          // 비스듬한 면용 — 가장자리 윤곽, 위쪽 밝게
+  if (x === x0 || x === x1) return C.K;
+  if (y === top) return C.K;
+  if (x === x0 + 1 || y === top + 1) return C.GL3;
+  return C.GL2;
+}
+function sleeve(x, y, x0, x1) {
+  if (x === x0 || x === x1) return C.K;
+  if (x === x0 + 1) return C.SL3;
+  return ((x + y) % 9 === 0) ? C.SL1 : C.SL2;
+}
+
+/* ═════════════ 뒤에서 본 피스톨 (IDLE) ═══════════════════════ */
+function drawRear(b, o) {
+  const dy = o.dy || 0, lit = o.lit || 0;
+  const Y = v => v + dy;
+  // 소매 두 짝 — 아래 모서리에서 손으로
+  b.span(Y(74), 95, y => [16 + (95 - y) * 1.1, 52 + (95 - y) * .35], sleeve);
+  b.span(Y(74), 95, y => [76 - (95 - y) * .35, 112 - (95 - y) * 1.1], sleeve);
+  // 손잡이 뒷면(백스트랩) — 단청이 손 사이로 드러납니다
+  b.span(Y(44), 95, () => [58, 70], (x, y, x0, x1) => (x === x0 || x === x1) ? C.K : (x === x0 + 1 ? C.G3 : null));
+  b.span(Y(48), 95, () => [60, 68], (x, y, x0) => dancheong(x, y, x0, -dy));
+  // 오른손 (쥐는 손) — 손잡이 오른쪽을 감쌉니다
+  b.span(Y(56), Y(86), y => [69, 86 - Math.abs(y - Y(70)) * .25], (x, y, x0, x1) => glove(x, y, x0, x1, Y(56)));
+  for (let i = 0; i < 3; i++) b.px(C.PAD, 78, Y(61 + i * 7), 6, 2);                  // 손가락 마디 보호대
+  // 왼손 (받치는 손) — 앞쪽에서 감싸 올립니다
+  b.span(Y(58), Y(88), y => [42 + Math.abs(y - Y(72)) * .25, 59], (x, y, x0, x1) => glove(x, y, x0, x1, Y(58)));
+  for (let i = 0; i < 3; i++) b.px(C.PAD, 45, Y(63 + i * 7), 6, 2);
+  b.px(C.GL4, 47, Y(60), 8, 1);
+  // 손목 띠 — 청록 표시등 (피험자 07)
+  b.px(C.K, 64 - 30, Y(84), 18, 4); b.px(C.GL1, 64 - 29, Y(85), 16, 2); b.glow(lit ? C.T : C.T2, 64 - 22, Y(85), 2, 2);
+  b.px(C.K, 76, Y(84), 18, 4); b.px(C.GL1, 77, Y(85), 16, 2); b.glow(lit ? C.T : C.T2, 84, Y(85), 2, 2);
+  // 엄지 둘 — 프레임 양옆을 따라 앞으로
+  b.box(48, Y(46), 6, 13, C.GL3); b.px(C.GL4, 49, Y(47), 1, 10);
+  b.box(74, Y(46), 6, 13, C.GL3); b.px(C.GL4, 75, Y(47), 1, 10);
+  // 프레임 · 더스트 커버
+  b.box(52, Y(43), 25, 6, C.G1); b.px(C.G3, 53, Y(44), 23, 1);
+  b.glow(lit > .5 ? C.T : C.T2, 53, Y(46), 1, 2); b.glow(lit > .5 ? C.T : C.T2, 75, Y(46), 1, 2);   // 탄창 멈치 (양손잡이)
+  // 슬라이드 뒷면
+  b.box(50, Y(28), 29, 16, C.G2);
+  b.clr(50, Y(28)); b.clr(78, Y(28));                    // 둥근 모서리
+  b.px(C.G4, 51, Y(29), 27, 1); b.px(C.G5, 51, Y(29), 1, 12);   // 차가운 테두리 빛
+  b.px(C.G1, 51, Y(40), 27, 3);
+  // 옆면 톱니 — 가장자리로 청록이 새어 나옵니다
+  for (let y = 31; y <= 41; y += 2) { b.glow(C.T2, 50, Y(y)); b.glow(C.T2, 78, Y(y)); }
+  // 스트라이커 판 — 가운데 청록 고리
+  b.box(59, Y(33), 11, 8, C.G1);
+  b.glow(C.T3, 62, Y(35), 5, 4); b.glow(lit ? C.T : C.T2, 63, Y(36), 3, 2);
+  // 가늠자 — 홈 사이로 가늠쇠
+  b.box(52, Y(24), 25, 5, C.G1); b.clr(62, Y(24), 5, 3); b.px(C.K, 62, Y(26), 5, 1);
+  b.glow(C.T, 55, Y(25), 2, 2); b.glow(C.T, 72, Y(25), 2, 2);
+  b.px(C.K, 63, Y(21), 3, 5); b.glow(C.T, 64, Y(22), 1, 2);   // 가늠쇠 — 더 멀어서 작게
+}
+
+/* ═════════════ 옆에서 본 피스톨 (장전) ═══════════════════════
+   o.so : 슬라이드가 뒤로 밀린 픽셀     o.mo : 탄창이 빠져나온 픽셀 (null = 없음)
+   o.thumb : 탄창 멈치를 누름           o.left : 왼손 — low / mag / slap / rack
+   o.newMag : 꽉 찬 새 탄창 (윗탄이 보임) o.sg : 톱니 글로우 세기 (0~1) */
+const K_SLOPE = .22;
+const gx0 = y => 68 + (y - 47) * K_SLOPE, gx1 = y => 88 + (y - 47) * K_SLOPE;
+
+function drawMag(b, mo, full, ox = 0, oy = 0) {
+  const top = 49 + mo + oy, bot = 84 + mo + oy;
+  const e = y => [gx0(y - mo - oy) + 3 + ox, gx1(y - mo - oy) - 3 + ox];
+  b.span(top, bot - 3, e, (x, y, x0, x1) => {
+    if (x === x0 || x === x1) return C.K;
+    if (x === x0 + 1) return C.G3;
+    // 탄창 옆면 — 오방색 가는 띠
+    const r = y - top;
+    if (r > 6 && r % 3 === 0) return OBANG[Math.floor(r / 3) % 5];
+    return C.G2;
+  });
+  // 바닥판
+  const [a, c] = e(bot);
+  b.box(Math.round(a) - 1, bot - 3, Math.round(c - a) + 4, 4, C.Bk);
+  b.px(C.Y, Math.round(a), bot - 2, Math.round(c - a) + 2, 1);
+  b.px(C.R, Math.round(a) + 2, bot - 1, 2, 1); b.px(C.B, Math.round(c) - 2, bot - 1, 2, 1);
+  if (full) {                                  // 윗탄 — 놋쇠에 청록 탄두
+    const [t0] = e(top);
+    b.px(C.BR, Math.round(t0) + 2, top - 2, 9, 3); b.px(C.BR2, Math.round(t0) + 3, top - 2, 7, 1);
+    b.glow(C.T, Math.round(t0), top - 2, 2, 3);
+  }
+}
+
+function drawSide(b, o) {
+  const so = o.so || 0, sg = o.sg || 0;
+  // ── 왼손이 쉬고 있을 때 — 아래 왼쪽에서 기다립니다
+  if (o.left === 'low') {
+    b.span(74, 112, y => [-2, 14 + (y - 74) * .35], sleeve);
+    b.span(66, 82, y => [6 + Math.abs(y - 74) * .4, 30 - Math.abs(y - 72) * .5], (x, y, x0, x1) => glove(x, y, x0, x1, 66));
+    for (let i = 0; i < 3; i++) b.px(C.PAD, 22, 68 + i * 4, 5, 2);
+  }
+  // ── 오른팔 소매 (손목에서 오른쪽 아래로)
+  b.span(70, 112, y => [86 + (y - 70) * .8, 104 + (y - 70) * 1.1], sleeve);
+  b.px(C.K, 84, 70, 22, 1);
+  // ── 탄창 (손잡이 안에 있으면 바닥판만, 빠지면 몸통이 드러남)
+  if (o.mo !== null && o.mo !== undefined) drawMag(b, o.mo, o.newMag);
+  // ── 슬라이드가 밀리면 드러나는 총열
+  if (so > 0) { b.px(C.G3, 26, 31, so + 1, 7); b.px(C.G4, 26, 31, so + 1, 1); b.px(C.K, 26, 33, 1, 3); }
+  // ── 프레임 · 방아쇠울 · 방아쇠
+  b.box(30, 41, 59, 7, C.G1); b.px(C.G3, 31, 42, 57, 1);
+  for (let x = 33; x <= 51; x += 3) b.px(C.K, x, 46, 1, 2);                // 레일 홈
+  b.px(C.K, 52, 47, 1, 10); b.px(C.G2, 53, 47, 1, 9);
+  b.px(C.K, 52, 56, 16, 2); b.px(C.G2, 53, 56, 14, 1);
+  b.px(C.G3, 60, 47, 2, 4); b.px(C.G3, 59, 51, 2, 3); b.px(C.G4, 60, 47, 1, 3);
+  // 탄창 멈치 — 누르면 밝게, 한 칸 안으로
+  if (o.thumb) b.glow(C.T, 67, 48, 2, 3); else b.glow(C.T2, 66, 48, 2, 3);
+  // ── 손잡이 + 단청 패널
+  b.span(47, 82, y => [gx0(y), gx1(y)], (x, y, x0, x1) => (x === x0 || x === x1) ? C.K : (x === x0 + 1 ? C.G3 : C.G1));
+  b.span(50, 78, y => [gx0(y) + 3, gx1(y) - 3], (x, y, x0, x1) => (x === x0 || x === x1 || y === 50 || y === 78) ? C.K : dancheong(x, y, x0));
+  if (o.mo === null || o.mo === undefined) {   // 빈 손잡이 — 탄창 구멍
+    b.span(80, 82, y => [gx0(y) + 3, gx1(y) - 3], () => C.K);
+  } else if (o.mo === 0) drawMag(b, 0, false, 0, 0);
+  // ── 슬라이드
+  const s0 = 26 + so;
+  b.box(s0, 28, 67, 14, C.G2);
+  b.clr(s0, 28); b.clr(s0, 29); b.clr(s0 + 1, 28);                           // 앞쪽 모따기
+  b.px(C.G4, s0 + 2, 29, 63, 1); b.px(C.G5, s0 + 4, 29, 20, 1);
+  b.px(C.G1, s0 + 1, 38, 65, 3);
+  // 각인 "07"
+  [[0, 0, 3, 1], [0, 4, 3, 1], [0, 0, 1, 5], [2, 0, 1, 5], [4, 0, 3, 1], [6, 0, 1, 5]].forEach(([x, y, w, h]) => b.px(C.T3, s0 + 12 + x, 33 + y, w, h));
+  // 배출구 — 슬라이드가 끝까지 밀리면 챔버가 열려 다음 탄이 보입니다
+  if (o.port) {
+    b.px(C.K, s0 + 36, 29, 12, 5);
+    b.px(C.BR, s0 + 38 - so, 30, 8, 3); b.px(C.BR2, s0 + 39 - so, 30, 6, 1); b.glow(C.T, s0 + 36 - so + 1, 30, 2, 3);
+  } else {
+    b.px(C.K, s0 + 36, 29, 1, 5); b.px(C.K, s0 + 47, 29, 1, 5); b.px(C.G3, s0 + 37, 30, 10, 3);
+  }
+  // 톱니 — 형광 청록 글로우
+  for (let i = 0; i < 6; i++) {
+    const x = s0 + 52 + i * 2;
+    b.px(C.K, x, 30, 1, 10);
+    b.glow(sg > .5 ? C.T : C.T2, x + 1, 30, 1, 10);
+    if (sg > 0) b.glow(C.T, x + 1, 33, 1, 4);
+  }
+  // 가늠쇠 · 가늠자
+  b.px(C.K, s0 + 3, 25, 4, 3); b.glow(C.T, s0 + 4, 26, 2, 1);
+  b.px(C.K, s0 + 57, 25, 8, 3); b.px(C.G2, s0 + 58, 26, 6, 1); b.px(C.K, s0 + 60, 25, 2, 2);
+  b.glow(C.T, s0 + 58, 26, 1, 1); b.glow(C.T, s0 + 63, 26, 1, 1);
+
+  // ── 오른손 — 손가락 셋이 앞쪽을 감싸고(단청이 그 사이로 보임), 검지는 방아쇠 밖에 곧게
+  b.span(51, 80, y => [gx1(y) - 4, gx1(y) + 5], (x, y, x0, x1) => glove(x, y, x0, x1, 51));   // 손바닥 뒤꿈치
+  // 손가락 셋 — 손잡이 앞을 감싼 한 덩어리, 끝마디만 단청 위로 살짝 걸칩니다
+  b.span(55, 75, y => [gx0(y) - 7 + Math.max(0, 57 - y) * .8 + Math.max(0, y - 73), gx0(y) + 3 - ((y - 55) % 7 === 6 ? 1 : 0)],
+         (x, y, x0, x1) => (x === x0 || x === x1 || y === 55 || y === 75) ? C.K
+                         : ((y - 55) % 7 === 6 ? C.K : ((y - 55) % 7 === 1 ? C.GL3 : C.GL2)));
+  [56, 63, 70].forEach(fy => b.px(C.PAD, gx0(fy) - 5, fy + 2, 3, 3));                         // 마디 보호대
+  b.box(54, 47, 15, 4, C.GL2); b.px(C.GL3, 55, 48, 12, 1); b.px(C.PAD, 56, 48, 3, 2);             // 검지
+  // 엄지 — 손잡이 위를 지나 멈치 쪽으로 (누를 땐 한 칸 앞으로)
+  const th = o.thumb ? -2 : 0;
+  b.box(68 + th, 48, 14 - th, 5, C.GL3); b.px(C.GL4, 69 + th, 49, 10, 1); b.px(C.PAD, 68 + th, 50, 3, 2);
+  // 손목 띠
+  b.px(C.K, 84, 70, 14, 5); b.px(C.GL1, 85, 71, 12, 3); b.glow(C.T2, 92, 72, 2, 1);
+
+  // ── 왼손
+  if (o.left === 'mag' || o.left === 'slap') {
+    const mo = o.left === 'slap' ? 0 : o.mo, bot = 84 + mo;
+    const cx0 = gx0(82) + 2, cx1 = gx1(82) - 1;
+    b.span(bot - 1, Math.min(112, bot + 12), y => [cx0 - 4 + (y - bot) * .15, cx1 + 6 + (y - bot) * .2], (x, y, x0, x1) => glove(x, y, x0, x1, bot - 1));
+    for (let i = 0; i < 3; i++) b.box(cx0 - 4 + i * 1, bot - 6 + i * 3, 5, 3, C.GL2);   // 탄창 앞쪽을 감싼 손끝
+    b.span(Math.min(112, bot + 8), 112, y => [cx0 - 14 - (y - bot) * .6, cx0 + 6 - (y - bot) * .3], sleeve);
+    if (o.left === 'slap') b.px(C.GL4, cx0 - 2, bot, cx1 - cx0 + 6, 1);
+  }
+  if (o.left === 'rack') {
+    const hx = s0 + 48;
+    b.span(0, 24, y => [hx + 16 + (24 - y) * .9, 130], sleeve);                         // 위쪽에서 내려오는 팔
+    b.span(21, 31, y => [hx - 1 + Math.abs(y - 26) * .3, hx + 24], (x, y, x0, x1) => glove(x, y, x0, x1, 21));
+    for (let i = 0; i < 4; i++) {                                                         // 톱니 위로 걸친 손가락
+      const fx = hx + 1 + i * 5;
+      b.box(fx, 29, 5, 9 - (i === 3 ? 2 : 0), C.GL2); b.px(C.GL3, fx + 1, 30, 1, 5); b.px(C.PAD, fx + 1, 35 - (i === 3 ? 2 : 0), 3, 1);
+    }
+  }
+}
+
+/* ═════════════ 시트 굽기 ═════════════════════════════════════ */
+function bakeSheet() {
+  const sheet = document.createElement('canvas'), mask = document.createElement('canvas');
+  sheet.width = mask.width = FW * COLS; sheet.height = mask.height = FH * (SUBS + 1);
+  const sc = sheet.getContext('2d'), mc = mask.getContext('2d');
+  const b = makeBrush(sc, mc);
+  const cell = (col, row, fn, lift = 0) => {
+    [sc, mc].forEach(c => { c.save(); c.beginPath(); c.rect(col * FW, row * FH, FW, FH); c.clip(); });
+    b.at(col * FW, row * FH - lift); fn();
+    [sc, mc].forEach(c => c.restore());
+  };
+  // col 0 — IDLE : 숨 쉬듯 한 픽셀씩 오르내림, 표시등이 한 번 밝아짐
+  [[0, 0], [-1, .3], [-1, 1], [0, .3]].forEach(([dy, lit], r) => cell(0, r, () => drawRear(b, { dy, lit })));
+  // col 1 — 탄창 배출
+  cell(1, 0, () => drawSide(b, { mo: 0, left: 'low' }), LIFT);
+  cell(1, 1, () => drawSide(b, { mo: 5, thumb: true, left: 'low' }), LIFT);
+  cell(1, 2, () => drawSide(b, { mo: 15, thumb: true, left: 'low' }), LIFT);
+  cell(1, 3, () => drawSide(b, { mo: null, left: 'low' }), LIFT);
+  // col 2 — 새 탄창 삽입
+  cell(2, 0, () => drawSide(b, { mo: 20, newMag: true, left: 'mag' }), LIFT);
+  cell(2, 1, () => drawSide(b, { mo: 11, newMag: true, left: 'mag' }), LIFT);
+  cell(2, 2, () => drawSide(b, { mo: 4, newMag: true, left: 'mag' }), LIFT);
+  cell(2, 3, () => drawSide(b, { mo: 0, left: 'slap' }), LIFT);
+  // col 3 — 슬라이드 당기기
+  cell(3, 0, () => drawSide(b, { mo: 0, left: 'rack', sg: .4 }), LIFT);
+  cell(3, 1, () => drawSide(b, { mo: 0, left: 'rack', so: 5, sg: 1 }), LIFT);
+  cell(3, 2, () => drawSide(b, { mo: 0, left: 'rack', so: 10, sg: 1, port: true }), LIFT);
+  cell(3, 3, () => drawSide(b, { mo: 0, left: 'low', sg: .6 }), LIFT);
+  // row 4 — 낱개 : 떨어지는 빈 탄창 (곧게 · 기울게), 탄피 두 장
+  cell(0, UTIL_ROW, () => drawMag(b, 0, false, -64, -46));
+  cell(1, UTIL_ROW, () => {
+    b.px(C.BR, 2, 2, 7, 3); b.px(C.BR2, 3, 2, 5, 1); b.px(C.K, 9, 2, 1, 3);
+    b.px(C.BR, 14, 1, 3, 6); b.px(C.BR2, 14, 2, 1, 4); b.px(C.K, 14, 7, 3, 1);
+  });
+  return { sheet, mask };
+}
+const LIFT = 16;
+/* 낱개 스프라이트의 위치 — [sx, sy, w, h] */
+const SPR_MAG = [0 * FW + 4, UTIL_ROW * FH, 24, 44];
+const SPR_CASE = [[1 * FW + 2, UTIL_ROW * FH + 1, 8, 5], [1 * FW + 13, UTIL_ROW * FH + 0, 5, 9]];
+
+/* ═════════════ 실험실 배경 ═══════════════════════════════════ */
+function bakeBackground() {
+  const cv = document.createElement('canvas'); cv.width = VW; cv.height = VH;
+  const c = cv.getContext('2d');
+  const R = (col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); };
+  const wg = c.createLinearGradient(0, 0, 0, 90);
+  wg.addColorStop(0, '#0b0f15'); wg.addColorStop(1, '#141b25');
+  c.fillStyle = wg; c.fillRect(0, 0, VW, 90);
+  for (let x = 11; x < VW; x += 28) R('#090c11', x, 19, 1, 71);                    // 벽판 이음매
+  R('#1d2632', 0, 67, VW, 2); R('#0a0d12', 0, 69, VW, 1);                          // 허리 몰딩
+  // 천장 배관 — 위쪽 두 줄, 고정쇠
+  [[6, 4], [13, 3]].forEach(([y, h]) => { R('#273140', 0, y, VW, h); R('#3a4656', 0, y, VW, 1); R('#0d1117', 0, y + h, VW, 1); });
+  for (let x = 5; x < VW; x += 32) { R('#151b24', x, 5, 3, 13); R('#4a5666', x, 5, 3, 1); }
+  // 세로 배관 + 붉은 밸브
+  R('#222b37', 15, 17, 5, 73); R('#384454', 15, 17, 1, 73); R('#0d1117', 19, 17, 1, 73);
+  R('#c2352c', 12, 41, 11, 2); R('#c2352c', 16, 36, 2, 12); R('#7d1b20', 12, 42, 11, 1);
+  R('#273140', 20, 56, 30, 3); R('#3a4656', 20, 56, 30, 1);
+  // 왼쪽 모니터 (심전도는 매 프레임 그림)
+  R('#1b222c', 26, 24, 36, 24); R('#03110e', 28, 26, 32, 19); R('#0a1d19', 28, 26, 32, 1);
+  R('#1b222c', 41, 48, 6, 5); R('#262e39', 36, 52, 16, 2);
+  // 오른쪽 큰 화면 — 데이터 막대
+  R('#1b222c', 128, 20, 44, 30); R('#040c0b', 130, 22, 40, 26);
+  // 오른쪽 기계 장치 — 통풍구, 경고 띠
+  R('#1a212b', 158, 53, 34, 37); R('#2a3442', 158, 53, 34, 1); R('#0c1016', 159, 54, 1, 36);
+  for (let y = 58; y < 80; y += 3) R('#0e1319', 163, y, 24, 1);
+  for (let i = 0; i < 7; i++) R(i % 2 ? '#e3b23c' : '#15141b', 158 + i * 5, 85, 5, 3);
+  // 바닥 — 멀수록 촘촘한 격자
+  R('#0a0d12', 0, 90, VW, VH - 90);
+  for (let i = 0, y = 91; y < VH; i++, y += 2 + i) R('#151c25', 0, y, VW, 1);
+  for (let x = -160; x < VW + 160; x += 20) {
+    c.strokeStyle = 'rgba(32,42,54,.8)'; c.lineWidth = 1; c.beginPath();
+    c.moveTo(VW / 2 + (x - VW / 2) * .35, 90); c.lineTo(x, VH); c.stroke();
+  }
+  // 천장 조명의 찬 빛 웅덩이
+  const lg = c.createRadialGradient(VW / 2, 0, 4, VW / 2, 24, 120);
+  lg.addColorStop(0, 'rgba(200,225,255,.12)'); lg.addColorStop(1, 'rgba(200,225,255,0)');
+  c.fillStyle = lg; c.fillRect(0, 0, VW, VH);
+  return cv;
+}
+
+/* 주사선 + 가장자리 어둡게 (화면 크기로 한 번만) */
+function bakeOverlay() {
+  const cv = document.createElement('canvas'); cv.width = CW; cv.height = VH * VS;
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(CW / 2, 270, 180, CW / 2, 270, 620);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.65)');
+  c.fillStyle = g; c.fillRect(0, 0, CW, cv.height);
+  c.fillStyle = 'rgba(0,0,0,.16)';
+  for (let y = 0; y < cv.height; y += VS) c.fillRect(0, y, CW, 1);
+  return cv;
+}
+
+/* ═════════════ 소리 (아주 짧은 합성음) ════════════════════════ */
+const Sfx = {
+  ac: null,
+  on() { if (!this.ac) { try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } } if (this.ac.state === 'suspended') this.ac.resume(); },
+  hit(f, dur, vol, type = 'square', slide) {
+    const a = this.ac; if (!a || a.state !== 'running') return;
+    const t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + .02);
+  },
+  noise(dur, vol, hp) {
+    const a = this.ac; if (!a || a.state !== 'running') return;
+    const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    s.buffer = buf; f.type = 'highpass'; f.frequency.value = hp; g.gain.value = vol;
+    s.connect(f).connect(g).connect(a.destination); s.start();
+  },
+  press() { this.hit(1800, .03, .06); },
+  drop()  { this.noise(.08, .12, 1500); this.hit(300, .06, .05, 'triangle'); },
+  clank() { this.noise(.12, .18, 900); this.hit(180, .1, .08, 'square', 90); },
+  seat()  { this.noise(.05, .2, 2500); this.hit(520, .05, .09); },
+  rack()  { this.noise(.07, .16, 2000); this.hit(900, .04, .06, 'square', 600); },
+  snap()  { this.noise(.05, .22, 3000); this.hit(1200, .04, .08); },
+  tink()  { this.hit(3200, .05, .04, 'triangle'); }
+};
+
+/* ═════════════ 파티클 — 미리 만든 풀을 돌려 씁니다 ═══════════════ */
+const POOL = 192;
+const parts = Array.from({ length: POOL }, () => ({ on: false, x: 0, y: 0, vx: 0, vy: 0, g: 0, life: 0, max: 1, c: '#fff', glow: false, floor: false }));
+let partI = 0;
+function emit(x, y, vx, vy, c, life, g = .12, glow = false, floor = true) {
+  const p = parts[partI]; partI = (partI + 1) % POOL;
+  p.on = true; p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.c = c; p.life = p.max = life; p.g = g; p.glow = glow; p.floor = floor;
+}
+const FLOOR_Y = VH - 6;
+function tickParts() {
+  for (const p of parts) {
+    if (!p.on) continue;
+    p.vy += p.g; p.x += p.vx; p.y += p.vy;
+    if (p.floor && p.y > FLOOR_Y) { p.y = FLOOR_Y; p.vy *= -.35; p.vx *= .6; }
+    if (--p.life <= 0) p.on = false;
+  }
+}
+
+/* ═════════════ 애니메이션 ═══════════════════════════════════
+   [단계, 장, 길이(프레임), 이벤트] — 이벤트는 그 장이 시작되는 순간 일어납니다 */
+const SEQ = [
+  [1, 0, 9, 'cant'], [1, 1, 12, 'press'], [1, 2, 9, 'release'], [1, 3, 16, 'drop'],
+  [2, 0, 12, 'bring'], [2, 1, 8, null], [2, 2, 7, null], [2, 3, 14, 'seat'],
+  [3, 0, 10, 'grab'], [3, 1, 5, 'pull'], [3, 2, 12, 'eject'], [3, 3, 12, 'snap']
+];
+const IDLE_SUB = 18, IDLE_HOLD = 200;
+const st = {
+  mode: 'idle', t: 0, seq: 0, seqT: 0, idleT: 0,
+  col: 0, row: 0, dy: 0, kick: 0, kx: 0, paused: false, showSheet: false,
+  mags: [], cases: [], frame: 0
+};
+const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;
+const SY = -LIFT;                                    // 옆모습 칸의 세로 보정
+
+function startReload() { if (st.mode === 'reload') return; st.mode = 'reload'; st.seq = 0; st.seqT = 0; fireEvent(SEQ[0][3]); }
+
+function fireEvent(ev) {
+  const gx = GUN_X + st.kx, gy = GUN_Y + st.dy + st.kick + SY;
+  switch (ev) {
+    case 'cant': st.dy = 16; break;                          // 총을 옆으로 눕히며 내려옵니다
+    case 'press': Sfx.press(); for (let i = 0; i < 4; i++) emit(gx + 67, gy + 49, (Math.random() - .5) * .6, -.4 - Math.random() * .4, C.T, 14, 0, true, false); break;
+    case 'release': Sfx.drop(); break;
+    case 'drop':                                              // 빈 탄창이 떨어져 나갑니다
+      st.mags.push({ x: gx + gx0(82) - 2, y: gy + 49 + 15, vx: -.25 + Math.random() * .2, vy: .6, tilt: 0, dead: false });
+      break;
+    case 'bring': Sfx.tink(); break;
+    case 'seat':                                              // 철컥 — 손바닥으로 밀어 넣음
+      Sfx.seat(); st.kick = -3;
+      for (let i = 0; i < 8; i++) emit(gx + gx0(82) + 4 + Math.random() * 10, gy + 84, (Math.random() - .5) * 1.4, -Math.random() * 1.2, i % 3 ? C.G5 : C.T, 18, .08, i % 3 === 0);
+      break;
+    case 'grab': Sfx.tink(); break;
+    case 'pull': Sfx.rack(); break;
+    case 'eject':                                             // 챔버의 탄이 튀어나갑니다
+      st.cases.push({ x: gx + 64, y: gy + 29, vx: 1.2 + Math.random() * .5, vy: -2.4, f: 0, dead: false });
+      break;
+    case 'snap':                                              // 놓으면 제자리로 — 톱니 빛이 뒤로 흘러갑니다
+      Sfx.snap(); st.kick = 2;
+      for (let i = 0; i < 18; i++) emit(gx + 78 + Math.random() * 12, gy + 30 + Math.random() * 10, 1.6 + Math.random() * 1.8, (Math.random() - .5) * .3, C.T, 14 + (Math.random() * 8 | 0), 0, true, false);
+      break;
+  }
+}
+
+function update() {
+  st.frame++;
+  tickParts();
+  // 낙하 탄창 — 바닥에 부딪히면 오방색 파편으로
+  for (const m of st.mags) {
+    if (m.dead) continue;
+    m.vy += .22; m.x += m.vx; m.y += m.vy; m.tilt += .04;
+    if (m.y + SPR_MAG[3] - 6 > FLOOR_Y) {
+      m.dead = true; Sfx.clank();
+      const cx = m.x + 12, cy = FLOOR_Y - 2;
+      for (let i = 0; i < 26; i++) {
+        const a = -Math.PI * (.1 + Math.random() * .8), sp = .6 + Math.random() * 2.2;
+        emit(cx + (Math.random() - .5) * 10, cy, Math.cos(a) * sp, Math.sin(a) * sp, i < 20 ? OBANG[i % 5] : C.G4, 30 + (Math.random() * 30 | 0), .12);
+      }
+      for (let i = 0; i < 6; i++) emit(cx, cy, (Math.random() - .5) * 2.6, -Math.random() * 2, C.T, 16, .06, true);
+    }
+  }
+  st.mags = st.mags.filter(m => !m.dead);
+  for (const c of st.cases) {
+    if (c.dead) continue;
+    c.vy += .16; c.x += c.vx; c.y += c.vy; c.f++;
+    if (c.y > FLOOR_Y - 2 && c.vy > 0) {
+      if (Math.abs(c.vy) < 1) c.dead = true; else { c.vy *= -.4; c.vx *= .6; Sfx.tink(); }
+    }
+    if (c.x > VW + 10) c.dead = true;
+  }
+  st.cases = st.cases.filter(c => !c.dead);
+  // 흔들림 · 오프셋은 천천히 제자리로
+  st.dy *= .82; if (Math.abs(st.dy) < .3) st.dy = 0;
+  st.kick *= .7; if (Math.abs(st.kick) < .3) st.kick = 0;
+  if (st.paused) return;
+
+  if (st.mode === 'idle') {
+    st.idleT++;
+    st.col = 0; st.row = Math.floor(st.idleT / IDLE_SUB) % SUBS;
+    st.kx = Math.round(Math.sin(st.idleT * .02) * 1.2);
+    if (st.idleT >= IDLE_HOLD) { st.idleT = 0; startReload(); }
+    return;
+  }
+  // 장전 — 시퀀스를 한 장씩
+  const [col, row, dur] = SEQ[st.seq];
+  st.col = col; st.row = row; st.kx = 0;
+  // 슬라이드를 당기는 동안 톱니 빛이 계속 흘러나옵니다
+  if (col === 3 && (row === 1 || row === 2) && st.frame % 2 === 0)
+    emit(GUN_X + 82 + Math.random() * 10, GUN_Y + SY + st.dy + 30 + Math.random() * 10, 1.2 + Math.random(), 0, C.T, 10, 0, true, false);
+  if (++st.seqT >= dur) {
+    st.seqT = 0; st.seq++;
+    if (st.seq >= SEQ.length) { st.mode = 'idle'; st.idleT = 0; st.dy = 14; return; }   // 다시 들어 올림
+    fireEvent(SEQ[st.seq][3]);
+  }
+}
+
+/* ═════════════ 그리기 ═══════════════════════════════════════ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const scene = document.createElement('canvas'); scene.width = VW; scene.height = VH;
+const sc = scene.getContext('2d');
+const gbuf = document.createElement('canvas'); gbuf.width = VW; gbuf.height = VH;
+const gc = gbuf.getContext('2d');
+const gsmall = document.createElement('canvas'); gsmall.width = VW / 4; gsmall.height = VH / 4;
+const gs = gsmall.getContext('2d');
+const { sheet, mask } = bakeSheet();
+const bg = bakeBackground(), overlay = bakeOverlay();
+
+function drawDynamicBg() {
+  const f = st.frame;
+  // 왼쪽 모니터 — 심전도
+  sc.save(); sc.beginPath(); sc.rect(28, 26, 32, 19); sc.clip();
+  const head = (f * .5) % 32;
+  for (let i = 0; i < 32; i++) {
+    const x = 28 + i, ph = i % 32;
+    let y = 36;
+    const k = (ph % 16);
+    if (k === 6) y = 33; else if (k === 7) y = 29; else if (k === 8) y = 41; else if (k === 9) y = 35;
+    const age = (head - i + 32) % 32;
+    sc.fillStyle = `rgba(0,255,213,${Math.max(0, 1 - age / 28)})`; sc.fillRect(x, y, 1, 1);
+    gc.fillStyle = sc.fillStyle; gc.fillRect(x, y, 1, 1);
+  }
+  sc.restore();
+  // 오른쪽 화면 — 막대가 오르내리고 글자처럼 깜빡임
+  for (let i = 0; i < 8; i++) {
+    const h = 4 + Math.round((Math.sin(f * .03 + i * 1.7) * .5 + .5) * 14);
+    const hh = Math.round(h * .8);
+    sc.fillStyle = i === 5 ? '#e3b23c' : '#00b89a'; sc.fillRect(132 + i * 5, 46 - hh, 3, hh);
+  }
+  for (let r = 0; r < 3; r++) for (let i = 0; i < 9; i++)
+    if (((i * 7 + r * 13 + (f >> 4)) % 5) > 1) { sc.fillStyle = '#0d5a4f'; sc.fillRect(132 + i * 4, 24 + r * 3, 3, 1); }
+  // 기계 장치 표시등
+  [['#c2352c', 162, 56, 37], ['#e3b23c', 167, 56, 53], ['#00ffd5', 172, 56, 29]].forEach(([c, x, y, per]) => {
+    if (Math.floor(f / per) % 2) { sc.fillStyle = c; sc.fillRect(x, y, 2, 2); gc.fillStyle = c; gc.fillRect(x, y, 2, 2); }
+  });
+}
+
+function drawScene() {
+  sc.clearRect(0, 0, VW, VH);
+  gc.clearRect(0, 0, VW, VH);
+  sc.imageSmoothingEnabled = false; gc.imageSmoothingEnabled = false;
+  sc.drawImage(bg, 0, 0);
+  drawDynamicBg();
+  // 총 — 시트에서 한 칸을 잘라 찍습니다 (sx, sy)
+  const sx = st.col * FW, sy = st.row * FH;
+  const dx = GUN_X + st.kx, dy = GUN_Y + Math.round(st.dy + st.kick);
+  sc.drawImage(sheet, sx, sy, FW, FH, dx, dy, FW, FH);
+  gc.drawImage(mask, sx, sy, FW, FH, dx, dy, FW, FH);
+  // 떨어지는 탄창 · 탄피 — 같은 시트의 낱개 칸에서
+  for (const m of st.mags) sc.drawImage(sheet, ...SPR_MAG, Math.round(m.x), Math.round(m.y), SPR_MAG[2], SPR_MAG[3]);
+  for (const c of st.cases) { const s = SPR_CASE[(c.f >> 2) % 2]; sc.drawImage(sheet, ...s, Math.round(c.x), Math.round(c.y), s[2], s[3]); }
+  // 파티클
+  for (const p of parts) {
+    if (!p.on) continue;
+    const a = Math.min(1, p.life / (p.max * .5));
+    sc.globalAlpha = a; sc.fillStyle = p.c; sc.fillRect(Math.round(p.x), Math.round(p.y), 1, 1);
+    if (p.glow) { gc.globalAlpha = a; gc.fillStyle = p.c; gc.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
+  }
+  sc.globalAlpha = 1; gc.globalAlpha = 1;
+}
+
+function drawStrip() {
+  const top = VH * VS;
+  ctx.fillStyle = '#06080b'; ctx.fillRect(0, top, CW, CH - top);
+  ctx.fillStyle = '#0f1a18'; ctx.fillRect(0, top, CW, 1);
+  ctx.font = `12px ${FONT}`; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#3f5c57'; ctx.textAlign = 'left';
+  ctx.fillText('SPRITE SHEET · 4×1 KEY FRAMES', 24, top + 8);
+  ctx.textAlign = 'right';
+  ctx.fillText(`col ${st.col} · row ${st.row}  →  sx ${st.col * FW}, sy ${st.row * FH}`, CW - 24, top + 8);
+  const s = 1.5, w = FW * s, h = FH * s, gap = 24, x0 = (CW - (w * 4 + gap * 3)) / 2, y0 = top + 26;
+  ctx.imageSmoothingEnabled = false;
+  for (let c = 0; c < COLS; c++) {
+    const x = x0 + c * (w + gap), on = st.col === c;
+    ctx.fillStyle = '#0b1016'; ctx.fillRect(x, y0, w, h);
+    ctx.drawImage(bg, (VW - FW) / 2, VH - FH, FW, FH, x, y0, w, h);      // 같은 실험실을 배경으로 (칸 크기만큼)
+    ctx.fillStyle = 'rgba(4,6,9,.55)'; ctx.fillRect(x, y0, w, h);
+    ctx.drawImage(sheet, c * FW, KEY[c] * FH, FW, FH, x, y0, w, h);
+    ctx.strokeStyle = on ? '#00ffd5' : '#1b2a2c'; ctx.lineWidth = on ? 2 : 1;
+    ctx.strokeRect(x + .5, y0 + .5, w - 1, h - 1);
+    if (on) { ctx.shadowColor = '#00ffd5'; ctx.shadowBlur = 12; ctx.strokeRect(x + .5, y0 + .5, w - 1, h - 1); ctx.shadowBlur = 0; }
+    const [n, en, ko] = LABEL[c];
+    ctx.textAlign = 'left';
+    ctx.fillStyle = on ? '#00ffd5' : '#5d7a75'; ctx.font = `12px ${FONT}`;
+    ctx.fillText(`${n} ${en}`, x, y0 + h + 6);
+    ctx.fillStyle = on ? '#cfe9e3' : '#3f5753';
+    ctx.fillText(ko, x, y0 + h + 22);
+    // 이 단계 안의 네 장 — 지금 장에 불
+    for (let r = 0; r < SUBS; r++) {
+      ctx.fillStyle = on && st.row === r ? '#00ffd5' : (r === KEY[c] ? '#3d6b64' : '#1c2a2a');
+      ctx.fillRect(x + w - 4 * 10 + r * 10, y0 + h + 8, 7, 7);
+    }
+  }
+}
+
+function drawSheetOverlay() {
+  ctx.fillStyle = 'rgba(2,4,6,.86)'; ctx.fillRect(0, 0, CW, VH * VS);
+  const s = 1.05, w = sheet.width * s, h = sheet.height * s, x = (CW - w) / 2, y = (VH * VS - h) / 2;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#0d1318'; ctx.fillRect(x, y, w, h);
+  ctx.drawImage(sheet, x, y, w, h);
+  ctx.strokeStyle = 'rgba(0,255,213,.18)'; ctx.lineWidth = 1;
+  for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(x + c * FW * s + .5, y); ctx.lineTo(x + c * FW * s + .5, y + h); ctx.stroke(); }
+  for (let r = 0; r <= SUBS + 1; r++) { ctx.beginPath(); ctx.moveTo(x, y + r * FH * s + .5); ctx.lineTo(x + w, y + r * FH * s + .5); ctx.stroke(); }
+  ctx.strokeStyle = '#00ffd5'; ctx.lineWidth = 2;
+  ctx.strokeRect(x + st.col * FW * s, y + st.row * FH * s, FW * s, FH * s);
+}
+
+function draw() {
+  drawScene();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(scene, 0, 0, VW * VS, VH * VS);
+  // 글로우 — 마스크를 1/4 로 줄였다가 부드럽게 키워 두 번 겹칩니다
+  gs.clearRect(0, 0, gsmall.width, gsmall.height);
+  gs.imageSmoothingEnabled = true; gs.drawImage(gbuf, 0, 0, gsmall.width, gsmall.height);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.imageSmoothingEnabled = true;
+  const pulse = .75 + .25 * Math.sin(st.frame * .08);
+  ctx.globalAlpha = .9 * pulse; ctx.drawImage(gsmall, 0, 0, VW * VS, VH * VS);
+  ctx.globalAlpha = .55; ctx.drawImage(gbuf, -2, -2, VW * VS + 4, VH * VS + 4);
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(overlay, 0, 0);
+  // 상태 표시
+  ctx.font = `13px ${FONT}`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(0,255,213,.75)';
+  ctx.fillText(st.mode === 'idle' ? '● IDLE' : `● RELOAD  ${LABEL[st.col][1]}`, 20, 18);
+  ctx.fillStyle = 'rgba(207,233,227,.4)';
+  ctx.fillText('SUBJECT 07 · SIDEARM / THE WELL BELOW', 20, 36);
+  if (st.paused) { ctx.textAlign = 'right'; ctx.fillStyle = '#e3b23c'; ctx.fillText('❚❚ PAUSED', CW - 20, 18); }
+  if (st.showSheet) drawSheetOverlay();
+  drawStrip();
+}
+
+/* ═════════════ 루프 · 입력 ═══════════════════════════════════ */
+let acc = 0, last = performance.now();
+function loop(now) {
+  acc += Math.min(100, now - last); last = now;
+  while (acc >= STEP) { update(); acc -= STEP; }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* 정지 중 한 장씩 — 전체 순서 (IDLE 네 장 + 장전 열두 장) */
+const ALL = [[0, 0], [0, 1], [0, 2], [0, 3], ...SEQ.map(([c, r]) => [c, r])];
+function stepFrame(d) {
+  let i = ALL.findIndex(([c, r]) => c === st.col && r === st.row);
+  i = (i + d + ALL.length) % ALL.length;
+  [st.col, st.row] = ALL[i];
+  st.mode = st.col === 0 ? 'idle' : 'reload';
+  if (st.mode === 'reload') { st.seq = Math.max(0, i - 4); st.seqT = 0; }
+}
+
+addEventListener('keydown', e => {
+  Sfx.on();
+  if (e.code === 'KeyR') startReload();
+  else if (e.code === 'Space') { e.preventDefault(); st.paused = !st.paused; }
+  else if (e.code === 'KeyS') st.showSheet = !st.showSheet;
+  else if (st.paused && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { e.preventDefault(); stepFrame(e.code === 'ArrowRight' ? 1 : -1); }
+});
+cv.addEventListener('pointerdown', () => { Sfx.on(); if (!st.paused) startReload(); });
+
+const begin = () => requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(begin, begin); else begin();
+window.__pistol = { st, sheet, mask, startReload };     // 확인용
+})();
+</script>
+</body>
+</html>
