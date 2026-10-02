@@ -5108,7 +5108,32 @@ function startGame(timeAttack = true, diffId = 'normal') {
 /* 사망 처리 — 모드에 따라 갈립니다 */
 function retry() {
   if (G.timeAttack) resetRun();
+  else if (abomCheckpoint()) respawnAbom();
   else respawn();
+}
+
+/* 심연 체크포인트 — 보통 · 어려움에서 페이즈3 「심연」과 싸우다 죽으면
+   눈부터 다시가 아니라 심연부터 다시 싸웁니다. (쉬움은 지금처럼 그 방
+   처음부터, 타임어택은 언제나 처음부터) */
+const abomCheckpoint = () => !G.timeAttack && G.diff !== 'easy' && !!G.boss && G.boss.kind === 'abom';
+
+function respawnAbom() {
+  $('dead').classList.add('hidden');
+  ['subtitle', 'prompt', 'noteoverlay'].forEach(id => $(id).classList.add('hidden'));
+  G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = []; G.foes = [];
+  G.flash = 0; G.shake = 0; G.glare = 0;
+  // 구급 팩으로 늘었던 체력칸 그대로, 가득 채워서
+  P.max = BALANCE.abomPlayerMax; P.hp = P.max;
+  P.dead = false; P.inv = BALANCE.invFrames; P.slow = 0;
+  // 심연에서 먼 쪽 벽가에 세웁니다
+  P.x = G.morphX > W / 2 ? TS + 40 : W - TS - 40; P.y = H - TS - 44;
+  P.dir = P.x < W / 2 ? 'right' : 'left';
+  makeAbom();                                  // 체력 가득, 광란 전 상태로
+  Sfx.bossBgmStopAll(true);
+  Sfx.bossBgm('boss3', true, false, true);     // 조용한 도입은 건너뛰고 바로 격렬한 부분부터
+  G.wake = WAKE_DUR;                           // 조리개가 열리듯 방이 드러납니다
+  G.mode = 'play';
+  updateHud();
 }
 
 /* 일반 모드 : 죽은 방을 처음 상태로 되돌리고 체력을 채워 다시 넣어 줍니다 */
@@ -5759,7 +5784,7 @@ function hurt(n) {
     $('deadtime').textContent = fmtTime(RUN.elapsed);
     // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
     $('dead').classList.toggle('casual', !G.timeAttack);
-    $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : '이어서 다시 (R)';
+    $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : abomCheckpoint() ? '심연부터 다시 (R)' : '이어서 다시 (R)';
     $('dead').classList.remove('hidden');
     Sfx.flatline(true);
     Sfx.dungeonBgmDuck(true); Sfx.bossBgmDuck(true);   // 플랫라인 비프가 묻히지 않도록 브금을 낮춥니다
@@ -9812,7 +9837,7 @@ function loop(now) {
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
-                  retry, respawn, hurt,
+                  retry, respawn, respawnAbom, hurt,
                   resetRun, loadRecords, fmtTime,
                   EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
