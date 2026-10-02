@@ -363,7 +363,10 @@ const PA = window.PistolArt || null;
 const RELOAD_SPEED = .8;                       // 시연보다 조금 빠르게 — 달리는 중이니까
 const RSEQ = PA ? PA.SEQ.map(([c, r, d, ev]) => [c, r, Math.max(3, Math.round(d * RELOAD_SPEED)), ev]) : [[0, 0, 70, null]];
 const RELOAD_LEN = RSEQ.reduce((a, q) => a + q[2], 0);
-const GUN_DX = LW - 128 - 6, GUN_DY = LH - 96 + 4;   // 화면 오른쪽 아래 — 가운데 길은 가리지 않게
+/* 총의 자리 — 조준할 땐 조준 칸의 소실점(PA.AT.aim)이 화면 한가운데(조준점)에 오도록,
+   장전할 땐 옆으로 눕힌 총이 다 보이도록 오른쪽 아래로 */
+const AIM_DX = PA ? Math.round(LW / 2 - PA.AT.aim[0]) : LW - 134, AIM_DY = PA ? Math.round(LH / 2 - PA.AT.aim[1]) : LH - 92;
+const GUN_DX = LW - 128 - 10, GUN_DY = LH - 96 + 4;
 
 function startReload(s) {
   const G = s.gun;
@@ -407,7 +410,7 @@ function tickGunBits(s) {
 function updateGun(s) {
   // 줍기 — 바닥에 떨어진 권총
   if (!s.gun && !s.gunDone && s.z >= GUN_Z) {
-    s.gun = { ammo: MAG, reload: 0, step: -1, recoil: 0, flash: 0, tracer: null, dy: 18, kick: 0, rx: 0, x: GUN_DX, y: GUN_DY };
+    s.gun = { ammo: MAG, reload: 0, step: -1, recoil: 0, flash: 0, tracer: null, dy: 18, kick: 0, side: 0, x: AIM_DX, y: AIM_DY };
     s.sfx.reload(); s.flash = 0;
     s.gunHint = 1;
   }
@@ -417,7 +420,7 @@ function updateGun(s) {
     if (G.flash > 0) G.flash--;
     if (G.tracer && --G.tracer.t <= 0) G.tracer = null;
     G.dy *= .82; G.kick *= .7;
-    G.rx += ((G.reload > 0 ? -28 : 0) - G.rx) * .15;        // 장전 땐 눕힌 총이 다 보이게 왼쪽으로
+    G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
     if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 110); s.sfx.empty(); }
@@ -905,10 +908,11 @@ function drawViewGun(s, b) {
   b.globalAlpha = 1;
   if (!G || s.view !== 'fwd') return;
   const ax = (s.mx / SC - LW / 2) * .08, ay = (s.my / SC - LH / 2) * .05;
-  G.x = Math.round(GUN_DX + ax + G.rx); G.y = Math.round(GUN_DY + ay + G.recoil * 5 + G.dy + G.kick + Math.sin(s.bob * 2) * 1.2);
+  const bx = AIM_DX + (GUN_DX - AIM_DX) * G.side, by = AIM_DY + (GUN_DY - AIM_DY) * G.side;
+  G.x = Math.round(bx + ax + G.recoil * 3); G.y = Math.round(by + ay + G.recoil * 4 + G.dy + G.kick + Math.sin(s.bob * 2) * 1.2);
   if (!s.pistol) return;
   const { sheet, mask } = s.pistol, FW = PA.FW, FH = PA.FH;
-  let col = 0, row = Math.floor(s.frame / 18) % PA.SUBS;              // 대기 — 숨
+  let col = 0, row = G.flash > 0 ? PA.FIRE_ROW : PA.IDLE_ROWS[Math.floor(s.frame / 18) % 4];   // 조준 — 숨 · 쏜 순간
   if (G.reload > 0 && G.step >= 0) { col = RSEQ[G.step][0]; row = RSEQ[G.step][1]; }
   b.drawImage(sheet, col * FW, row * FH, FW, FH, G.x, G.y, FW, FH);
   // 청록 빛번짐 — 마스크를 한 픽셀씩 비껴 네 번 더합니다
@@ -916,11 +920,13 @@ function drawViewGun(s, b) {
   [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oy]) => b.drawImage(mask, col * FW, row * FH, FW, FH, G.x + ox, G.y + oy, FW, FH));
   b.restore();
   // 총구 섬광 — 총구 앞으로
-  const mx = G.x + PA.AT.muzzle[0], my = G.y + PA.AT.muzzle[1];
+  const mz = col === 0 ? PA.AT.aimMuzzle : PA.AT.muzzle;
+  const mx = G.x + mz[0], my = G.y + mz[1];
   if (G.flash > 0) {
     b.save(); b.globalCompositeOperation = 'lighter';
-    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(mx - 5, my, 6 + G.flash * 2, 0, Math.PI * 2); b.fill();
-    b.fillStyle = 'rgba(0,255,213,.5)'; b.beginPath(); b.arc(mx - 6, my, 10 + G.flash * 3, 0, Math.PI * 2); b.fill();
+    const fs = col === 0 ? .6 : 1;                                       // 조준 칸은 총구가 멀어서 작게
+    b.fillStyle = 'rgba(255,214,140,.95)'; b.beginPath(); b.arc(mx - 3, my, (6 + G.flash * 2) * fs, 0, Math.PI * 2); b.fill();
+    b.fillStyle = 'rgba(0,255,213,.5)'; b.beginPath(); b.arc(mx - 4, my, (10 + G.flash * 3) * fs, 0, Math.PI * 2); b.fill();
     b.restore();
   }
   if (G.tracer) {                                                         // 총알 궤적

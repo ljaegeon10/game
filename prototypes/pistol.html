@@ -23,7 +23,7 @@
 <body>
 <div id="wrap">
   <canvas id="cv" width="960" height="764" aria-label="1인칭 픽셀 피스톨 장전 모션"></canvas>
-  <p><kbd>R</kbd> 장전 &nbsp; <kbd>SPACE</kbd> 일시정지 &nbsp; <kbd>← →</kbd> 한 장씩 (정지 중) &nbsp; <kbd>S</kbd> 시트 전체 보기 &nbsp; · 화면을 누르면 소리가 켜집니다</p>
+  <p><kbd>클릭</kbd> / <kbd>F</kbd> 사격 &nbsp; <kbd>R</kbd> 장전 &nbsp; <kbd>SPACE</kbd> 일시정지 &nbsp; <kbd>← →</kbd> 한 장씩 (정지 중) &nbsp; <kbd>S</kbd> 시트 전체 보기 &nbsp; · 화면을 누르면 소리가 켜집니다</p>
 </div>
 
 <script src="../js/pistol.js"></script>
@@ -44,7 +44,7 @@
    ═══════════════════════════════════════════════════════════════ */
 const CW = 960, CH = 764;
 const VW = 192, VH = 108, VS = 5;          // 장면 버퍼 — ×5 로 키워 960×540
-const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, SPR_MAG, SPR_CASE, AT, OBANG } = window.PistolArt;
+const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, SPR_MAG, SPR_CASE, AT, OBANG, IDLE_ROWS, FIRE_ROW } = window.PistolArt;
 const C = { ...window.PistolArt.C, G4: '#4f5967', G5: '#7c8899' };
 const STEP = 1000 / 60;
 const FONT = "'DungGeunMo', ui-monospace, Menlo, Consolas, monospace";
@@ -126,7 +126,8 @@ const Sfx = {
   seat()  { this.noise(.05, .2, 2500); this.hit(520, .05, .09); },
   rack()  { this.noise(.07, .16, 2000); this.hit(900, .04, .06, 'square', 600); },
   snap()  { this.noise(.05, .22, 3000); this.hit(1200, .04, .08); },
-  tink()  { this.hit(3200, .05, .04, 'triangle'); }
+  tink()  { this.hit(3200, .05, .04, 'triangle'); },
+  shot()  { this.noise(.16, .32, 200); this.hit(150, .14, .16, 'square', 50); }
 };
 
 /* ═════════════ 파티클 — 미리 만든 풀을 돌려 씁니다 ═══════════════ */
@@ -153,10 +154,18 @@ const IDLE_SUB = 18, IDLE_HOLD = 200;
 const st = {
   mode: 'idle', t: 0, seq: 0, seqT: 0, idleT: 0,
   col: 0, row: 0, dy: 0, kick: 0, kx: 0, paused: false, showSheet: false,
-  mags: [], cases: [], frame: 0
+  mags: [], cases: [], frame: 0, fireT: 0
 };
-const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;
+const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;          // 장전(옆모습) 칸 자리
+const AIM_X = 44, AIM_Y = 18;                                // 조준 칸 자리 — 총구가 화면 안쪽을 겨눔
 
+function fire() {
+  if (st.mode !== 'idle' || st.fireT > 0) return;
+  st.fireT = 6; st.kick = 2; Sfx.shot();
+  const mx = AIM_X + AT.aimMuzzle[0], my = AIM_Y + AT.aimMuzzle[1];
+  for (let i = 0; i < 10; i++) emit(mx, my, -1 - Math.random() * 1.5, (Math.random() - .5) * 1.2, i % 2 ? '#ffd68c' : C.T, 8 + (Math.random() * 6 | 0), 0, true, false);
+  st.cases.push({ x: AIM_X + 92, y: AIM_Y + 36, vx: 1.4 + Math.random() * .4, vy: -2.6, f: 0, dead: false });
+}
 function startReload() { if (st.mode === 'reload') return; st.mode = 'reload'; st.seq = 0; st.seqT = 0; fireEvent(SEQ[0][3]); }
 
 function fireEvent(ev) {
@@ -219,9 +228,11 @@ function update() {
 
   if (st.mode === 'idle') {
     st.idleT++;
-    st.col = 0; st.row = Math.floor(st.idleT / IDLE_SUB) % SUBS;
+    if (st.fireT > 0) st.fireT--;
+    st.col = 0; st.row = st.fireT > 0 ? FIRE_ROW : IDLE_ROWS[Math.floor(st.idleT / IDLE_SUB) % 4];
     st.kx = Math.round(Math.sin(st.idleT * .02) * 1.2);
-    if (st.idleT >= IDLE_HOLD) { st.idleT = 0; startReload(); }
+    if (st.idleT === 70 || st.idleT === 96 || st.idleT === 122) fire();   // 시연 — 몇 발 쏘고
+    if (st.idleT >= IDLE_HOLD) { st.idleT = 0; startReload(); }   // 장전
     return;
   }
   // 장전 — 시퀀스를 한 장씩
@@ -285,7 +296,8 @@ function drawScene() {
   drawDynamicBg();
   // 총 — 시트에서 한 칸을 잘라 찍습니다 (sx, sy)
   const sx = st.col * FW, sy = st.row * FH;
-  const dx = GUN_X + st.kx, dy = GUN_Y + Math.round(st.dy + st.kick);
+  const aim = st.col === 0;
+  const dx = (aim ? AIM_X : GUN_X) + st.kx, dy = (aim ? AIM_Y : GUN_Y) + Math.round(st.dy + st.kick);
   sc.drawImage(sheet, sx, sy, FW, FH, dx, dy, FW, FH);
   gc.drawImage(mask, sx, sy, FW, FH, dx, dy, FW, FH);
   // 떨어지는 탄창 · 탄피 — 같은 시트의 낱개 칸에서
@@ -385,7 +397,7 @@ function loop(now) {
 }
 
 /* 정지 중 한 장씩 — 전체 순서 (IDLE 네 장 + 장전 열두 장) */
-const ALL = [[0, 0], [0, 1], [0, 2], [0, 3], ...SEQ.map(([c, r]) => [c, r])];
+const ALL = [[0, 0], [0, 1], [0, 2], [0, 3], ...SEQ.map(([c, r]) => [c, r])];   // 0,3 = 쏜 순간
 function stepFrame(d) {
   let i = ALL.findIndex(([c, r]) => c === st.col && r === st.row);
   i = (i + d + ALL.length) % ALL.length;
@@ -397,11 +409,12 @@ function stepFrame(d) {
 addEventListener('keydown', e => {
   Sfx.on();
   if (e.code === 'KeyR') startReload();
+  else if (e.code === 'KeyF') fire();
   else if (e.code === 'Space') { e.preventDefault(); st.paused = !st.paused; }
   else if (e.code === 'KeyS') st.showSheet = !st.showSheet;
   else if (st.paused && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { e.preventDefault(); stepFrame(e.code === 'ArrowRight' ? 1 : -1); }
 });
-cv.addEventListener('pointerdown', () => { Sfx.on(); if (!st.paused) startReload(); });
+cv.addEventListener('pointerdown', () => { Sfx.on(); if (!st.paused) fire(); });
 
 const begin = () => requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(begin, begin); else begin();

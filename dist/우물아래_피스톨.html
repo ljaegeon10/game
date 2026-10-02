@@ -23,7 +23,7 @@
 <body>
 <div id="wrap">
   <canvas id="cv" width="960" height="764" aria-label="1인칭 픽셀 피스톨 장전 모션"></canvas>
-  <p><kbd>R</kbd> 장전 &nbsp; <kbd>SPACE</kbd> 일시정지 &nbsp; <kbd>← →</kbd> 한 장씩 (정지 중) &nbsp; <kbd>S</kbd> 시트 전체 보기 &nbsp; · 화면을 누르면 소리가 켜집니다</p>
+  <p><kbd>클릭</kbd> / <kbd>F</kbd> 사격 &nbsp; <kbd>R</kbd> 장전 &nbsp; <kbd>SPACE</kbd> 일시정지 &nbsp; <kbd>← →</kbd> 한 장씩 (정지 중) &nbsp; <kbd>S</kbd> 시트 전체 보기 &nbsp; · 화면을 누르면 소리가 켜집니다</p>
 </div>
 
 <script>
@@ -45,10 +45,12 @@
      · 오방색 단청은 손잡이 안쪽 패널 하나와 탄창에만
 
             col 0        col 1          col 2          col 3
-     row0   IDLE ★       배출 준비       탄창 아래       손이 슬라이드에
+     row0   조준 ★       배출 준비       탄창 아래       손이 슬라이드에
      row1   숨 (위)      멈치 누름       밀어 넣는 중 ★  당기기 시작
      row2   숨 (위)      탄창 빠짐 ★     거의 다         끝까지 — 챔버 열림 ★
-     row3   숨           빈 손잡이       철컥 (손바닥)   놓음 — 제자리로
+     row3   쏜 순간      빈 손잡이       철컥 (손바닥)   놓음 — 제자리로
+     조준 칸(col 0)은 뒤쪽 비스듬한 위에서 본 원근 — 총구가 조준점(AT.aim)을
+     향합니다. 장전 칸(col 1~3)은 총을 옆으로 눕혀 보여 줍니다.
      row4   [낙하 탄창 · 탄피 — 낱개 스프라이트]
      ★ = 대표 프레임 (KEY)
 
@@ -58,6 +60,7 @@
 const FW = 128, FH = 96, N = FW * FH;
 const COLS = 4, SUBS = 4, UTIL_ROW = 4;
 const KEY = [0, 2, 1, 2];
+const IDLE_ROWS = [0, 1, 2, 1], FIRE_ROW = 3;      // 조준 칸 — 숨 순서 · 쏜 순간
 const LABEL = [['01', 'IDLE', '대기'], ['02', 'MAG RELEASE', '탄창 배출'],
                ['03', 'INSERT MAG', '새 탄창 삽입'], ['04', 'RACK SLIDE', '슬라이드 당기기']];
 
@@ -346,8 +349,136 @@ function leftRack(B, so) {                   // 위에서 덮어 슬라이드 �
   }
 }
 
+/* ═════════════ 조준 시점 — 뒤쪽 비스듬한 위에서, 총구는 화면 안쪽으로 ═════
+   작은 원근 투영 : 총 뒷면 가운데(RX, RY)에서 앞으로 Z 만큼 들어갈수록
+   소실점(VP — 조준점)으로 모입니다. 그래서 총이 조준점을 겨눕니다.
+   보이는 면은 뒷면 · 윗면 · 왼쪽 면 셋, 손잡이는 왼쪽 면에 단청 패널. */
+const RX = 88, RY = 44, VPX = -14, VPY = 16, FOC = 150, SL = 96;
+function P3(X, Y, Z) { const s = FOC / (FOC + Z); return [VPX + (RX + X - VPX) * s, VPY + (RY + Y - VPY) * s]; }
+const quad3 = (pts) => pts.map(p => P3(...p));
+/* 화면 위 두 점 사이 진행도 (면 명암을 깊이에 따라 줄 때) */
+const along = (x, y, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1]; return Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy))); };
+
+function drawAimGun(B, o) {
+  const k = o.recoil ? -7 : 0;                     // 쏜 순간 — 슬라이드가 뒤로 밀려 나옴
+  const Z0 = k, Z1 = SL + k;
+  // ── 총열 끝 (슬라이드가 밀리면 앞에 드러남)
+  if (o.recoil) {
+    poly(B, quad3([[-4, -6, SL - 8], [4, -6, SL - 8], [4, -6, SL + 1], [-4, -6, SL + 1]]), RAMP.metal, () => .7);
+    poly(B, quad3([[-4, -6, SL - 8], [-4, -6, SL + 1], [-4, 2, SL + 1], [-4, 2, SL - 8]]), RAMP.metal, () => .42);
+  }
+  // ── 프레임 (폴리머) — 왼쪽 면, 뒷면
+  const fr0 = P3(-9, 6, 3), fr1 = P3(-9, 6, 78);
+  poly(B, quad3([[-9, 6, 3], [-9, 6, 78], [-9, 12, 78], [-9, 12, 3]]), RAMP.poly, (x, y) => .5 - along(x, y, fr0, fr1) * .2);
+  part(B, false);
+  for (let z = 30; z <= 62; z += 5) { const p = P3(-9.2, 10.5, z); put(B, p[0], p[1], RAMP.poly[0]); }   // 레일 홈
+  // 방아쇠울 (왼쪽 옆으로 보이는 고리)
+  [[[-9, 12, 44], [-9, 18, 45]], [[-9, 18, 45], [-9, 19.5, 52]], [[-9, 19.5, 52], [-9, 17, 62]], [[-9, 17, 62], [-9, 12, 62]]]
+    .forEach(([a, b]) => { const A = P3(...a), Bp = P3(...b); capsule(B, A[0], A[1], Bp[0], Bp[1], 1.05, RAMP.poly, { lines: false, bias: .1 }); });
+  // ── 손잡이 — 아래로 갈수록 몸 쪽으로 기울어집니다
+  const zb = y => 3 - (y - 12) * .3, zf = y => 27 - (y - 12) * .3;
+  const g0 = P3(-8.5, 12, zb(12)), g1 = P3(-8.5, 46, zb(46));
+  poly(B, quad3([[-8.5, 12, zb(12)], [-8.5, 12, zf(12)], [-8.5, 46, zf(46)], [-8.5, 46, zb(46)]]), RAMP.poly, (x, y) => {
+    const h = hash(x | 0, y | 0); let I = .4 - along(x, y, g0, g1) * .1;
+    if (h < .11) I += .2; else if (h > .9) I -= .16;
+    return I;
+  });
+  poly(B, quad3([[-8.5, 12, zb(12)], [8.5, 12, zb(12)], [8.5, 46, zb(46)], [-8.5, 46, zb(46)]]), RAMP.poly, (x, y) => {
+    const h = hash(x | 0, y | 0); let I = .3; if (h < .1) I += .18; return I;
+  });
+  // 단청 패널 — 손잡이 왼쪽 면 위쪽, 금테
+  const pz0 = y => zb(y) + 3, pz1 = y => zf(y) - 4;
+  const pq = quad3([[-8.6, 14, pz0(14)], [-8.6, 14, pz1(14)], [-8.6, 30, pz1(30)], [-8.6, 30, pz0(30)]]);
+  const pq2 = quad3([[-8.6, 13.2, pz0(13.2) - .9], [-8.6, 13.2, pz1(13.2) + .9], [-8.6, 30.8, pz1(30.8) + .9], [-8.6, 30.8, pz0(30.8) - .9]]);
+  poly(B, pq2, [OB.Y], () => OB.Y, { dk: '#5a4416' });
+  const top = Math.min(...pq.map(p => p[1])), left = Math.min(...pq.map(p => p[0]));
+  poly(B, pq, [OB.Bk], (x, y) => dancheong(x, y, top, left), { lines: false });
+
+  // ── 슬라이드 — 윗면 · 왼쪽 면 · 뒷면
+  const t0 = P3(0, -10, Z0), t1 = P3(0, -10, Z1);
+  poly(B, quad3([[-10, -10, Z0], [10, -10, Z0], [10, -10, Z1], [-10, -10, Z1]]), RAMP.metal, (x, y) => {
+    const a = along(x, y, t0, t1); let I = .9 - a * .32;
+    if (a > .04 && a < .5 && ((x - y) | 0) % 9 === 0) I += .1;
+    return I;
+  });
+  const l0 = P3(-10, -2, Z0), l1 = P3(-10, -2, Z1);
+  poly(B, quad3([[-10, -10, Z0], [-10, -10, Z1], [-10, 6, Z1], [-10, 6, Z0]]), RAMP.metal, (x, y) => {
+    const a = along(x, y, l0, l1);
+    const v = along(x, y, P3(-10, -10, Z0 + a * SL), P3(-10, 6, Z0 + a * SL));
+    let I = (v < .12 ? .78 : .5 - v * .2) - a * .12;
+    return I;
+  });
+  // 배출구 (윗면 오른쪽)
+  poly(B, quad3([[1.5, -10.05, Z0 + 30], [9, -10.05, Z0 + 30], [9, -10.05, Z0 + 45], [1.5, -10.05, Z0 + 45]]),
+       o.recoil ? RAMP.void : RAMP.metal, () => o.recoil ? 0 : .66);
+  // 톱니 (왼쪽 면 뒤쪽) — 홈 바닥이 청록
+  for (let i = 0; i < 7; i++) {
+    const z = Z0 + 3 + i * 2.4;
+    for (let t = 0; t <= 1; t += .08) {
+      const p = P3(-10.05, -8.5 + t * 12.5, z + t * 1.3);
+      part(B, false, true); put(B, p[0], p[1], o.recoil ? T : (t > .25 && t < .75 ? T3 : RAMP.metal[1]));
+      part(B, false); put(B, p[0] + 1, p[1], RAMP.metal[5]);
+    }
+  }
+  // 각인 "07" (왼쪽 면)
+  part(B, false);
+  [[0, 0], [1, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2], [0, 3], [2, 3], [0, 4], [1, 4], [2, 4],
+   [4, 0], [5, 0], [6, 0], [6, 1], [5, 2], [5, 3], [5, 4]].forEach(([u, v]) => { const p = P3(-10.1, -5.5 + v * 2, Z0 + 66 - u * 2.4); put(B, p[0], p[1], RAMP.metal[5]); });
+  // 가늠쇠 (멀리, 작게) · 청록 점
+  poly(B, quad3([[-1.6, -13, Z1 - 6], [1.6, -13, Z1 - 6], [1.6, -10, Z1 - 6], [-1.6, -10, Z1 - 6]]), RAMP.metal, () => .4);
+  { const p = P3(0, -12, Z1 - 6.2); dot(B, p[0], p[1], T, true); }
+  // 뒷면 — 가운데 스트라이커 판, 청록 고리
+  poly(B, quad3([[-10, -10, Z0], [10, -10, Z0], [10, 6, Z0], [-10, 6, Z0]]), RAMP.metal, (x, y) => {
+    const r0 = P3(0, -10, Z0)[1]; return y - r0 < 1.6 ? .66 : .36;
+  });
+  poly(B, quad3([[-4.5, -5, Z0 - .1], [4.5, -5, Z0 - .1], [4.5, 2.5, Z0 - .1], [-4.5, 2.5, Z0 - .1]]), RAMP.metal, () => .2);
+  { const c = P3(0, -1.5, Z0 - .2); part(B, false, true);
+    put(B, c[0] - 1, c[1] - 1, T3); put(B, c[0], c[1] - 1, T2); put(B, c[0] - 1, c[1], T2); put(B, c[0], c[1], o.lit ? T : T2); }
+  // 프레임 뒷면 (슬라이드 아래)
+  poly(B, quad3([[-9, 6, 3], [9, 6, 3], [9, 12, 3], [-9, 12, 3]]), RAMP.poly, () => .32);
+  // 가늠자 — 뒷면 위 블록, 가운데 홈, 청록 점 둘
+  poly(B, quad3([[-9, -13.5, Z0 + 1], [9, -13.5, Z0 + 1], [9, -13.5, Z0 + 5], [-9, -13.5, Z0 + 5]]), RAMP.metal, () => .7);
+  poly(B, quad3([[-9, -13.5, Z0 + 1], [9, -13.5, Z0 + 1], [9, -10, Z0 + 1], [-9, -10, Z0 + 1]]), RAMP.metal, () => .32);
+  poly(B, quad3([[-1.8, -13.6, Z0 + .9], [1.8, -13.6, Z0 + .9], [1.8, -11.2, Z0 + .9], [-1.8, -11.2, Z0 + .9]]), RAMP.void, () => 0, { lines: false });
+  [-5.5, 5.5].forEach(X => { const p = P3(X, -12, Z0 + .8); part(B, false, true); put(B, p[0] - .5, p[1], T); put(B, p[0] + .5, p[1], T); });
+}
+
+/* 조준 시점의 손 — 한 손 파지. 오른손 엄지는 프레임 왼쪽을 따라 앞으로,
+   손끝 셋은 손잡이 앞을 감아 왼쪽 면 앞가장자리에 걸리고, 손바닥 뒤꿈치는
+   등판(백스트랩)에. 그 사이로 단청 패널이 보입니다. 왼손은 장전 때만. */
+function aimHands(B, o) {
+  const zb = y => 3 - (y - 12) * .3, zf = y => 27 - (y - 12) * .3;
+  const at = (X, Y, Z) => P3(X, Y, Z);
+  // 오른팔 — 손목에서 오른쪽 아래 모서리로
+  const w0 = at(4, 46, zb(46) - 6), w1 = at(7, 60, zb(60) - 12);
+  capsule(B, w1[0], w1[1], 132, 118, 15, RAMP.gown);
+  capsule(B, w0[0], w0[1], w1[0], w1[1], 9.5, RAMP.glove);
+  capsule(B, w1[0] - 7, w1[1] - 3, w1[0] + 6, w1[1] - 8, 2.4, RAMP.pad, { lines: false });   // 손목 띠
+  dot(B, w1[0], w1[1] - 6, o.lit ? T : T2, true); dot(B, w1[0] + 1, w1[1] - 6, T2, true);
+  // 손바닥 뒤꿈치 — 등판을 감쌈 (몸 쪽)
+  const h0 = at(3, 18, zb(18) - 3), h1 = at(4, 41, zb(41) - 4);
+  capsule(B, h0[0], h0[1], h1[0], h1[1], 7, RAMP.glove);
+  const hp = at(6, 27, zb(27) - 5);                                   // 손등 마디 보호판
+  ellipse(B, hp[0] + 2, hp[1] - 2, 4.6, 6.5, RAMP.glove, { bias: .18 });
+  [0, 1, 2].forEach(i => capsule(B, hp[0] - 1, hp[1] - 7 + i * 4.5, hp[0] + 5, hp[1] - 6 + i * 4.5, 1, RAMP.pad, { lines: false }));
+  capsule(B, h0[0] - 4, h0[1] + 2, h1[0] - 5, h1[1] - 2, .6, RAMP.pad, { lines: false });   // 솔기
+  // 손끝 셋 — 손잡이 앞을 감아 왼쪽 면에
+  [22, 30, 38].forEach(y => {
+    const a0 = at(-8.6, y, zf(y) + 3), a1 = at(-9.4, y + 1, zf(y) - 7);
+    capsule(B, a0[0], a0[1], a1[0], a1[1], 3, RAMP.glove);
+    const p0 = at(-9.6, y - .6, zf(y) - 4.5), p1 = at(-9.6, y, zf(y) - 7);
+    capsule(B, p0[0], p0[1], p1[0], p1[1], 1.4, RAMP.pad, { lines: false });
+  });
+  // 엄지 — 프레임 옆을 따라 앞으로
+  const t0 = at(-8, 17, 2), tm = at(-10, 13.5, 20), t1 = at(-10.6, 11.5, 36);
+  capsule(B, t0[0], t0[1], tm[0], tm[1], 3.4, RAMP.glove);
+  capsule(B, tm[0], tm[1], t1[0], t1[1], 2.7, RAMP.glove);
+  capsule(B, t1[0] + 1.5, t1[1] - .4, t1[0] + 3.5, t1[1] - .2, 1.2, RAMP.pad, { lines: false });
+}
+
 /* 한 장 — 상태에 맞춰 순서대로 겹쳐 그립니다 */
 function drawFrame(B, o) {
+  if (o.aim) { drawAimGun(B, o); aimHands(B, o); return; }
   if (o.left === 'away') leftAway(B);
   rightArm(B);
   if (o.mo > 0) drawMag(B, o.mo, o.newMag);
@@ -365,8 +496,9 @@ function bakeSheet() {
   sheet.width = mask.width = FW * COLS; sheet.height = mask.height = FH * (SUBS + 1);
   const sc = sheet.getContext('2d'), mc = mask.getContext('2d');
   const cell = (col, row, fn) => { const B = newBuf(); fn(B); finalize(B, sc, mc, col * FW, row * FH); };
-  // col 0 — IDLE : 두 손 파지, 숨 쉬듯 한 픽셀씩
-  [0, -1, -1, 0].forEach((dy, r) => cell(0, r, B => { B.oy = dy; drawFrame(B, { mo: 0, left: 'support' }); }));
+  // col 0 — 조준 : 숨 세 장(0~2) + 쏜 순간(3, 슬라이드가 밀림)
+  [[0, 0], [-1, .5], [-1, 1]].forEach(([dy, l], r) => cell(0, r, B => { B.oy = dy; drawFrame(B, { aim: true, lit: l > .5 }); }));
+  cell(0, 3, B => { B.oy = 1; B.ox = 1; drawFrame(B, { aim: true, recoil: true, lit: true }); });
   // col 1 — 탄창 배출
   cell(1, 0, B => drawFrame(B, { mo: 0, left: 'away' }));
   cell(1, 1, B => drawFrame(B, { mo: 5, thumb: true, left: 'away' }));
@@ -399,7 +531,9 @@ const AT = {
   seat:    [86, 79],           // 탄창 바닥판
   port:    [80, 29],           // 배출구 (탄피가 튀는 곳)
   serr:    [82, 30],           // 톱니 (빛 잔상이 흐르는 곳, 폭 12 · 높이 10)
-  muzzle:  [19, 34]            // 총구
+  muzzle:  [19, 34],           // 총구 (옆모습)
+  aim:     [VPX, VPY],         // 조준점 — 총이 겨누는 곳 (조준 칸의 소실점)
+  aimMuzzle: P3(0, -2, SL + 2) // 총구 (조준 칸)
 };
 
 /* 장전 순서 — [단계, 장, 길이(프레임), 이벤트] · 이벤트는 그 장이 시작되는 순간 */
@@ -411,7 +545,7 @@ const SEQ = [
 
 let baked = null;
 window.PistolArt = {
-  FW, FH, COLS, SUBS, UTIL_ROW, KEY, LABEL, SEQ, LIFT, SPR_MAG, SPR_CASE, AT, C, OBANG,
+  FW, FH, COLS, SUBS, UTIL_ROW, KEY, IDLE_ROWS, FIRE_ROW, LABEL, SEQ, LIFT, SPR_MAG, SPR_CASE, AT, C, OBANG,
   gx0: gripFrontL,
   bake() { return baked || (baked = bakeSheet()); }
 };
@@ -435,7 +569,7 @@ window.PistolArt = {
    ═══════════════════════════════════════════════════════════════ */
 const CW = 960, CH = 764;
 const VW = 192, VH = 108, VS = 5;          // 장면 버퍼 — ×5 로 키워 960×540
-const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, SPR_MAG, SPR_CASE, AT, OBANG } = window.PistolArt;
+const { FW, FH, COLS, SUBS, KEY, LABEL, SEQ, SPR_MAG, SPR_CASE, AT, OBANG, IDLE_ROWS, FIRE_ROW } = window.PistolArt;
 const C = { ...window.PistolArt.C, G4: '#4f5967', G5: '#7c8899' };
 const STEP = 1000 / 60;
 const FONT = "'DungGeunMo', ui-monospace, Menlo, Consolas, monospace";
@@ -517,7 +651,8 @@ const Sfx = {
   seat()  { this.noise(.05, .2, 2500); this.hit(520, .05, .09); },
   rack()  { this.noise(.07, .16, 2000); this.hit(900, .04, .06, 'square', 600); },
   snap()  { this.noise(.05, .22, 3000); this.hit(1200, .04, .08); },
-  tink()  { this.hit(3200, .05, .04, 'triangle'); }
+  tink()  { this.hit(3200, .05, .04, 'triangle'); },
+  shot()  { this.noise(.16, .32, 200); this.hit(150, .14, .16, 'square', 50); }
 };
 
 /* ═════════════ 파티클 — 미리 만든 풀을 돌려 씁니다 ═══════════════ */
@@ -544,10 +679,18 @@ const IDLE_SUB = 18, IDLE_HOLD = 200;
 const st = {
   mode: 'idle', t: 0, seq: 0, seqT: 0, idleT: 0,
   col: 0, row: 0, dy: 0, kick: 0, kx: 0, paused: false, showSheet: false,
-  mags: [], cases: [], frame: 0
+  mags: [], cases: [], frame: 0, fireT: 0
 };
-const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;
+const GUN_X = (VW - FW) / 2 | 0, GUN_Y = VH - FH;          // 장전(옆모습) 칸 자리
+const AIM_X = 44, AIM_Y = 18;                                // 조준 칸 자리 — 총구가 화면 안쪽을 겨눔
 
+function fire() {
+  if (st.mode !== 'idle' || st.fireT > 0) return;
+  st.fireT = 6; st.kick = 2; Sfx.shot();
+  const mx = AIM_X + AT.aimMuzzle[0], my = AIM_Y + AT.aimMuzzle[1];
+  for (let i = 0; i < 10; i++) emit(mx, my, -1 - Math.random() * 1.5, (Math.random() - .5) * 1.2, i % 2 ? '#ffd68c' : C.T, 8 + (Math.random() * 6 | 0), 0, true, false);
+  st.cases.push({ x: AIM_X + 92, y: AIM_Y + 36, vx: 1.4 + Math.random() * .4, vy: -2.6, f: 0, dead: false });
+}
 function startReload() { if (st.mode === 'reload') return; st.mode = 'reload'; st.seq = 0; st.seqT = 0; fireEvent(SEQ[0][3]); }
 
 function fireEvent(ev) {
@@ -610,9 +753,11 @@ function update() {
 
   if (st.mode === 'idle') {
     st.idleT++;
-    st.col = 0; st.row = Math.floor(st.idleT / IDLE_SUB) % SUBS;
+    if (st.fireT > 0) st.fireT--;
+    st.col = 0; st.row = st.fireT > 0 ? FIRE_ROW : IDLE_ROWS[Math.floor(st.idleT / IDLE_SUB) % 4];
     st.kx = Math.round(Math.sin(st.idleT * .02) * 1.2);
-    if (st.idleT >= IDLE_HOLD) { st.idleT = 0; startReload(); }
+    if (st.idleT === 70 || st.idleT === 96 || st.idleT === 122) fire();   // 시연 — 몇 발 쏘고
+    if (st.idleT >= IDLE_HOLD) { st.idleT = 0; startReload(); }   // 장전
     return;
   }
   // 장전 — 시퀀스를 한 장씩
@@ -676,7 +821,8 @@ function drawScene() {
   drawDynamicBg();
   // 총 — 시트에서 한 칸을 잘라 찍습니다 (sx, sy)
   const sx = st.col * FW, sy = st.row * FH;
-  const dx = GUN_X + st.kx, dy = GUN_Y + Math.round(st.dy + st.kick);
+  const aim = st.col === 0;
+  const dx = (aim ? AIM_X : GUN_X) + st.kx, dy = (aim ? AIM_Y : GUN_Y) + Math.round(st.dy + st.kick);
   sc.drawImage(sheet, sx, sy, FW, FH, dx, dy, FW, FH);
   gc.drawImage(mask, sx, sy, FW, FH, dx, dy, FW, FH);
   // 떨어지는 탄창 · 탄피 — 같은 시트의 낱개 칸에서
@@ -776,7 +922,7 @@ function loop(now) {
 }
 
 /* 정지 중 한 장씩 — 전체 순서 (IDLE 네 장 + 장전 열두 장) */
-const ALL = [[0, 0], [0, 1], [0, 2], [0, 3], ...SEQ.map(([c, r]) => [c, r])];
+const ALL = [[0, 0], [0, 1], [0, 2], [0, 3], ...SEQ.map(([c, r]) => [c, r])];   // 0,3 = 쏜 순간
 function stepFrame(d) {
   let i = ALL.findIndex(([c, r]) => c === st.col && r === st.row);
   i = (i + d + ALL.length) % ALL.length;
@@ -788,11 +934,12 @@ function stepFrame(d) {
 addEventListener('keydown', e => {
   Sfx.on();
   if (e.code === 'KeyR') startReload();
+  else if (e.code === 'KeyF') fire();
   else if (e.code === 'Space') { e.preventDefault(); st.paused = !st.paused; }
   else if (e.code === 'KeyS') st.showSheet = !st.showSheet;
   else if (st.paused && (e.code === 'ArrowRight' || e.code === 'ArrowLeft')) { e.preventDefault(); stepFrame(e.code === 'ArrowRight' ? 1 : -1); }
 });
-cv.addEventListener('pointerdown', () => { Sfx.on(); if (!st.paused) startReload(); });
+cv.addEventListener('pointerdown', () => { Sfx.on(); if (!st.paused) fire(); });
 
 const begin = () => requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(begin, begin); else begin();
