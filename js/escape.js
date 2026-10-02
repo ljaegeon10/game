@@ -235,7 +235,7 @@ const RUN_LINES = [
   [GUN_Z - 6, '…총?', 'me'],
   [ZONE0 + 4, '경비원들이다.', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
-  [ZONE1 + 14, '…이 복도, 이렇게 길었나.', 'me'],
+  [ZONE1 + 56, '…이 복도, 이렇게 길었나.', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
   [560, '…빛이다.', 'me']
 ];
@@ -423,7 +423,7 @@ function updateGun(s) {
     G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
-    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 110); s.sfx.empty(); }
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 240, 5); s.sfx.empty(); }
   }
   // 경비원
   for (const g of s.guards) {
@@ -1018,7 +1018,7 @@ function drawText(s, c) {
     const a = Math.min(1, age / 12) * Math.min(1, (u.dur - age) / 14);
     c.globalAlpha = a;
     c.font = `${st.size}px ${MONO}`;
-    const n = Math.min(u.text.length, Math.floor(age / 2.2) + 1);   // 한 글자씩
+    const n = Math.min(u.text.length, Math.floor(age / (u.spd || 2.2)) + 1);   // 한 글자씩
     const txt = u.text.slice(0, n);
     if (u.who === 'doc' || u.who === 'cold') { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillText(txt, W / 2 + 2, st.y + 2); }
     c.fillStyle = st.c;
@@ -1191,10 +1191,10 @@ class EscapeScene {
     this.choice = null;
     if (this.state.enter) this.state.enter(this);
   }
-  say(text, who = 'me', dur = 120) {
+  say(text, who = 'me', dur = 120, spd = 2.2) {   // spd — 한 글자에 몇 프레임
     if (who === 'sys' || who === 'me-dark') this.subs = this.subs.filter(u => u.who !== who);
     this.subs = this.subs.filter(u => this.frame - u.t0 < u.dur && SUB_STYLE[u.who].y !== SUB_STYLE[who].y);
-    this.subs.push({ text, who, dur, t0: this.frame });
+    this.subs.push({ text, who, dur, spd, t0: this.frame });
   }
   choose(opts, cb) { this.choice = { opts, sel: 0, a: 0, cb }; }
   pickChoice(i) {

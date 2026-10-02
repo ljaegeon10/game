@@ -4336,6 +4336,10 @@ const RAMP = {
   glove: ['#0c0d10', '#16171b', '#202228', '#2d3037', '#3e424b', '#565b66'],
   pad:   ['#07080a', '#0f1013', '#181a1e', '#24262c'],
   gown:  ['#101719', '#1a2629', '#273739', '#384c4f', '#506a6d', '#6d8a8d'],
+  /* 맨손 — 실험실의 차가운 빛을 받은 창백한 살결 */
+  skin:  ['#1b1416', '#33252a', '#51393b', '#725049', '#93695c', '#b18573', '#cba390', '#e3c4b3'],
+  nail:  ['#7a4f46', '#b88a7e', '#dcb2a5', '#f3dbd0'],
+  band:  ['#4f565b', '#8b9399', '#c3cacf', '#e9edef'],        // 환자 팔찌 · 의료 테이프
   brass: ['#36260e', '#6a4e1e', '#a3802d', '#d2ad55', '#f0d891'],
   void:  ['#030405']
 };
@@ -4403,6 +4407,20 @@ function capsule(B, ax, ay, bx, by, r, ramp, o = {}) {
     for (let x = Math.floor(Math.min(ax, bx) - r); x <= Math.ceil(Math.max(ax, bx) + r); x++) {
       const px = x + .5, py = y + .5;
       const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+      const nx = (px - (ax + t * dx)) / r, ny = (py - (ay + t * dy)) / r;
+      if (nx * nx + ny * ny > 1) continue;
+      put(B, x, y, q(ramp, lit(nx, ny, o.bias || 0), x, y), ramp[0]);
+    }
+}
+/* 굵기가 a 에서 b 로 변하는 캡슐 — 손가락 마디, 팔뚝 */
+function tcap(B, ax, ay, bx, by, ra, rb, ramp, o = {}) {
+  part(B, o.lines !== false, !!o.glow);
+  const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1, R = Math.max(ra, rb);
+  for (let y = Math.floor(Math.min(ay, by) - R); y <= Math.ceil(Math.max(ay, by) + R); y++)
+    for (let x = Math.floor(Math.min(ax, bx) - R); x <= Math.ceil(Math.max(ax, bx) + R); x++) {
+      const px = x + .5, py = y + .5;
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+      const r = ra + (rb - ra) * t;
       const nx = (px - (ax + t * dx)) / r, ny = (py - (ay + t * dy)) / r;
       if (nx * nx + ny * ny > 1) continue;
       put(B, x, y, q(ramp, lit(nx, ny, o.bias || 0), x, y), ramp[0]);
@@ -4555,62 +4573,94 @@ function drawPistol(B, o) {
    [4, 0], [5, 0], [6, 0], [6, 1], [5, 2], [5, 3], [5, 4]].forEach(([x, y]) => put(B, S0 + 14 + x, 33 + y, RAMP.metal[5]));
 }
 
-/* ═════════════ 손 · 팔 ═══════════════════════════════════════ */
-function rightArm(B) {                       // 오른팔 — 손목에서 오른쪽 아래로 (환자복 소매)
-  capsule(B, 107, 92, 146, 124, 12.5, RAMP.gown);
-  capsule(B, 99, 80, 109, 92, 9, RAMP.glove);
-  capsule(B, 101.5, 86, 110, 82.5, 2.2, RAMP.pad, { lines: false });   // 손목 띠
-  dot(B, 105, 84, T, true); dot(B, 106, 84, T2, true);
+/* ═════════════ 손 · 팔 — 맨손 ═══════════════════════════════════
+   탈출한 피험자의 맨손입니다. 손가락은 마디마다 굵기가 줄어드는 캡슐을
+   이어 붙이고 끝에 손톱, 손목엔 환자 팔찌(07), 오른손등엔 링거 자국 —
+   의료 테이프와 청록 캐뉼라. 빛은 왼쪽 위에서 옵니다. */
+const SK = RAMP.skin;
+/* 손가락 — 점들을 따라 마디를 잇고, 끝에 손톱 (nx, ny 는 손톱이 보이는 쪽) */
+function finger(B, pts, r0, r1, nail) {
+  const n = pts.length - 1;
+  for (let i = 0; i < n; i++) {
+    const ra = r0 + (r1 - r0) * (i / n), rb = r0 + (r1 - r0) * ((i + 1) / n);
+    tcap(B, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], ra, rb, SK, { lines: i === 0 });
+  }
+  if (nail) {
+    const [tx, ty] = pts[n], [px, py] = pts[n - 1];
+    const d = Math.hypot(tx - px, ty - py) || 1, ux = (tx - px) / d, uy = (ty - py) / d;
+    const cx = tx - ux * r1 * .55 + nail[0] * r1 * .45, cy = ty - uy * r1 * .55 + nail[1] * r1 * .45;
+    ellipse(B, cx, cy, Math.max(.9, r1 * .7), Math.max(.7, r1 * .5), RAMP.nail, { lines: false, bias: .15 });
+  }
+}
+/* 팔뚝 · 손목 — 팔찌를 두르고 */
+function forearm(B, wx, wy, ex, ey, rw, re, band = true) {
+  tcap(B, ex, ey, wx, wy, re, rw, SK);
+  if (!band) return;
+  const dx = ex - wx, dy = ey - wy, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+  const bx = wx + ux * (rw + 2.5), by = wy + uy * (rw + 2.5), r = rw + .8;
+  capsule(B, bx - uy * r, by + ux * r, bx + uy * r, by - ux * r, 1.9, RAMP.band);
+  part(B, false, true); put(B, bx + uy * .5, by - ux * .5, T); put(B, bx + uy * 1.5, by - ux * 1.5, T2);   // 팔찌의 청록 칩 (07)
+}
+/* 링거 자국 — 손등에 붙인 의료 테이프와 청록 캐뉼라 */
+function ivTape(B, x, y) {
+  rect(B, x - 3, y - 2, 6, 4, RAMP.band, (px, py) => .75 - (py - y + 2) * .08);
+  part(B, false, true); put(B, x - 1, y - 1, T); put(B, x, y - 1, T2); put(B, x + 2, y + 1, T3);
+}
+
+/* ── 옆모습 (장전 칸) ── */
+function rightIndexBehind(B) {                // 방아쇠에 건 검지 — 방아쇠울 너머로 살짝
+  tcap(B, 63, 50, 57.2, 53, 2, 1.6, SK, { lines: false });
+}
+function rightArm(B) {                       // 오른팔 — 손목에서 오른쪽 아래 모서리로
+  forearm(B, 100, 79, 140, 118, 6.2, 13);
 }
 function rightHand(B, thumbPress) {
-  capsule(B, 94.5, 52, 99.5, 74, 5.2, RAMP.glove);                      // 손바닥 뒤꿈치
-  [58, 64, 70].forEach(y => {                                            // 손잡이 앞을 감싼 손끝 셋
+  tcap(B, 95.5, 54, 99, 77, 5, 6.4, SK);                                // 손바닥 뒤꿈치 (등판을 감쌈)
+  [[58, 2.9], [64, 2.8], [70, 2.4]].forEach(([y, r]) => {               // 중지 · 약지 · 새끼 — 손잡이 앞을 감아 왼쪽 면에 손끝
     const f = gripFrontL(y);
-    capsule(B, f - 4.5, y - .5, f + 4.5, y + .8, 2.7, RAMP.glove);
-    capsule(B, f - 3.6, y - 1, f - 1.2, y - .6, 1.5, RAMP.pad, { lines: false });
+    finger(B, [[f - 3.6, y + 2], [f - 1.2, y + .2], [f + 3.4, y - .2]], r, r * .85, [0, -1]);
   });
-  const tx = thumbPress ? 67.5 : 73;                                    // 엄지 — 프레임을 따라 앞으로
-  capsule(B, 95, 49.2, tx, 48.6, 2.7, RAMP.glove);
-  capsule(B, tx + 1, 47.8, tx + 4, 47.8, 1.2, RAMP.pad, { lines: false });
+  const tip = thumbPress ? [67.5, 48.6] : [71.5, 48.8];                 // 엄지 — 프레임을 따라 앞으로, 끝에 손톱
+  finger(B, [[94, 52], [81, 49.6], tip], 3.6, 2.5, [0, -1]);
 }
-function leftSupport(B) {                    // 두 손 파지 — 왼손이 오른손가락을 덮고, 엄지는 앞으로
-  capsule(B, 58, 80, 40, 106, 8.5, RAMP.glove);
-  capsule(B, 40, 106, 14, 136, 14, RAMP.gown);
-  ellipse(B, 62, 67, 6.8, 9.5, RAMP.glove);
-  [61, 67, 73].forEach(y => {
+function leftSupport(B) {                    // 두 손 파지 — 왼손등이 보이고 손가락이 오른손을 덮음
+  forearm(B, 57, 79, 36, 112, 6.5, 13);
+  ellipse(B, 62, 67, 6.6, 9.4, SK);
+  [[61, 2.8], [66.5, 2.8], [72, 2.6], [77, 2.2]].forEach(([y, r]) => {
     const f = gripFrontL(y);
-    capsule(B, f - 9, y, f + 3.2, y + 1.6, 3, RAMP.glove);
-    capsule(B, f - 7.5, y - .8, f - 4.5, y - .3, 1.6, RAMP.pad, { lines: false });
+    finger(B, [[f - 9, y], [f - 3.5, y + 1], [f + 2.6, y + 1.2]], r, r * .85, [0, -1]);
   });
-  capsule(B, 68, 45.4, 50, 44.8, 2.3, RAMP.glove);
+  finger(B, [[66, 50], [61, 45.8], [52, 45]], 2.8, 2.2, [0, -1]);      // 왼손 엄지 — 앞으로
 }
-function leftAway(B) {                       // 왼손이 비어 있을 때 — 아래 왼쪽에서 대기
-  capsule(B, -8, 122, 10, 100, 14, RAMP.gown);
-  ellipse(B, 19, 91, 8.5, 7.5, RAMP.glove);
-  capsule(B, 14, 87, 24, 86.5, 1.8, RAMP.pad, { lines: false });
+function leftAway(B) {                       // 왼손이 비어 있을 때 — 아래 왼쪽에서 가볍게 쥔 채
+  forearm(B, 15, 97, -8, 124, 6, 12);
+  ellipse(B, 21, 89.5, 7.6, 6.2, SK);
+  for (let i = 0; i < 4; i++) finger(B, [[15 + i * 3.6, 93.4], [16 + i * 3.6, 96.4]], 1.9, 1.6, null);
+  finger(B, [[24, 86], [28, 83.6], [30.5, 82.4]], 2.2, 1.8, [0, -1]);
 }
-function leftMag(B, mo, slap) {              // 탄창 바닥을 손바닥으로 받쳐 밀어 올림
+function leftMag(B, mo, slap) {              // 왼손 — 새 탄창 바닥을 쥐고 밀어 올림 (손등이 이쪽)
   const bot = 77 + mo, cx = (magF(bot) + magB(bot)) / 2;
-  capsule(B, cx - 4, bot + 8, cx - 26, bot + 36, 8.5, RAMP.glove);
-  capsule(B, cx - 26, bot + 36, cx - 52, bot + 70, 14, RAMP.gown);
-  ellipse(B, cx, bot + (slap ? 4.5 : 6), slap ? 11.5 : 10, slap ? 4.4 : 5.6, RAMP.glove);
-  if (!slap) [0, 1, 2].forEach(i => {
-    const y = bot - 3 - i * 4.6;
-    if (y < 48 + mo + 4) return;
-    capsule(B, magF(y) - 4.2, y, magF(y) + 3.4, y + .6, 2.2, RAMP.glove);
+  forearm(B, cx - 9, bot + 10, cx - 42, bot + 52, 6.6, 13);
+  if (slap) {                                // 손바닥으로 철컥 — 손가락은 앞으로 쭉
+    ellipse(B, cx - 3, bot + 4.6, 10.5, 4.6, SK);
+    [0, 1, 2, 3].forEach(i => finger(B, [[cx - 9, bot + 2.4 + i * 1.5], [cx - 15, bot + 2 + i * 1.6], [cx - 20, bot + 2.2 + i * 1.6]], 1.9, 1.6, [0, -1]));
+    finger(B, [[cx + 6, bot + 3], [magB(bot) + 2.5, bot - 3], [magB(bot - 6) + 2, bot - 7]], 2.3, 1.9, [1, 0]);
+    return;
+  }
+  ellipse(B, cx - 5, bot + 5, 8.6, 6.6, SK);
+  [0, 1, 2, 3].forEach(i => {                // 네 손가락 — 탄창 앞을 감아 올라감, 손톱이 이쪽
+    const y = bot + 3 - i * 3.4;
+    finger(B, [[cx - 11, y + 1], [magF(y) - 2.5, y - 1.2], [magF(y - 2) + 2.5, y - 2.6]], 2.4 - i * .1, 2, [-.4, -1]);
   });
-  else capsule(B, cx - 13, bot + 3, cx - 5, bot + 2.4, 2.2, RAMP.glove);
-  capsule(B, magB(bot) + 1.8, bot, magB(bot - 10) + 1, bot - 10, 2.2, RAMP.glove);
+  finger(B, [[cx + 3, bot + 2], [magB(bot) + 2, bot - 4], [magB(bot - 9) + 1.6, bot - 9]], 2.4, 2, [1, 0]);   // 엄지 — 탄창 뒤로
 }
-function leftRack(B, so) {                   // 위에서 덮어 슬라이드 뒤쪽을 움켜쥠
+function leftRack(B, so) {                   // 위에서 덮어 슬라이드 뒤쪽을 움켜쥠 — 손등이 위, 손가락이 이쪽으로 감김
   const S1 = 96 + so;
-  capsule(B, S1 + 2, 20, S1 + 30, -8, 9.5, RAMP.glove);
-  capsule(B, S1 + 30, -8, S1 + 52, -34, 14, RAMP.gown);
-  ellipse(B, S1 - 7, 23.4, 11.5, 5.8, RAMP.glove);
+  forearm(B, S1 + 4, 19, S1 + 36, -16, 6.8, 12.5);
+  ellipse(B, S1 - 6, 22.5, 11, 5.6, SK);
   for (let i = 0; i < 4; i++) {
-    const x = S1 - 15.5 + i * 3.7;
-    capsule(B, x, 25.5, x - 1, 36.4 - (i === 3 ? 2 : 0), 1.95, RAMP.glove);
-    capsule(B, x - 1.6, 34.6 - (i === 3 ? 2 : 0), x - .4, 35.4 - (i === 3 ? 2 : 0), 1, RAMP.pad, { lines: false });
+    const x = S1 - 15.5 + i * 3.7, l = i === 3 ? 2 : 0;
+    finger(B, [[x + 1, 23.5], [x, 30], [x - .8, 36 - l]], 2.1, 1.7, [-1, .2]);
   }
 }
 
@@ -4708,37 +4758,34 @@ function drawAimGun(B, o) {
   [-5.5, 5.5].forEach(X => { const p = P3(X, -12, Z0 + .8); part(B, false, true); put(B, p[0] - .5, p[1], T); put(B, p[0] + .5, p[1], T); });
 }
 
-/* 조준 시점의 손 — 한 손 파지. 오른손 엄지는 프레임 왼쪽을 따라 앞으로,
-   손끝 셋은 손잡이 앞을 감아 왼쪽 면 앞가장자리에 걸리고, 손바닥 뒤꿈치는
-   등판(백스트랩)에. 그 사이로 단청 패널이 보입니다. 왼손은 장전 때만. */
+/* 조준 시점의 손 — 오른손 한 손 파지, 맨손.
+   뒤쪽 왼편에서 보면 : 엄지가 프레임 왼쪽을 따라 앞으로(손톱이 보임), 검지는
+   방아쇠울로 내려가고, 중지·약지·새끼가 손잡이 앞을 감아 왼쪽 면에 손끝과
+   손톱을 올립니다. 손바닥 뒤꿈치가 등판을, 손등과 손목은 오른쪽 아래로. */
 function aimHands(B, o) {
   const zb = y => 3 - (y - 12) * .3, zf = y => 27 - (y - 12) * .3;
-  const at = (X, Y, Z) => P3(X, Y, Z);
-  // 오른팔 — 손목에서 오른쪽 아래 모서리로
-  const w0 = at(4, 46, zb(46) - 6), w1 = at(7, 60, zb(60) - 12);
-  capsule(B, w1[0], w1[1], 132, 118, 15, RAMP.gown);
-  capsule(B, w0[0], w0[1], w1[0], w1[1], 9.5, RAMP.glove);
-  capsule(B, w1[0] - 7, w1[1] - 3, w1[0] + 6, w1[1] - 8, 2.4, RAMP.pad, { lines: false });   // 손목 띠
-  dot(B, w1[0], w1[1] - 6, o.lit ? T : T2, true); dot(B, w1[0] + 1, w1[1] - 6, T2, true);
-  // 손바닥 뒤꿈치 — 등판을 감쌈 (몸 쪽)
-  const h0 = at(3, 18, zb(18) - 3), h1 = at(4, 41, zb(41) - 4);
-  capsule(B, h0[0], h0[1], h1[0], h1[1], 7, RAMP.glove);
-  const hp = at(6, 27, zb(27) - 5);                                   // 손등 마디 보호판
-  ellipse(B, hp[0] + 2, hp[1] - 2, 4.6, 6.5, RAMP.glove, { bias: .18 });
-  [0, 1, 2].forEach(i => capsule(B, hp[0] - 1, hp[1] - 7 + i * 4.5, hp[0] + 5, hp[1] - 6 + i * 4.5, 1, RAMP.pad, { lines: false }));
-  capsule(B, h0[0] - 4, h0[1] + 2, h1[0] - 5, h1[1] - 2, .6, RAMP.pad, { lines: false });   // 솔기
-  // 손끝 셋 — 손잡이 앞을 감아 왼쪽 면에
-  [22, 30, 38].forEach(y => {
-    const a0 = at(-8.6, y, zf(y) + 3), a1 = at(-9.4, y + 1, zf(y) - 7);
-    capsule(B, a0[0], a0[1], a1[0], a1[1], 3, RAMP.glove);
-    const p0 = at(-9.6, y - .6, zf(y) - 4.5), p1 = at(-9.6, y, zf(y) - 7);
-    capsule(B, p0[0], p0[1], p1[0], p1[1], 1.4, RAMP.pad, { lines: false });
+  const at = P3;
+  // 팔뚝 · 손목 (팔찌)
+  const w = at(5, 47, zb(47) - 8);
+  forearm(B, w[0], w[1], 136, 122, 7.6, 15);
+  // 손등 — 등판 오른쪽으로 둥글게, 링거 테이프
+  const hb = at(7, 33, zb(33) - 6);
+  ellipse(B, hb[0], hb[1], 8, 11.5, SK);
+  [0, 1, 2].forEach(i => { const k = at(9.5, 24 + i * 6.5, zb(24 + i * 6.5) - 2); ellipse(B, k[0], k[1], 2.2, 1.8, SK, { lines: false, bias: .12 }); });   // 손가락 뿌리 마디
+  const iv = at(6.5, 35, zb(35) - 9); ivTape(B, iv[0], iv[1]);
+  // 손바닥 뒤꿈치 — 등판을 감쌈
+  const h0 = at(2, 22, zb(22) - 2), h1 = at(3, 42, zb(42) - 3);
+  tcap(B, h0[0], h0[1], h1[0], h1[1], 5.5, 6.8, SK);
+  // 검지 — 엄지 아래로 지나 방아쇠울 안으로
+  const i0 = at(-8.6, 15, 10), i1 = at(-9.4, 15.6, 30), i2 = at(-9.6, 18.5, 44);
+  finger(B, [i0, i1, i2], 3, 2.4, null);
+  // 중지 · 약지 · 새끼 — 손잡이 앞을 감아 손끝이 왼쪽 면에 (손톱이 이쪽)
+  [[23, 3.1], [30.5, 3], [38, 2.6]].forEach(([y, r]) => {
+    finger(B, [at(-5, y + 1, zf(y) + 4), at(-9, y + .4, zf(y) + 1.5), at(-9.6, y, zf(y) - 5)], r, r * .85, [-.3, -1]);
   });
-  // 엄지 — 프레임 옆을 따라 앞으로
-  const t0 = at(-8, 17, 2), tm = at(-10, 13.5, 20), t1 = at(-10.6, 11.5, 36);
-  capsule(B, t0[0], t0[1], tm[0], tm[1], 3.4, RAMP.glove);
-  capsule(B, tm[0], tm[1], t1[0], t1[1], 2.7, RAMP.glove);
-  capsule(B, t1[0] + 1.5, t1[1] - .4, t1[0] + 3.5, t1[1] - .2, 1.2, RAMP.pad, { lines: false });
+  // 엄지 — 두 마디, 프레임 옆을 따라 앞으로
+  const t0 = at(-6.5, 18, 1), tm = at(-10, 13.5, 20), t1 = at(-10.6, 11.6, 37);
+  finger(B, [t0, tm, t1], 3.8, 2.6, [0, -1]);
 }
 
 /* 한 장 — 상태에 맞춰 순서대로 겹쳐 그립니다 */
@@ -4746,6 +4793,7 @@ function drawFrame(B, o) {
   if (o.aim) { drawAimGun(B, o); aimHands(B, o); return; }
   if (o.left === 'away') leftAway(B);
   rightArm(B);
+  rightIndexBehind(B);
   if (o.mo > 0) drawMag(B, o.mo, o.newMag);
   drawPistol(B, o);
   rightHand(B, o.thumb);
@@ -5055,7 +5103,7 @@ const RUN_LINES = [
   [GUN_Z - 6, '…총?', 'me'],
   [ZONE0 + 4, '경비원들이다.', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
-  [ZONE1 + 14, '…이 복도, 이렇게 길었나.', 'me'],
+  [ZONE1 + 56, '…이 복도, 이렇게 길었나.', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
   [560, '…빛이다.', 'me']
 ];
@@ -5243,7 +5291,7 @@ function updateGun(s) {
     G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
-    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 110); s.sfx.empty(); }
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 240, 5); s.sfx.empty(); }
   }
   // 경비원
   for (const g of s.guards) {
@@ -5838,7 +5886,7 @@ function drawText(s, c) {
     const a = Math.min(1, age / 12) * Math.min(1, (u.dur - age) / 14);
     c.globalAlpha = a;
     c.font = `${st.size}px ${MONO}`;
-    const n = Math.min(u.text.length, Math.floor(age / 2.2) + 1);   // 한 글자씩
+    const n = Math.min(u.text.length, Math.floor(age / (u.spd || 2.2)) + 1);   // 한 글자씩
     const txt = u.text.slice(0, n);
     if (u.who === 'doc' || u.who === 'cold') { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillText(txt, W / 2 + 2, st.y + 2); }
     c.fillStyle = st.c;
@@ -6011,10 +6059,10 @@ class EscapeScene {
     this.choice = null;
     if (this.state.enter) this.state.enter(this);
   }
-  say(text, who = 'me', dur = 120) {
+  say(text, who = 'me', dur = 120, spd = 2.2) {   // spd — 한 글자에 몇 프레임
     if (who === 'sys' || who === 'me-dark') this.subs = this.subs.filter(u => u.who !== who);
     this.subs = this.subs.filter(u => this.frame - u.t0 < u.dur && SUB_STYLE[u.who].y !== SUB_STYLE[who].y);
-    this.subs.push({ text, who, dur, t0: this.frame });
+    this.subs.push({ text, who, dur, spd, t0: this.frame });
   }
   choose(opts, cb) { this.choice = { opts, sel: 0, a: 0, cb }; }
   pickChoice(i) {
