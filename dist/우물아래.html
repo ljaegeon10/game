@@ -580,6 +580,7 @@ html,body{
     #06070a;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:0; text-align:center;
+  padding-bottom:44px; box-sizing:border-box;   /* 제목 덩어리를 위로 — 아래 제작진 줄과 넉넉히 띄웁니다 */
 }
 .t-well{
   width:124px; height:124px; margin-bottom:14px;
@@ -623,6 +624,10 @@ html,body{
 #title.konami .tw-ripple{ stroke:#ff5a4a; animation-duration:.7s; }
 #title.konami .t-well svg{ filter:drop-shadow(0 0 10px rgba(255,70,60,.55)); }
 
+/* 최고 기록 표가 붙으면 우물을 조금 줄여, 시작하기와 제작진 줄 사이 자리를 지킵니다 */
+#title:has(#besttimes:not(.hidden)) .t-well{ width:76px; height:76px; margin-bottom:8px; }
+#title:has(#besttimes:not(.hidden)) h1{ font-size:28px; }
+#title:has(#besttimes:not(.hidden)) #startbtn{ margin-top:18px; }
 #title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
 #title.picking h1{ font-size:22px; }
 
