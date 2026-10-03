@@ -436,23 +436,10 @@ function bakeDungeonFloor(W, H, TS, seed, depth, theme = 'plain') {
   g.fillStyle = '#1b1a27'; g.fillRect(0, 0, W, H);
 
   // 돌 타일
-  for (let y = TS; y < H - TS; y += TS) {
-    for (let x = TS; x < W - TS; x += TS) {
-      const v = R();
-      const tt = (typeof THEME_TILES !== 'undefined' && THEME_TILES[theme]) || ['#1a1925', '#201e2c', '#252334'];
-      g.fillStyle = v > .78 ? tt[2] : v > .45 ? tt[1] : tt[0];
-      g.fillRect(x, y, TS, TS);
-      g.strokeStyle = 'rgba(0,0,0,.36)'; g.lineWidth = 1;
-      g.strokeRect(x + .5, y + .5, TS - 1, TS - 1);
-      // 균열
-      if (v > .9) {
-        g.strokeStyle = 'rgba(0,0,0,.5)';
-        g.beginPath();
-        g.moveTo(x + R() * TS, y);
-        g.lineTo(x + R() * TS, y + TS);
-        g.stroke();
-      }
-    }
+  // 바닥 재질 — 방 테마마다 판석 · 자갈 · 타일 · 철판 · 흙 · 마루 … (floors.js)
+  if (typeof paintFloorMaterial === 'function') paintFloorMaterial(g, theme, R, W, H, TS);
+  else for (let y = TS; y < H - TS; y += TS) for (let x = TS; x < W - TS; x += TS) {
+    g.fillStyle = R() > .5 ? '#201e2c' : '#1a1925'; g.fillRect(x, y, TS, TS);
   }
 
   // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리. 가운데 것은 바닥에 박힌 오래된
