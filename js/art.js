@@ -425,7 +425,7 @@ function drawWell(g, x, y, t, glow) {
 }
 
 /* ═══════════ 지하 : 던전 바닥 ═════════════════════════════ */
-function bakeDungeonFloor(W, H, TS, seed, depth) {
+function bakeDungeonFloor(W, H, TS, seed, depth, theme = 'plain') {
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
@@ -439,7 +439,8 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   for (let y = TS; y < H - TS; y += TS) {
     for (let x = TS; x < W - TS; x += TS) {
       const v = R();
-      g.fillStyle = v > .78 ? '#252334' : v > .45 ? '#201e2c' : '#1a1925';
+      const tt = (typeof THEME_TILES !== 'undefined' && THEME_TILES[theme]) || ['#1a1925', '#201e2c', '#252334'];
+      g.fillStyle = v > .78 ? tt[2] : v > .45 ? tt[1] : tt[0];
       g.fillRect(x, y, TS, TS);
       g.strokeStyle = 'rgba(0,0,0,.36)'; g.lineWidth = 1;
       g.strokeRect(x + .5, y + .5, TS - 1, TS - 1);
@@ -456,6 +457,8 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
 
   // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리. 가운데 것은 바닥에 박힌 오래된
   // 상감처럼 옅게, 둘레에 팔각 돌 테두리 (진한 원으로 두면 상자를 감싼 막처럼 보였습니다)
+  // 방마다 테마가 강한 곳(병동 · 수조 · 관측실 …)은 가운데를 비워 둡니다
+  if (theme === 'plain' || theme === 'fork' || theme === 'gate') {
   g.save();
   g.strokeStyle = 'rgba(8,8,14,.6)'; g.lineWidth = 2;
   g.beginPath();
@@ -463,6 +466,7 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   g.stroke();
   g.restore();
   drawDancheong(g, W / 2, H / 2, 26, warp, decay * .5);
+  }
   const inset = TS * 2.5;
   [[inset, inset], [W - inset, inset], [inset, H - inset], [W - inset, H - inset]]
     .forEach(([x, y], i) => {
@@ -535,6 +539,9 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   for (let i = 0; i < 8 + depth * 3; i++)
     drawMoss(g, TS + R() * (W - TS * 2), TS + R() * (H - TS * 2),
              8 + R() * 16, R, 'rgba(38,60,40,.42)');
+
+  // 방마다 다른 얼굴 — 실험실의 어느 곳이 꿈에 비쳤는지 (roomdeco.js)
+  if (typeof decorateFloor === 'function') decorateFloor(g, theme, R, depth, W, H, TS);
 
   // 어둠 (가장자리로 갈수록)
   const vg = g.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, W * .62);

@@ -122,6 +122,7 @@ const G = {
   floor: null, depth: 1,
   bullets: [], foes: [], fx: [], pickups: [], pots: [], clouds: [],
   rings: [],            // 보스전 충격파 고리
+  props: [], theme: '', // 방의 장애물 · 테마 (roomdeco.js)
   glare: 0,             // 보스전 섬광 (0~1)
   chest: null, floorKey: null, boss: null,
   doors: {},            // { N:{open,locked}, ... }
@@ -500,6 +501,7 @@ function loadForest(opening) {
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
   G.floor = bakeForest(W, H, TS);
+  G.props = []; G.theme = 'forest';
   G.butterflies = Array.from({ length: 7 }, () => ({
     x: 60 + Math.random() * (W - 140), y: 40 + Math.random() * (H - 90),
     a: Math.random() * 6.28, s: .3 + Math.random() * .3,
@@ -619,7 +621,8 @@ function loadRoom(id, fromDir) {
   P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
-  G.floor = bakeDungeonFloor(W, H, TS, hash(id), r.depth);
+  G.theme = roomTheme(id); G.props = buildRoomProps(id);
+  G.floor = bakeDungeonFloor(W, H, TS, hash(id), r.depth, G.theme);
   G.plants = bakePlants(hash(id) + 91, r.depth);
   buildDoors(id);
 
@@ -1292,7 +1295,8 @@ function update() {
   G.bullets = G.bullets.filter(b => {
     b.x += b.vx; b.y += b.vy; b.life--;
     if (b.life <= 0) return false;
-    if (b.x < TS - 2 || b.x > W - TS + 2 || b.y < TS - 2 || b.y > H - TS + 2) {
+    if (b.x < TS - 2 || b.x > W - TS + 2 || b.y < TS - 2 || b.y > H - TS + 2 ||
+        (G.props.length && propBlocksShot(G.props, b.x, b.y))) {
       puff(b.x, b.y, b.mine ? '#bfe9dd' : '#c2352c');
       return false;
     }
@@ -1390,6 +1394,7 @@ function update() {
     }
     f.x = Math.max(TS + f.r, Math.min(W - TS - f.r, f.x));
     f.y = Math.max(TS + f.r, Math.min(H - TS - f.r, f.y));
+    if (G.props.length && pushOutOfProps(G.props, f, f.r) && f.dash > 0) f.dash = Math.min(f.dash, 2);   // 돌진하다 부딪히면 멈칫
     // 점멸 중(사라진 상태)에는 부딪히지 않습니다
     if (!f.warp && d < f.r + P.r - 2) hurt(1);
   });
@@ -1485,6 +1490,7 @@ function clampPlayer(forest) {
   if (open('S') && bx) maxY = H - TS + 8;
   P.x = Math.max(minX, Math.min(maxX, P.x));
   P.y = Math.max(minY, Math.min(maxY, P.y));
+  if (G.props.length) pushOutOfProps(G.props, P, P.r);   // 침대 · 기둥 · 서류장 같은 장애물
 }
 
 function checkDoorTransit() {
@@ -2292,6 +2298,8 @@ function renderDungeon() {
   }
 
   drawFloorPlants(g, G.plants, G.t);
+  drawThemeFloor(g, G.theme, G.t, P.x, P.y, W, H);           // 물방울 · 유리창 아래의 눈
+  drawPropsPass(g, G.props, G.t, P.y, false);               // 주인공보다 뒤에 선 장애물
   G.pots.forEach(p => { if (!p.dead) drawPot(p.x, p.y); });
   if (G.chest) drawChest(G.chest);
   if (G.floorKey) drawKey(G.floorKey.x, G.floorKey.y + Math.sin(G.floorKey.bob) * 2.5);
@@ -2340,6 +2348,7 @@ function renderDungeon() {
   if (G.mode === 'morph' && G.morphPre < MORPH_PRE) drawEyeMorph();
   if (G.corpse && R.boss) drawCorpse();
   drawPlayer();
+  drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
   drawRings();
 
   G.bullets.forEach(b => {
