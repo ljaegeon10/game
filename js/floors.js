@@ -18,7 +18,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 const FLOOR_OF = {
-  well: 'cobble', fork: 'flag', ward: 'ceramic', tank: 'ceramicWet', observe: 'plate',
+  well: 'well', fork: 'flag', ward: 'ceramic', tank: 'ceramicWet', observe: 'plate',
   roots: 'dirt', archive: 'plank', gate: 'flagBig', arena: 'radial', exit: 'lino', plain: 'flag'
 };
 
@@ -83,6 +83,59 @@ function floorCobble(g, R, W, H, TS) {
     }
   }
   g.putImageData(img, TS, TS);
+}
+
+/* 우물 바닥 — 가운데는 떨어진 자리의 얕은 웅덩이(roomdeco 가 그림), 둘레는 둥근
+   우물 벽을 따라 동심원으로 쌓은 돌, 우물 밖(방 모서리)은 진흙과 돌무더기 */
+const WELL_C = [288, 168], WELL_K = .56;
+function floorWell(g, R, W, H, TS) {
+  const [cx, cy] = WELL_C;
+  // 진흙 바탕 — 알갱이
+  g.fillStyle = '#141117'; g.fillRect(TS, TS, W - TS * 2, H - TS * 2);
+  for (let i = 0; i < 1400; i++) {
+    g.fillStyle = fcol([26, 22, 26], (R() - .5) * 14);
+    g.fillRect(TS + R() * (W - TS * 2), TS + R() * (H - TS * 2), 1 + (R() < .2), 1);
+  }
+  // 모서리의 돌무더기
+  [[TS + 30, TS + 24], [W - TS - 34, TS + 22], [TS + 26, H - TS - 22], [W - TS - 30, H - TS - 26]].forEach(([x, y]) => {
+    for (let i = 0; i < 9; i++) {
+      const w = 6 + R() * 10, h = 4 + R() * 6;
+      stoneSlab(g, R, (x + (R() - .5) * 40 - w / 2) | 0, (y + (R() - .5) * 24 - h / 2) | 0, w | 0, h | 0, fhex('#2a2732'), 0);
+    }
+  });
+  // 둥근 돌바닥 — 안쪽 고리일수록 젖어 푸르고 밝게
+  for (let ring = 0; ring < 9; ring++) {
+    const r0 = 62 + ring * 17, r1 = r0 + 16, n = Math.round(2 * Math.PI * (r0 + 8) / 30), off = R() * 6;
+    const wet = Math.max(0, 1 - ring / 4);
+    for (let i = 0; i < n; i++) {
+      const a0 = (i / n) * Math.PI * 2 + off, a1 = ((i + 1) / n) * Math.PI * 2 + off - .025;
+      const v = (R() - .5) * 12;
+      const base = [34 + wet * 4, 33 + wet * 7, 44 + wet * 12];
+      g.beginPath();
+      g.ellipse(cx, cy, r1, r1 * WELL_K, 0, a0, a1);
+      g.ellipse(cx, cy, r0, r0 * WELL_K, 0, a1, a0, true);
+      g.closePath();
+      const gone = ring > 1 && R() < .06;                    // 빠져나간 돌 — 진흙이 드러남
+      g.fillStyle = gone ? '#17131a' : fcol(base, v); g.fill();
+      g.strokeStyle = 'rgba(6,6,10,.85)'; g.lineWidth = 1; g.stroke();
+      if (!gone && R() < .12) {                              // 금 간 돌
+        const am = (a0 + a1) / 2, rm = (r0 + r1) / 2;
+        g.strokeStyle = 'rgba(8,8,12,.7)'; g.beginPath();
+        g.moveTo(cx + Math.cos(am - .03) * (r0 + 2), cy + Math.sin(am - .03) * (r0 + 2) * WELL_K);
+        g.lineTo(cx + Math.cos(am + .02) * rm, cy + Math.sin(am + .02) * rm * WELL_K);
+        g.lineTo(cx + Math.cos(am - .01) * (r1 - 2), cy + Math.sin(am - .01) * (r1 - 2) * WELL_K);
+        g.stroke();
+      }
+      // 안쪽(웅덩이 쪽) 모서리에 맺힌 물기
+      if (wet > 0 && R() < .7) {
+        g.beginPath(); g.ellipse(cx, cy, r0 + 1.5, (r0 + 1.5) * WELL_K, 0, a0 + .02, a1 - .02);
+        g.strokeStyle = `rgba(150,180,210,${.12 + wet * .18})`; g.stroke();
+      }
+    }
+  }
+  // 우물 벽이 바닥에 닿는 자리 — 가장 바깥 고리 둘레에 짙은 그늘
+  g.beginPath(); g.ellipse(cx, cy, 62 + 9 * 17 + 4, (62 + 9 * 17 + 4) * WELL_K, 0, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 6; g.stroke();
 }
 
 function floorCeramic(g, R, W, H, TS, kind) {
@@ -197,6 +250,7 @@ function floorGrit(g, R, W, H, TS, amount = 7) {
 function paintFloorMaterial(g, theme, R, W, H, TS) {
   const m = FLOOR_OF[theme] || 'flag';
   if (m === 'cobble') floorCobble(g, R, W, H, TS);
+  else if (m === 'well') floorWell(g, R, W, H, TS);
   else if (m === 'ceramic') floorCeramic(g, R, W, H, TS, 'tile');
   else if (m === 'ceramicWet') floorCeramic(g, R, W, H, TS, 'wet');
   else if (m === 'lino') floorCeramic(g, R, W, H, TS, 'lino');

@@ -175,26 +175,41 @@ function decorateFloor(g, theme, R, depth, W, H, TS) {
   g.save();
   switch (theme) {
     case 'well': {
-      // 둥근 우물 바닥 — 가운데를 둘러 쌓은 돌, 위에서 새는 빛
-      // 바닥 가장자리를 두른 돌 띠 (우물 벽이 바닥에 닿는 자리) — 돌 이음매
-      g.strokeStyle = '#25222d'; g.lineWidth = 18;
-      g.beginPath(); g.ellipse(cx, cy, 196, 104, 0, 0, Math.PI * 2); g.stroke();
-      g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 1;
-      g.beginPath(); g.ellipse(cx, cy, 187, 95, 0, 0, Math.PI * 2); g.stroke();
-      g.strokeStyle = 'rgba(90,84,104,.35)';
-      g.beginPath(); g.ellipse(cx, cy, 205, 113, 0, 0, Math.PI * 2); g.stroke();
-      g.fillStyle = 'rgba(0,0,0,.5)';
-      for (let i = 0; i < 40; i++) {
-        const a = i / 40 * Math.PI * 2;
-        g.fillRect((cx + Math.cos(a) * 190) | 0, (cy + Math.sin(a) * 98) | 0, 1, 1);
-        g.fillRect((cx + Math.cos(a) * 196) | 0, (cy + Math.sin(a) * 104) | 0, 1, 1);
-        g.fillRect((cx + Math.cos(a) * 202) | 0, (cy + Math.sin(a) * 110) | 0, 1, 1);
+      // 떨어진 자리 — 얕은 웅덩이. 가장자리는 진흙과 젖은 돌, 물은 거의 검고
+      // 위쪽 우물 입구가 물에 비칩니다 (비친 상은 매 프레임 일렁이게 따로 그림)
+      const [wx, wy] = WELL_C;
+      for (let y = -36; y <= 36; y++) for (let x = -76; x <= 76; x++) {
+        const a = Math.atan2(y, x), jag = 1 + Math.sin(a * 5 + 1.3) * .06 + Math.sin(a * 11) * .04;
+        const d = Math.hypot(x / 70, y / 32) / jag;
+        if (d > 1.06) continue;
+        g.fillStyle = d > .97 ? 'rgba(20,24,30,.9)' : d > .9 ? '#0f1822' : d > .6 ? '#0b121b' : '#080d14';
+        g.fillRect(wx + x, wy + y, 1, 1);
       }
-      puddle(g, R, cx - 70, cy + 44, 22, 8, true);
-      puddle(g, R, cx + 96, cy - 30, 14, 5);
-      const lg = g.createRadialGradient(cx, cy - 8, 6, cx, cy - 8, 120);
-      lg.addColorStop(0, 'rgba(150,170,200,.16)'); lg.addColorStop(1, 'rgba(150,170,200,0)');
+      g.fillStyle = 'rgba(150,180,210,.22)';                 // 물가의 젖은 반짝임
+      for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2; if (R() < .55) g.fillRect((wx + Math.cos(a) * 71) | 0, (wy + Math.sin(a) * 33) | 0, 2, 1); }
+      // 위에서 새는 찬 빛 — 웅덩이를 중심으로
+      const lg = g.createRadialGradient(wx, wy, 8, wx, wy, 150);
+      lg.addColorStop(0, 'rgba(150,170,210,.14)'); lg.addColorStop(.5, 'rgba(120,140,180,.05)'); lg.addColorStop(1, 'rgba(0,0,0,0)');
       g.fillStyle = lg; g.fillRect(0, 0, W, H);
+      // 엎어진 녹슨 양동이
+      g.save(); g.translate(312, 244); g.rotate(-.35);
+      g.fillStyle = '#3a2a20'; g.fillRect(-9, -6, 16, 12);
+      g.fillStyle = '#5a3f2c'; g.fillRect(-9, -6, 16, 2); g.fillRect(-9, 3, 16, 1);
+      g.fillStyle = '#120e0c'; g.beginPath(); g.ellipse(8, 0, 3, 7, 0, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = '#6a6470'; g.lineWidth = 1; g.beginPath(); g.arc(-1, -6, 7, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+      g.restore();
+      g.fillStyle = 'rgba(90,40,28,.35)'; g.fillRect(320, 248, 7, 2);   // 녹물
+      // 감긴 밧줄 — 사다리에서 끊어진
+      g.strokeStyle = '#4a3a28'; g.lineWidth = 2;
+      for (let i = 0; i < 3; i++) { g.beginPath(); g.ellipse(214, 132, 10 - i * 3, 5 - i * 1.5, 0, 0, Math.PI * 2); g.stroke(); }
+      g.strokeStyle = '#5c4a34'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(224, 132); g.quadraticCurveTo(250, 150, 262, 146); g.stroke();
+      // 돌 틈 이끼
+      for (let i = 0; i < 6; i++) {
+        const a = R() * Math.PI * 2, rr = 100 + R() * 90;
+        g.fillStyle = 'rgba(40,62,40,.55)';
+        for (let k = 0; k < 10; k++) g.fillRect((wx + Math.cos(a) * rr + (R() - .5) * 8) | 0, (wy + Math.sin(a) * rr * WELL_K + (R() - .5) * 4) | 0, 1, 1);
+      }
       break;
     }
     case 'fork':
@@ -299,8 +314,21 @@ function drawThemeFloor(g, theme, t, px, py, W, H) {
     for (let i = 0; i < 2; i++) { g.beginPath(); g.moveTo(cx - 60 + i * 30, cy - 42); g.lineTo(cx - 48 + i * 30, cy - 42); g.lineTo(cx - 92 + i * 30, cy + 42); g.lineTo(cx - 104 + i * 30, cy + 42); g.closePath(); g.fill(); }
     g.restore();
   } else if (theme === 'tank' || theme === 'well') {
+    if (theme === 'well') {
+      // 물에 비친 우물 입구 — 해 질 녘 하늘 한 조각이 물결 따라 일렁입니다
+      const [wx, wy] = WELL_C, wob = Math.sin(t * .05) * 1.2, wob2 = Math.cos(t * .037) * .8;
+      g.save();
+      g.globalAlpha = .55;
+      g.fillStyle = '#5b5f7a'; g.beginPath(); g.ellipse(wx + wob, wy - 2, 22 + wob2, 9, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#8d8fb0'; g.beginPath(); g.ellipse(wx + wob * 1.4, wy - 3, 15, 5.5 + wob2 * .4, 0, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = .8; g.fillStyle = '#c9b8b8';
+      for (let i = -12; i <= 12; i += 3) g.fillRect((wx + i + Math.sin(t * .08 + i) * 1.5) | 0, (wy - 3 + Math.sin(i) * 2) | 0, 2, 1);
+      g.globalAlpha = .9; g.strokeStyle = '#1a1a24'; g.lineWidth = 2;                 // 우물 입구 테 그림자
+      g.beginPath(); g.ellipse(wx + wob, wy - 2, 23 + wob2, 10, 0, 0, Math.PI * 2); g.stroke();
+      g.restore();
+    }
     // 고인 물 위로 이따금 떨어지는 물방울 — 동심원 픽셀
-    const drops = theme === 'tank' ? [[250, 96], [330, 230], [470, 150]] : [[218, 206], [384, 132]];
+    const drops = theme === 'tank' ? [[250, 96], [330, 230], [470, 150]] : [[WELL_C[0] + 14, WELL_C[1] + 4], [WELL_C[0] - 34, WELL_C[1] + 12]];
     drops.forEach(([x, y], i) => {
       const k = ((t + i * 97) % 180) / 180;
       if (k > .5) return;
