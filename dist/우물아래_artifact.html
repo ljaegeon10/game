@@ -11454,7 +11454,7 @@ function konamiKey(code) {
    적이 없는 방에서 45초 동안 아무것도 누르지 않으면, 꿈속에서 다시
    잠들기 시작합니다. 눈꺼풀이 내려오고 바닥 위로 심전도가 비치다가,
    다급한 목소리에 퍼뜩 깹니다. 한 판에 한 번만 (타임어택 제외). */
-const DOZE_AFTER = 60 * 45;
+const DOZE_AFTER = 60 * 20;                 // 20초 동안 아무것도 안 하면
 const DOZE = { CLOSE: 380, SNAP: 560, END: 640 };
 const DOZE_TEXT = [
   [40, 170, '…움직임이 없네요.', 'far'],
@@ -11554,9 +11554,9 @@ document.addEventListener('visibilitychange', () => {
     document.title = homeTitle;
     const gone = (performance.now() - awayAt) / 1000;
     awayAt = 0;
-    if (gone < 3 || G.awaySeen || G.timeAttack || !PLAYING()) return;
+    if (gone < 2 || G.awaySeen || G.timeAttack || !PLAYING()) return;
     G.awaySeen = true;
-    G.awayMsg = { t: 0, lines: gone >= 60 ? AWAY_LONG : AWAY_SHORT };
+    G.awayMsg = { t: 0, lines: gone >= 30 ? AWAY_LONG : AWAY_SHORT };
     Sfx.unlock(); Sfx.glitch();
     G.shake = Math.max(G.shake, 8); G.flash = Math.max(G.flash, .6);
     $('glitchbar').classList.remove('on'); void $('glitchbar').offsetWidth; $('glitchbar').classList.add('on');
@@ -11640,6 +11640,11 @@ function openDevPanel() {
   G.mode = 'devsel';
 }
 function closeDevPanel() {
+  // 개발자 모드를 완전히 끕니다 — DEV 표시 · 무적 · 단축키 · 크레딧 숨김까지
+  G.dev = false; G.devGod = false;
+  $('dv-god').checked = false;
+  $('devbadge').classList.add('hidden');
+  document.body.classList.remove('dev');
   $('devpanel').classList.add('hidden');
   $('startbtn').classList.remove('hidden');
   $('title').classList.remove('picking');
