@@ -141,110 +141,73 @@ html,body{
   100%{transform:translateX(0); opacity:0}
 }
 
-/* ── HUD ───────────────────────────────────────────────── */
+/* ── HUD ───────────────────────────────────────────────
+   상자 · 테두리 없이 — 왼쪽 위엔 몸(체력 · 열쇠), 오른쪽 위엔 기록 몇 줄.
+   아이콘은 전부 픽셀로 (글꼴 기호 ✦ ⛨ 대신 직접 찍은 열쇠 · 문장). */
 #hud{
   position:absolute; inset:0 0 auto 0; z-index:30;
   display:flex; justify-content:space-between; align-items:flex-start;
-  padding:6px 8px; pointer-events:none;
+  padding:7px 9px; pointer-events:none;
   font-size:10px; letter-spacing:.04em;
+  text-shadow:0 1px 0 #000, 0 0 3px rgba(0,0,0,.8);
 }
-#hearts{ display:flex; gap:3px; }
+#hudleft{ display:flex; flex-direction:column; gap:5px; }
+#hearts{ display:flex; gap:2px; }
 .heart{
-  width:11px; height:11px;
-  background:var(--jeok);
-  clip-path:polygon(50% 100%,0% 40%,10% 15%,30% 8%,50% 22%,70% 8%,90% 15%,100% 40%);
-  filter:drop-shadow(0 1px 0 rgba(0,0,0,.7));
+  width:16px; height:14px;
+  background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%208%207%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%221%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%225%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%226%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%222%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%224%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%225%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%226%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%227%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23f08a7a%22/%3E%3Crect%20x%3D%223%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%224%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%225%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%226%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%227%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%222%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%225%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%226%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%227%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%225%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%226%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%224%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23c2352c%22/%3E%3Crect%20x%3D%225%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%223%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%224%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  image-rendering:pixelated;
 }
-.heart.empty{ background:#3a3340; }
-.heart.hit{ animation:heartpop .3s ease-out 1; }
-@keyframes heartpop{ 0%{transform:scale(1.6)} 100%{transform:scale(1)} }
+.heart.empty{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%208%207%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%221%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%225%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%226%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%222%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%224%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%225%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%226%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%227%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%234a3d47%22/%3E%3Crect%20x%3D%223%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%224%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%225%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%226%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%227%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%220%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%222%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%225%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%226%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%227%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%221%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%225%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%226%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%224%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%233a2f38%22/%3E%3Crect%20x%3D%225%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%223%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3Crect%20x%3D%224%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%231a0b0e%22/%3E%3C/svg%3E"); }
+.heart.hit{ animation:heartpop .3s steps(3) 1; }
+@keyframes heartpop{ 0%{transform:scale(1.5)} 100%{transform:scale(1)} }
 /* 피팩을 삼켜 칸이 늘어날 때 — 없던 칸이 톡 튀어나옵니다 */
-.heart.gain{ animation:heartgain .52s cubic-bezier(.2,1.7,.4,1) 1; }
-@keyframes heartgain{
-  0%{ transform:scale(0); filter:drop-shadow(0 0 8px var(--jeok)); }
-  55%{ transform:scale(1.5); filter:drop-shadow(0 0 7px var(--jeok)); }
-  100%{ transform:scale(1); filter:drop-shadow(0 1px 0 rgba(0,0,0,.7)); }
-}
+.heart.gain{ animation:heartgain .5s steps(5) 1; }
+@keyframes heartgain{ 0%{ transform:scale(0); } 60%{ transform:scale(1.4); } 100%{ transform:scale(1); } }
 
-#hudright{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
-#keyrow{ display:flex; gap:8px; align-items:center; }
+#keyrow{ display:flex; gap:10px; align-items:center; }
 #keys, #gatekeys{
-  display:flex; align-items:center; gap:3px;
-  font-weight:700; text-shadow:0 1px 0 #000;
+  display:flex; align-items:center; gap:4px;
+  font-family:var(--font-ui); font-size:10px; font-variant-numeric:tabular-nums;
 }
-#keys{ color:var(--hwang); }
-#gatekeys{ color:#8fd3e8; }
-#keys .kicon, #gatekeys .kicon{ font-size:12px; }
-#keys.bump, #gatekeys.bump{ animation:heartpop .35s ease-out 1; }
+#keys{ color:#e9cf86; }
+#gatekeys{ color:#a9d6e3; }
+.pix{ display:block; image-rendering:pixelated; background:center / 100% 100% no-repeat; }
+.pix-key{ width:15px; height:9px; background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2010%206%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%221%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%222%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%223%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%220%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%222%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%224%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%220%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%221%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%223%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%224%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%225%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%226%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%227%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%228%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%220%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%222%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%225%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%226%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%227%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%228%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%229%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%221%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%222%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%225%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%226%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%227%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%228%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%23e3b23c%22/%3E%3Crect%20x%3D%229%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%225%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%227%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3Crect%20x%3D%229%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%232a1a08%22/%3E%3C/svg%3E"); }
+.pix-gate{ width:11px; height:11px; background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%207%207%22%20shape-rendering%3D%22crispEdges%22%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%222%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%223%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%224%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%225%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%226%22%20y%3D%220%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%220%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%222%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%223%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%224%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%225%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%226%22%20y%3D%221%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%220%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%222%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%223%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%224%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%225%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%226%22%20y%3D%222%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%220%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%222%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%223%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%224%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%225%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%226%22%20y%3D%223%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%220%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%222%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%223%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%224%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%225%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%226%22%20y%3D%224%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%221%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%222%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%223%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%224%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%238fd3e8%22/%3E%3Crect%20x%3D%225%22%20y%3D%225%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%222%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%223%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3Crect%20x%3D%224%22%20y%3D%226%22%20width%3D%221%22%20height%3D%221%22%20fill%3D%22%230d2a2a%22/%3E%3C/svg%3E"); }
+#keys.bump, #gatekeys.bump{ animation:heartpop .35s steps(3) 1; }
 /* 관문 열쇠를 다 모으면 눈에 띄게 — "분명 2개 먹었는데" 를 없애기 위해 */
 #gatekeys.done{ color:var(--glow); }
-#gatekeys.done .kicon{ animation:gatelit 1.6s ease-in-out infinite; }
+#gatekeys.done .pix{ animation:gatelit 1.6s steps(2) infinite; }
 @keyframes gatelit{ 0%,100%{ opacity:1 } 50%{ opacity:.45 } }
 
-#datebox{
-  display:flex; align-items:baseline; gap:5px;
-  background:rgba(28,30,44,.78);
-  border:1px solid rgba(241,236,224,.26);
-  border-left:2px solid var(--cheong);
-  padding:2px 6px;
-  font-family:var(--font-ui);
-}
-.datelabel{ font-size:7px; color:#a9b6c8; letter-spacing:.14em; }
-#datetext{ font-size:10px; color:var(--baek); }
-#datebox.tick{ animation:datetick .7s steps(8) 1; }
+#hudright{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+#hudright > div{ display:flex; align-items:baseline; gap:5px; font-family:var(--font-ui); }
+.datelabel{ font-size:7px; color:rgba(169,182,200,.55); letter-spacing:.18em; }
+
+/* 기록 날짜 — 바뀔 때만 잠깐 깜빡 */
+#datetext{ font-size:9px; color:rgba(233,227,213,.6); letter-spacing:.08em; }
+#datebox.tick #datetext{ animation:datetick .7s steps(6) 1; }
 @keyframes datetick{
   0%{ color:var(--glow); transform:translateX(0) }
-  30%{ transform:translateX(-3px); filter:blur(.6px) }
-  60%{ transform:translateX(2px) }
+  30%{ transform:translateX(-2px) }
+  60%{ transform:translateX(1px) }
   100%{ transform:translateX(0) }
 }
 
 /* ── 타임어택 시계 ─────────────────────────────────────── */
-#timerbox{
-  display:flex; align-items:baseline; gap:5px;
-  background:rgba(20,22,34,.85);
-  border:1px solid rgba(227,178,60,.45);
-  border-left:2px solid var(--hwang);
-  padding:2px 7px;
-  font-family:var(--font-ui);
-}
 #timertext{
-  font-size:13px; font-weight:700; color:var(--hwang);
+  font-size:14px; color:var(--hwang);
   letter-spacing:.06em; font-variant-numeric:tabular-nums;
 }
 
 /* ── 일반 모드 탐사 진행도 ─────────────────────────────── */
-#explorebox{
-  display:flex; align-items:baseline; gap:5px;
-  background:rgba(20,22,34,.85);
-  border:1px solid rgba(47,111,181,.45);
-  border-left:2px solid var(--cheong);
-  padding:2px 7px;
-  font-family:var(--font-ui);
-}
 #explorebox.hidden{ display:none; }
-#exploretext{
-  font-size:12px; font-weight:700; color:#9fc6ef;
-  letter-spacing:.06em; font-variant-numeric:tabular-nums;
-}
-#explorebox.done{ border-color:rgba(125,227,200,.6); border-left-color:var(--glow); }
+#exploretext{ font-size:10px; color:rgba(159,198,239,.85); letter-spacing:.06em; font-variant-numeric:tabular-nums; }
 #explorebox.done #exploretext{ color:var(--glow); }
 
-/* ── 일반 모드 난이도 표시 ─────────────────────────────── */
-#diffbox{
-  display:flex; align-items:baseline; gap:5px;
-  background:rgba(20,22,34,.85);
-  border:1px solid rgba(241,236,224,.22);
-  border-left:2px solid rgba(241,236,224,.45);
-  padding:2px 7px;
-  font-family:var(--font-ui);
-}
-#diffbox.hidden{ display:none; }
-#difftext{ font-size:12px; font-weight:700; letter-spacing:.06em; color:rgba(241,236,224,.82); }
-#diffbox.d-easy{ border-color:rgba(125,227,200,.45); border-left-color:var(--glow); }
-#diffbox.d-easy #difftext{ color:var(--glow); }
-#diffbox.d-hard{ border-color:rgba(194,53,44,.55); border-left-color:var(--jeok); }
-#diffbox.d-hard #difftext{ color:#e5817a; }
+/* ── 난이도 — 고른 뒤엔 게임 화면에 띄우지 않습니다 (타이틀에서 고른 것으로 충분) ── */
+#diffbox{ display:none !important; }
 
 /* ── 기록 목록 (타이틀 / 엔딩 공용) ────────────────────── */
 #bestlist, #records{
@@ -1086,12 +1049,14 @@ body.dev #credits, body.dev .e-credits{ display:none; }
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
-      <div id="hearts" aria-label="체력"></div>
-      <div id="hudright">
+      <div id="hudleft">
+        <div id="hearts" aria-label="체력"></div>
         <div id="keyrow">
-          <div id="keys" title="상자 열쇠"><span class="kicon">✦</span><span id="keycount">0</span></div>
-          <div id="gatekeys" title="관문 열쇠"><span class="kicon">⛨</span><span id="gatecount">0</span></div>
+          <div id="keys" title="상자 열쇠"><i class="pix pix-key" aria-hidden="true"></i><span id="keycount">0</span></div>
+          <div id="gatekeys" title="관문 열쇠"><i class="pix pix-gate" aria-hidden="true"></i><span id="gatecount">0</span></div>
         </div>
+      </div>
+      <div id="hudright">
         <div id="timerbox">
           <span class="datelabel">TIME</span>
           <span id="timertext">0:00.00</span>
@@ -1107,7 +1072,7 @@ body.dev #credits, body.dev .e-credits{ display:none; }
           <span id="difftext">보통</span>
         </div>
         <div id="datebox">
-          <span class="datelabel">LOG DATE</span>
+          <span class="datelabel">LOG</span>
           <span id="datetext">2145 / 05 / 01</span>
         </div>
       </div>
@@ -2142,17 +2107,16 @@ function drawVine(g, x, y, len, s, t, col = '#2a3a26') {
 }
 
 /* 이끼 얼룩 */
-function drawMoss(g, x, y, r, R, col = 'rgba(46,72,44,.55)') {
-  g.save();
-  g.fillStyle = col;
-  for (let i = 0; i < 9; i++) {
-    const a = R() * Math.PI * 2, d = R() * r;
-    g.beginPath();
-    g.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d * .7,
-              r * (.25 + R() * .35), r * (.18 + R() * .25), R() * 3, 0, Math.PI * 2);
-    g.fill();
+function drawMoss(g, x, y, r, R) {
+  // 이끼 — 픽셀 한 알씩 번져 자란 덩어리 (가장자리가 성기고 군데군데 비어 있음)
+  const tones = ['rgba(30,48,32,.62)', 'rgba(40,62,40,.55)', 'rgba(52,78,48,.5)'];
+  const cx = Math.round(x), cy = Math.round(y), rr = Math.max(3, Math.round(r * .8));
+  for (let yy = -rr; yy <= rr; yy++) for (let xx = -rr; xx <= rr; xx++) {
+    const d = Math.hypot(xx, yy * 1.4) / rr;
+    if (d > .55 + R() * .5 || R() < .18 + d * .35) continue;
+    g.fillStyle = tones[d < .4 && R() > .5 ? 2 : d < .75 ? 1 : 0];
+    g.fillRect(cx + xx, cy + yy, 1, 1);
   }
-  g.restore();
 }
 
 /* 빛나는 작은 버섯 무리 — 어두운 곳의 유일한 광원 */
@@ -2405,8 +2369,15 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
     }
   }
 
-  // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리
-  drawDancheong(g, W / 2, H / 2, 26, warp, decay);
+  // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리. 가운데 것은 바닥에 박힌 오래된
+  // 상감처럼 옅게, 둘레에 팔각 돌 테두리 (진한 원으로 두면 상자를 감싼 막처럼 보였습니다)
+  g.save();
+  g.strokeStyle = 'rgba(8,8,14,.6)'; g.lineWidth = 2;
+  g.beginPath();
+  for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8; g.lineTo(W / 2 + Math.cos(a) * 31, H / 2 + Math.sin(a) * 31); }
+  g.stroke();
+  g.restore();
+  drawDancheong(g, W / 2, H / 2, 26, warp, decay * .5);
   const inset = TS * 2.5;
   [[inset, inset], [W - inset, inset], [inset, H - inset], [W - inset, H - inset]]
     .forEach(([x, y], i) => {
@@ -2424,7 +2395,7 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
     g.restore();
   }
   // 바닥 곳곳에 흩어진 작은 오방색 조각
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 7; i++) {
     g.fillStyle = OBANG_LIST[(R() * 5) | 0];
     g.globalAlpha = decay * (.12 + R() * .16);
     const x = TS + R() * (W - TS * 2), y = TS + R() * (H - TS * 2);
@@ -2433,27 +2404,45 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   }
   g.globalAlpha = 1;
 
-  // 뼈 — 현실에서는 인체 골격 모형
-  const bones = 4 + depth * 3;
-  for (let i = 0; i < bones; i++) {
-    const x = TS * 1.6 + R() * (W - TS * 3.2);
-    const y = TS * 1.6 + R() * (H - TS * 3.2);
-    drawBone(g, x, y, R() * Math.PI, .55 + R() * .3);
+  // 뼈 — 현실에서는 인체 골격 모형. 방 한가운데 고르게 뿌리지 않고,
+  // 벽가 한두 군데에 무더기로 쌓여 있습니다 (휩쓸려 밀려난 것처럼)
+  const edgeSpot = () => {
+    const side = (R() * 4) | 0, t = .12 + R() * .76;
+    return side === 0 ? [TS + t * (W - TS * 2), TS + 8 + R() * 10]
+         : side === 1 ? [TS + t * (W - TS * 2), H - TS - 8 - R() * 10]
+         : side === 2 ? [TS + 8 + R() * 10, TS + t * (H - TS * 2)]
+         :              [W - TS - 8 - R() * 10, TS + t * (H - TS * 2)];
+  };
+  const piles = 1 + (depth > 2 ? 1 : 0);
+  for (let p = 0; p < piles; p++) {
+    const [px, py] = edgeSpot();
+    const n = 2 + ((R() * (2 + depth)) | 0);
+    for (let i = 0; i < n; i++)
+      drawBone(g, px + (R() - .5) * 26, py + (R() - .5) * 12, R() * Math.PI, .5 + R() * .3);
+    if (depth > 0 && R() > .35) drawSkull(g, px + (R() - .5) * 14, py + (R() - .5) * 6, .75 + R() * .3);
   }
-  // 해골
-  for (let i = 0; i < 1 + depth; i++) {
-    drawSkull(g, TS * 1.6 + R() * (W - TS * 3.2), TS * 1.6 + R() * (H - TS * 3.2), .8 + R() * .4);
-  }
+  if (depth > 1) { const [bx, by] = edgeSpot(); drawBone(g, bx, by, R() * Math.PI, .55); }
 
-  // 핏자국 — 현실에서는 링거의 붉은 배양액
-  for (let i = 0; i < 3 + depth * 4; i++) {
-    const x = TS + R() * (W - TS * 2), y = TS + R() * (H - TS * 2);
-    g.fillStyle = `rgba(120,20,18,${.16 + R() * .26})`;
-    g.beginPath(); g.ellipse(x, y, 5 + R() * 16, 3 + R() * 9, R() * 3, 0, Math.PI * 2); g.fill();
-    for (let k = 0; k < 5; k++) {
-      g.beginPath();
-      g.arc(x + (R() - .5) * 40, y + (R() - .5) * 26, .8 + R() * 2, 0, Math.PI * 2);
-      g.fill();
+  // 핏자국 — 현실에서는 링거의 붉은 배양액. 매끈한 타원 대신 픽셀로 번진
+  // 웅덩이 하나 + 한 방향으로 튄 방울, 끌린 자국
+  for (let i = 0; i < 2 + depth * 2; i++) {
+    const x = TS + 10 + R() * (W - TS * 2 - 20), y = TS + 10 + R() * (H - TS * 2 - 20);
+    const r = 3 + R() * 6, a = .3 + R() * .25, dir = R() * Math.PI * 2;
+    for (let yy = -r; yy <= r; yy++) for (let xx = -r * 1.6; xx <= r * 1.6; xx++) {
+      const d = (xx / 1.6) ** 2 + yy * yy, edge = r * r * (.7 + R() * .5);
+      if (d > edge) continue;
+      g.fillStyle = d < r * r * .3 ? `rgba(84,12,12,${a + .12})` : `rgba(112,20,18,${a})`;
+      g.fillRect((x + xx) | 0, (y + yy) | 0, 1, 1);
+    }
+    for (let k = 0; k < 6; k++) {                  // 한쪽으로 튄 방울
+      const d = r + 3 + R() * 14, s = R() > .7 ? 2 : 1;
+      g.fillStyle = `rgba(112,20,18,${a * (.6 + R() * .4)})`;
+      g.fillRect((x + Math.cos(dir + (R() - .5) * .7) * d * 1.4) | 0, (y + Math.sin(dir + (R() - .5) * .7) * d) | 0, s, s);
+    }
+    if (R() > .55) {                               // 끌린 자국
+      g.fillStyle = `rgba(90,16,15,${a * .55})`;
+      const len = 14 + R() * 26;
+      for (let t = 0; t < len; t += 1) g.fillRect((x + Math.cos(dir + Math.PI) * (r + t)) | 0, (y + Math.sin(dir + Math.PI) * (r + t) * .7 + Math.sin(t * .4)) | 0, 2, 1);
     }
   }
 
@@ -2580,12 +2569,7 @@ function drawWalls(g, W, H, TS, depth, t) {
   g.globalAlpha = 1;
   g.restore();
 
-  // 단청 원문양은 좌우 벽에만 (위쪽 HUD 를 가리지 않도록)
-  [TS * .5, W - TS * .5].forEach((x, s) => {
-    for (let i = 1; i < 4; i++) {
-      drawDancheong(g, x, TS + ((H - TS * 2) / 4) * i, 7, depth * .2, a * .9);
-    }
-  });
+  // (좌우 벽의 작은 단청 원문양은 뺐습니다 — 흐릿한 동그라미가 떠 있는 것처럼 보였습니다)
 }
 
 </script>
@@ -8871,15 +8855,18 @@ function renderDungeon() {
   drawWallPlants(g, W, H, TS, G.plants, G.t);
 
   if (R.graffiti !== '' ) {
+    // 아랫벽 돌에 손톱으로 긁어 새긴 날짜 — 파인 홈(어둠) 아래로 긁힌 가루(밝음)
     const date = DATES[Math.min(G.visited.size, DATES.length - 1)].split(' / ').slice(1).join(' / ');
+    const carve = (txt, x, y, a) => {
+      g.globalAlpha = a * .55; g.fillStyle = '#8a7c66'; g.fillText(txt, x, y + 1);
+      g.globalAlpha = a; g.fillStyle = '#0b0910'; g.fillText(txt, x, y);
+    };
     g.save();
-    g.globalAlpha = .5; g.fillStyle = '#b8352c';
-    g.font = 'bold 12px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'center';
-    g.fillText(date, W / 2, H - 11);
-    if (R.boss) {
-      g.globalAlpha = .2; g.font = 'bold 10px DungGeunMo, ui-monospace, monospace';
-      for (let i = 0; i < 12; i++)
-        g.fillText('5 / 20', 40 + ((i * 97) % (W - 80)), TS + 22 + ((i * 53) % (H - TS * 2 - 30)));
+    g.font = '10px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'center';
+    carve(date, W * .72, H - 12, .8);
+    if (R.boss) {                                  // 보스방 — 윗벽을 따라 같은 날짜를 몇 번이고
+      g.font = '8px DungGeunMo, ui-monospace, monospace';
+      for (let i = 0; i < 9; i++) carve('5/20', 70 + i * 52 + (i % 2) * 9, 14 + (i % 3) * 5, .35 + (i % 2) * .15);
     }
     g.restore();
   }
@@ -9177,9 +9164,15 @@ function drawChest(c) {
     g.closePath(); g.fill();
     drawSaekdong(g, c.x - 18, c.y - 9, 36, 4, false, .8);
     drawMaedeup(g, c.x, c.y + 3, 9, '#e3b23c');
-    g.globalAlpha = .35 + Math.sin(G.t * .05) * .2;
-    g.fillStyle = '#e3b23c';
-    g.beginPath(); g.arc(c.x, c.y - 2, 22, 0, Math.PI * 2); g.fill();
+    // 뚜껑 모서리에 맺힌 빛 — 반짝이는 점 몇 개 (예전의 둥근 빛 원판은 방어막처럼 보여서 뺐습니다)
+    g.fillStyle = '#f3d27a';
+    g.fillRect(c.x - 14, c.y - 7, 9, 1);
+    [[-11, -15, 0], [9, -12, 2.1], [15, -3, 4.2]].forEach(([dx, dy, ph]) => {
+      const tw = Math.sin(G.t * .07 + ph);
+      if (tw < .2) return;
+      g.globalAlpha = tw;
+      g.fillRect(c.x + dx, c.y + dy - 1, 1, 3); g.fillRect(c.x + dx - 1, c.y + dy, 3, 1);
+    });
     g.globalAlpha = 1;
   }
   g.strokeStyle = '#2c1d0e'; g.lineWidth = 1.5;
@@ -9189,9 +9182,10 @@ function drawChest(c) {
 
 function drawKey(x, y) {
   g.save();
-  g.globalAlpha = .3; g.fillStyle = '#e3b23c';
-  g.beginPath(); g.arc(x, y, 13, 0, Math.PI * 2); g.fill();
-  g.globalAlpha = 1;
+  g.fillStyle = 'rgba(0,0,0,.4)';                       // 바닥 그림자
+  g.beginPath(); g.ellipse(x + 2, y + 11, 8, 2.5, 0, 0, Math.PI * 2); g.fill();
+  const tw = Math.sin(G.t * .08);                       // 고리에 맺힌 반짝임
+  if (tw > .3) { g.globalAlpha = tw; g.fillStyle = '#fff3c4'; g.fillRect(x - 6, y - 10, 1, 3); g.fillRect(x - 7, y - 9, 3, 1); g.globalAlpha = 1; }
   g.strokeStyle = '#e3b23c'; g.lineWidth = 2.4; g.lineCap = 'round';
   g.beginPath(); g.arc(x - 3, y - 3, 4, 0, Math.PI * 2); g.stroke();
   g.beginPath(); g.moveTo(x, y); g.lineTo(x + 7, y + 7); g.stroke();
@@ -9238,34 +9232,34 @@ function drawPlayer() {
   g.restore();
 }
 
-/* 포자 구름 — 노르스름한 홀씨가 뭉게뭉게 퍼집니다 */
+/* 포자 구름 — 바닥에 낮게 깔린 누런 안개. 테두리 없이 몇 덩이가 천천히
+   뒤척이고, 홀씨 알갱이가 피어올랐다 사라집니다.
+   (예전엔 테두리를 그린 둥근 원판이라 방어막처럼 보였습니다) */
 function drawClouds() {
   G.clouds.forEach(c => {
     const k = c.life / c.max;
     const rr = c.r * (0.55 + (1 - k) * 0.45);
     const fade = Math.min(1, k * 3);             // 사라질 때만 옅어집니다
     g.save();
-    // 어두운 던전에서도 눈에 띄도록 발광 합성으로 얹습니다
-    g.globalCompositeOperation = 'lighter';
-    g.globalAlpha = .62 * fade;
-    const cg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, rr);
-    cg.addColorStop(0, 'rgba(226,214,120,.95)');
-    cg.addColorStop(.55, 'rgba(170,158,70,.55)');
-    cg.addColorStop(1, 'rgba(120,110,50,0)');
-    g.fillStyle = cg;
-    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.fill();
-    // 가장자리 테두리 — 범위를 분명히 알 수 있게
-    g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = .38 * fade;
-    g.strokeStyle = '#cdc06a'; g.lineWidth = 1;
-    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.stroke();
-    // 떠다니는 홀씨
-    g.globalAlpha = .75 * fade;
-    g.fillStyle = '#e4dc8c';
     for (let i = 0; i < 6; i++) {
-      const a = c.seed + i * 1.05 + G.t * .012;
-      const d = rr * (.3 + (i % 3) * .22);
-      g.fillRect((c.x + Math.cos(a) * d) | 0, (c.y + Math.sin(a * 1.3) * d * .7) | 0, 2, 2);
+      const a = c.seed * 3 + i * 1.05 + G.t * .005 * (i % 2 ? 1 : -1);
+      const d = i === 0 ? 0 : rr * (.38 + (i % 3) * .1);
+      const px = c.x + Math.cos(a) * d, py = c.y + Math.sin(a) * d * .55;
+      const pr = rr * (i === 0 ? .75 : .52);
+      const gr = g.createRadialGradient(px, py, 0, px, py, pr);
+      gr.addColorStop(0, `rgba(160,158,74,${.2 * fade})`);
+      gr.addColorStop(.6, `rgba(130,130,60,${.1 * fade})`);
+      gr.addColorStop(1, 'rgba(120,120,55,0)');
+      g.fillStyle = gr;
+      g.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+    }
+    for (let i = 0; i < 16; i++) {               // 피어오르는 홀씨
+      const ph = (G.t * .008 + i * .37 + c.seed) % 1;
+      const a = c.seed + i * 2.4, d = rr * (((i * 53) % 10) / 10) * .85;
+      const x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d * .55 - ph * 12;
+      g.globalAlpha = fade * (1 - ph) * .85;
+      g.fillStyle = i % 3 ? '#cfc874' : '#efe7a2';
+      g.fillRect(x | 0, y | 0, 1, 1);
     }
     g.restore();
   });
@@ -9285,21 +9279,40 @@ function drawFoe(f) {
   g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill();
 
   // 발밑에 깔리는 제 빛 — 어두운 방에서 뭐가 다가오는지 색으로 먼저 압니다
+  // (둥근 공처럼 떠 보이지 않게 바닥에 납작하게 깐 타원)
   g.globalAlpha = (.5 + Math.sin(f.bob * .7) * .12) * warpK;
-  const ag = g.createRadialGradient(f.x, f.y + 4, 2, f.x, f.y + 4, s * .8);
-  ag.addColorStop(0, `rgba(${C.glow},.32)`);
+  g.save();
+  g.translate(f.x, f.y + 10); g.scale(1, .42);
+  const ag = g.createRadialGradient(0, 0, 2, 0, 0, s * .8);
+  ag.addColorStop(0, `rgba(${C.glow},.34)`);
   ag.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = ag;
-  g.beginPath(); g.arc(f.x, f.y + 4, s * .8, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(0, 0, s * .8, 0, Math.PI * 2); g.fill();
+  g.restore();
   g.globalAlpha = warpK;
 
-  // 돌진체 : 웅크리는 동안 붉은 고리가 조여듭니다 (피할 신호)
+  // 돌진체 : 웅크리는 동안 — 발밑에서 흙먼지가 일고, 달려들 쪽으로 바닥에
+  // 화살표가 길어집니다 (피할 신호. 예전의 붉은 고리는 방어막처럼 보였습니다)
   if (f.wind > 0) {
     const k = 1 - f.wind / BALANCE.chargerWind;
+    const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
     g.save();
-    g.globalAlpha = .35 + k * .5;
-    g.strokeStyle = '#ff7a45'; g.lineWidth = 1.6;
-    g.beginPath(); g.arc(f.x, f.y + 2, 30 - k * 16, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = .4 + k * .5;
+    g.fillStyle = '#ff7a45';
+    const len = 14 + k * 34;
+    for (let t = 12; t < len; t += 4) g.fillRect((f.x + ux * t - 1) | 0, (f.y + 10 + uy * t * .9 - 1) | 0, 2, 2);
+    const hx = f.x + ux * (len + 3), hy = f.y + 10 + uy * (len + 3) * .9;
+    for (let i = 0; i < 3; i++) {                                         // 화살촉
+      const bx = hx - ux * i * 2, by = hy - uy * i * 2;
+      g.fillRect((bx - uy * i * 1.6) | 0, (by + ux * i * 1.6) | 0, 2, 2);
+      g.fillRect((bx + uy * i * 1.6) | 0, (by - ux * i * 1.6) | 0, 2, 2);
+    }
+    g.fillStyle = '#7a6250';                                              // 뒷발에 차인 흙먼지
+    for (let i = 0; i < 4; i++) {
+      const a = Math.atan2(-uy, -ux) + (i - 1.5) * .45, r = 10 + ((G.t + i * 5) % 9) * 1.4 * k;
+      g.globalAlpha = (.3 + k * .4) * (1 - ((G.t + i * 5) % 9) / 9);
+      g.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + 10 + Math.sin(a) * r * .5) | 0, 2, 1);
+    }
     g.restore();
   }
 
@@ -10618,7 +10631,7 @@ function renderLanding() {
      LAB   (기준 0‥1570, 실제는 opT 로 늘림) : 잠드는 쪽. 흐릿한 흰 천장과 격자 조명. 귀에 들어오는 건
                     대화의 조각들뿐입니다 — 가까운 목소리(의사), 먼 목소리
                     (조수), 짧고 차가운 지시 하나. 펜라이트가 눈을 훑고,
-                    "백마흔한 번째" (엔딩의 SESSION 141).
+                    "141번째" (엔딩의 SESSION 141).
        ▸ 각성 552‥694 : 피험자가 깨려 합니다 — 눈이 번쩍 뜨이고 초점이 잡히며
                     경보가 울리고 화면이 붉게 맥박칩니다. 의사가 바짝 들여다보고
                     "용량 올려" — 약이 들어가며 차가운 푸른 물결이 아래서부터
@@ -10627,7 +10640,7 @@ function renderLanding() {
                     숲에서 "우물이 있다고 들었다"는 생각이 여기서 옵니다.
        ▸ 하강 1190‥1556 : 숫자를 거꾸로 세는 동안 천장이 멀어지며 돌로 쌓은
                     통로가 시야를 둘러쌉니다 — 병실 천장이 우물 입구가 됩니다.
-                    "일곱…" 에서 바닥이 꺼지듯 한 번 툭 떨어지고 눈이 감깁니다.
+                    "7…" 에서 바닥이 꺼지듯 한 번 툭 떨어지고 눈이 감깁니다.
      DARK 1570‥1690 : 정적. 심장 한 번. 새소리가 번져 옵니다.
      WOOD 1690‥1920 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
                     첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
@@ -10654,7 +10667,7 @@ const OP_EYE = [
   [830, .28], [850, .08], [870, .3], [950, .26], [975, .06], [1000, .24],
   [1080, .22], [1100, .05], [1120, .2],
   // 숫자 하나에 한 번씩, 점점 무겁게 감겼다가 덜 뜹니다
-  // 가라앉는 통로가 보이도록 반쯤은 떠 있고, "일곱…" 에서 툭 떨어질 때 번쩍 뜨였다 감깁니다
+  // 가라앉는 통로가 보이도록 반쯤은 떠 있고, "7…" 에서 툭 떨어질 때 번쩍 뜨였다 감깁니다
   [1200, .44], [1260, .4], [1282, .1], [1300, .38], [1350, .36], [1366, .08], [1385, .32],
   [1430, .3], [1450, .06], [1470, .28], [1518, .24], [1526, .62], [1538, .4], [1556, 0], [1690, 0],
   [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [2000, 1]
@@ -10666,7 +10679,7 @@ const OP_TEXT = [
   [40, 140, '…들리세요?', 'near'],
   [200, 290, '반응 있어요. 동공이 느리고.', 'far'],
   [300, 400, '괜찮아요. 오늘도 금방 끝나요.', 'near'],
-  [420, 530, '…백마흔한 번째예요. 기억 안 나시겠지만.', 'near'],
+  [420, 530, '…141번째예요. 기억 안 나시겠지만.', 'near'],
   [552, 606, '수치 튀어요 — 깨려고 해요!', 'urgent'],
   [596, 640, '쉬이… 괜찮아요. 괜찮아요.', 'near'],
   [646, 692, '용량 올려.', 'cold'],
@@ -10675,7 +10688,7 @@ const OP_TEXT = [
   [960, 1060, '그 아래로… 천천히 내려가 보는 거예요.', 'near'],
   [1080, 1180, '숫자를 거꾸로 세어 보세요.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
-  [1200, 1284, '열.', 'near'], [1284, 1368, '아홉.', 'near'], [1368, 1452, '여덟.', 'near'], [1452, 1552, '일곱…', 'near']
+  [1200, 1284, '10.', 'near'], [1284, 1368, '9.', 'near'], [1368, 1452, '8.', 'near'], [1452, 1552, '7…', 'near']
 ].map(([a, b, s, who]) => [opT(a), opT(b), s, who]);
 /* 모니터 비프 — 평소엔 고르게, "용량 올려" 뒤로 느려지고, 셀 때는 점점 벌어집니다 */
 const OP_BEEPS = (() => {
@@ -10959,7 +10972,7 @@ function renderOpening() {
   if (t < OP.LAB) {
     // 각성 위기 — 0‥1 로 차오르고 약이 들어가면 빠집니다
     const cr = ease01((t - OP.CR0) / 24) * (1 - ease01((t - OP.CR1 + 6) / 10));
-    // 하강 — 숫자를 세며 가라앉음, "일곱…" 에서 한 번 툭
+    // 하강 — 숫자를 세며 가라앉음, "7…" 에서 한 번 툭
     const sink = t > OP.SINK0 ? ease01((t - OP.SINK0) / (OP.SINK1 - OP.SINK0)) * .82 + ease01((t - OP.DROP) / 12) * .18 : 0;
     // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
     g.save();

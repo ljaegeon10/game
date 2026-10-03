@@ -192,17 +192,16 @@ function drawVine(g, x, y, len, s, t, col = '#2a3a26') {
 }
 
 /* 이끼 얼룩 */
-function drawMoss(g, x, y, r, R, col = 'rgba(46,72,44,.55)') {
-  g.save();
-  g.fillStyle = col;
-  for (let i = 0; i < 9; i++) {
-    const a = R() * Math.PI * 2, d = R() * r;
-    g.beginPath();
-    g.ellipse(x + Math.cos(a) * d, y + Math.sin(a) * d * .7,
-              r * (.25 + R() * .35), r * (.18 + R() * .25), R() * 3, 0, Math.PI * 2);
-    g.fill();
+function drawMoss(g, x, y, r, R) {
+  // 이끼 — 픽셀 한 알씩 번져 자란 덩어리 (가장자리가 성기고 군데군데 비어 있음)
+  const tones = ['rgba(30,48,32,.62)', 'rgba(40,62,40,.55)', 'rgba(52,78,48,.5)'];
+  const cx = Math.round(x), cy = Math.round(y), rr = Math.max(3, Math.round(r * .8));
+  for (let yy = -rr; yy <= rr; yy++) for (let xx = -rr; xx <= rr; xx++) {
+    const d = Math.hypot(xx, yy * 1.4) / rr;
+    if (d > .55 + R() * .5 || R() < .18 + d * .35) continue;
+    g.fillStyle = tones[d < .4 && R() > .5 ? 2 : d < .75 ? 1 : 0];
+    g.fillRect(cx + xx, cy + yy, 1, 1);
   }
-  g.restore();
 }
 
 /* 빛나는 작은 버섯 무리 — 어두운 곳의 유일한 광원 */
@@ -455,8 +454,15 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
     }
   }
 
-  // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리
-  drawDancheong(g, W / 2, H / 2, 26, warp, decay);
+  // 오방색 단청 바닥 장식 — 방 중앙 + 네 모서리. 가운데 것은 바닥에 박힌 오래된
+  // 상감처럼 옅게, 둘레에 팔각 돌 테두리 (진한 원으로 두면 상자를 감싼 막처럼 보였습니다)
+  g.save();
+  g.strokeStyle = 'rgba(8,8,14,.6)'; g.lineWidth = 2;
+  g.beginPath();
+  for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8; g.lineTo(W / 2 + Math.cos(a) * 31, H / 2 + Math.sin(a) * 31); }
+  g.stroke();
+  g.restore();
+  drawDancheong(g, W / 2, H / 2, 26, warp, decay * .5);
   const inset = TS * 2.5;
   [[inset, inset], [W - inset, inset], [inset, H - inset], [W - inset, H - inset]]
     .forEach(([x, y], i) => {
@@ -474,7 +480,7 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
     g.restore();
   }
   // 바닥 곳곳에 흩어진 작은 오방색 조각
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 7; i++) {
     g.fillStyle = OBANG_LIST[(R() * 5) | 0];
     g.globalAlpha = decay * (.12 + R() * .16);
     const x = TS + R() * (W - TS * 2), y = TS + R() * (H - TS * 2);
@@ -483,27 +489,45 @@ function bakeDungeonFloor(W, H, TS, seed, depth) {
   }
   g.globalAlpha = 1;
 
-  // 뼈 — 현실에서는 인체 골격 모형
-  const bones = 4 + depth * 3;
-  for (let i = 0; i < bones; i++) {
-    const x = TS * 1.6 + R() * (W - TS * 3.2);
-    const y = TS * 1.6 + R() * (H - TS * 3.2);
-    drawBone(g, x, y, R() * Math.PI, .55 + R() * .3);
+  // 뼈 — 현실에서는 인체 골격 모형. 방 한가운데 고르게 뿌리지 않고,
+  // 벽가 한두 군데에 무더기로 쌓여 있습니다 (휩쓸려 밀려난 것처럼)
+  const edgeSpot = () => {
+    const side = (R() * 4) | 0, t = .12 + R() * .76;
+    return side === 0 ? [TS + t * (W - TS * 2), TS + 8 + R() * 10]
+         : side === 1 ? [TS + t * (W - TS * 2), H - TS - 8 - R() * 10]
+         : side === 2 ? [TS + 8 + R() * 10, TS + t * (H - TS * 2)]
+         :              [W - TS - 8 - R() * 10, TS + t * (H - TS * 2)];
+  };
+  const piles = 1 + (depth > 2 ? 1 : 0);
+  for (let p = 0; p < piles; p++) {
+    const [px, py] = edgeSpot();
+    const n = 2 + ((R() * (2 + depth)) | 0);
+    for (let i = 0; i < n; i++)
+      drawBone(g, px + (R() - .5) * 26, py + (R() - .5) * 12, R() * Math.PI, .5 + R() * .3);
+    if (depth > 0 && R() > .35) drawSkull(g, px + (R() - .5) * 14, py + (R() - .5) * 6, .75 + R() * .3);
   }
-  // 해골
-  for (let i = 0; i < 1 + depth; i++) {
-    drawSkull(g, TS * 1.6 + R() * (W - TS * 3.2), TS * 1.6 + R() * (H - TS * 3.2), .8 + R() * .4);
-  }
+  if (depth > 1) { const [bx, by] = edgeSpot(); drawBone(g, bx, by, R() * Math.PI, .55); }
 
-  // 핏자국 — 현실에서는 링거의 붉은 배양액
-  for (let i = 0; i < 3 + depth * 4; i++) {
-    const x = TS + R() * (W - TS * 2), y = TS + R() * (H - TS * 2);
-    g.fillStyle = `rgba(120,20,18,${.16 + R() * .26})`;
-    g.beginPath(); g.ellipse(x, y, 5 + R() * 16, 3 + R() * 9, R() * 3, 0, Math.PI * 2); g.fill();
-    for (let k = 0; k < 5; k++) {
-      g.beginPath();
-      g.arc(x + (R() - .5) * 40, y + (R() - .5) * 26, .8 + R() * 2, 0, Math.PI * 2);
-      g.fill();
+  // 핏자국 — 현실에서는 링거의 붉은 배양액. 매끈한 타원 대신 픽셀로 번진
+  // 웅덩이 하나 + 한 방향으로 튄 방울, 끌린 자국
+  for (let i = 0; i < 2 + depth * 2; i++) {
+    const x = TS + 10 + R() * (W - TS * 2 - 20), y = TS + 10 + R() * (H - TS * 2 - 20);
+    const r = 3 + R() * 6, a = .3 + R() * .25, dir = R() * Math.PI * 2;
+    for (let yy = -r; yy <= r; yy++) for (let xx = -r * 1.6; xx <= r * 1.6; xx++) {
+      const d = (xx / 1.6) ** 2 + yy * yy, edge = r * r * (.7 + R() * .5);
+      if (d > edge) continue;
+      g.fillStyle = d < r * r * .3 ? `rgba(84,12,12,${a + .12})` : `rgba(112,20,18,${a})`;
+      g.fillRect((x + xx) | 0, (y + yy) | 0, 1, 1);
+    }
+    for (let k = 0; k < 6; k++) {                  // 한쪽으로 튄 방울
+      const d = r + 3 + R() * 14, s = R() > .7 ? 2 : 1;
+      g.fillStyle = `rgba(112,20,18,${a * (.6 + R() * .4)})`;
+      g.fillRect((x + Math.cos(dir + (R() - .5) * .7) * d * 1.4) | 0, (y + Math.sin(dir + (R() - .5) * .7) * d) | 0, s, s);
+    }
+    if (R() > .55) {                               // 끌린 자국
+      g.fillStyle = `rgba(90,16,15,${a * .55})`;
+      const len = 14 + R() * 26;
+      for (let t = 0; t < len; t += 1) g.fillRect((x + Math.cos(dir + Math.PI) * (r + t)) | 0, (y + Math.sin(dir + Math.PI) * (r + t) * .7 + Math.sin(t * .4)) | 0, 2, 1);
     }
   }
 
@@ -630,10 +654,5 @@ function drawWalls(g, W, H, TS, depth, t) {
   g.globalAlpha = 1;
   g.restore();
 
-  // 단청 원문양은 좌우 벽에만 (위쪽 HUD 를 가리지 않도록)
-  [TS * .5, W - TS * .5].forEach((x, s) => {
-    for (let i = 1; i < 4; i++) {
-      drawDancheong(g, x, TS + ((H - TS * 2) / 4) * i, 7, depth * .2, a * .9);
-    }
-  });
+  // (좌우 벽의 작은 단청 원문양은 뺐습니다 — 흐릿한 동그라미가 떠 있는 것처럼 보였습니다)
 }

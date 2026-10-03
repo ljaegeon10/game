@@ -22,12 +22,14 @@
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
-      <div id="hearts" aria-label="체력"></div>
-      <div id="hudright">
+      <div id="hudleft">
+        <div id="hearts" aria-label="체력"></div>
         <div id="keyrow">
-          <div id="keys" title="상자 열쇠"><span class="kicon">✦</span><span id="keycount">0</span></div>
-          <div id="gatekeys" title="관문 열쇠"><span class="kicon">⛨</span><span id="gatecount">0</span></div>
+          <div id="keys" title="상자 열쇠"><i class="pix pix-key" aria-hidden="true"></i><span id="keycount">0</span></div>
+          <div id="gatekeys" title="관문 열쇠"><i class="pix pix-gate" aria-hidden="true"></i><span id="gatecount">0</span></div>
         </div>
+      </div>
+      <div id="hudright">
         <div id="timerbox">
           <span class="datelabel">TIME</span>
           <span id="timertext">0:00.00</span>
@@ -43,7 +45,7 @@
           <span id="difftext">보통</span>
         </div>
         <div id="datebox">
-          <span class="datelabel">LOG DATE</span>
+          <span class="datelabel">LOG</span>
           <span id="datetext">2145 / 05 / 01</span>
         </div>
       </div>

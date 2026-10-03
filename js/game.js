@@ -2275,15 +2275,18 @@ function renderDungeon() {
   drawWallPlants(g, W, H, TS, G.plants, G.t);
 
   if (R.graffiti !== '' ) {
+    // 아랫벽 돌에 손톱으로 긁어 새긴 날짜 — 파인 홈(어둠) 아래로 긁힌 가루(밝음)
     const date = DATES[Math.min(G.visited.size, DATES.length - 1)].split(' / ').slice(1).join(' / ');
+    const carve = (txt, x, y, a) => {
+      g.globalAlpha = a * .55; g.fillStyle = '#8a7c66'; g.fillText(txt, x, y + 1);
+      g.globalAlpha = a; g.fillStyle = '#0b0910'; g.fillText(txt, x, y);
+    };
     g.save();
-    g.globalAlpha = .5; g.fillStyle = '#b8352c';
-    g.font = 'bold 12px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'center';
-    g.fillText(date, W / 2, H - 11);
-    if (R.boss) {
-      g.globalAlpha = .2; g.font = 'bold 10px DungGeunMo, ui-monospace, monospace';
-      for (let i = 0; i < 12; i++)
-        g.fillText('5 / 20', 40 + ((i * 97) % (W - 80)), TS + 22 + ((i * 53) % (H - TS * 2 - 30)));
+    g.font = '10px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'center';
+    carve(date, W * .72, H - 12, .8);
+    if (R.boss) {                                  // 보스방 — 윗벽을 따라 같은 날짜를 몇 번이고
+      g.font = '8px DungGeunMo, ui-monospace, monospace';
+      for (let i = 0; i < 9; i++) carve('5/20', 70 + i * 52 + (i % 2) * 9, 14 + (i % 3) * 5, .35 + (i % 2) * .15);
     }
     g.restore();
   }
@@ -2581,9 +2584,15 @@ function drawChest(c) {
     g.closePath(); g.fill();
     drawSaekdong(g, c.x - 18, c.y - 9, 36, 4, false, .8);
     drawMaedeup(g, c.x, c.y + 3, 9, '#e3b23c');
-    g.globalAlpha = .35 + Math.sin(G.t * .05) * .2;
-    g.fillStyle = '#e3b23c';
-    g.beginPath(); g.arc(c.x, c.y - 2, 22, 0, Math.PI * 2); g.fill();
+    // 뚜껑 모서리에 맺힌 빛 — 반짝이는 점 몇 개 (예전의 둥근 빛 원판은 방어막처럼 보여서 뺐습니다)
+    g.fillStyle = '#f3d27a';
+    g.fillRect(c.x - 14, c.y - 7, 9, 1);
+    [[-11, -15, 0], [9, -12, 2.1], [15, -3, 4.2]].forEach(([dx, dy, ph]) => {
+      const tw = Math.sin(G.t * .07 + ph);
+      if (tw < .2) return;
+      g.globalAlpha = tw;
+      g.fillRect(c.x + dx, c.y + dy - 1, 1, 3); g.fillRect(c.x + dx - 1, c.y + dy, 3, 1);
+    });
     g.globalAlpha = 1;
   }
   g.strokeStyle = '#2c1d0e'; g.lineWidth = 1.5;
@@ -2593,9 +2602,10 @@ function drawChest(c) {
 
 function drawKey(x, y) {
   g.save();
-  g.globalAlpha = .3; g.fillStyle = '#e3b23c';
-  g.beginPath(); g.arc(x, y, 13, 0, Math.PI * 2); g.fill();
-  g.globalAlpha = 1;
+  g.fillStyle = 'rgba(0,0,0,.4)';                       // 바닥 그림자
+  g.beginPath(); g.ellipse(x + 2, y + 11, 8, 2.5, 0, 0, Math.PI * 2); g.fill();
+  const tw = Math.sin(G.t * .08);                       // 고리에 맺힌 반짝임
+  if (tw > .3) { g.globalAlpha = tw; g.fillStyle = '#fff3c4'; g.fillRect(x - 6, y - 10, 1, 3); g.fillRect(x - 7, y - 9, 3, 1); g.globalAlpha = 1; }
   g.strokeStyle = '#e3b23c'; g.lineWidth = 2.4; g.lineCap = 'round';
   g.beginPath(); g.arc(x - 3, y - 3, 4, 0, Math.PI * 2); g.stroke();
   g.beginPath(); g.moveTo(x, y); g.lineTo(x + 7, y + 7); g.stroke();
@@ -2642,34 +2652,34 @@ function drawPlayer() {
   g.restore();
 }
 
-/* 포자 구름 — 노르스름한 홀씨가 뭉게뭉게 퍼집니다 */
+/* 포자 구름 — 바닥에 낮게 깔린 누런 안개. 테두리 없이 몇 덩이가 천천히
+   뒤척이고, 홀씨 알갱이가 피어올랐다 사라집니다.
+   (예전엔 테두리를 그린 둥근 원판이라 방어막처럼 보였습니다) */
 function drawClouds() {
   G.clouds.forEach(c => {
     const k = c.life / c.max;
     const rr = c.r * (0.55 + (1 - k) * 0.45);
     const fade = Math.min(1, k * 3);             // 사라질 때만 옅어집니다
     g.save();
-    // 어두운 던전에서도 눈에 띄도록 발광 합성으로 얹습니다
-    g.globalCompositeOperation = 'lighter';
-    g.globalAlpha = .62 * fade;
-    const cg = g.createRadialGradient(c.x, c.y, 2, c.x, c.y, rr);
-    cg.addColorStop(0, 'rgba(226,214,120,.95)');
-    cg.addColorStop(.55, 'rgba(170,158,70,.55)');
-    cg.addColorStop(1, 'rgba(120,110,50,0)');
-    g.fillStyle = cg;
-    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.fill();
-    // 가장자리 테두리 — 범위를 분명히 알 수 있게
-    g.globalCompositeOperation = 'source-over';
-    g.globalAlpha = .38 * fade;
-    g.strokeStyle = '#cdc06a'; g.lineWidth = 1;
-    g.beginPath(); g.arc(c.x, c.y, rr, 0, Math.PI * 2); g.stroke();
-    // 떠다니는 홀씨
-    g.globalAlpha = .75 * fade;
-    g.fillStyle = '#e4dc8c';
     for (let i = 0; i < 6; i++) {
-      const a = c.seed + i * 1.05 + G.t * .012;
-      const d = rr * (.3 + (i % 3) * .22);
-      g.fillRect((c.x + Math.cos(a) * d) | 0, (c.y + Math.sin(a * 1.3) * d * .7) | 0, 2, 2);
+      const a = c.seed * 3 + i * 1.05 + G.t * .005 * (i % 2 ? 1 : -1);
+      const d = i === 0 ? 0 : rr * (.38 + (i % 3) * .1);
+      const px = c.x + Math.cos(a) * d, py = c.y + Math.sin(a) * d * .55;
+      const pr = rr * (i === 0 ? .75 : .52);
+      const gr = g.createRadialGradient(px, py, 0, px, py, pr);
+      gr.addColorStop(0, `rgba(160,158,74,${.2 * fade})`);
+      gr.addColorStop(.6, `rgba(130,130,60,${.1 * fade})`);
+      gr.addColorStop(1, 'rgba(120,120,55,0)');
+      g.fillStyle = gr;
+      g.fillRect(px - pr, py - pr, pr * 2, pr * 2);
+    }
+    for (let i = 0; i < 16; i++) {               // 피어오르는 홀씨
+      const ph = (G.t * .008 + i * .37 + c.seed) % 1;
+      const a = c.seed + i * 2.4, d = rr * (((i * 53) % 10) / 10) * .85;
+      const x = c.x + Math.cos(a) * d, y = c.y + Math.sin(a) * d * .55 - ph * 12;
+      g.globalAlpha = fade * (1 - ph) * .85;
+      g.fillStyle = i % 3 ? '#cfc874' : '#efe7a2';
+      g.fillRect(x | 0, y | 0, 1, 1);
     }
     g.restore();
   });
@@ -2689,21 +2699,40 @@ function drawFoe(f) {
   g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill();
 
   // 발밑에 깔리는 제 빛 — 어두운 방에서 뭐가 다가오는지 색으로 먼저 압니다
+  // (둥근 공처럼 떠 보이지 않게 바닥에 납작하게 깐 타원)
   g.globalAlpha = (.5 + Math.sin(f.bob * .7) * .12) * warpK;
-  const ag = g.createRadialGradient(f.x, f.y + 4, 2, f.x, f.y + 4, s * .8);
-  ag.addColorStop(0, `rgba(${C.glow},.32)`);
+  g.save();
+  g.translate(f.x, f.y + 10); g.scale(1, .42);
+  const ag = g.createRadialGradient(0, 0, 2, 0, 0, s * .8);
+  ag.addColorStop(0, `rgba(${C.glow},.34)`);
   ag.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = ag;
-  g.beginPath(); g.arc(f.x, f.y + 4, s * .8, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(0, 0, s * .8, 0, Math.PI * 2); g.fill();
+  g.restore();
   g.globalAlpha = warpK;
 
-  // 돌진체 : 웅크리는 동안 붉은 고리가 조여듭니다 (피할 신호)
+  // 돌진체 : 웅크리는 동안 — 발밑에서 흙먼지가 일고, 달려들 쪽으로 바닥에
+  // 화살표가 길어집니다 (피할 신호. 예전의 붉은 고리는 방어막처럼 보였습니다)
   if (f.wind > 0) {
     const k = 1 - f.wind / BALANCE.chargerWind;
+    const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
     g.save();
-    g.globalAlpha = .35 + k * .5;
-    g.strokeStyle = '#ff7a45'; g.lineWidth = 1.6;
-    g.beginPath(); g.arc(f.x, f.y + 2, 30 - k * 16, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = .4 + k * .5;
+    g.fillStyle = '#ff7a45';
+    const len = 14 + k * 34;
+    for (let t = 12; t < len; t += 4) g.fillRect((f.x + ux * t - 1) | 0, (f.y + 10 + uy * t * .9 - 1) | 0, 2, 2);
+    const hx = f.x + ux * (len + 3), hy = f.y + 10 + uy * (len + 3) * .9;
+    for (let i = 0; i < 3; i++) {                                         // 화살촉
+      const bx = hx - ux * i * 2, by = hy - uy * i * 2;
+      g.fillRect((bx - uy * i * 1.6) | 0, (by + ux * i * 1.6) | 0, 2, 2);
+      g.fillRect((bx + uy * i * 1.6) | 0, (by - ux * i * 1.6) | 0, 2, 2);
+    }
+    g.fillStyle = '#7a6250';                                              // 뒷발에 차인 흙먼지
+    for (let i = 0; i < 4; i++) {
+      const a = Math.atan2(-uy, -ux) + (i - 1.5) * .45, r = 10 + ((G.t + i * 5) % 9) * 1.4 * k;
+      g.globalAlpha = (.3 + k * .4) * (1 - ((G.t + i * 5) % 9) / 9);
+      g.fillRect((f.x + Math.cos(a) * r) | 0, (f.y + 10 + Math.sin(a) * r * .5) | 0, 2, 1);
+    }
     g.restore();
   }
 
@@ -4022,7 +4051,7 @@ function renderLanding() {
      LAB   (기준 0‥1570, 실제는 opT 로 늘림) : 잠드는 쪽. 흐릿한 흰 천장과 격자 조명. 귀에 들어오는 건
                     대화의 조각들뿐입니다 — 가까운 목소리(의사), 먼 목소리
                     (조수), 짧고 차가운 지시 하나. 펜라이트가 눈을 훑고,
-                    "백마흔한 번째" (엔딩의 SESSION 141).
+                    "141번째" (엔딩의 SESSION 141).
        ▸ 각성 552‥694 : 피험자가 깨려 합니다 — 눈이 번쩍 뜨이고 초점이 잡히며
                     경보가 울리고 화면이 붉게 맥박칩니다. 의사가 바짝 들여다보고
                     "용량 올려" — 약이 들어가며 차가운 푸른 물결이 아래서부터
@@ -4031,7 +4060,7 @@ function renderLanding() {
                     숲에서 "우물이 있다고 들었다"는 생각이 여기서 옵니다.
        ▸ 하강 1190‥1556 : 숫자를 거꾸로 세는 동안 천장이 멀어지며 돌로 쌓은
                     통로가 시야를 둘러쌉니다 — 병실 천장이 우물 입구가 됩니다.
-                    "일곱…" 에서 바닥이 꺼지듯 한 번 툭 떨어지고 눈이 감깁니다.
+                    "7…" 에서 바닥이 꺼지듯 한 번 툭 떨어지고 눈이 감깁니다.
      DARK 1570‥1690 : 정적. 심장 한 번. 새소리가 번져 옵니다.
      WOOD 1690‥1920 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
                     첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
@@ -4058,7 +4087,7 @@ const OP_EYE = [
   [830, .28], [850, .08], [870, .3], [950, .26], [975, .06], [1000, .24],
   [1080, .22], [1100, .05], [1120, .2],
   // 숫자 하나에 한 번씩, 점점 무겁게 감겼다가 덜 뜹니다
-  // 가라앉는 통로가 보이도록 반쯤은 떠 있고, "일곱…" 에서 툭 떨어질 때 번쩍 뜨였다 감깁니다
+  // 가라앉는 통로가 보이도록 반쯤은 떠 있고, "7…" 에서 툭 떨어질 때 번쩍 뜨였다 감깁니다
   [1200, .44], [1260, .4], [1282, .1], [1300, .38], [1350, .36], [1366, .08], [1385, .32],
   [1430, .3], [1450, .06], [1470, .28], [1518, .24], [1526, .62], [1538, .4], [1556, 0], [1690, 0],
   [1720, .22], [1736, .03], [1768, .52], [1788, .14], [1820, .86], [1836, .58], [1880, 1], [2000, 1]
@@ -4070,7 +4099,7 @@ const OP_TEXT = [
   [40, 140, '…들리세요?', 'near'],
   [200, 290, '반응 있어요. 동공이 느리고.', 'far'],
   [300, 400, '괜찮아요. 오늘도 금방 끝나요.', 'near'],
-  [420, 530, '…백마흔한 번째예요. 기억 안 나시겠지만.', 'near'],
+  [420, 530, '…141번째예요. 기억 안 나시겠지만.', 'near'],
   [552, 606, '수치 튀어요 — 깨려고 해요!', 'urgent'],
   [596, 640, '쉬이… 괜찮아요. 괜찮아요.', 'near'],
   [646, 692, '용량 올려.', 'cold'],
@@ -4079,7 +4108,7 @@ const OP_TEXT = [
   [960, 1060, '그 아래로… 천천히 내려가 보는 거예요.', 'near'],
   [1080, 1180, '숫자를 거꾸로 세어 보세요.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
-  [1200, 1284, '열.', 'near'], [1284, 1368, '아홉.', 'near'], [1368, 1452, '여덟.', 'near'], [1452, 1552, '일곱…', 'near']
+  [1200, 1284, '10.', 'near'], [1284, 1368, '9.', 'near'], [1368, 1452, '8.', 'near'], [1452, 1552, '7…', 'near']
 ].map(([a, b, s, who]) => [opT(a), opT(b), s, who]);
 /* 모니터 비프 — 평소엔 고르게, "용량 올려" 뒤로 느려지고, 셀 때는 점점 벌어집니다 */
 const OP_BEEPS = (() => {
@@ -4363,7 +4392,7 @@ function renderOpening() {
   if (t < OP.LAB) {
     // 각성 위기 — 0‥1 로 차오르고 약이 들어가면 빠집니다
     const cr = ease01((t - OP.CR0) / 24) * (1 - ease01((t - OP.CR1 + 6) / 10));
-    // 하강 — 숫자를 세며 가라앉음, "일곱…" 에서 한 번 툭
+    // 하강 — 숫자를 세며 가라앉음, "7…" 에서 한 번 툭
     const sink = t > OP.SINK0 ? ease01((t - OP.SINK0) / (OP.SINK1 - OP.SINK0)) * .82 + ease01((t - OP.DROP) / 12) * .18 : 0;
     // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
     g.save();
