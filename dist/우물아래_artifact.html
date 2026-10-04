@@ -4337,14 +4337,14 @@ class Lab {
     x.fillStyle = gl; x.fillRect(195, 35, 106, 58);
     const ox = 262 + Math.sin(t * .006) * 3 | 0;
     // 노란 방호복 — 부푼 어깨 · 벨트 · 가슴의 마크, 후드 속 새까만 얼굴창 (어두운 관찰실이라 탁한 노랑)
-    x.fillStyle = '#4e4512';
+    x.fillStyle = '#4c3b1c';
     x.beginPath(); x.moveTo(ox - 12, 93); x.lineTo(ox - 11, 70); x.quadraticCurveTo(ox - 10, 65, ox - 5, 65); x.lineTo(ox + 5, 65);
     x.quadraticCurveTo(ox + 10, 65, ox + 11, 70); x.lineTo(ox + 12, 93); x.closePath(); x.fill();
-    x.fillStyle = '#6f6319'; x.fillRect(ox - 7, 67, 13, 26);
+    x.fillStyle = '#6e5426'; x.fillRect(ox - 7, 67, 13, 26);
     R('#0a0a0c', ox - 11, 84, 23, 2); R('#0a0a0c', ox + 6, 85, 3, 4);
     R('#14120a', ox - 1, 72, 2, 2);
-    x.fillStyle = '#4e4512'; x.beginPath(); x.ellipse(ox, 59, 6.5, 7.5, 0, 0, 7); x.fill();
-    x.fillStyle = '#76691b'; x.beginPath(); x.ellipse(ox, 58, 5.8, 6.6, 0, 0, 7); x.fill();
+    x.fillStyle = '#4c3b1c'; x.beginPath(); x.ellipse(ox, 59, 6.5, 7.5, 0, 0, 7); x.fill();
+    x.fillStyle = '#765a2a'; x.beginPath(); x.ellipse(ox, 58, 5.8, 6.6, 0, 0, 7); x.fill();
     x.fillStyle = '#040507'; x.beginPath(); x.ellipse(ox, 59, 3.4, 4.3, 0, 0, 7); x.fill();
     R('#101a25', ox - 15, 74, 6, 9);                     // 클립보드
     R('#0a0a0c', ox - 13, 78, 3, 3);                     // 검은 장갑
@@ -6038,13 +6038,13 @@ function buildStatic() {
   m.obox([chx + .02, df + .8, chz + .24], [.22, 0, -.03], [0, .27, .03], [.004, -.004, .035], hex('#141b26'), { s: .1 });
   for (const sx of [-1, 1]) { m.cyl([chx + sx * .22, df + .48, chz + .05], [chx + sx * .22, df + .64, chz + .05], .012, .012, hex('#20262e'), 6); m.rbox(chx + sx * .22 - .03, chx + sx * .22 + .03, df + .64, df + .67, chz - .12, chz + .14, hex('#20262e'), .012); }
   // 등받이에 걸쳐 둔 노란 방호복 — 어깨 · 늘어진 자락 · 소매 · 검은 장갑, 의자 위 후드 (새까만 얼굴창)
-  m.obox([chx + .03, df + .86, chz + .29], [.25, 0, -.03], [0, .045, .01], [.003, -.01, .045], hex('#cdb52c'), { s: .3 });
-  m.obox([chx + .04, df + .62, chz + .31], [.22, 0, -.03], [0, .22, .02], [.002, -.002, .014], hex('#c2aa26'), { s: .3 });
-  m.obox([chx - .2, df + .55, chz + .2], [.04, 0, 0], [0, .2, -.06], [0, .02, .06], hex('#bba324'), { s: .3 });
+  m.obox([chx + .03, df + .86, chz + .29], [.25, 0, -.03], [0, .045, .01], [.003, -.01, .045], hex('#c49a3e'), { s: .3 });
+  m.obox([chx + .04, df + .62, chz + .31], [.22, 0, -.03], [0, .22, .02], [.002, -.002, .014], hex('#b88f38'), { s: .3 });
+  m.obox([chx - .2, df + .55, chz + .2], [.04, 0, 0], [0, .2, -.06], [0, .02, .06], hex('#ad8634'), { s: .3 });
   m.ellipsoid([chx - .2, df + .34, chz + .14], [.035, 0, 0], [0, .045, 0], [0, 0, .03], hex('#141416'), 8, 6);
-  m.ellipsoid([chx + .08, df + .62, chz - .05], [.13, 0, 0], [0, .1, 0], [0, 0, .12], hex('#cdb52c'), 12, 8, { s: .3 });
+  m.ellipsoid([chx + .08, df + .62, chz - .05], [.13, 0, 0], [0, .1, 0], [0, 0, .12], hex('#c49a3e'), 12, 8, { s: .3 });
   m.ellipsoid([chx + .08, df + .61, chz - .145], [.08, 0, 0], [0, .085, 0], [0, 0, .04], hex('#060708'), 12, 8, { s: .95 });
-  m.torus([chx + .08, df + .61, chz - .16], [0, 0, 1], .082, .012, hex('#4a4212'), 18, 6);
+  m.torus([chx + .08, df + .61, chz - .16], [0, 0, 1], .082, .012, hex('#4a391e'), 18, 6);
   // 관찰실 뒷벽 선반 — 바인더
   m.rbox(ox0 + .2, ox1 - .2, df + 1.25, df + 1.28, OBS.z1 - .25, OBS.z1, hex('#2a3442'), .008);
   for (let i = 0; i < 16; i++) { const x = ox0 + .25 + i * .07, hh = .22 + (i % 3) * .03;
@@ -8011,7 +8011,7 @@ function drawObstacles(s, b) {
   }
 }
 
-/* 경비원 — 박사와 같은 노란 방호복. 겨눌 땐 새까만 얼굴창 속이 붉게 켜집니다 */
+/* 경비원 — 짙은 제복, 모자 챙 아래 바이저. 겨눌 땐 바이저가 붉게 켜집니다 */
 function drawGuard(s, b, g) {
   const dz = g.z - s.z, k = FOC / dz;
   const pop = g.st === 'pop' ? clamp01(g.t / 20) : 1;
@@ -8030,12 +8030,27 @@ function drawGuard(s, b, g) {
   }
   b.save();
   b.globalAlpha = pop;
-  // 방호복 — 총을 든 팔은 가슴 앞으로 겨눕니다. 겨누는 동안 얼굴창 속이 붉게
+  const uni = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [40, 50, 78], dz, g.z));
+  const dark = css(shade(s, [16, 18, 24], dz, g.z));
+  // 다리 · 몸통
+  b.fillStyle = dark;
+  [[-.16, -.04], [.04, .16]].forEach(([x0, x1]) => { const a = pt(x0, .9), c = pt(x1, 0); b.fillRect(a[0], a[1], c[0] - a[0], c[1] - a[1]); });
+  quad(b, [pt(-.26, 1.5), pt(.26, 1.5), pt(.22, .86), pt(-.22, .86)], uni);
+  // 총을 든 팔 — 가슴 앞으로 겨눕니다
   const aiming = g.st === 'aim' || g.st === 'cool';
-  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .12;
-  drawSuit(b, s, pt, k, dz, g.z, { hit: g.hitT > 0, visor: lit, glint: .35 + .3 * Math.sin(s.frame * .13 + g.z),
-    arms: [[-.28, aiming ? .02 : -.3, aiming ? 1.32 : 1.0, 0], [.28, aiming ? .1 : .3, aiming ? 1.3 : 1.0, 0]] });
-  if (aiming) { b.fillStyle = css(shade(s, [16, 18, 24], dz, g.z)); const gn = pt(.02, 1.37), gn2 = pt(.16, 1.27); b.fillRect(gn[0], gn[1], Math.max(1, gn2[0] - gn[0]), Math.max(1, gn2[1] - gn[1])); }
+  b.fillStyle = uni;
+  const arm0 = pt(-.22, 1.36), arm1 = pt(.08, aiming ? 1.3 : 1.05);
+  b.fillRect(arm0[0], arm0[1], arm1[0] - arm0[0], Math.max(1, .1 * k));
+  if (aiming) { b.fillStyle = dark; const gn = pt(.02, 1.36), gn2 = pt(.14, 1.28); b.fillRect(gn[0], gn[1], gn2[0] - gn[0], Math.max(1, gn2[1] - gn[1])); }
+  // 머리 · 모자 · 바이저
+  const hd = pt(0, 1.66);
+  b.fillStyle = css(shade(s, [170, 150, 135], dz, g.z));
+  b.beginPath(); b.arc(hd[0], hd[1], Math.max(1, .12 * k), 0, Math.PI * 2); b.fill();
+  b.fillStyle = dark; const cap = pt(-.15, 1.86), cap2 = pt(.15, 1.74); b.fillRect(cap[0], cap[1], cap2[0] - cap[0], cap2[1] - cap[1]);
+  const vz = pt(-.1, 1.7), vz2 = pt(.1, 1.64);
+  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .15;
+  b.fillStyle = `rgba(255,${60 - lit * 40},${50 - lit * 30},${.4 + lit * .6})`;
+  b.fillRect(vz[0], vz[1], vz2[0] - vz[0], Math.max(1, vz2[1] - vz[1]));
   // 총구 섬광
   if (g.flash > 0) {
     const m = pt(.14, 1.32);
@@ -8125,11 +8140,13 @@ function drawChaseShadow(s, b) {
   b.beginPath(); b.ellipse(f[0], f[1] - 1, Math.max(1.5, (fr[0] - fl[0]) * .7), 1.6, 0, 0, Math.PI * 2); b.fill();
 }
 
-/* ═════════════ 방호복 — 박사 · 경비원 ═══════════════════════════
+/* ═════════════ 방호복 — 박사 ═══════════════════════════════════
    노란 방호복 한 벌 : 부푼 어깨 · 자루 같은 바지(무릎에서 조임) · 후드 속 새까만
    얼굴창 · 검은 장갑과 장화 · 검은 벨트와 파우치 · 가슴의 바이오해저드 마크.
    얼굴은 끝까지 보이지 않습니다 — 얼굴창에 형광등이 스칠 때만 반짝입니다. */
-const SUIT = [214, 196, 44], SUIT_D = [150, 134, 26], SUIT_L = [238, 226, 96], SUIT_K = [14, 14, 16];
+/* 색은 참고 그림의 형광 노랑이 아니라 게임의 오방색 황(#e3b23c)을 탁하게 눌러 씁니다 —
+   차가운 청회색 실험실에서 혼자 튀지 않고, 던전의 노란 빛과 같은 줄기로 읽히게 */
+const SUIT = [196, 152, 60], SUIT_D = [124, 92, 40], SUIT_L = [228, 190, 104], SUIT_K = [18, 17, 20];
 /* 바이오해저드 마크 — 고리 셋 + 가운데 고리. 작으면 점 하나 */
 function bioMark(b, x, y, r, col) {
   b.fillStyle = col; b.strokeStyle = col;
@@ -14192,10 +14209,10 @@ function drawOpWatcher(w) {
     g.save();
     g.translate(hx + (1 - k) * 26, hy + (1 - k) * 8); g.rotate(-.35);
     // 노을을 등진 방호복 — 거의 그림자, 테두리만 노랗게 빛나고 얼굴창에 노을이 비칩니다
-    g.fillStyle = '#2a250c';
+    g.fillStyle = '#2a2010';
     g.beginPath(); g.ellipse(14, 50, 52, 26, -.2, 0, Math.PI * 2); g.fill();     // 부푼 어깨
     g.beginPath(); g.ellipse(0, 0, 33, 40, 0, 0, Math.PI * 2); g.fill();         // 후드
-    g.strokeStyle = 'rgba(214,190,60,.75)'; g.lineWidth = 2.5;
+    g.strokeStyle = 'rgba(227,178,60,.75)'; g.lineWidth = 2.5;
     g.beginPath(); g.ellipse(0, 0, 32, 39, 0, Math.PI * 1.1, Math.PI * 1.75); g.stroke();
     g.fillStyle = '#050406';
     g.beginPath(); g.ellipse(-3, 5, 20, 25, 0, 0, Math.PI * 2); g.fill();        // 얼굴창
@@ -14253,14 +14270,14 @@ function renderOpening() {
       const sc = 1 + L * .55, hx = W * .9 - L * W * .17 + lean, hy = H * .36 + L * H * .05;
       // 노란 방호복의 후드 — 얼굴 자리는 새까만 얼굴창, 형광등이 그 위를 스칩니다
       g.globalAlpha = .85 * k + L * .1;
-      g.fillStyle = '#6b6118';
+      g.fillStyle = '#6a5228';
       g.beginPath(); g.ellipse(hx + 8 * sc, hy + 10 * sc, 104 * sc, 118 * sc, -.3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#9a8b24';
+      g.fillStyle = '#9e7a36';
       g.beginPath(); g.ellipse(hx, hy, 95 * sc, 110 * sc, -.3, 0, Math.PI * 2); g.fill();
       g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);
-      g.strokeStyle = '#7d7020'; g.lineWidth = 4 * sc;                          // 후드 이음선
+      g.strokeStyle = '#7e602c'; g.lineWidth = 4 * sc;                          // 후드 이음선
       g.beginPath(); g.ellipse(46 * sc, -6 * sc, 70 * sc, 96 * sc, 0, Math.PI * .85, Math.PI * 1.25); g.stroke();
-      g.fillStyle = '#3e3710';                                                  // 얼굴창 고무 테두리
+      g.fillStyle = '#3c2e18';                                                  // 얼굴창 고무 테두리
       g.beginPath(); g.roundRect(-60 * sc, -74 * sc, 120 * sc, 150 * sc, 46 * sc); g.fill();
       g.fillStyle = '#07080a';                                                  // 보호면 — 속은 새까맣게
       g.beginPath(); g.roundRect(-51 * sc, -65 * sc, 102 * sc, 132 * sc, 38 * sc); g.fill();
@@ -14277,7 +14294,7 @@ function renderOpening() {
       const k = (t - opT(540)) / (opT(700) - opT(540));
       g.globalAlpha = .7 * Math.sin(k * Math.PI);
       const ax = -40 + k * 170, ay = H * .2 + Math.sin(t * .4) * 3 * cr;
-      g.fillStyle = '#5c531a';                                                  // 이쪽도 노란 방호복
+      g.fillStyle = '#5b4524';                                                  // 이쪽도 노란 방호복
       g.beginPath(); g.ellipse(ax, ay, 70, 60, .2, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#08090b';
       g.beginPath(); g.ellipse(ax + 18, ay + 6, 30, 34, .2, 0, Math.PI * 2); g.fill();

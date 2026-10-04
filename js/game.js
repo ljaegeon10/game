@@ -4472,10 +4472,10 @@ function drawOpWatcher(w) {
     g.save();
     g.translate(hx + (1 - k) * 26, hy + (1 - k) * 8); g.rotate(-.35);
     // 노을을 등진 방호복 — 거의 그림자, 테두리만 노랗게 빛나고 얼굴창에 노을이 비칩니다
-    g.fillStyle = '#2a250c';
+    g.fillStyle = '#2a2010';
     g.beginPath(); g.ellipse(14, 50, 52, 26, -.2, 0, Math.PI * 2); g.fill();     // 부푼 어깨
     g.beginPath(); g.ellipse(0, 0, 33, 40, 0, 0, Math.PI * 2); g.fill();         // 후드
-    g.strokeStyle = 'rgba(214,190,60,.75)'; g.lineWidth = 2.5;
+    g.strokeStyle = 'rgba(227,178,60,.75)'; g.lineWidth = 2.5;
     g.beginPath(); g.ellipse(0, 0, 32, 39, 0, Math.PI * 1.1, Math.PI * 1.75); g.stroke();
     g.fillStyle = '#050406';
     g.beginPath(); g.ellipse(-3, 5, 20, 25, 0, 0, Math.PI * 2); g.fill();        // 얼굴창
@@ -4533,14 +4533,14 @@ function renderOpening() {
       const sc = 1 + L * .55, hx = W * .9 - L * W * .17 + lean, hy = H * .36 + L * H * .05;
       // 노란 방호복의 후드 — 얼굴 자리는 새까만 얼굴창, 형광등이 그 위를 스칩니다
       g.globalAlpha = .85 * k + L * .1;
-      g.fillStyle = '#6b6118';
+      g.fillStyle = '#6a5228';
       g.beginPath(); g.ellipse(hx + 8 * sc, hy + 10 * sc, 104 * sc, 118 * sc, -.3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#9a8b24';
+      g.fillStyle = '#9e7a36';
       g.beginPath(); g.ellipse(hx, hy, 95 * sc, 110 * sc, -.3, 0, Math.PI * 2); g.fill();
       g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);
-      g.strokeStyle = '#7d7020'; g.lineWidth = 4 * sc;                          // 후드 이음선
+      g.strokeStyle = '#7e602c'; g.lineWidth = 4 * sc;                          // 후드 이음선
       g.beginPath(); g.ellipse(46 * sc, -6 * sc, 70 * sc, 96 * sc, 0, Math.PI * .85, Math.PI * 1.25); g.stroke();
-      g.fillStyle = '#3e3710';                                                  // 얼굴창 고무 테두리
+      g.fillStyle = '#3c2e18';                                                  // 얼굴창 고무 테두리
       g.beginPath(); g.roundRect(-60 * sc, -74 * sc, 120 * sc, 150 * sc, 46 * sc); g.fill();
       g.fillStyle = '#07080a';                                                  // 보호면 — 속은 새까맣게
       g.beginPath(); g.roundRect(-51 * sc, -65 * sc, 102 * sc, 132 * sc, 38 * sc); g.fill();
@@ -4557,7 +4557,7 @@ function renderOpening() {
       const k = (t - opT(540)) / (opT(700) - opT(540));
       g.globalAlpha = .7 * Math.sin(k * Math.PI);
       const ax = -40 + k * 170, ay = H * .2 + Math.sin(t * .4) * 3 * cr;
-      g.fillStyle = '#5c531a';                                                  // 이쪽도 노란 방호복
+      g.fillStyle = '#5b4524';                                                  // 이쪽도 노란 방호복
       g.beginPath(); g.ellipse(ax, ay, 70, 60, .2, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#08090b';
       g.beginPath(); g.ellipse(ax + 18, ay + 6, 30, 34, .2, 0, Math.PI * 2); g.fill();

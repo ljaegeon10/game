@@ -1116,7 +1116,7 @@ function drawObstacles(s, b) {
   }
 }
 
-/* 경비원 — 박사와 같은 노란 방호복. 겨눌 땐 새까만 얼굴창 속이 붉게 켜집니다 */
+/* 경비원 — 짙은 제복, 모자 챙 아래 바이저. 겨눌 땐 바이저가 붉게 켜집니다 */
 function drawGuard(s, b, g) {
   const dz = g.z - s.z, k = FOC / dz;
   const pop = g.st === 'pop' ? clamp01(g.t / 20) : 1;
@@ -1135,12 +1135,27 @@ function drawGuard(s, b, g) {
   }
   b.save();
   b.globalAlpha = pop;
-  // 방호복 — 총을 든 팔은 가슴 앞으로 겨눕니다. 겨누는 동안 얼굴창 속이 붉게
+  const uni = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [40, 50, 78], dz, g.z));
+  const dark = css(shade(s, [16, 18, 24], dz, g.z));
+  // 다리 · 몸통
+  b.fillStyle = dark;
+  [[-.16, -.04], [.04, .16]].forEach(([x0, x1]) => { const a = pt(x0, .9), c = pt(x1, 0); b.fillRect(a[0], a[1], c[0] - a[0], c[1] - a[1]); });
+  quad(b, [pt(-.26, 1.5), pt(.26, 1.5), pt(.22, .86), pt(-.22, .86)], uni);
+  // 총을 든 팔 — 가슴 앞으로 겨눕니다
   const aiming = g.st === 'aim' || g.st === 'cool';
-  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .12;
-  drawSuit(b, s, pt, k, dz, g.z, { hit: g.hitT > 0, visor: lit, glint: .35 + .3 * Math.sin(s.frame * .13 + g.z),
-    arms: [[-.28, aiming ? .02 : -.3, aiming ? 1.32 : 1.0, 0], [.28, aiming ? .1 : .3, aiming ? 1.3 : 1.0, 0]] });
-  if (aiming) { b.fillStyle = css(shade(s, [16, 18, 24], dz, g.z)); const gn = pt(.02, 1.37), gn2 = pt(.16, 1.27); b.fillRect(gn[0], gn[1], Math.max(1, gn2[0] - gn[0]), Math.max(1, gn2[1] - gn[1])); }
+  b.fillStyle = uni;
+  const arm0 = pt(-.22, 1.36), arm1 = pt(.08, aiming ? 1.3 : 1.05);
+  b.fillRect(arm0[0], arm0[1], arm1[0] - arm0[0], Math.max(1, .1 * k));
+  if (aiming) { b.fillStyle = dark; const gn = pt(.02, 1.36), gn2 = pt(.14, 1.28); b.fillRect(gn[0], gn[1], gn2[0] - gn[0], Math.max(1, gn2[1] - gn[1])); }
+  // 머리 · 모자 · 바이저
+  const hd = pt(0, 1.66);
+  b.fillStyle = css(shade(s, [170, 150, 135], dz, g.z));
+  b.beginPath(); b.arc(hd[0], hd[1], Math.max(1, .12 * k), 0, Math.PI * 2); b.fill();
+  b.fillStyle = dark; const cap = pt(-.15, 1.86), cap2 = pt(.15, 1.74); b.fillRect(cap[0], cap[1], cap2[0] - cap[0], cap2[1] - cap[1]);
+  const vz = pt(-.1, 1.7), vz2 = pt(.1, 1.64);
+  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .15;
+  b.fillStyle = `rgba(255,${60 - lit * 40},${50 - lit * 30},${.4 + lit * .6})`;
+  b.fillRect(vz[0], vz[1], vz2[0] - vz[0], Math.max(1, vz2[1] - vz[1]));
   // 총구 섬광
   if (g.flash > 0) {
     const m = pt(.14, 1.32);
@@ -1230,11 +1245,13 @@ function drawChaseShadow(s, b) {
   b.beginPath(); b.ellipse(f[0], f[1] - 1, Math.max(1.5, (fr[0] - fl[0]) * .7), 1.6, 0, 0, Math.PI * 2); b.fill();
 }
 
-/* ═════════════ 방호복 — 박사 · 경비원 ═══════════════════════════
+/* ═════════════ 방호복 — 박사 ═══════════════════════════════════
    노란 방호복 한 벌 : 부푼 어깨 · 자루 같은 바지(무릎에서 조임) · 후드 속 새까만
    얼굴창 · 검은 장갑과 장화 · 검은 벨트와 파우치 · 가슴의 바이오해저드 마크.
    얼굴은 끝까지 보이지 않습니다 — 얼굴창에 형광등이 스칠 때만 반짝입니다. */
-const SUIT = [214, 196, 44], SUIT_D = [150, 134, 26], SUIT_L = [238, 226, 96], SUIT_K = [14, 14, 16];
+/* 색은 참고 그림의 형광 노랑이 아니라 게임의 오방색 황(#e3b23c)을 탁하게 눌러 씁니다 —
+   차가운 청회색 실험실에서 혼자 튀지 않고, 던전의 노란 빛과 같은 줄기로 읽히게 */
+const SUIT = [196, 152, 60], SUIT_D = [124, 92, 40], SUIT_L = [228, 190, 104], SUIT_K = [18, 17, 20];
 /* 바이오해저드 마크 — 고리 셋 + 가운데 고리. 작으면 점 하나 */
 function bioMark(b, x, y, r, col) {
   b.fillStyle = col; b.strokeStyle = col;
