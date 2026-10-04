@@ -12,8 +12,8 @@ const CAM = { x: 0, y: 0 };
 let cv = document.getElementById('game');
 let g  = cv.getContext('2d');
 g.imageSmoothingEnabled = false;
-/* 고해상도 화면 — 개발자 모드의 오프닝은 3배 해상도 캔버스(#gamehi)에 그립니다. 그리는 코드는 그대로
-   (576×324 좌표), cv · g 만 잠깐 바꿔 끼우고 기본 변환을 SR 배로 둡니다. 일반 판은 늘 SR = 1 */
+/* 고해상도 화면 — 오프닝은 3배 해상도 캔버스(#gamehi)에 그립니다. 그리는 코드는 그대로
+   (576×324 좌표), cv · g 만 잠깐 바꿔 끼우고 기본 변환을 SR 배로 둡니다. 그 밖엔 늘 SR = 1 */
 const cvMain = cv, gMain = g, HI_R = 3;
 let SR = 1, cvHi = null, gHi = null;
 
@@ -2143,7 +2143,7 @@ function updateCamera(snap) {
 const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
 
 function useHiRes() {
-  const on = !!(G.opening && G.dev);
+  const on = !!G.opening;                         // 오프닝은 일반 판 · 개발자 모드 모두 고해상도
   if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
   if (!cvHi) {
     cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
