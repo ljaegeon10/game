@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>주인공 시안</title>
+<link rel="stylesheet" href="../css/font.css">
+<style>
+  /* 게임 화면과 같은 어두운 지하 한 가지 모습. 세로로 한 줄 — 나란히 보기 → 직접 걸어 보기 → 복선 메모 */
+  :root {
+    color-scheme: dark;
+    --bg: #0c0b11;      /* 지하의 어둠 */
+    --panel: #15131c;   /* 캔버스 둘레 */
+    --line: #2a2633;
+    --ink: #e9e3d5;     /* 오방색 백 */
+    --dim: #8d8698;
+    --hwang: #e3b23c;   /* 오방색 황 — 고른 것 표시에만 */
+    --cheong: #2f6fb5; --jeok: #c2352c; --heuk: #15141b;
+    --mint: #80aba3;    /* 환자복 */
+    --pixel: 'DungGeunMo', ui-monospace, Menlo, Consolas, monospace;
+  }
+  html, body { background: var(--bg); color: var(--ink); }
+  body { margin: 0; font: 15px/1.7 var(--pixel); padding-inline: 16px; padding-block: 28px 48px; }
+  main { max-width: 900px; margin: 0 auto; display: grid; gap: 40px; }
+  h1, h2, p { margin: 0; }
+  h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.15; font-weight: normal; letter-spacing: .02em; text-wrap: balance; }
+  h2 { font-size: 18px; font-weight: normal; letter-spacing: .04em; }
+  .eyebrow { color: var(--dim); font-size: 12px; letter-spacing: .14em; }
+  .lead { color: var(--dim); max-width: 60ch; }
+  .obang { display: flex; height: 4px; width: 120px; }
+  .obang i { flex: 1; }
+  header { display: grid; gap: 12px; }
+  section { display: grid; gap: 14px; }
+  canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: #000; outline: 1px solid var(--line); }
+  canvas:focus-visible { outline: 2px solid var(--hwang); }
+
+  /* 나란히 보기 — 캔버스 위 칸 이름 */
+  .lineup { position: relative; }
+  .tags { position: absolute; inset: 0 0 auto 0; display: grid; grid-template-columns: repeat(4, 1fr); pointer-events: none; }
+  .tags span { padding: 6px 10px; font-size: 13px; color: var(--ink); text-shadow: 0 1px 0 #000, 0 0 4px #000; }
+  .tags span.on { color: var(--hwang); }
+
+  /* 시안 카드 — 나란히 보기 캔버스의 칸과 같은 순서 */
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .card { all: unset; cursor: pointer; display: grid; gap: 4px; align-content: start; padding: 10px 12px 12px;
+          border: 1px solid var(--line); background: var(--panel); font: 13px/1.6 var(--pixel); color: var(--dim); }
+  .card b { font-weight: normal; color: var(--ink); font-size: 15px; }
+  .card:hover { border-color: #4a4458; }
+  .card:focus-visible { outline: 2px solid var(--hwang); outline-offset: 2px; }
+  .card[aria-pressed="true"] { border-color: var(--hwang); }
+  .card[aria-pressed="true"] b { color: var(--hwang); }
+  @media (max-width: 640px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  /* 직접 걸어 보기 — 버튼 줄 */
+  .bar { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+  .grp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .grp > span { color: var(--dim); font-size: 12px; letter-spacing: .1em; margin-right: 2px; }
+  .grp button { all: unset; cursor: pointer; padding: 3px 10px; border: 1px solid var(--line); font: 13px/1.6 var(--pixel); color: var(--dim); }
+  .grp button:hover { color: var(--ink); }
+  .grp button:focus-visible { outline: 2px solid var(--hwang); outline-offset: 1px; }
+  .grp button[aria-pressed="true"] { color: var(--bg); background: var(--hwang); border-color: var(--hwang); }
+  .help { color: var(--dim); font-size: 12px; }
+  kbd { font: inherit; color: var(--ink); border: 1px solid var(--line); padding: 0 5px; }
+
+  /* 복선 메모 */
+  dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 20px; }
+  dt { color: var(--ink); }
+  dt::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--c, var(--mint)); vertical-align: 1px; }
+  dd { margin: 0; color: var(--dim); }
+  @media (max-width: 520px) { dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } dd { margin-bottom: 10px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="obang" aria-hidden="true"><i style="background:var(--cheong)"></i><i style="background:var(--ink)"></i><i style="background:var(--jeok)"></i><i style="background:var(--heuk)"></i><i style="background:var(--hwang)"></i></div>
+    <p class="eyebrow">우물 아래 · 주인공 시안</p>
+    <h1>피험자 07은 어떻게 생겼을까</h1>
+    <p class="lead">세 가지 안을 지금 주인공 옆에 세웠습니다. 모두 게임 화면에 찍히는 실제 크기(30×36px)로 그렸고, 뒤통수의 전극선은 바닥에 끌리며 따라옵니다.</p>
+  </header>
+
+  <section aria-labelledby="h-lineup">
+    <h2 id="h-lineup">나란히 보기</h2>
+    <div class="lineup">
+      <canvas id="lineup" width="288" height="96" aria-label="현재 주인공과 시안 A, B, C가 제자리에서 걸으며 방향을 바꾸는 모습"></canvas>
+      <div class="tags" aria-hidden="true"><span data-look="now">지금</span><span data-look="A">A</span><span data-look="B" id="tag-b">B</span><span data-look="C">C</span></div>
+    </div>
+    <div class="cards" id="cards">
+      <button class="card" data-look="now"><b>지금</b>노란 동그라미. 열쇠와 같은 황색이라 화면에서 겹쳐 보입니다.</button>
+      <button class="card" data-look="A"><b>A · 피험자 07</b>연민트 환자복, 맨발, 뇌파 캡, 오방색 전극선 네 가닥.</button>
+      <button class="card" data-look="B"><b>B · 깊어질수록</b>숲에선 잠옷 차림. 내려갈수록 전극과 환자복이 드러나고, 심연에선 선이 빛납니다.</button>
+      <button class="card" data-look="C"><b>C · 병원 담요</b>담요를 뒤집어쓴 실루엣. 귀엽고 조금 으스스합니다.</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-play">
+    <h2 id="h-play">직접 걸어 보기</h2>
+    <div class="bar">
+      <div class="grp" id="g-look"><span>시안</span>
+        <button data-v="now">지금</button><button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button>
+      </div>
+      <div class="grp" id="g-stage"><span>B 단계</span>
+        <button data-v="0">1 숲</button><button data-v="1">2 초반</button><button data-v="2">3 깊은 곳</button><button data-v="3">4 심연</button>
+      </div>
+      <div class="grp" id="g-place"><span>장소</span>
+        <button data-v="forest">숲</button><button data-v="well">우물 아래</button><button data-v="ward">병동</button><button data-v="arena">심층</button>
+      </div>
+      <div class="grp" id="g-zoom"><span>보기</span>
+        <button data-v="1">실제 크기</button><button data-v="3">확대 ×3</button>
+      </div>
+    </div>
+    <canvas id="scene" width="576" height="324" tabindex="0" aria-label="게임 화면 크기의 방. 고른 시안의 주인공이 걷습니다"></canvas>
+    <p class="help"><kbd>WASD</kbd> / <kbd>방향키</kbd> 이동 · 화면을 누르면 그 자리로 걸어갑니다 · 가만히 두면 혼자 돌아다닙니다</p>
+  </section>
+
+  <section aria-labelledby="h-notes">
+    <h2 id="h-notes">생김새에 숨긴 복선</h2>
+    <dl>
+      <dt style="--c:var(--mint)">환자복 · 맨발</dt><dd>엔딩 실험실 침대에 누운 피험자의 옷차림 그대로입니다.</dd>
+      <dt style="--c:var(--ink)">손목 팔찌</dt><dd>1인칭 피스톨 장면의 손에 찬 '07' 팔찌와 같은 물건입니다.</dd>
+      <dt style="--c:var(--cheong)">뇌파 캡 · 전극</dt><dd>엔딩에서 드러나는 뇌파 캡입니다. 꿈속에서도 벗지 못합니다.</dd>
+      <dt style="--c:var(--jeok)">전극선 네 가닥</dt><dd>청 · 적 · 황 · 백. 던전을 물들인 오방색이 이 선의 색이었다는 걸 엔딩에서 알게 됩니다.</dd>
+      <dt style="--c:var(--hwang)">졸린 눈 · 눈 밑 그늘</dt><dd>141번째 세션. 오래 잠들어 있던 얼굴입니다.</dd>
+    </dl>
+  </section>
+</main>
+
+<script src="../js/assets.js"></script>
+<script src="../js/art.js"></script>
+<script src="../js/floors.js"></script>
+<script src="../js/roomdeco.js"></script>
+<script src="../js/heroart.js"></script>
+<script>
+'use strict';
+(() => {
+const W = 576, H = 324, TS = 32;
+const { FW, FH, LOOKS, OB, bakeSheet, frameIndex, CableRig } = window.HeroArt;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── 시트 ── */
+const SHEET = {};
+Object.keys(LOOKS).forEach(k => { SHEET[k] = bakeSheet(LOOKS[k]); });
+const B_STAGES = ['B0', 'B1', 'B2', 'B3'];
+const STAGE_NAME = ['숲', '초반', '깊은 곳', '심연'];
+const STAGE_PLACE = ['forest', 'well', 'ward', 'arena'];
+const PLACE_DEPTH = { forest: 0, well: 1, ward: 4, arena: 8 };
+
+/* 지금 주인공 (노란 동그라미) — 게임과 같은 방향별 프레임 */
+function drawOld(g, dir, anim, fx, fy) {
+  if (!IMG.hero) return;
+  const seq = HERO[dir] || HERO.down, idx = seq[Math.floor(anim) % seq.length];
+  const w = 30, h = Math.round(30 * HERO.fh / HERO.fw);
+  g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, Math.round(fx - w / 2), Math.round(fy - h + 2), w, h);
+}
+
+/* 한 명 그리기 — 그림자 · 뒤쪽 전극선 · 몸 · 앞쪽 전극선 · (심연) 글리치
+   (fx, fy) 는 발바닥 자리. 게임처럼 걸음에 맞춰 통통 뜹니다 */
+function drawFigure(g, who, st, t) {
+  const { fx, fy, dir, anim, walkAmt } = st;
+  const look = LOOKS[who];
+  const bob = Math.round(Math.abs(Math.sin(anim * Math.PI / 2)) * -1.4 * walkAmt);
+  g.fillStyle = 'rgba(0,0,0,.5)';
+  g.beginPath(); g.ellipse(fx, fy + 1, 10, 3.5, 0, 0, Math.PI * 2); g.fill();
+  if (who === 'now') { drawOld(g, dir, anim, fx, fy + bob); return; }
+
+  const rig = st.rigs[who];
+  if (rig) rig.update(fx, fy - 1, 17 - bob, dir);
+  const glow = look.glow ? 1 : 0;
+  const behind = dir === 'up' ? null : y => y <= fy + 1;
+  const front = dir === 'up' ? () => true : y => y > fy + 1;
+  if (rig && dir !== 'up') rig.draw(g, glow, t, behind);
+
+  const sx = Math.round(fx - FW / 2), sy = Math.round(fy - 34 + bob);
+  const fi = frameIndex(dir, Math.floor(anim) % 4);
+  const glitch = glow && !reduce && (t % 140) < 7;
+  if (glitch) {                                     // 심연 — 몸이 띠로 밀리고 색이 갈라짐
+    for (let b = 0; b < 4; b++) {
+      const y0 = b * 9, off = ((t * 7 + b * 13) % 5) - 2;
+      g.drawImage(SHEET[who], fi * FW, y0, FW, 9, sx + off, sy + y0, FW, 9);
+    }
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .35;
+    g.drawImage(SHEET[who], fi * FW, 0, FW, FH, sx - 2, sy, FW, FH);
+    g.restore();
+  } else g.drawImage(SHEET[who], fi * FW, 0, FW, FH, sx, sy, FW, FH);
+  if (rig) rig.draw(g, glow, t, front);
+}
+function newState(fx, fy) {
+  const rigs = {};
+  Object.keys(LOOKS).forEach(k => { if (LOOKS[k].cables.length) rigs[k] = new CableRig(LOOKS[k].cables); });
+  return { fx, fy, dir: 'down', anim: 0, walkAmt: 0, rigs };
+}
+
+/* ═════════════ 나란히 보기 ═════════════════════════════════════
+   네 칸에서 제자리걸음 — 바닥만 뒤로 흘러서 전극선이 뒤로 끌립니다.
+   B 칸은 네 단계를 차례로 보여 줍니다. */
+const LU = document.getElementById('lineup'), lg = LU.getContext('2d');
+lg.imageSmoothingEnabled = false;
+const SLOT = 72, LH = 96;
+const SLOTS = ['now', 'A', 'B', 'C'];
+const SLOT_PLACE = { now: 'well', A: 'ward', B: 'forest', C: 'well' };
+const luState = SLOTS.map(() => newState(0, 0));
+let floorCache = {};
+function floorOf(place) {
+  if (floorCache[place]) return floorCache[place];
+  return (floorCache[place] = place === 'forest' ? bakeForest(W, H, TS)
+    : bakeDungeonFloor(W, H, TS, 20450500 + PLACE_DEPTH[place], PLACE_DEPTH[place], place));
+}
+const DIR_V = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
+const TURN = ['down', 'right', 'up', 'left'];
+
+const tagB = document.getElementById('tag-b');
+let tagStage = -1;
+function drawLineup(t) {
+  lg.fillStyle = '#000'; lg.fillRect(0, 0, LU.width, LU.height);
+  const bs = Math.floor(t / 150) % 4;
+  if (bs !== tagStage) { tagStage = bs; tagB.textContent = `B · ${bs + 1} ${STAGE_NAME[bs]}`; }
+  SLOTS.forEach((key, i) => {
+    const st = luState[i];
+    const stage = Math.floor(t / 150) % 4;
+    const who = key === 'B' ? B_STAGES[stage] : key;
+    const place = key === 'B' ? STAGE_PLACE[stage] : SLOT_PLACE[key];
+    const dir = TURN[Math.floor(t / 150 + i * .5) % 4];
+    if (dir !== st.dir) st.dir = dir;
+    // 걸음 — 세상 쪽 좌표는 앞으로 가고, 칸 안의 그림은 제자리
+    const v = DIR_V[dir], spd = reduce ? 0 : .9;
+    st.wx = (st.wx || 0) + v[0] * spd; st.wy = (st.wy || 0) + v[1] * spd;
+    st.anim += reduce ? 0 : .085; st.walkAmt = reduce ? 0 : 1;
+    const ox = i * SLOT, cx = ox + SLOT / 2, cy = 74;
+    lg.save();
+    lg.beginPath(); lg.rect(ox + 1, 1, SLOT - 2, LH - 2); lg.clip();
+    // 바닥 — 걸은 만큼 뒤로 흘러감
+    const F = floorOf(place);
+    const bx = ((st.wx % 160) + 160) % 160, by = ((st.wy % 120) + 120) % 120;
+    lg.drawImage(F, 120 + bx, 80 + by, SLOT, LH, ox, 0, SLOT, LH);
+    const vg = lg.createRadialGradient(cx, cy - 18, 8, cx, cy - 18, 58);
+    vg.addColorStop(0, 'rgba(4,5,10,0)'); vg.addColorStop(1, 'rgba(4,5,10,.82)');
+    lg.fillStyle = vg; lg.fillRect(ox, 0, SLOT, LH);
+    lg.translate(cx - st.wx, cy - st.wy);
+    st.fx = st.wx; st.fy = st.wy;
+    drawFigure(lg, who, st, t);
+    lg.restore();
+    lg.fillStyle = '#2a2633'; lg.fillRect(ox + SLOT - 1, 0, 1, LH);
+  });
+}
+
+/* ═════════════ 직접 걸어 보기 ═════════════════════════════════ */
+const SC = document.getElementById('scene'), sg = SC.getContext('2d');
+sg.imageSmoothingEnabled = false;
+const ROOM = document.createElement('canvas'); ROOM.width = W; ROOM.height = H;   // 방 전체를 여기 그린 뒤 화면에 옮김
+const g = ROOM.getContext('2d');
+g.imageSmoothingEnabled = false;
+let zoom = innerWidth < 700 ? 3 : 1;                // 좁은 화면에선 처음부터 확대
+let look = 'A', stage = 2, place = 'ward', placeTouched = false;
+const P = newState(W / 2, H / 2 + 30);
+const keys = {};
+let target = null, idle = 0, wander = null;
+
+function currentWho() { return look === 'B' ? B_STAGES[stage] : look; }
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+    if (k.startsWith('arrow') && document.activeElement !== SC) return;   // 방향키는 화면을 고른 뒤에만
+    keys[k] = true; target = null; e.preventDefault();
+  }
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+SC.addEventListener('pointerdown', e => {
+  SC.focus();
+  const r = SC.getBoundingClientRect();
+  const sx = (e.clientX - r.left) / r.width * W, sy = (e.clientY - r.top) / r.height * H;
+  if (zoom === 1) target = [sx, sy];
+  else {
+    const vw = W / zoom, vh = H / zoom;
+    const vx = Math.max(0, Math.min(W - vw, P.fx - vw / 2)), vy = Math.max(0, Math.min(H - vh, P.fy - 14 - vh / 2));
+    target = [vx + sx / zoom, vy + sy / zoom];
+  }
+  idle = 0;
+});
+
+function stepPlayer() {
+  let mx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+  let my = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+  if (mx || my) idle = 0; else idle++;
+  if (!mx && !my && !target && idle > 150 && !reduce) {          // 혼자 돌아다니기
+    if (!wander || Math.hypot(wander[0] - P.fx, wander[1] - P.fy) < 6)
+      wander = [TS + 40 + Math.random() * (W - TS * 2 - 80), TS + 50 + Math.random() * (H - TS * 2 - 70)];
+  } else if (mx || my || target) wander = null;
+  const goal = target || wander;
+  if (!mx && !my && goal) {
+    const dx = goal[0] - P.fx, dy = goal[1] - P.fy, d = Math.hypot(dx, dy);
+    if (d < 3) { if (target) target = null; else wander = null; }
+    else { mx = dx / d; my = dy / d; if (Math.abs(mx) < .25) mx = 0; if (Math.abs(my) < .25) my = 0; }
+  }
+  const ml = Math.hypot(mx, my), spd = (place === 'forest' ? .85 : 1) * 2.15 * (wander ? .7 : 1);
+  if (ml) {
+    P.fx += mx / ml * spd; P.fy += my / ml * spd;
+    P.anim += spd * .0744; P.walkAmt += (1 - P.walkAmt) * .35;
+    P.dir = Math.abs(mx) > Math.abs(my) * 1.2 ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');
+  } else { P.walkAmt *= .78; P.anim = 0; }
+  P.fx = Math.max(TS + 12, Math.min(W - TS - 12, P.fx));
+  P.fy = Math.max(TS + 34, Math.min(H - TS - 4, P.fy));
+}
+
+function drawScene(t) {
+  g.drawImage(floorOf(place), 0, 0);
+  const depth = PLACE_DEPTH[place];
+  if (place === 'forest') renderForestProps(g, t * 16);
+  else drawWalls(g, W, H, TS, depth, t);
+  drawFigure(g, currentWho(), P, t);
+  if (place === 'forest') drawNightOverlay(g, W, H, P.fx, P.fy - 12, .34, 172);
+  else drawNightOverlay(g, W, H, P.fx, P.fy - 12, .40 + depth * .022, 150);
+  // 확대 — 주인공을 따라가며 방의 일부만
+  sg.fillStyle = '#000'; sg.fillRect(0, 0, W, H);
+  if (zoom === 1) sg.drawImage(ROOM, 0, 0);
+  else {
+    const vw = W / zoom, vh = H / zoom;
+    const vx = Math.max(0, Math.min(W - vw, P.fx - vw / 2)), vy = Math.max(0, Math.min(H - vh, P.fy - 14 - vh / 2));
+    sg.drawImage(ROOM, Math.round(vx), Math.round(vy), vw, vh, 0, 0, W, H);
+  }
+  // 왼쪽 위 — 지금 보는 시안
+  sg.font = '12px DungGeunMo, monospace'; sg.textBaseline = 'top';
+  const label = look === 'now' ? '지금 주인공' : look === 'B' ? `시안 B · ${stage + 1} ${STAGE_NAME[stage]}` : `시안 ${look}`;
+  sg.fillStyle = 'rgba(0,0,0,.6)'; sg.fillRect(8, 8, sg.measureText(label).width + 12, 18);
+  sg.fillStyle = '#e9e3d5'; sg.fillText(label, 14, 11);
+}
+
+/* ── 버튼 ── */
+function press(group, v) {
+  document.querySelectorAll(`#${group} button`).forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(v)));
+}
+function sync() {
+  press('g-look', look); press('g-stage', stage); press('g-place', place); press('g-zoom', zoom);
+  document.getElementById('g-stage').hidden = look !== 'B';
+  document.querySelectorAll('#cards .card').forEach(c => c.setAttribute('aria-pressed', c.dataset.look === look));
+  document.querySelectorAll('.tags span').forEach(c => c.classList.toggle('on', c.dataset.look === look));
+}
+function setLook(v) {
+  look = v;
+  if (look === 'B') place = STAGE_PLACE[stage];
+  else if (!placeTouched) place = look === 'C' ? 'well' : 'ward';
+  sync();
+}
+document.querySelectorAll('#g-look button').forEach(b => b.onclick = () => setLook(b.dataset.v));
+document.querySelectorAll('#cards .card').forEach(b => b.onclick = () => {
+  setLook(b.dataset.look);
+  document.getElementById('h-play').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+});
+document.querySelectorAll('#g-stage button').forEach(b => b.onclick = () => { stage = +b.dataset.v; place = STAGE_PLACE[stage]; sync(); });
+document.querySelectorAll('#g-zoom button').forEach(b => b.onclick = () => { zoom = +b.dataset.v; sync(); });
+document.querySelectorAll('#g-place button').forEach(b => b.onclick = () => { place = b.dataset.v; placeTouched = true; sync(); });
+
+/* ── 돌리기 ── */
+let t = 0, last = 0, acc = 0;
+function frame(now) {
+  acc += Math.min(100, now - (last || now)); last = now;
+  while (acc >= 1000 / 60) { acc -= 1000 / 60; t++; stepPlayer(); }
+  drawLineup(t); drawScene(t);
+  requestAnimationFrame(frame);
+}
+loadAssets().then(() => {
+  sync();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => requestAnimationFrame(frame));
+});
+})();
+</script>
+</body>
+</html>

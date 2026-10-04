@@ -8,7 +8,8 @@ dist/우물아래.html 과 내용은 같지만, Artifact 는 <head>/<body> 골�
 게시 시점에 직접 감싸므로 <!doctype>·<html>·<head>·<body> 태그를 빼고
 <title> 과 <style> 을 파일 맨 위에 두는 형태로 내보냅니다.
 
-결과: dist/우물아래_artifact.html, dist/우물아래_엔딩_artifact.html
+결과: dist/우물아래_artifact.html, dist/우물아래_엔딩_artifact.html,
+      dist/우물아래_주인공시안_artifact.html
 """
 import re, pathlib
 
@@ -19,6 +20,7 @@ DIST = ROOT / "dist"
 PAGES = [
     ("우물아래.html",      "우물아래_artifact.html",      "우물 아래"),
     ("우물아래_엔딩.html", "우물아래_엔딩_artifact.html", "우물 아래 깨어남"),
+    ("우물아래_주인공시안.html", "우물아래_주인공시안_artifact.html", "주인공 시안"),
 ]
 
 for src_name, out_name, title in PAGES:
