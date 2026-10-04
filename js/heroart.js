@@ -456,18 +456,21 @@ class CableRig {
   constructor(colors, opt = {}) {
     this.n = opt.nodes || 9;
     this.seg = opt.seg || 3.1;
+    this.temple = opt.temple || 0;        // 있으면 뒤통수 대신 머리 양옆(관자놀이)에서 반씩 나옴
     this.cables = colors.map((c, k) => ({
-      color: c, off: (k - (colors.length - 1) / 2) * 1.7,
+      color: c, off: (k - (colors.length - 1) / 2) * (opt.spread || 1.7),
       seg: this.seg * (1 + ((k * 37) % 5) * .07),
       nodes: Array.from({ length: this.n }, () => ({ x: 0, y: 0, z: 0, px: 0, py: 0, pz: 0 })),
       placed: false
     }));
   }
-  /* 매달린 자리 — 바닥 좌표 (fx, fy), 높이 z, 방향 */
-  update(fx, fy, z, dir) {
+  /* 매달린 자리 — 바닥 좌표 (fx, fy), 높이 z, 방향, 옆모습일 때 뒤통수까지 거리 */
+  update(fx, fy, z, dir, back = 7) {
     const side = dir === 'left' ? 1 : dir === 'right' ? -1 : 0;
-    for (const C of this.cables) {
-      const ax = fx + side * 7 + (side ? 0 : C.off), ay = fy - 1 + (side ? C.off * .4 : 0);
+    this.cables.forEach((C, k) => {
+      const half = k < this.cables.length / 2 ? -1 : 1;
+      const ax = side ? fx + side * back : this.temple ? fx + half * (this.temple + (k % 2) * 1.2) : fx + C.off;
+      const ay = fy - 1 + (side ? C.off * .4 : 0);
       if (!C.placed) {                                  // 처음엔 뒤로 부채꼴로 펼쳐 둠
         C.nodes.forEach((p, i) => { const t = i / (this.n - 1);
           p.x = p.px = ax + C.off * t * 6; p.y = p.py = ay - t * 10; p.z = p.pz = Math.max(0, z - i * 3); });
@@ -502,7 +505,7 @@ class CableRig {
           else { a.x += dx * k * .5; a.y += dy * k * .5; a.z += dz * k * .5; b.x -= dx * k * .5; b.y -= dy * k * .5; b.z -= dz * k * .5; }
           if (b.z < 0) b.z = 0; if (a.z < 0) a.z = 0;
         }
-    }
+    });
   }
   /* 선을 1px 로 — 외곽선을 먼저 깔고 색을 얹음. glow 면 빛이 번짐.
      keep(마디) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
@@ -550,13 +553,15 @@ const LOOKS = {
   C:  { kind: 'blanket', cap: null, band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
 
   /* 원래 노란 주인공을 살린 시안 — 시뮬레이션이 씌운 아바타와 진짜 사람이 섞임
-     shadow : 그림자를 이 시안(사람)의 실루엣으로 · flicker : 한 프레임씩 사람이 비칠 확률 */
-  D:  { kind: 'avatar', peel: 0, body: 'yellow', band: false, cables: [OB.B, OB.R, OB.Y, OB.W], shadow: 'A', flicker: .004 },
-  E0: { kind: 'avatar', peel: 0, body: 'yellow', band: true, cables: [], flicker: .002 },
-  E1: { kind: 'avatar', peel: .24, body: 'yellow', feet: 'human', band: true, cables: [OB.B, OB.R], flicker: .005 },
-  E2: { kind: 'avatar', peel: .45, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .01 },
-  E3: { kind: 'avatar', peel: .66, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .03, glow: 1 },
-  F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .004 }
+     shadow : 그림자를 이 시안(사람)의 실루엣으로
+     glitch : 글리치가 터지는 정도 — rate 매 프레임 확률 · every 이만큼 조용하면 반드시 ·
+              power 0~1 세기 (띠 밀림 · 색 분리 · 사람이 섞여 비침 · 찢긴 줄)          */
+  D:  { kind: 'avatar', peel: 0, body: 'yellow', band: false, cables: [OB.B, OB.R, OB.Y, OB.W], shadow: 'A', glitch: { rate: .012, every: 200, power: 1 } },
+  E0: { kind: 'avatar', peel: 0, body: 'yellow', band: true, cables: [], glitch: { rate: .002, every: 1e9, power: .3 } },
+  E1: { kind: 'avatar', peel: .24, body: 'yellow', feet: 'human', band: true, cables: [OB.B, OB.R], glitch: { rate: .005, every: 1e9, power: .45 } },
+  E2: { kind: 'avatar', peel: .45, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .01, every: 1e9, power: .65 } },
+  E3: { kind: 'avatar', peel: .66, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .03, every: 140, power: 1 }, glow: 1 },
+  F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .004, every: 1e9, power: .5 } }
 };
 
 window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, bakeSheet, frameIndex, CableRig };
