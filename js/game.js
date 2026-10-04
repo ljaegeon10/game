@@ -460,6 +460,7 @@ function respawn() {
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
+  Sfx.ring(0);
   stopRun();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
@@ -844,6 +845,7 @@ function doorCenter(d) {
 /* 지하 첫 방에 들어서는 순간 — 탑뷰로 확 바뀌며 "두둥".
    일반 모드는 눈뜨기 연출 끝에서, 타임어택은 우물을 조사하자마자 옵니다. */
 function enterDungeon() {
+  Sfx.ring(0);                                  // 귀울림은 눈을 다 뜨면 끝
   loadRoom('start', 'W');
   Sfx.dungeonBgm(true);
   G.wake = G.timeAttack ? 0 : WAKE_DUR;
@@ -1214,11 +1216,18 @@ function update() {
   }
   if (G.mode === 'wakeup') {
     G.eyeT++;
-    // 눈을 뜨고 감을 때마다 젖은 소리와 숨
-    if (G.eyeT === 40 || G.eyeT === 96 || G.eyeT === 152 || G.eyeT === 206 ||
-        G.eyeT === EYE_OPEN_T + 100 || G.eyeT === EYE_OPEN_T + 168) Sfx.blink();
-    if (G.eyeT === 62 || G.eyeT === 138 || G.eyeT === 194 ||
-        G.eyeT === EYE_OPEN_T + 40 || G.eyeT === EYE_OPEN_T + 140) Sfx.breath();
+    // 눈꺼풀이 실제로 움직이기 시작하는 순간에 맞춰 — 뜰 땐 '쩍' + 들이쉼, 감길 땐 '스윽…톡' + 내쉼
+    for (const ev of EYE_SFX) if (ev.t === G.eyeT) {
+      Sfx.lid(ev.open, ev.amp, ev.dur);
+      if (ev.open && ev.amp > .25) Sfx.inhale(.035 + ev.amp * .05, .45 + ev.amp * .3);
+      if (!ev.open && ev.amp > .25 && ev.t < EYE_OPEN_T) Sfx.exhale(.03 + ev.amp * .03, .6);
+    }
+    // 떨어진 충격의 귀울림 — 눈을 뜰수록 잦아들고, 다 뜨면 사라짐. 그동안 먹먹한 심장이 점점 느려짐
+    Sfx.ring(G.eyeT < EYE_OPEN_T + 40 ? Math.max(0, 1 - G.eyeT / (EYE_OPEN_T + 40)) * (.55 + .45 * (1 - eyeOpen(G.eyeT))) : 0);
+    if (G.eyeT === 1) G.heartNext = 20;
+    if (G.eyeT < EYE_OPEN_T && G.eyeT >= G.heartNext) {      // 처음엔 빠르게, 정신이 들수록 느려짐
+      Sfx.heartMuffled(.22 * (1 - G.eyeT / EYE_OPEN_T) + .06); G.heartNext = G.eyeT + Math.round(46 + G.eyeT * .16);
+    }
     if (G.eyeT % 3 === 0)
       G.fx.push({ k: 'dust', x: Math.random() * W, y: -6,
                   vy: .6 + Math.random() * 1.5, life: 130, max: 130 });
@@ -4127,6 +4136,16 @@ const EYE_KEYS = [
   [EYE_OPEN_T + 160, 1], [EYE_OPEN_T + 168, .12], [EYE_OPEN_T + 178, 1],   // 자연스러운 깜빡임 2
   [WAKE_EYE, 1]
 ];
+/* 눈꺼풀 소리를 낼 자리 — EYE_KEYS 에서 크게 오르는(뜨는) · 내리는(감기는) 구간의 시작 */
+const EYE_SFX = (() => {
+  const out = [];
+  for (let i = 1; i < EYE_KEYS.length; i++) {
+    const [t0, v0] = EYE_KEYS[i - 1], [t1, v1] = EYE_KEYS[i], dv = v1 - v0;
+    if (Math.abs(dv) < .1) continue;
+    out.push({ t: Math.max(1, t0), open: dv > 0, amp: Math.min(1, Math.abs(dv)), dur: (t1 - t0) / 60 });
+  }
+  return out;
+})();
 function eyeOpen(t) {
   for (let i = 1; i < EYE_KEYS.length; i++) {
     const [t0, v0] = EYE_KEYS[i - 1], [t1, v1] = EYE_KEYS[i];
@@ -5284,6 +5303,7 @@ function closeDevPanel() {
 
 /* 판을 연 뒤 오프닝을 걷어 내고, 던전이면 모든 길을 열어 둡니다 */
 function devPrepare(dungeon) {
+  Sfx.ring(0);
   startGame(false, 'normal');
   G.opening = null;
   talk.q = []; talk.cb = null;

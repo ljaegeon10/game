@@ -177,8 +177,86 @@ const Sfx = (() => {
     /* 1인칭으로 눈을 껌뻑일 때 — 아주 작고 젖은 소리 */
     blink() { noise(0.045, 0.08, 700, 3200); tone(210, 0.05, 'sine', 0.05, 130); },
 
+    /* 눈꺼풀 — 귀 바로 옆에서 나는 것처럼 아주 가깝고 작게.
+       open  : 붙어 있던 눈꺼풀이 떨어지는 '쩍' (짧은 젖은 틱 두어 개) + 속눈썹이 스치는 바람
+       close : 부드럽게 덮이는 '스윽' 끝에 아주 작은 '톡'
+       amp 0‥1 = 얼마나 크게 떴다 감는지, dur = 움직이는 시간(초) */
+    lid(open, amp = .5, dur = .25) {
+      const c = ctx(), t = c.currentTime, v = .05 + amp * .09;
+      const burst = (at, len, vol, f, q) => {           // 띠 거른 짧은 잡음 — 젖은 틱 · 스침
+        const n = Math.max(32, Math.floor(c.sampleRate * len)), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+        for (let i = 0; i < n; i++) { const e = i / n; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - e, 2) * Math.min(1, e * 40); }
+        const s = c.createBufferSource(); s.buffer = b;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+        const g = c.createGain(); g.gain.value = vol;
+        s.connect(bp); bp.connect(g); g.connect(master); s.start(t + at);
+      };
+      const swish = (at, len, vol, f0, f1) => {         // 거른 잡음이 미끄러지는 스침
+        const n = Math.floor(c.sampleRate * len), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+        const s = c.createBufferSource(); s.buffer = b;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.4;
+        bp.frequency.setValueAtTime(f0, t + at); bp.frequency.exponentialRampToValueAtTime(f1, t + at + len);
+        const g = c.createGain(); g.gain.setValueAtTime(.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(vol, t + at + len * .35); g.gain.exponentialRampToValueAtTime(.0001, t + at + len);
+        s.connect(bp); bp.connect(g); g.connect(master); s.start(t + at); s.stop(t + at + len + .02);
+      };
+      if (open) {
+        burst(0, .012, v * 1.1, 2600, 3); burst(.018 + Math.random() * .01, .009, v * .7, 3400, 4);
+        if (amp > .3) burst(.04, .008, v * .45, 2100, 4);
+        swish(.01, Math.max(.12, dur * .8), v * .35, 900, 2600);
+      } else {
+        swish(0, Math.max(.1, dur * .7), v * .3, 2200, 800);
+        burst(Math.max(.08, dur * .65), .01, v * .6, 1800, 3);
+      }
+    },
+    /* 떨어진 뒤의 귀울림 — 높은 삐이 소리가 눈을 뜰수록 잦아듦 (level 0‥1, 0 이면 멈춤) */
+    ring(level) {
+      const c = ctx();
+      if (!api._ring && level > 0) {
+        const o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain();
+        o.type = 'sine'; o.frequency.value = 6200; o2.type = 'sine'; o2.frequency.value = 6213;   // 살짝 맥놀이
+        g.gain.value = .0001; o.connect(g); o2.connect(g); g.connect(master); o.start(); o2.start();
+        api._ring = { o, o2, g };
+      }
+      if (!api._ring) return;
+      const R = api._ring;
+      R.g.gain.setTargetAtTime(Math.max(.0001, level * .016), c.currentTime, .25);
+      if (level <= 0) { const r = R; api._ring = null; setTimeout(() => { try { r.o.stop(); r.o2.stop(); } catch (e) {} }, 1500); }
+    },
+    /* 먹먹하게 들리는 심장 — 귀를 막은 것처럼 낮게 (두 번 뛰기) */
+    heartMuffled(vol = .2) {
+      const c = ctx(), t = c.currentTime;
+      [[0, 1], [.16, .7]].forEach(([d, k]) => {
+        const o = c.createOscillator(), g = c.createGain(), lp = c.createBiquadFilter();
+        o.type = 'sine'; o.frequency.setValueAtTime(64, t + d); o.frequency.exponentialRampToValueAtTime(38, t + d + .14);
+        lp.type = 'lowpass'; lp.frequency.value = 140;
+        g.gain.setValueAtTime(.0001, t + d); g.gain.exponentialRampToValueAtTime(vol * k, t + d + .012); g.gain.exponentialRampToValueAtTime(.0001, t + d + .2);
+        o.connect(lp); lp.connect(g); g.connect(master); o.start(t + d); o.stop(t + d + .25);
+      });
+    },
+
     /* 정신이 들며 몰아쉬는 숨 */
     breath() { noise(0.42, 0.07, 240, 1500); },
+    /* 들이쉼 · 내쉼 — 들이쉼은 점점 커지고 높아지고, 내쉼은 낮게 빠짐 */
+    inhale(vol = .07, dur = .55) {
+      const c = ctx(), t = c.currentTime, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const s = c.createBufferSource(); s.buffer = b;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = .9;
+      bp.frequency.setValueAtTime(700, t); bp.frequency.linearRampToValueAtTime(1500, t + dur);
+      const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * .8); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + dur + .02);
+    },
+    exhale(vol = .06, dur = .7) {
+      const c = ctx(), t = c.currentTime, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+      const s = c.createBufferSource(); s.buffer = b;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = .8;
+      bp.frequency.setValueAtTime(1100, t); bp.frequency.exponentialRampToValueAtTime(380, t + dur);
+      const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .08); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      s.connect(bp); bp.connect(g); g.connect(master); s.start(t); s.stop(t + dur + .02);
+    },
 
     /* 우물 바닥에 닿는 둔탁한 충격 — 암전 속에서 울리는 저음 */
     landThump(vol = 0.3) {
