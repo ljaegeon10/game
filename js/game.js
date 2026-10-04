@@ -5028,11 +5028,19 @@ const END_SUB = {
   escaped: '2145 / 05 / 20 · 실험체 07 · 이탈 시도 · 진정됨 — 꿈속에서 출구 도달 (세션 142 진행 중)'
 };
 /* from : 'wake' — 침대에서 깨어나 비상구까지 걸어가는 것부터 (엔딩 뒤 기본) · 'door' — 비상구 앞부터 */
+/* 탈출은 창 전체로 — #ending 을 무대 밖(body)으로 꺼냈다가 끝나면 제자리로 */
+function escFull(on) {
+  const e = $('ending');
+  if (on) { if (!e._home) { e._home = { p: e.parentNode, n: e.nextSibling }; document.body.appendChild(e); } document.body.classList.add('escfull'); }
+  else { if (e._home) { e._home.p.insertBefore(e, e._home.n); e._home = null; } document.body.classList.remove('escfull'); }
+}
 function beginEscape(from = 'wake') {
+  escFull(true);
   escapeScene = new EscapeScene($('endcv'), {
     audio: () => Sfx.context(),
     onDone: result => {
       escapeScene = null;
+      escFull(false);
       $('endcard').querySelector('.e-sub').textContent = END_SUB[result] || END_SUB.stay;
       $('endcard').classList.add('on');
     }
@@ -5352,6 +5360,7 @@ function devKillAll() {
 function devReturn() {
   if (endingScene && endingScene.running) endingScene.stop();
   if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
+  escFull(false);
   $('ending').classList.add('hidden');
   $('endcard').classList.remove('on');
   resetRun();
@@ -5380,6 +5389,7 @@ $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
 const STEP = 1000 / 60;
 let lastT = 0, acc = 0;
 
+let _topview = null;
 function loop(now) {
   requestAnimationFrame(loop);
   if (now === undefined) now = performance.now();
@@ -5397,6 +5407,9 @@ function loop(now) {
 
   if (G.mode !== 'ending') render();
   if (RUN.running) updateTimer();
+  // 개발자 모드의 브라운관은 탑뷰 본편에서만 (css body.dev.topview)
+  const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel'].includes(G.mode);
+  if (top !== _topview) { _topview = top; document.body.classList.toggle('topview', top); }
 }
 
 /* 디버그용 (개발/테스트 편의) */

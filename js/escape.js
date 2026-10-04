@@ -1665,7 +1665,7 @@ function drawHud(s, c) {
   const dg = s.danger || 0;
   c.font = `15px ${MONO}`; c.textBaseline = 'middle';
   c.fillStyle = dg > .3 ? `rgba(255,90,80,${.7 + .3 * Math.sin(s.frame * .4)})` : 'rgba(230,241,255,.6)';
-  c.fillText(`뒤  ${Math.max(0, s.dist).toFixed(1)}m`, 26, H - 30);
+  c.fillText(`뒤  ${Math.max(0, s.dist).toFixed(1)}m`, 26, 30);          // 위 왼쪽 — 아래는 자막 자리
   // 처음 한 번씩 조작 알림
   const next = s.obs.find(o => !o.done);
   const hint = (() => {
@@ -1714,12 +1714,12 @@ function drawHud(s, c) {
     c.moveTo(x, y - 16); c.lineTo(x, y - 6); c.moveTo(x, y + 6); c.lineTo(x, y + 16); c.stroke();
     // 탄
     c.textAlign = 'right'; c.font = `15px ${MONO}`;
-    if (s.gun.reload > 0) { c.fillStyle = '#e3b23c'; c.fillText('재장전…', W - 26, H - 30); }
+    if (s.gun.reload > 0) { c.fillStyle = '#e3b23c'; c.fillText('재장전…', W - 26, 30); }
     else {
-      for (let i = 0; i < MAG; i++) { c.fillStyle = i < s.gun.ammo ? '#e9e3d5' : 'rgba(233,227,213,.18)'; c.fillRect(W - 30 - i * 9, H - 40, 5, 16); }
+      for (let i = 0; i < MAG; i++) { c.fillStyle = i < s.gun.ammo ? '#e9e3d5' : 'rgba(233,227,213,.18)'; c.fillRect(W - 30 - i * 9, 22, 5, 16); }
     }
     c.fillStyle = 'rgba(230,241,255,.5)'; c.font = `12px ${MONO}`;
-    c.fillText(`처치 ${s.kills || 0}`, W - 26, H - 56);
+    c.fillText(`처치 ${s.kills || 0}`, W - 26, 52);
     // 처음 줍는 순간 알림
     if (s.gunHint && s.z < ZONE0 + 18) {
       c.textAlign = 'center'; c.font = `16px ${MONO}`;
@@ -1747,7 +1747,7 @@ function bakeOverlay() {
 class EscapeScene {
   constructor(canvas, { audio, onDone } = {}) {
     this.canvas = canvas;
-    canvas.width = W; canvas.height = H;
+    canvas.width = W; canvas.height = H; this.k = 1;
     this.ctx = canvas.getContext('2d');
     this.buf = document.createElement('canvas'); this.buf.width = LW; this.buf.height = LH;
     this.b = this.buf.getContext('2d');
@@ -1836,7 +1836,7 @@ class EscapeScene {
       c.drawImage(fimg, 0, 0);
     }
     if (t < 1000) {                                          // 달리는 중 — 찢어지듯 몇 프레임
-      for (let i = 0; i < 6; i++) { const y = Math.random() * H, h = 6 + Math.random() * 30; c.drawImage(c.canvas, 0, y, W, h, (Math.random() - .5) * 40, y, W, h); }
+      for (let i = 0; i < 6; i++) { const y = Math.random() * H, h = 6 + Math.random() * 30; c.drawImage(c.canvas, 0, y * this.k, W * this.k, h * this.k, (Math.random() - .5) * 40, y, W, h); }
       c.fillStyle = `rgba(255,255,255,${t / (this.realDur || 8) * .35})`; c.fillRect(0, 0, W, H);
     } else {                                                 // 끝 — 눈꺼풀이 다시 내려옴
       const ft = this.t - 420, lid = clamp01((ft - 250) / 120) * H / 2;
@@ -1899,7 +1899,11 @@ class EscapeScene {
   draw() {
     const c = this.ctx;
     this.canvas.style.cursor = this.gun ? 'none' : '';
-    c.setTransform(1, 0, 0, 1, 0, 0);
+    // 보이는 크기만큼 선명하게 — 창 전체로 커지면 캔버스도 키워 그림 (좌표는 그대로 960×540)
+    const want = Math.max(1, Math.min(2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
+    if (want !== this.k) { this.k = want; this.canvas.width = Math.round(W * want); this.canvas.height = Math.round(H * want); }
+    if (this.lab && this.lab.ok && this.lab.k !== this.k) this.lab.setScale(this.k);
+    c.setTransform(this.k, 0, 0, this.k, 0, 0);
     const hi = this.state.hiRes && this.state.hiRes(this);   // 깨어남의 방 — 화면 해상도 그대로
     if (hi) {
       c.imageSmoothingEnabled = true;
@@ -1916,7 +1920,8 @@ class EscapeScene {
         // 느린 기기 — 한 장 그리는 간격이 길면 해상도를 낮추고, 넉넉하면 되돌립니다
         const now = performance.now(), dt = this._t3 ? now - this._t3 : 16; this._t3 = now;
         this._dt3 = this._dt3 == null ? dt : this._dt3 * .95 + Math.min(200, dt) * .05;
-        if (++this._n3 % 60 === 0) { if (this._dt3 > 24) C3.setScale(C3.k * .8); else if (this._dt3 < 15 && C3.k < 1) C3.setScale(C3.k * 1.12); }
+        if (++this._n3 % 60 === 0) { if (this._dt3 > 24) C3.setScale(C3.k * .8); else if (this._dt3 < 15 && C3.k < this.k) C3.setScale(Math.min(this.k, C3.k * 1.12)); }
+        if (this._n3 === 1 && C3.k !== this.k) C3.setScale(this.k);
         const img = C3.render(this.view3d);
         c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H); c.imageSmoothingEnabled = false;
         c.drawImage(this.buf, 0, 0, W, H);

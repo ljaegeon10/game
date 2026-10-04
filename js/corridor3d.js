@@ -533,7 +533,7 @@ class Corridor3D {
   }
   /* 해상도 배율 — 느린 기기에선 낮춰 그리고 화면에 늘려 찍습니다 (투영은 그대로) */
   setScale(k) {
-    k = Math.max(.4, Math.min(1, k)); if (Math.abs(k - this.k) < .01) return;
+    k = Math.max(.4, Math.min(2, k)); if (Math.abs(k - this.k) < .01) return;
     this.k = k; this.canvas.width = Math.round(this.w * k); this.canvas.height = Math.round(this.h * k);
     this.fig.w = this.canvas.width; this.fig.h = this.canvas.height;
   }

@@ -1118,7 +1118,7 @@ function buildArm(m, S, El, Wr, fwd, up, left, band) {
 /* ═════════════ 렌더러 ═══════════════════════════════════════ */
 class LabRoom {
   constructor() {
-    this.canvas = document.createElement('canvas'); this.canvas.width = VW; this.canvas.height = VH;
+    this.canvas = document.createElement('canvas'); this.canvas.width = VW; this.canvas.height = VH; this.k = 1;
     const gl = this.canvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true }) || this.canvas.getContext('experimental-webgl');
     this.ok = !!gl;
     if (!gl) return;
@@ -1156,6 +1156,8 @@ class LabRoom {
     this.lights.push([.3, 2.4, 8.6]);                     // 관찰실 — 모니터의 초록 빛
     this.lights.push([3.4, 2.3, 6.4]);                    // 심전도 모니터 앞
   }
+  /* 해상도 배율 — 창 전체로 크게 보일 때 (투영 비율은 그대로) */
+  setScale(k) { k = Math.max(.5, Math.min(2, k)); if (k === this.k) return; this.k = k; this.canvas.width = Math.round(VW * k); this.canvas.height = Math.round(VH * k); }
   upload(arr) { const gl = this.gl, b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW); return b; }
   bind(buf) {
     const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -1236,7 +1238,7 @@ class LabRoom {
     glass.quad([WIN.x0 + .2, WIN.y1 - .05, RZ1 + .049], [WIN.x0 + .26, WIN.y1 - .05, RZ1 + .049], [WIN.x0 + .1, WIN.y0 + .3, RZ1 + .049], [WIN.x0 + .04, WIN.y0 + .3, RZ1 + .049], [1, 1, 1]);
 
     // ── 그리기
-    gl.viewport(0, 0, VW, VH);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(.02, .03, .045, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
     const eye = [c.x, c.y, c.z];

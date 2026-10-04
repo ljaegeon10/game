@@ -832,8 +832,12 @@ body.dev #credits, body.dev .e-credits{ display:none; }
 /* ── 개발자 모드 — 브라운관 TV ───────────────────────────────
    일반 판의 노란 테두리 대신 짙은 플라스틱 베젤, 모서리가 둥근 유리면.
    맨 위(#crt)에 주사선 · 빨강·초록·파랑 형광 줄 · 가장자리 그늘 · 미세한 깜빡임을 얹어
-   본편 · 엔딩 · 탈출까지 한 대의 브라운관으로 보이게 합니다. */
-body.dev #stage{
+   탑뷰 본편(숲 · 우물 추락 · 던전)만 브라운관으로 — 오프닝 · 엔딩 · 탈출은 아님. */
+body.dev #stage{                      /* 개발자 모드 — 노란 테두리 없이 짙은 얇은 테두리 */
+  box-shadow: 0 0 0 3px #08080a, 0 0 0 5px #2a2930, 0 0 0 7px #121115, 0 24px 60px rgba(0,0,0,.55);
+  transition: box-shadow .35s, border-radius .35s;
+}
+body.dev.topview #stage{              /* 탑뷰 본편일 때만 브라운관 — 두꺼운 베젤 · 둥근 유리 */
   border-radius:16px;
   box-shadow:
     0 0 0 3px #08080a,
@@ -843,7 +847,7 @@ body.dev #stage{
     0 26px 70px rgba(0,0,0,.65);
 }
 #crt{ display:none; }
-body.dev #crt{
+body.dev.topview #crt{
   display:block; position:absolute; inset:0; z-index:90; pointer-events:none;
   border-radius:16px;
   background:
@@ -853,7 +857,7 @@ body.dev #crt{
   box-shadow: inset 0 0 26px rgba(0,0,0,.85), inset 0 0 70px rgba(0,0,0,.45);
   animation:crtflick .11s steps(2) infinite;
 }
-body.dev #crt::after{                 /* 유리에 비친 방 불빛 — 왼쪽 위의 옅은 반사 */
+body.dev.topview #crt::after{                 /* 유리에 비친 방 불빛 — 왼쪽 위의 옅은 반사 */
   content:''; position:absolute; inset:0; border-radius:16px;
   background:linear-gradient(135deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,0) 32%);
 }
@@ -1046,4 +1050,12 @@ body.dev #crt::after{                 /* 유리에 비친 방 불빛 — 왼쪽 
 
 @media (max-width:520px){
   #hint{ font-size:10px; padding:0 12px; }
+}
+
+/* ── 탈출(제4막) — 창 전체로 ───────────────────────────────
+   #ending 을 잠깐 무대(#stage) 밖으로 꺼내 창을 꽉 채우고, 화면은 16:9 로 가운데에. */
+body.escfull #ending{ position:fixed; inset:0; z-index:1000; background:#000; }
+body.escfull #endcv{
+  inset:auto; width:min(100vw, 177.78vh); height:min(56.25vw, 100vh);
+  left:calc(50vw - min(50vw, 88.89vh)); top:calc(50vh - min(28.125vw, 50vh));
 }
