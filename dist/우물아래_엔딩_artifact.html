@@ -4611,7 +4611,10 @@ class EscSfx {
     const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
     src.buffer = this.bgmBuf; src.loop = true;
     src.loopStart = ESC_BGM.loop0; src.loopEnd = Math.min(ESC_BGM.loop1, this.bgmBuf.duration);
-    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(ESC_BGM.vol, t + (at > 0 ? .6 : .08));
+    // 처음부터면 천천히 차오름 — 앞 2마디 빌드업(3.2초) 동안 커져 본편이 터질 때 다 올라옴. 중간부터면 짧게
+    g.gain.setValueAtTime(.0001, t);
+    if (at > 0) g.gain.exponentialRampToValueAtTime(ESC_BGM.vol, t + .6);
+    else { g.gain.linearRampToValueAtTime(ESC_BGM.vol * .12, t + 1.2); g.gain.linearRampToValueAtTime(ESC_BGM.vol * .5, t + 2.6); g.gain.linearRampToValueAtTime(ESC_BGM.vol, t + 3.5); }
     src.connect(g).connect(this.master);
     src.start(t, at < src.loopEnd ? at : ESC_BGM.loop0);
     this.bgmNode = { src, g };
