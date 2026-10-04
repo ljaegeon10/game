@@ -643,11 +643,19 @@ class Lab {
     gl.addColorStop(0, '#1d3046'); gl.addColorStop(1, '#0c141e');
     x.fillStyle = gl; x.fillRect(195, 35, 106, 58);
     const ox = 262 + Math.sin(t * .006) * 3 | 0;
-    x.fillStyle = '#060a0f';
-    x.beginPath(); x.ellipse(ox, 58, 5, 6, 0, 0, 7); x.fill();
-    x.beginPath(); x.moveTo(ox - 11, 93); x.lineTo(ox - 8, 67); x.lineTo(ox + 8, 67); x.lineTo(ox + 11, 93); x.closePath(); x.fill();
-    R('#101a25', ox - 14, 73, 6, 9);                     // 클립보드
-    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox + 1, 57, 2, 1);   // 안경알이 번뜩
+    // 노란 방호복 — 부푼 어깨 · 벨트 · 가슴의 마크, 후드 속 새까만 얼굴창 (어두운 관찰실이라 탁한 노랑)
+    x.fillStyle = '#4e4512';
+    x.beginPath(); x.moveTo(ox - 12, 93); x.lineTo(ox - 11, 70); x.quadraticCurveTo(ox - 10, 65, ox - 5, 65); x.lineTo(ox + 5, 65);
+    x.quadraticCurveTo(ox + 10, 65, ox + 11, 70); x.lineTo(ox + 12, 93); x.closePath(); x.fill();
+    x.fillStyle = '#6f6319'; x.fillRect(ox - 7, 67, 13, 26);
+    R('#0a0a0c', ox - 11, 84, 23, 2); R('#0a0a0c', ox + 6, 85, 3, 4);
+    R('#14120a', ox - 1, 72, 2, 2);
+    x.fillStyle = '#4e4512'; x.beginPath(); x.ellipse(ox, 59, 6.5, 7.5, 0, 0, 7); x.fill();
+    x.fillStyle = '#76691b'; x.beginPath(); x.ellipse(ox, 58, 5.8, 6.6, 0, 0, 7); x.fill();
+    x.fillStyle = '#040507'; x.beginPath(); x.ellipse(ox, 59, 3.4, 4.3, 0, 0, 7); x.fill();
+    R('#101a25', ox - 15, 74, 6, 9);                     // 클립보드
+    R('#0a0a0c', ox - 13, 78, 3, 3);                     // 검은 장갑
+    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox - 2, 56, 2, 1);   // 얼굴창에 빛이 스침
     x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 2;
     x.beginPath(); x.moveTo(205, 92); x.lineTo(230, 36); x.moveTo(222, 92); x.lineTo(240, 52); x.stroke();
 
@@ -2336,9 +2344,14 @@ function buildStatic() {
   m.rbox(chx - .24, chx + .24, df + .42, df + .5, chz - .23, chz + .23, hex('#141b26'), .035);
   m.obox([chx + .02, df + .8, chz + .24], [.22, 0, -.03], [0, .27, .03], [.004, -.004, .035], hex('#141b26'), { s: .1 });
   for (const sx of [-1, 1]) { m.cyl([chx + sx * .22, df + .48, chz + .05], [chx + sx * .22, df + .64, chz + .05], .012, .012, hex('#20262e'), 6); m.rbox(chx + sx * .22 - .03, chx + sx * .22 + .03, df + .64, df + .67, chz - .12, chz + .14, hex('#20262e'), .012); }
-  m.obox([chx + .03, df + .86, chz + .29], [.25, 0, -.03], [0, .04, .01], [.003, -.01, .04], hex('#e6e8e6'));       // 가운 — 어깨
-  m.obox([chx + .04, df + .62, chz + .31], [.22, 0, -.03], [0, .22, .02], [.002, -.002, .012], hex('#dfe2df'));     // 가운 — 등에 늘어진 자락
-  m.obox([chx - .2, df + .55, chz + .2], [.035, 0, 0], [0, .2, -.06], [0, .02, .06], hex('#d8dbd8'));               // 소매
+  // 등받이에 걸쳐 둔 노란 방호복 — 어깨 · 늘어진 자락 · 소매 · 검은 장갑, 의자 위 후드 (새까만 얼굴창)
+  m.obox([chx + .03, df + .86, chz + .29], [.25, 0, -.03], [0, .045, .01], [.003, -.01, .045], hex('#cdb52c'), { s: .3 });
+  m.obox([chx + .04, df + .62, chz + .31], [.22, 0, -.03], [0, .22, .02], [.002, -.002, .014], hex('#c2aa26'), { s: .3 });
+  m.obox([chx - .2, df + .55, chz + .2], [.04, 0, 0], [0, .2, -.06], [0, .02, .06], hex('#bba324'), { s: .3 });
+  m.ellipsoid([chx - .2, df + .34, chz + .14], [.035, 0, 0], [0, .045, 0], [0, 0, .03], hex('#141416'), 8, 6);
+  m.ellipsoid([chx + .08, df + .62, chz - .05], [.13, 0, 0], [0, .1, 0], [0, 0, .12], hex('#cdb52c'), 12, 8, { s: .3 });
+  m.ellipsoid([chx + .08, df + .61, chz - .145], [.08, 0, 0], [0, .085, 0], [0, 0, .04], hex('#060708'), 12, 8, { s: .95 });
+  m.torus([chx + .08, df + .61, chz - .16], [0, 0, 1], .082, .012, hex('#4a4212'), 18, 6);
   // 관찰실 뒷벽 선반 — 바인더
   m.rbox(ox0 + .2, ox1 - .2, df + 1.25, df + 1.28, OBS.z1 - .25, OBS.z1, hex('#2a3442'), .008);
   for (let i = 0; i < 16; i++) { const x = ox0 + .25 + i * .07, hh = .22 + (i % 3) * .03;
@@ -3773,7 +3786,7 @@ const OpenState = {
     s.doorOpen = Math.min(1, s.doorOpen + .022);
     if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보.', 'me', 80); }
     if (t === 76) { s.view = 'back'; s.sfx.chase(.18); s.shake = 4; }      // 휙 돌아봅니다
-    if (t === 82) s.say('흰 가운. 안경알이 번뜩인다.', 'me', 90);
+    if (t === 82) s.say('노란 방호복. 얼굴이 있어야 할 자리가 새까맣다.', 'me', 110);
     if (t === 150) { s.view = 'fwd'; s.shake = 3; }
     s.chaseX = 0;
     if (t >= 160) s.go('run');
@@ -4305,7 +4318,7 @@ function drawObstacles(s, b) {
   }
 }
 
-/* 경비원 — 짙은 제복, 모자 챙 아래 바이저. 겨눌 땐 바이저가 붉게 켜집니다 */
+/* 경비원 — 박사와 같은 노란 방호복. 겨눌 땐 새까만 얼굴창 속이 붉게 켜집니다 */
 function drawGuard(s, b, g) {
   const dz = g.z - s.z, k = FOC / dz;
   const pop = g.st === 'pop' ? clamp01(g.t / 20) : 1;
@@ -4324,27 +4337,12 @@ function drawGuard(s, b, g) {
   }
   b.save();
   b.globalAlpha = pop;
-  const uni = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [40, 50, 78], dz, g.z));
-  const dark = css(shade(s, [16, 18, 24], dz, g.z));
-  // 다리 · 몸통
-  b.fillStyle = dark;
-  [[-.16, -.04], [.04, .16]].forEach(([x0, x1]) => { const a = pt(x0, .9), c = pt(x1, 0); b.fillRect(a[0], a[1], c[0] - a[0], c[1] - a[1]); });
-  quad(b, [pt(-.26, 1.5), pt(.26, 1.5), pt(.22, .86), pt(-.22, .86)], uni);
-  // 총을 든 팔 — 가슴 앞으로 겨눕니다
+  // 방호복 — 총을 든 팔은 가슴 앞으로 겨눕니다. 겨누는 동안 얼굴창 속이 붉게
   const aiming = g.st === 'aim' || g.st === 'cool';
-  b.fillStyle = uni;
-  const arm0 = pt(-.22, 1.36), arm1 = pt(.08, aiming ? 1.3 : 1.05);
-  b.fillRect(arm0[0], arm0[1], arm1[0] - arm0[0], Math.max(1, .1 * k));
-  if (aiming) { b.fillStyle = dark; const gn = pt(.02, 1.36), gn2 = pt(.14, 1.28); b.fillRect(gn[0], gn[1], gn2[0] - gn[0], Math.max(1, gn2[1] - gn[1])); }
-  // 머리 · 모자 · 바이저
-  const hd = pt(0, 1.66);
-  b.fillStyle = css(shade(s, [170, 150, 135], dz, g.z));
-  b.beginPath(); b.arc(hd[0], hd[1], Math.max(1, .12 * k), 0, Math.PI * 2); b.fill();
-  b.fillStyle = dark; const cap = pt(-.15, 1.86), cap2 = pt(.15, 1.74); b.fillRect(cap[0], cap[1], cap2[0] - cap[0], cap2[1] - cap[1]);
-  const vz = pt(-.1, 1.7), vz2 = pt(.1, 1.64);
-  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .15;
-  b.fillStyle = `rgba(255,${60 - lit * 40},${50 - lit * 30},${.4 + lit * .6})`;
-  b.fillRect(vz[0], vz[1], vz2[0] - vz[0], Math.max(1, vz2[1] - vz[1]));
+  const lit = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : .12;
+  drawSuit(b, s, pt, k, dz, g.z, { hit: g.hitT > 0, visor: lit, glint: .35 + .3 * Math.sin(s.frame * .13 + g.z),
+    arms: [[-.28, aiming ? .02 : -.3, aiming ? 1.32 : 1.0, 0], [.28, aiming ? .1 : .3, aiming ? 1.3 : 1.0, 0]] });
+  if (aiming) { b.fillStyle = css(shade(s, [16, 18, 24], dz, g.z)); const gn = pt(.02, 1.37), gn2 = pt(.16, 1.27); b.fillRect(gn[0], gn[1], Math.max(1, gn2[0] - gn[0]), Math.max(1, gn2[1] - gn[1])); }
   // 총구 섬광
   if (g.flash > 0) {
     const m = pt(.14, 1.32);
@@ -4434,54 +4432,95 @@ function drawChaseShadow(s, b) {
   b.beginPath(); b.ellipse(f[0], f[1] - 1, Math.max(1.5, (fr[0] - fl[0]) * .7), 1.6, 0, 0, Math.PI * 2); b.fill();
 }
 
-/* 뒤돌아보면 — 흰 가운, 안경알. 가까울수록 손이 뻗어 옵니다 */
+/* ═════════════ 방호복 — 박사 · 경비원 ═══════════════════════════
+   노란 방호복 한 벌 : 부푼 어깨 · 자루 같은 바지(무릎에서 조임) · 후드 속 새까만
+   얼굴창 · 검은 장갑과 장화 · 검은 벨트와 파우치 · 가슴의 바이오해저드 마크.
+   얼굴은 끝까지 보이지 않습니다 — 얼굴창에 형광등이 스칠 때만 반짝입니다. */
+const SUIT = [214, 196, 44], SUIT_D = [150, 134, 26], SUIT_L = [238, 226, 96], SUIT_K = [14, 14, 16];
+/* 바이오해저드 마크 — 고리 셋 + 가운데 고리. 작으면 점 하나 */
+function bioMark(b, x, y, r, col) {
+  b.fillStyle = col; b.strokeStyle = col;
+  if (r < 2) { b.fillRect(x - .5, y - .5, 1, 1); return; }
+  b.lineWidth = Math.max(.6, r * .26);
+  for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 3;
+    b.beginPath(); b.arc(x + Math.cos(a) * r * .5, y + Math.sin(a) * r * .5, r * .48, a + .9, a + Math.PI * 2 - .9); b.stroke(); }
+  b.beginPath(); b.arc(x, y, r * .34, 0, Math.PI * 2); b.stroke();
+}
+/* 방호복 사람 하나. pt(x, y) : 몸 기준 좌표(m) → 화면, k : 1m 의 화면 크기
+   o : { run, arms:[[어깨x, 손x, 손y]...], hit, visor(얼굴창 불빛 0‥1 · 붉게), glint } */
+function drawSuit(b, s, pt, k, dz, z, o) {
+  const sh = c => css(shade(s, o.hit ? [240, 240, 255] : c, dz, z));
+  const Y = sh(SUIT), YD = sh(SUIT_D), YL = sh(SUIT_L), K = sh(SUIT_K);
+  const w = v => Math.max(1, v * k);
+  b.lineCap = 'round'; b.lineJoin = 'round';
+  // 다리 — 무릎까지 부푼 바지, 그 아래 검은 장화
+  [[-.11, 1], [.11, -1]].forEach(([ox, sg]) => {
+    const ph = (o.run || 0) * sg, swing = Math.sin(ph) * .2, lift = Math.max(0, Math.sin(ph)) * .16;
+    const hip = pt(ox, .9), knee = pt(ox + swing * .55, .48 + lift * .5), foot = pt(ox + swing, .05 + lift);
+    b.strokeStyle = YD; b.lineWidth = w(.2);
+    b.beginPath(); b.moveTo(hip[0], hip[1]); b.lineTo(knee[0], knee[1]); b.stroke();
+    b.strokeStyle = Y; b.lineWidth = w(.15);
+    b.beginPath(); b.moveTo(hip[0], hip[1]); b.lineTo(knee[0], knee[1]); b.stroke();
+    b.strokeStyle = K; b.lineWidth = w(.13);
+    b.beginPath(); b.moveTo(knee[0], knee[1]); b.lineTo(foot[0], foot[1]); b.stroke();
+    b.fillStyle = K; b.beginPath(); b.ellipse(foot[0], foot[1], w(.09), w(.045), 0, 0, Math.PI * 2); b.fill();
+  });
+  // 몸통 — 부푼 어깨에서 허리로, 옆은 어둡게 접힘
+  quad(b, [pt(-.3, 1.5), pt(.3, 1.5), pt(.25, .86), pt(-.25, .86)], Y);
+  quad(b, [pt(-.3, 1.5), pt(-.2, 1.5), pt(-.18, .86), pt(-.25, .86)], YD);
+  quad(b, [pt(.22, 1.5), pt(.3, 1.5), pt(.25, .86), pt(.19, .86)], YD);
+  if (k > 30) { b.strokeStyle = YD; b.lineWidth = Math.max(.6, .012 * k);
+    [[-.12, 1.36, .02, 1.3], [.1, 1.2, -.04, 1.12], [-.08, 1.05, .08, 1.0]].forEach(([x0, y0, x1, y1]) => { const a = pt(x0, y0), c = pt(x1, y1); b.beginPath(); b.moveTo(a[0], a[1]); b.lineTo(c[0], c[1]); b.stroke(); }); }
+  // 벨트 · 파우치
+  const be = pt(-.26, .96), be2 = pt(.26, .9); b.fillStyle = K; b.fillRect(be[0], be[1], be2[0] - be[0], Math.max(1, be2[1] - be[1]));
+  const bu = pt(-.03, .955), bu2 = pt(.03, .905); b.fillStyle = sh([70, 70, 74]); b.fillRect(bu[0], bu[1], Math.max(1, bu2[0] - bu[0]), Math.max(1, bu2[1] - bu[1]));
+  const pu = pt(.15, .95), pu2 = pt(.25, .78); b.fillStyle = K; b.fillRect(pu[0], pu[1], Math.max(1, pu2[0] - pu[0]), Math.max(1, pu2[1] - pu[1]));
+  // 가슴 — 바이오해저드
+  const bm = pt(0, 1.3); bioMark(b, bm[0], bm[1], .075 * k, K);
+  // 팔 — 부푼 소매, 검은 장갑
+  (o.arms || []).forEach(([sx, hx, hy, open]) => {
+    const s0 = pt(sx, 1.45), h = pt(hx, hy), el = pt(lerp(sx, hx, .45) + Math.sign(sx) * .06, lerp(1.45, hy, .5));
+    b.strokeStyle = YD; b.lineWidth = w(.17);
+    b.beginPath(); b.moveTo(s0[0], s0[1]); b.lineTo(el[0], el[1]); b.lineTo(h[0], h[1]); b.stroke();
+    b.strokeStyle = Y; b.lineWidth = w(.12);
+    b.beginPath(); b.moveTo(s0[0], s0[1]); b.lineTo(el[0], el[1]); b.lineTo(h[0], h[1]); b.stroke();
+    const hr = Math.min(7, Math.max(1, .055 * k));
+    b.fillStyle = K; b.beginPath(); b.ellipse(h[0], h[1], hr, hr * .85, 0, 0, Math.PI * 2); b.fill();
+    if (open && hr > 2.5) {                                // 벌린 장갑 손가락
+      b.strokeStyle = K; b.lineWidth = Math.max(1, hr * .38);
+      for (let f = 0; f < 4; f++) { const an = -Math.PI / 2 + (f - 1.5) * .38 * open;
+        b.beginPath(); b.moveTo(h[0], h[1]); b.lineTo(h[0] + Math.cos(an) * hr * 2.1, h[1] + Math.sin(an) * hr * 2.1); b.stroke(); }
+    }
+  });
+  // 후드 — 어깨까지 덮는 둥근 두건, 이음선, 새까만 얼굴창
+  const hd = pt(0, 1.68), hr = Math.max(1.5, .17 * k);
+  b.fillStyle = YD; b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .25, hr * 1.12, hr * 1.12, 0, 0, Math.PI * 2); b.fill();
+  b.fillStyle = Y; b.beginPath(); b.ellipse(hd[0], hd[1], hr, hr * 1.08, 0, 0, Math.PI * 2); b.fill();
+  if (hr > 4) { b.fillStyle = YL; b.beginPath(); b.ellipse(hd[0] - hr * .35, hd[1] - hr * .55, hr * .35, hr * .2, -.5, 0, Math.PI * 2); b.fill(); }
+  b.fillStyle = K; b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .1, hr * .62, hr * .72, 0, 0, Math.PI * 2); b.fill();
+  if (o.visor > 0) {                                       // 얼굴창 속 붉은 불빛 (경비원이 겨눌 때)
+    b.fillStyle = `rgba(255,${60 - o.visor * 40},${50 - o.visor * 30},${.35 + o.visor * .6})`;
+    b.fillRect(hd[0] - hr * .45, hd[1] - hr * .05, hr * .9, Math.max(1, hr * .16));
+  }
+  const gl = o.glint == null ? .7 + .3 * Math.sin(s.frame * .2) : o.glint;    // 형광등이 얼굴창을 스침
+  if (gl > .05) {
+    b.strokeStyle = `rgba(235,245,255,${gl * .85})`; b.lineWidth = Math.max(.6, hr * .1);
+    b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .1, hr * .5, hr * .6, 0, Math.PI * 1.08, Math.PI * 1.42); b.stroke();
+    if (hr > 6) { b.fillStyle = `rgba(235,245,255,${gl * .7})`; b.beginPath(); b.arc(hd[0] + hr * .28, hd[1] - hr * .3, hr * .07, 0, Math.PI * 2); b.fill(); }
+  }
+  b.lineCap = 'butt'; b.lineJoin = 'miter';
+}
+
+/* 뒤돌아보면 — 노란 방호복, 새까만 얼굴창. 가까울수록 검은 장갑이 뻗어 옵니다 */
 function drawPursuer(s, b) {
   const dz = Math.max(.32, s.dist);
   const px = -s.chaseX;                       // 뒤를 보면 좌우가 뒤집힙니다
   const run = s.frame * .32, bob = Math.abs(Math.sin(run)) * .05;
   const pt = (x, y) => P(s, px + x, y + bob, dz);
   const k = FOC / dz;
-  const coat = css(shade(s, [214, 220, 222], dz * .7, s.z));
-  const dark = css(shade(s, [24, 26, 30], dz * .7, s.z));
-  b.lineCap = 'round';
-  // 다리
-  b.strokeStyle = dark; b.lineWidth = Math.max(1, .13 * k);
-  [[-.1, 1], [.1, -1]].forEach(([ox, sg]) => {
-    const hip = pt(ox, .92), foot = pt(ox + Math.sin(run) * .22 * sg, .02 + Math.max(0, Math.sin(run) * sg) * .18);
-    b.beginPath(); b.moveTo(hip[0], hip[1]); b.lineTo(foot[0], foot[1]); b.stroke();
-  });
-  // 가운
-  quad(b, [pt(-.25, 1.52), pt(.25, 1.52), pt(.32, .72), pt(-.32, .72)], coat);
-  b.fillStyle = dark; const tie = pt(0, 1.5), tie2 = pt(0, 1.05);
-  b.fillRect(tie[0] - Math.max(.5, .02 * k), tie[1], Math.max(1, .04 * k), tie2[1] - tie[1]);
-  // 팔 — 가까워질수록 앞으로 뻗습니다
   const reach = clamp01((7 - s.dist) / 6);
-  b.strokeStyle = coat; b.lineWidth = Math.max(1, .1 * k);
-  [[-.27, 1], [.27, -1]].forEach(([ox, sg]) => {
-    const sh = pt(ox, 1.46);
-    const hand = pt(ox * (1 - reach * .4) + Math.sin(run) * .12 * sg * (1 - reach), lerp(1.0, 1.42, reach));
-    const hy = hand[1] + reach * Math.min(k * .05, 10);
-    b.beginPath(); b.moveTo(sh[0], sh[1]); b.lineTo(hand[0], hy); b.stroke();
-    // 손 — 손바닥과 벌어진 손가락 (가까이 와도 너무 커지지 않게)
-    const hr = Math.min(7, Math.max(1, .05 * k));
-    b.fillStyle = css(shade(s, [196, 168, 150], dz * .7, s.z));
-    b.beginPath(); b.ellipse(hand[0], hy, hr, hr * .8, 0, 0, Math.PI * 2); b.fill();
-    if (hr > 2.5) {
-      b.strokeStyle = b.fillStyle; b.lineWidth = Math.max(1, hr * .3);
-      for (let f = 0; f < 4; f++) {
-        const a = -Math.PI / 2 + (f - 1.5) * .38 * sg;
-        b.beginPath(); b.moveTo(hand[0], hy); b.lineTo(hand[0] + Math.cos(a) * hr * 2.1, hy + Math.sin(a) * hr * 2.1); b.stroke();
-      }
-      b.strokeStyle = coat; b.lineWidth = Math.max(1, .1 * k);
-    }
-  });
-  // 머리 · 안경알
-  const hd = pt(0, 1.7);
-  b.fillStyle = dark; b.beginPath(); b.arc(hd[0], hd[1], Math.max(1.5, .14 * k), 0, Math.PI * 2); b.fill();
-  const gl = .7 + .3 * Math.sin(s.frame * .2);
-  b.fillStyle = `rgba(240,250,255,${gl})`;
-  [-.055, .055].forEach(ox => { const e = pt(ox, 1.71); b.fillRect(e[0] - Math.max(.5, .025 * k), e[1] - Math.max(.5, .012 * k), Math.max(1, .05 * k), Math.max(1, .025 * k)); });
-  b.lineCap = 'butt';
+  const arms = [[-.3, 1], [.3, -1]].map(([ox, sg]) => [ox, ox * (1 - reach * .4) + Math.sin(run) * .12 * sg * (1 - reach), lerp(1.0, 1.42, reach) - reach * .03, sg]);
+  drawSuit(b, s, pt, k, dz * .7, s.z, { run, arms });
 }
 
 /* ═════════════ 글자 · 선택지 (원래 해상도) ═══════════════════ */

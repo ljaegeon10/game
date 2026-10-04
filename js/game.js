@@ -4182,7 +4182,7 @@ function renderLanding() {
      DARK 1570‥1690 : 정적. 심장 한 번. 새소리가 번져 옵니다.
      WOOD 1690‥1920 : 숲에서 눈을 뜸 — 나뭇가지 사이 해 질 녘 하늘.
                     첫 깜빡임에 천장 격자가 하늘 위로 한 프레임 겹칩니다.
-       ▸ 지켜보는 이 : 두 번째 깜빡임 사이, 가지 틈에 안경 쓴 머리가 내려다봅니다.
+       ▸ 지켜보는 이 : 두 번째 깜빡임 사이, 가지 틈에 방호복 후드(새까만 얼굴창)가 내려다봅니다.
                     다시 눈을 뜨면 없고 — 새들이 그 자리에서 날아오릅니다.
      (대사)        : "…언제 잠들었지." 외 두 줄 — 이동 중엔 시계가 멈춥니다
      RISE 1920‥2000: 몸을 일으킴 — 시야가 아래로 쏠리며 흐려지고 암전
@@ -4464,19 +4464,24 @@ function drawOpShaft(t, e) {
   g.restore();
 }
 
-/* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 머리 하나, 그리고 날아오르는 새 */
+/* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 방호복 후드 하나, 그리고 날아오르는 새 */
 function drawOpWatcher(w) {
   const hx = W * .63, hy = H * .3;
   if (w >= 58 && w < 100) {
     const k = ease01((w - 58) / 14);
     g.save();
     g.translate(hx + (1 - k) * 26, hy + (1 - k) * 8); g.rotate(-.35);
-    g.fillStyle = '#0a080d';
-    g.beginPath(); g.ellipse(0, 0, 30, 37, 0, 0, Math.PI * 2); g.fill();         // 머리
-    g.beginPath(); g.ellipse(14, 46, 46, 22, -.2, 0, Math.PI * 2); g.fill();     // 어깨
-    g.fillStyle = `rgba(255,226,190,${.8 + Math.sin(w * .5) * .2})`;            // 노을을 받은 안경알
-    g.beginPath(); g.ellipse(-13, 4, 8, 5, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(8, 4, 8, 5, 0, 0, Math.PI * 2); g.fill();
+    // 노을을 등진 방호복 — 거의 그림자, 테두리만 노랗게 빛나고 얼굴창에 노을이 비칩니다
+    g.fillStyle = '#2a250c';
+    g.beginPath(); g.ellipse(14, 50, 52, 26, -.2, 0, Math.PI * 2); g.fill();     // 부푼 어깨
+    g.beginPath(); g.ellipse(0, 0, 33, 40, 0, 0, Math.PI * 2); g.fill();         // 후드
+    g.strokeStyle = 'rgba(214,190,60,.75)'; g.lineWidth = 2.5;
+    g.beginPath(); g.ellipse(0, 0, 32, 39, 0, Math.PI * 1.1, Math.PI * 1.75); g.stroke();
+    g.fillStyle = '#050406';
+    g.beginPath(); g.ellipse(-3, 5, 20, 25, 0, 0, Math.PI * 2); g.fill();        // 얼굴창
+    g.strokeStyle = `rgba(255,214,170,${.7 + Math.sin(w * .5) * .25})`; g.lineWidth = 3; g.lineCap = 'round';
+    g.beginPath(); g.ellipse(-3, 5, 15, 20, 0, Math.PI * 1.05, Math.PI * 1.45); g.stroke();
+    g.lineCap = 'butt';
     g.restore();
   }
   if (w >= 100 && w < 300) {
@@ -4517,7 +4522,7 @@ function renderOpening() {
     if (sink > 0) { const sc = 1 - .62 * sink; g.translate(W / 2, H / 2); g.scale(sc, sc); g.translate(-W / 2, -H / 2); }
     drawOpCeiling(1, -.08 + Math.sin(t * .01) * .01 + (sink ? sink * .5 : 0));
     g.restore();
-    // 가장자리에서 내려다보는 누군가 — 흐릿한 머리와 안경알 (말을 걸 때마다 들여다봅니다)
+    // 가장자리에서 내려다보는 누군가 — 흐릿한 노란 후드와 새까만 얼굴창 (말을 걸 때마다 들여다봅니다)
     [[30, 700], [710, 1190]].forEach(([a0, b0], n) => {
       const a = opT(a0), b = opT(b0);
       if (t <= a || t >= b) return;
@@ -4526,20 +4531,36 @@ function renderOpening() {
       const L = n ? 0 : ease01((t - OP.CR0 - 6) / 30) * (1 - ease01((t - OP.CR1 - 4) / 30));
       const lean = Math.sin(t * .012) * 6 * (1 - L);
       const sc = 1 + L * .55, hx = W * .9 - L * W * .17 + lean, hy = H * .36 + L * H * .05;
+      // 노란 방호복의 후드 — 얼굴 자리는 새까만 얼굴창, 형광등이 그 위를 스칩니다
       g.globalAlpha = .85 * k + L * .1;
-      g.fillStyle = '#1c2026';
+      g.fillStyle = '#6b6118';
+      g.beginPath(); g.ellipse(hx + 8 * sc, hy + 10 * sc, 104 * sc, 118 * sc, -.3, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#9a8b24';
       g.beginPath(); g.ellipse(hx, hy, 95 * sc, 110 * sc, -.3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = `rgba(230,240,255,${.8 + L * .2})`;
-      g.beginPath(); g.ellipse(hx - 90 * sc, hy + 2 * sc, 7 * sc, 4 * sc, -.3, 0, Math.PI * 2); g.fill();
-      if (L > .2) { g.beginPath(); g.ellipse(hx - 40 * sc, hy - 14 * sc, 7 * sc, 4 * sc, -.3, 0, Math.PI * 2); g.fill(); }
+      g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);
+      g.strokeStyle = '#7d7020'; g.lineWidth = 4 * sc;                          // 후드 이음선
+      g.beginPath(); g.ellipse(46 * sc, -6 * sc, 70 * sc, 96 * sc, 0, Math.PI * .85, Math.PI * 1.25); g.stroke();
+      g.fillStyle = '#3e3710';                                                  // 얼굴창 고무 테두리
+      g.beginPath(); g.roundRect(-60 * sc, -74 * sc, 120 * sc, 150 * sc, 46 * sc); g.fill();
+      g.fillStyle = '#07080a';                                                  // 보호면 — 속은 새까맣게
+      g.beginPath(); g.roundRect(-51 * sc, -65 * sc, 102 * sc, 132 * sc, 38 * sc); g.fill();
+      g.strokeStyle = `rgba(230,240,255,${.45 + L * .4})`; g.lineCap = 'round';   // 비스듬히 스친 형광등
+      g.lineWidth = 7 * sc; g.beginPath(); g.moveTo(-34 * sc, -40 * sc); g.lineTo(-12 * sc, -56 * sc); g.stroke();
+      g.lineWidth = 3 * sc; g.beginPath(); g.moveTo(-38 * sc, -22 * sc); g.lineTo(-26 * sc, -31 * sc); g.stroke();
+      if (L > .2) { g.strokeStyle = `rgba(255,90,80,${.25 + L * .3})`; g.lineWidth = 2 * sc;   // 경보의 붉은 빛이 아래 가장자리에
+        g.beginPath(); g.moveTo(-30 * sc, 58 * sc); g.lineTo(30 * sc, 58 * sc); g.stroke(); }
+      g.lineCap = 'butt'; g.restore();
       g.globalAlpha = 1;
     });
     // 저쪽에서 지나가는 또 한 사람 — 조수 (위기 땐 뛰어옵니다)
     if (t > opT(540) && t < opT(700)) {
       const k = (t - opT(540)) / (opT(700) - opT(540));
       g.globalAlpha = .7 * Math.sin(k * Math.PI);
-      g.fillStyle = '#20252c';
-      g.beginPath(); g.ellipse(-40 + k * 170, H * .2 + Math.sin(t * .4) * 3 * cr, 70, 60, .2, 0, Math.PI * 2); g.fill();
+      const ax = -40 + k * 170, ay = H * .2 + Math.sin(t * .4) * 3 * cr;
+      g.fillStyle = '#5c531a';                                                  // 이쪽도 노란 방호복
+      g.beginPath(); g.ellipse(ax, ay, 70, 60, .2, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#08090b';
+      g.beginPath(); g.ellipse(ax + 18, ay + 6, 30, 34, .2, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
     // 펜라이트 — 눈을 가로질러 훑고 지나갑니다

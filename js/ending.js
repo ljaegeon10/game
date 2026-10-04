@@ -556,11 +556,19 @@ class Lab {
     gl.addColorStop(0, '#1d3046'); gl.addColorStop(1, '#0c141e');
     x.fillStyle = gl; x.fillRect(195, 35, 106, 58);
     const ox = 262 + Math.sin(t * .006) * 3 | 0;
-    x.fillStyle = '#060a0f';
-    x.beginPath(); x.ellipse(ox, 58, 5, 6, 0, 0, 7); x.fill();
-    x.beginPath(); x.moveTo(ox - 11, 93); x.lineTo(ox - 8, 67); x.lineTo(ox + 8, 67); x.lineTo(ox + 11, 93); x.closePath(); x.fill();
-    R('#101a25', ox - 14, 73, 6, 9);                     // 클립보드
-    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox + 1, 57, 2, 1);   // 안경알이 번뜩
+    // 노란 방호복 — 부푼 어깨 · 벨트 · 가슴의 마크, 후드 속 새까만 얼굴창 (어두운 관찰실이라 탁한 노랑)
+    x.fillStyle = '#4e4512';
+    x.beginPath(); x.moveTo(ox - 12, 93); x.lineTo(ox - 11, 70); x.quadraticCurveTo(ox - 10, 65, ox - 5, 65); x.lineTo(ox + 5, 65);
+    x.quadraticCurveTo(ox + 10, 65, ox + 11, 70); x.lineTo(ox + 12, 93); x.closePath(); x.fill();
+    x.fillStyle = '#6f6319'; x.fillRect(ox - 7, 67, 13, 26);
+    R('#0a0a0c', ox - 11, 84, 23, 2); R('#0a0a0c', ox + 6, 85, 3, 4);
+    R('#14120a', ox - 1, 72, 2, 2);
+    x.fillStyle = '#4e4512'; x.beginPath(); x.ellipse(ox, 59, 6.5, 7.5, 0, 0, 7); x.fill();
+    x.fillStyle = '#76691b'; x.beginPath(); x.ellipse(ox, 58, 5.8, 6.6, 0, 0, 7); x.fill();
+    x.fillStyle = '#040507'; x.beginPath(); x.ellipse(ox, 59, 3.4, 4.3, 0, 0, 7); x.fill();
+    R('#101a25', ox - 15, 74, 6, 9);                     // 클립보드
+    R('#0a0a0c', ox - 13, 78, 3, 3);                     // 검은 장갑
+    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox - 2, 56, 2, 1);   // 얼굴창에 빛이 스침
     x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 2;
     x.beginPath(); x.moveTo(205, 92); x.lineTo(230, 36); x.moveTo(222, 92); x.lineTo(240, 52); x.stroke();
 
