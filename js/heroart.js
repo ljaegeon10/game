@@ -16,6 +16,8 @@
    전극선은 시트에 굽지 않고 매 프레임 줄(사슬)로 흉내 냅니다 — 매달려
    있다가 바닥에 닿으면 끌리며 따라오도록. CableRig 를 보세요.
 
+   D · E · F 는 원래 노란 주인공을 살린 시안입니다 — 아래 '아바타' 를 보세요.
+
    쓰는 곳 : prototypes/hero.html (시안 비교 페이지)
    ═══════════════════════════════════════════════════════════════ */
 (() => {
@@ -86,7 +88,7 @@ function cyl(ramp, x, y, l, r, base = .62, down = 0) {
 }
 
 /* 마무리 — 안쪽 선과 바깥 외곽선 */
-function finish(B) {
+function finish(B, outline = OUT) {
   const col = B.col.slice();
   for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
     const i = y * FW + x;
@@ -101,7 +103,7 @@ function finish(B) {
   const out = col.slice();
   for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
     if (col[y * FW + x] !== null) continue;
-    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => has(B, x + dx, y + dy))) out[y * FW + x] = OUT;
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => has(B, x + dx, y + dy))) out[y * FW + x] = outline;
   }
   return out;
 }
@@ -327,18 +329,96 @@ function blanketFigure(B, dir, step, look) {
   }
 }
 
+/* ═════════════ 아바타 — 원래 노란 주인공과 사람이 섞인 모습 ═══════════
+   게임 속 주인공은 뇌 시뮬레이션이 피험자 07 위에 씌운 '아바타'입니다.
+   원래 그림(둥근 노란 머리 · 세로로 긴 검은 눈 · 짙은 갈색 외곽선 · 작은 몸)을
+   그대로 따르고, 그 껍데기가 덜 씌워진 자리로 사람이 비칩니다.
+     look.peel  0~1 — 노란 껍데기가 벗겨진 정도 (오른쪽부터, 옆모습은 얼굴 쪽부터)
+     look.body  'yellow' 아바타 몸 · 'gown' 사람 몸 (환자복 · 맨팔 · 맨발)
+     look.feet  'human' 이면 아바타 몸이어도 발만 맨발
+   벗겨진 경계는 형광 청록 격자 — 텍스처가 덜 읽힌 자리 (실험실 장비의 색) */
+const YEL = { fill: '#ffe92a', shade: '#e8c412', deep: '#c49a08', hi: '#fff7a6', line: '#1c0808' };
+const SEAM = ['#00ffd5', '#063a34'];
+const peelWob = y => Math.sin(y * 1.7) * 1.1 + (((y * 7) % 3) - 1) * .7;
+function peeled(dir, peel, x, y) {
+  if (peel <= 0) return false;
+  if (dir === 'left') return x + .5 < 3.5 + peel * 21 + peelWob(y);
+  return x + .5 > 26.5 - peel * 21 + peelWob(y);
+}
+function yellowFlat(nx, ny) {                      // 원래 그림처럼 거의 납작 — 오른쪽 아래 테만 어둡게
+  const r = nx * .55 + ny * .7;
+  return r > .86 ? YEL.deep : r > .7 ? YEL.shade : (nx < -.4 && ny < -.5 && nx > -.66 && ny > -.8) ? YEL.hi : YEL.fill;
+}
+function yellowBody(B, dir, step, look) {
+  const s = STRIDE[step], side = dir === 'left';
+  part(B, true, YEL.line);
+  // 다리 두 토막 — 원래 그림의 짧은 다리
+  const leg = (x, y, h) => { for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < 3; xx++) put(B, x + xx, y + yy, xx === 2 || yy === h - 1 ? YEL.shade : YEL.fill); };
+  if (look.feet !== 'human') {
+    if (side) { leg(12 - s, 28, 4 + (s ? 0 : 0)); if (s) leg(14 + s, 27, 4); }
+    else { leg(10, 28 + Math.max(0, s), 4 - (s < 0 ? 1 : 0)); leg(17, 28 + Math.max(0, -s), 4 - (s > 0 ? 1 : 0)); }
+  }
+  // 몸통
+  part(B, true, YEL.line);
+  const [l, r] = side ? [11.5, 19.5] : [9, 21];
+  for (let y = 20; y < 29; y++) for (let x = l; x < r; x++)
+    put(B, x, y, x >= r - 2 || y === 28 ? YEL.shade : YEL.fill);
+  // 팔 토막 — 걸음과 반대로
+  part(B, true, YEL.line);
+  const nub = (x, y, band) => {
+    for (let yy = 0; yy < 5; yy++) for (let xx = 0; xx < 3; xx++) if (!(yy === 4 && xx !== 1)) put(B, x + xx, y + yy, xx === 2 ? YEL.shade : YEL.fill);
+    if (band) { part(B, false); put(B, x, y + 3, RAMP.band[1]); put(B, x + 1, y + 3, RAMP.band[1]); put(B, x + 2, y + 3, RAMP.band[0]); part(B, true, YEL.line); }
+  };
+  if (side) nub(14 + s, 21, look.band);
+  else { nub(6, 21 - s, dir === 'down' && look.band); nub(21, 21 + s, dir === 'up' && look.band); }
+}
+function avatarShell(B, dir, look) {
+  const side = dir === 'left', peel = look.peel || 0;
+  const hx = 15, hy = 11.6, rx = side ? 10.4 : 11, ry = 10;
+  const inShell = (x, y) => { const nx = (x + .5 - hx) / rx, ny = (y + .5 - hy) / ry; return nx * nx + ny * ny <= 1; };
+  part(B, true, YEL.line);
+  for (let y = 0; y < 23; y++) for (let x = 0; x < FW; x++) {
+    if (!inShell(x, y) || peeled(dir, peel, x, y)) continue;
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inShell(x + dx, y + dy) && peeled(dir, peel, x + dx, y + dy));
+    put(B, x, y, edge ? SEAM[(x + y) & 1] : yellowFlat((x + .5 - hx) / rx, (y + .5 - hy) / ry));
+  }
+  // 세로로 긴 검은 눈 + 흰 반짝 (원래 그림 그대로)
+  part(B, false);
+  const eye = (x0, y0, w) => {
+    for (let y = 0; y < 6; y++) for (let x = 0; x < w; x++) {
+      if ((y === 0 || y === 5) && (x === 0 || x === w - 1)) continue;
+      if (peeled(dir, peel, x0 + x, y0 + y) || !inShell(x0 + x, y0 + y)) continue;
+      put(B, x0 + x, y0 + y, (x === 1 && (y === 1 || y === 2)) ? '#ffffff' : '#050404');
+    }
+  };
+  if (dir === 'down') { eye(9, 8, 4); eye(17, 8, 4); }
+  if (side) eye(5, 8, 3);
+  // 탈처럼 쓴 경우 — 뒷모습 아래로 진짜 뒷머리가 삐져나옴
+  if (dir === 'up' && look.body === 'gown') { part(B, false); [12, 13, 15, 16, 18].forEach((x, k) => put(B, x, 22 + (k & 1), RAMP.hair[1 + (k % 2)])); }
+}
+function avatarFigure(B, dir, step, look) {
+  const human = { kind: 'gown', cap: 'full', band: look.band, cables: look.cables.length };
+  if (look.body === 'gown') { feet(B, dir, step, human); torso(B, dir, human); if (dir !== 'left') arms(B, dir, step, human); }
+  else { if (look.feet === 'human') feet(B, dir, step, human); yellowBody(B, dir, step, look); }
+  if ((look.peel || 0) > 0) head(B, dir, human);               // 껍데기 밑의 진짜 얼굴
+  avatarShell(B, dir, look);
+  if (look.body === 'gown' && dir === 'left') arms(B, dir, step, human);
+}
+
 /* 한 장 */
 function drawFrame(look, dir, step) {
   const B = newBuf();
   const d = dir === 'right' ? 'left' : dir;
-  feet(B, d, step, look);
-  if (look.kind === 'blanket') blanketFigure(B, d, step, look);
+  if (look.kind === 'avatar') avatarFigure(B, d, step, look);
+  else feet(B, d, step, look);
+  if (look.kind === 'avatar') {}
+  else if (look.kind === 'blanket') blanketFigure(B, d, step, look);
   else {
     if (d === 'up') { torso(B, d, look); arms(B, d, step, look); head(B, d, look); }
     else if (d === 'left') { torso(B, d, look); head(B, d, look); arms(B, d, step, look); }
     else { torso(B, d, look); arms(B, d, step, look); head(B, d, look); }
   }
-  let px = finish(B);
+  let px = finish(B, look.kind === 'avatar' ? YEL.line : OUT);
   if (dir === 'right') {                                 // 좌우 뒤집기
     const f = new Array(N);
     for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) f[y * FW + x] = px[y * FW + (FW - 1 - x)];
@@ -403,6 +483,14 @@ class CableRig {
         p.x += vx; p.y += vy; p.z += vz - .35;
         if (p.z < 0) p.z = 0;
       }
+      // 매달린 마디는 등 뒤에만 — 몸을 뚫고 앞으로 넘어오지 않게
+      const bv = dir === 'down' ? [0, -1] : dir === 'up' ? [0, 1] : dir === 'left' ? [1, 0] : [-1, 0];
+      for (let i = 1; i < this.n; i++) {
+        const p = C.nodes[i];
+        if (p.z <= .5) continue;
+        const d = (p.x - ax) * bv[0] + (p.y - ay) * bv[1];
+        if (d < 0) { p.x -= bv[0] * d; p.y -= bv[1] * d; }
+      }
       for (let it = 0; it < 6; it++)                     // 마디 길이 맞추기
         for (let i = 1; i < this.n; i++) {
           const a = C.nodes[i - 1], b = C.nodes[i];
@@ -417,13 +505,13 @@ class CableRig {
     }
   }
   /* 선을 1px 로 — 외곽선을 먼저 깔고 색을 얹음. glow 면 빛이 번짐.
-     keep(마디의 바닥 y) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
+     keep(마디) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
   draw(g, glow = 0, t = 0, keep = null) {
     const pts = C => {
       const out = [];
       for (let i = 1; i < this.n; i++) {
         const a = C.nodes[i - 1], b = C.nodes[i];
-        if (keep && !keep(b.y)) continue;
+        if (keep && !keep(b)) continue;
         const ax = a.x, ay = a.y - a.z, bx = b.x, by = b.y - b.z;
         const len = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay)));
         for (let s = 0; s < len; s++) out.push([Math.round(ax + (bx - ax) * s / len), Math.round(ay + (by - ay) * s / len), i]);
@@ -459,7 +547,16 @@ const LOOKS = {
   B1: { kind: 'pj', cap: 'dots', band: true, cables: [OB.B, OB.R] },
   B2: { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
   B3: { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glow: 1 },
-  C:  { kind: 'blanket', cap: null, band: true, cables: [OB.B, OB.R, OB.Y, OB.W] }
+  C:  { kind: 'blanket', cap: null, band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
+
+  /* 원래 노란 주인공을 살린 시안 — 시뮬레이션이 씌운 아바타와 진짜 사람이 섞임
+     shadow : 그림자를 이 시안(사람)의 실루엣으로 · flicker : 한 프레임씩 사람이 비칠 확률 */
+  D:  { kind: 'avatar', peel: 0, body: 'yellow', band: false, cables: [OB.B, OB.R, OB.Y, OB.W], shadow: 'A', flicker: .004 },
+  E0: { kind: 'avatar', peel: 0, body: 'yellow', band: true, cables: [], flicker: .002 },
+  E1: { kind: 'avatar', peel: .24, body: 'yellow', feet: 'human', band: true, cables: [OB.B, OB.R], flicker: .005 },
+  E2: { kind: 'avatar', peel: .45, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .01 },
+  E3: { kind: 'avatar', peel: .66, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .03, glow: 1 },
+  F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .004 }
 };
 
 window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, bakeSheet, frameIndex, CableRig };

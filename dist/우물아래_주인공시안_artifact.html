@@ -26,6 +26,7 @@
     --hwang: #e3b23c;   /* 오방색 황 — 고른 것 표시에만 */
     --cheong: #2f6fb5; --jeok: #c2352c; --heuk: #15141b;
     --mint: #80aba3;    /* 환자복 */
+    --teal: #00ffd5;    /* 시뮬레이션 경계 */
     --pixel: 'DungGeunMo', ui-monospace, Menlo, Consolas, monospace;
   }
   html, body { background: var(--bg); color: var(--ink); }
@@ -82,21 +83,21 @@
   <header>
     <div class="obang" aria-hidden="true"><i style="background:var(--cheong)"></i><i style="background:var(--ink)"></i><i style="background:var(--jeok)"></i><i style="background:var(--heuk)"></i><i style="background:var(--hwang)"></i></div>
     <p class="eyebrow">우물 아래 · 주인공 시안</p>
-    <h1>피험자 07은 어떻게 생겼을까</h1>
-    <p class="lead">세 가지 안을 지금 주인공 옆에 세웠습니다. 모두 게임 화면에 찍히는 실제 크기(30×36px)로 그렸고, 뒤통수의 전극선은 바닥에 끌리며 따라옵니다.</p>
+    <h1>노란 아바타 속의 피험자 07</h1>
+    <p class="lead">게임 속 주인공은 뇌 시뮬레이션이 실제 사람 위에 씌운 아바타입니다. 원래 노란 주인공은 그대로 두고, 덜 씌워진 틈으로 사람이 비치게 했습니다. 모두 게임 화면에 찍히는 실제 크기(30×36px)이고, 전극선은 바닥에 끌리며 따라옵니다.</p>
   </header>
 
   <section aria-labelledby="h-lineup">
     <h2 id="h-lineup">나란히 보기</h2>
     <div class="lineup">
-      <canvas id="lineup" width="288" height="96" aria-label="현재 주인공과 시안 A, B, C가 제자리에서 걸으며 방향을 바꾸는 모습"></canvas>
-      <div class="tags" aria-hidden="true"><span data-look="now">지금</span><span data-look="A">A</span><span data-look="B" id="tag-b">B</span><span data-look="C">C</span></div>
+      <canvas id="lineup" width="288" height="96" aria-label="현재 주인공과 시안 D, E, F가 제자리에서 걸으며 방향을 바꾸는 모습"></canvas>
+      <div class="tags" aria-hidden="true"><span data-look="now">지금</span><span data-look="D">D</span><span data-look="E" id="tag-b">E</span><span data-look="F">F</span></div>
     </div>
     <div class="cards" id="cards">
-      <button class="card" data-look="now"><b>지금</b>노란 동그라미. 열쇠와 같은 황색이라 화면에서 겹쳐 보입니다.</button>
-      <button class="card" data-look="A"><b>A · 피험자 07</b>연민트 환자복, 맨발, 뇌파 캡, 오방색 전극선 네 가닥.</button>
-      <button class="card" data-look="B"><b>B · 깊어질수록</b>숲에선 잠옷 차림. 내려갈수록 전극과 환자복이 드러나고, 심연에선 선이 빛납니다.</button>
-      <button class="card" data-look="C"><b>C · 병원 담요</b>담요를 뒤집어쓴 실루엣. 귀엽고 조금 으스스합니다.</button>
+      <button class="card" data-look="now"><b>지금</b>원래 주인공. 둥근 노란 머리와 세로로 긴 검은 눈. 세 시안 모두 이 모습에서 출발합니다.</button>
+      <button class="card" data-look="D"><b>D · 그림자만 사람</b>노란 모습은 그대로. 바닥의 그림자가 사람 모양이고, 등 뒤로 전극선이 끌립니다. 가끔 사람이 비칩니다.</button>
+      <button class="card" data-look="E"><b>E · 벗겨지는 아바타</b>내려갈수록 노란 껍데기가 벗겨져 사람 얼굴이 드러납니다. 갈라진 틈은 청록 격자.</button>
+      <button class="card" data-look="F"><b>F · 탈 쓴 사람</b>노란 머리를 탈처럼 쓴 진짜 몸. 환자복, 맨발, 손목 팔찌.</button>
     </div>
   </section>
 
@@ -104,9 +105,9 @@
     <h2 id="h-play">직접 걸어 보기</h2>
     <div class="bar">
       <div class="grp" id="g-look"><span>시안</span>
-        <button data-v="now">지금</button><button data-v="A">A</button><button data-v="B">B</button><button data-v="C">C</button>
+        <button data-v="now">지금</button><button data-v="D">D</button><button data-v="E">E</button><button data-v="F">F</button>
       </div>
-      <div class="grp" id="g-stage"><span>B 단계</span>
+      <div class="grp" id="g-stage"><span>E 단계</span>
         <button data-v="0">1 숲</button><button data-v="1">2 초반</button><button data-v="2">3 깊은 곳</button><button data-v="3">4 심연</button>
       </div>
       <div class="grp" id="g-place"><span>장소</span>
@@ -123,11 +124,11 @@
   <section aria-labelledby="h-notes">
     <h2 id="h-notes">생김새에 숨긴 복선</h2>
     <dl>
-      <dt style="--c:var(--mint)">환자복 · 맨발</dt><dd>엔딩 실험실 침대에 누운 피험자의 옷차림 그대로입니다.</dd>
-      <dt style="--c:var(--ink)">손목 팔찌</dt><dd>1인칭 피스톨 장면의 손에 찬 '07' 팔찌와 같은 물건입니다.</dd>
-      <dt style="--c:var(--cheong)">뇌파 캡 · 전극</dt><dd>엔딩에서 드러나는 뇌파 캡입니다. 꿈속에서도 벗지 못합니다.</dd>
-      <dt style="--c:var(--jeok)">전극선 네 가닥</dt><dd>청 · 적 · 황 · 백. 던전을 물들인 오방색이 이 선의 색이었다는 걸 엔딩에서 알게 됩니다.</dd>
-      <dt style="--c:var(--hwang)">졸린 눈 · 눈 밑 그늘</dt><dd>141번째 세션. 오래 잠들어 있던 얼굴입니다.</dd>
+      <dt style="--c:var(--hwang)">노란 아바타</dt><dd>시뮬레이션이 피험자에게 씌운 게임 속 모습입니다. 원래 주인공 그림을 그대로 따랐습니다.</dd>
+      <dt style="--c:var(--teal)">청록 격자</dt><dd>껍데기가 덜 씌워진 경계입니다. 엔딩의 심전도와 실험실 장비가 내는 형광 청록과 같은 색입니다.</dd>
+      <dt style="--c:var(--mint)">사람 그림자 · 환자복 · 맨발</dt><dd>엔딩 실험실 침대에 누운 피험자의 모습 그대로입니다.</dd>
+      <dt style="--c:var(--cheong)">뇌파 캡 · 전극선 네 가닥</dt><dd>청 · 적 · 황 · 백. 던전을 물들인 오방색이 이 선의 색이었다는 걸 엔딩에서 알게 됩니다.</dd>
+      <dt style="--c:var(--ink)">손목 팔찌 · 졸린 눈</dt><dd>1인칭 피스톨 장면의 '07' 팔찌, 141번째 세션 동안 잠들어 있던 얼굴입니다.</dd>
     </dl>
   </section>
 </main>
@@ -1585,6 +1586,8 @@ function drawPropsPass(g, props, t, refY, front) {
    전극선은 시트에 굽지 않고 매 프레임 줄(사슬)로 흉내 냅니다 — 매달려
    있다가 바닥에 닿으면 끌리며 따라오도록. CableRig 를 보세요.
 
+   D · E · F 는 원래 노란 주인공을 살린 시안입니다 — 아래 '아바타' 를 보세요.
+
    쓰는 곳 : prototypes/hero.html (시안 비교 페이지)
    ═══════════════════════════════════════════════════════════════ */
 (() => {
@@ -1655,7 +1658,7 @@ function cyl(ramp, x, y, l, r, base = .62, down = 0) {
 }
 
 /* 마무리 — 안쪽 선과 바깥 외곽선 */
-function finish(B) {
+function finish(B, outline = OUT) {
   const col = B.col.slice();
   for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
     const i = y * FW + x;
@@ -1670,7 +1673,7 @@ function finish(B) {
   const out = col.slice();
   for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) {
     if (col[y * FW + x] !== null) continue;
-    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => has(B, x + dx, y + dy))) out[y * FW + x] = OUT;
+    if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => has(B, x + dx, y + dy))) out[y * FW + x] = outline;
   }
   return out;
 }
@@ -1896,18 +1899,96 @@ function blanketFigure(B, dir, step, look) {
   }
 }
 
+/* ═════════════ 아바타 — 원래 노란 주인공과 사람이 섞인 모습 ═══════════
+   게임 속 주인공은 뇌 시뮬레이션이 피험자 07 위에 씌운 '아바타'입니다.
+   원래 그림(둥근 노란 머리 · 세로로 긴 검은 눈 · 짙은 갈색 외곽선 · 작은 몸)을
+   그대로 따르고, 그 껍데기가 덜 씌워진 자리로 사람이 비칩니다.
+     look.peel  0~1 — 노란 껍데기가 벗겨진 정도 (오른쪽부터, 옆모습은 얼굴 쪽부터)
+     look.body  'yellow' 아바타 몸 · 'gown' 사람 몸 (환자복 · 맨팔 · 맨발)
+     look.feet  'human' 이면 아바타 몸이어도 발만 맨발
+   벗겨진 경계는 형광 청록 격자 — 텍스처가 덜 읽힌 자리 (실험실 장비의 색) */
+const YEL = { fill: '#ffe92a', shade: '#e8c412', deep: '#c49a08', hi: '#fff7a6', line: '#1c0808' };
+const SEAM = ['#00ffd5', '#063a34'];
+const peelWob = y => Math.sin(y * 1.7) * 1.1 + (((y * 7) % 3) - 1) * .7;
+function peeled(dir, peel, x, y) {
+  if (peel <= 0) return false;
+  if (dir === 'left') return x + .5 < 3.5 + peel * 21 + peelWob(y);
+  return x + .5 > 26.5 - peel * 21 + peelWob(y);
+}
+function yellowFlat(nx, ny) {                      // 원래 그림처럼 거의 납작 — 오른쪽 아래 테만 어둡게
+  const r = nx * .55 + ny * .7;
+  return r > .86 ? YEL.deep : r > .7 ? YEL.shade : (nx < -.4 && ny < -.5 && nx > -.66 && ny > -.8) ? YEL.hi : YEL.fill;
+}
+function yellowBody(B, dir, step, look) {
+  const s = STRIDE[step], side = dir === 'left';
+  part(B, true, YEL.line);
+  // 다리 두 토막 — 원래 그림의 짧은 다리
+  const leg = (x, y, h) => { for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < 3; xx++) put(B, x + xx, y + yy, xx === 2 || yy === h - 1 ? YEL.shade : YEL.fill); };
+  if (look.feet !== 'human') {
+    if (side) { leg(12 - s, 28, 4 + (s ? 0 : 0)); if (s) leg(14 + s, 27, 4); }
+    else { leg(10, 28 + Math.max(0, s), 4 - (s < 0 ? 1 : 0)); leg(17, 28 + Math.max(0, -s), 4 - (s > 0 ? 1 : 0)); }
+  }
+  // 몸통
+  part(B, true, YEL.line);
+  const [l, r] = side ? [11.5, 19.5] : [9, 21];
+  for (let y = 20; y < 29; y++) for (let x = l; x < r; x++)
+    put(B, x, y, x >= r - 2 || y === 28 ? YEL.shade : YEL.fill);
+  // 팔 토막 — 걸음과 반대로
+  part(B, true, YEL.line);
+  const nub = (x, y, band) => {
+    for (let yy = 0; yy < 5; yy++) for (let xx = 0; xx < 3; xx++) if (!(yy === 4 && xx !== 1)) put(B, x + xx, y + yy, xx === 2 ? YEL.shade : YEL.fill);
+    if (band) { part(B, false); put(B, x, y + 3, RAMP.band[1]); put(B, x + 1, y + 3, RAMP.band[1]); put(B, x + 2, y + 3, RAMP.band[0]); part(B, true, YEL.line); }
+  };
+  if (side) nub(14 + s, 21, look.band);
+  else { nub(6, 21 - s, dir === 'down' && look.band); nub(21, 21 + s, dir === 'up' && look.band); }
+}
+function avatarShell(B, dir, look) {
+  const side = dir === 'left', peel = look.peel || 0;
+  const hx = 15, hy = 11.6, rx = side ? 10.4 : 11, ry = 10;
+  const inShell = (x, y) => { const nx = (x + .5 - hx) / rx, ny = (y + .5 - hy) / ry; return nx * nx + ny * ny <= 1; };
+  part(B, true, YEL.line);
+  for (let y = 0; y < 23; y++) for (let x = 0; x < FW; x++) {
+    if (!inShell(x, y) || peeled(dir, peel, x, y)) continue;
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inShell(x + dx, y + dy) && peeled(dir, peel, x + dx, y + dy));
+    put(B, x, y, edge ? SEAM[(x + y) & 1] : yellowFlat((x + .5 - hx) / rx, (y + .5 - hy) / ry));
+  }
+  // 세로로 긴 검은 눈 + 흰 반짝 (원래 그림 그대로)
+  part(B, false);
+  const eye = (x0, y0, w) => {
+    for (let y = 0; y < 6; y++) for (let x = 0; x < w; x++) {
+      if ((y === 0 || y === 5) && (x === 0 || x === w - 1)) continue;
+      if (peeled(dir, peel, x0 + x, y0 + y) || !inShell(x0 + x, y0 + y)) continue;
+      put(B, x0 + x, y0 + y, (x === 1 && (y === 1 || y === 2)) ? '#ffffff' : '#050404');
+    }
+  };
+  if (dir === 'down') { eye(9, 8, 4); eye(17, 8, 4); }
+  if (side) eye(5, 8, 3);
+  // 탈처럼 쓴 경우 — 뒷모습 아래로 진짜 뒷머리가 삐져나옴
+  if (dir === 'up' && look.body === 'gown') { part(B, false); [12, 13, 15, 16, 18].forEach((x, k) => put(B, x, 22 + (k & 1), RAMP.hair[1 + (k % 2)])); }
+}
+function avatarFigure(B, dir, step, look) {
+  const human = { kind: 'gown', cap: 'full', band: look.band, cables: look.cables.length };
+  if (look.body === 'gown') { feet(B, dir, step, human); torso(B, dir, human); if (dir !== 'left') arms(B, dir, step, human); }
+  else { if (look.feet === 'human') feet(B, dir, step, human); yellowBody(B, dir, step, look); }
+  if ((look.peel || 0) > 0) head(B, dir, human);               // 껍데기 밑의 진짜 얼굴
+  avatarShell(B, dir, look);
+  if (look.body === 'gown' && dir === 'left') arms(B, dir, step, human);
+}
+
 /* 한 장 */
 function drawFrame(look, dir, step) {
   const B = newBuf();
   const d = dir === 'right' ? 'left' : dir;
-  feet(B, d, step, look);
-  if (look.kind === 'blanket') blanketFigure(B, d, step, look);
+  if (look.kind === 'avatar') avatarFigure(B, d, step, look);
+  else feet(B, d, step, look);
+  if (look.kind === 'avatar') {}
+  else if (look.kind === 'blanket') blanketFigure(B, d, step, look);
   else {
     if (d === 'up') { torso(B, d, look); arms(B, d, step, look); head(B, d, look); }
     else if (d === 'left') { torso(B, d, look); head(B, d, look); arms(B, d, step, look); }
     else { torso(B, d, look); arms(B, d, step, look); head(B, d, look); }
   }
-  let px = finish(B);
+  let px = finish(B, look.kind === 'avatar' ? YEL.line : OUT);
   if (dir === 'right') {                                 // 좌우 뒤집기
     const f = new Array(N);
     for (let y = 0; y < FH; y++) for (let x = 0; x < FW; x++) f[y * FW + x] = px[y * FW + (FW - 1 - x)];
@@ -1972,6 +2053,14 @@ class CableRig {
         p.x += vx; p.y += vy; p.z += vz - .35;
         if (p.z < 0) p.z = 0;
       }
+      // 매달린 마디는 등 뒤에만 — 몸을 뚫고 앞으로 넘어오지 않게
+      const bv = dir === 'down' ? [0, -1] : dir === 'up' ? [0, 1] : dir === 'left' ? [1, 0] : [-1, 0];
+      for (let i = 1; i < this.n; i++) {
+        const p = C.nodes[i];
+        if (p.z <= .5) continue;
+        const d = (p.x - ax) * bv[0] + (p.y - ay) * bv[1];
+        if (d < 0) { p.x -= bv[0] * d; p.y -= bv[1] * d; }
+      }
       for (let it = 0; it < 6; it++)                     // 마디 길이 맞추기
         for (let i = 1; i < this.n; i++) {
           const a = C.nodes[i - 1], b = C.nodes[i];
@@ -1986,13 +2075,13 @@ class CableRig {
     }
   }
   /* 선을 1px 로 — 외곽선을 먼저 깔고 색을 얹음. glow 면 빛이 번짐.
-     keep(마디의 바닥 y) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
+     keep(마디) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
   draw(g, glow = 0, t = 0, keep = null) {
     const pts = C => {
       const out = [];
       for (let i = 1; i < this.n; i++) {
         const a = C.nodes[i - 1], b = C.nodes[i];
-        if (keep && !keep(b.y)) continue;
+        if (keep && !keep(b)) continue;
         const ax = a.x, ay = a.y - a.z, bx = b.x, by = b.y - b.z;
         const len = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay)));
         for (let s = 0; s < len; s++) out.push([Math.round(ax + (bx - ax) * s / len), Math.round(ay + (by - ay) * s / len), i]);
@@ -2028,7 +2117,16 @@ const LOOKS = {
   B1: { kind: 'pj', cap: 'dots', band: true, cables: [OB.B, OB.R] },
   B2: { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
   B3: { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glow: 1 },
-  C:  { kind: 'blanket', cap: null, band: true, cables: [OB.B, OB.R, OB.Y, OB.W] }
+  C:  { kind: 'blanket', cap: null, band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
+
+  /* 원래 노란 주인공을 살린 시안 — 시뮬레이션이 씌운 아바타와 진짜 사람이 섞임
+     shadow : 그림자를 이 시안(사람)의 실루엣으로 · flicker : 한 프레임씩 사람이 비칠 확률 */
+  D:  { kind: 'avatar', peel: 0, body: 'yellow', band: false, cables: [OB.B, OB.R, OB.Y, OB.W], shadow: 'A', flicker: .004 },
+  E0: { kind: 'avatar', peel: 0, body: 'yellow', band: true, cables: [], flicker: .002 },
+  E1: { kind: 'avatar', peel: .24, body: 'yellow', feet: 'human', band: true, cables: [OB.B, OB.R], flicker: .005 },
+  E2: { kind: 'avatar', peel: .45, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .01 },
+  E3: { kind: 'avatar', peel: .66, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .03, glow: 1 },
+  F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], flicker: .004 }
 };
 
 window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, bakeSheet, frameIndex, CableRig };
@@ -2045,7 +2143,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* ── 시트 ── */
 const SHEET = {};
 Object.keys(LOOKS).forEach(k => { SHEET[k] = bakeSheet(LOOKS[k]); });
-const B_STAGES = ['B0', 'B1', 'B2', 'B3'];
+const B_STAGES = ['E0', 'E1', 'E2', 'E3'];
 const STAGE_NAME = ['숲', '초반', '깊은 곳', '심연'];
 const STAGE_PLACE = ['forest', 'well', 'ward', 'arena'];
 const PLACE_DEPTH = { forest: 0, well: 1, ward: 4, arena: 8 };
@@ -2071,12 +2169,26 @@ function drawFigure(g, who, st, t) {
   const rig = st.rigs[who];
   if (rig) rig.update(fx, fy - 1, 17 - bob, dir);
   const glow = look.glow ? 1 : 0;
-  const behind = dir === 'up' ? null : y => y <= fy + 1;
-  const front = dir === 'up' ? () => true : y => y > fy + 1;
-  if (rig && dir !== 'up') rig.draw(g, glow, t, behind);
-
+  // 뒷모습이면 선이 전부 몸 앞, 그 밖엔 매달린 부분은 몸 뒤 · 발 앞 바닥에 놓인 부분만 앞
+  const behind = n => n.z > 2 || n.y <= fy + 1;
+  const front = dir === 'up' ? () => true : n => !behind(n);
   const sx = Math.round(fx - FW / 2), sy = Math.round(fy - 34 + bob);
   const fi = frameIndex(dir, Math.floor(anim) % 4);
+
+  // 그림자 — 노란 모습이 아니라 사람의 실루엣이 오른쪽 아래로 길게 드리움
+  if (look.shadow) {
+    g.save(); g.globalAlpha = .62;
+    g.translate(fx, fy + 1); g.transform(1, 0, -.55, -.5, 0, 0);
+    g.drawImage(SILHOUETTE[look.shadow], fi * FW, 0, FW, FH, -FW / 2, -34, FW, FH);
+    g.restore();
+  }
+  if (rig && dir !== 'up') rig.draw(g, glow, t, behind);
+
+  // 사람이 비치는 순간 — 몇 프레임 동안 진짜 모습이 띠로 섞여 보임
+  if (look.flicker && !reduce) {
+    if (st.flick > 0) st.flick--;
+    else if (Math.random() < look.flicker) st.flick = 3 + (Math.random() * 6 | 0);
+  }
   const glitch = glow && !reduce && (t % 140) < 7;
   if (glitch) {                                     // 심연 — 몸이 띠로 밀리고 색이 갈라짐
     for (let b = 0; b < 4; b++) {
@@ -2087,8 +2199,28 @@ function drawFigure(g, who, st, t) {
     g.drawImage(SHEET[who], fi * FW, 0, FW, FH, sx - 2, sy, FW, FH);
     g.restore();
   } else g.drawImage(SHEET[who], fi * FW, 0, FW, FH, sx, sy, FW, FH);
+  if (st.flick > 0 && look.kind === 'avatar') {
+    const real = SHEET.A;
+    for (let y0 = 0; y0 < FH; y0 += 3) {
+      const h = ((y0 * 31 + t * 17) % 13) / 13;
+      if (h < .4) continue;
+      g.drawImage(real, fi * FW, y0, FW, 3, sx + (h > .85 ? 1 : h < .5 ? -1 : 0), sy + y0, FW, 3);
+    }
+    g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .22;
+    g.drawImage(TEAL.A, fi * FW, 0, FW, FH, sx + 1, sy, FW, FH);
+    g.restore();
+  }
   if (rig) rig.draw(g, glow, t, front);
 }
+/* 시트를 한 색으로 — 그림자(검정) · 비칠 때의 청록 잔상 */
+function tint(sheet, color) {
+  const c = document.createElement('canvas'); c.width = sheet.width; c.height = sheet.height;
+  const x = c.getContext('2d'); x.drawImage(sheet, 0, 0);
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+const SILHOUETTE = { A: tint(SHEET.A, '#000') };
+const TEAL = { A: tint(SHEET.A, '#00ffd5') };
 function newState(fx, fy) {
   const rigs = {};
   Object.keys(LOOKS).forEach(k => { if (LOOKS[k].cables.length) rigs[k] = new CableRig(LOOKS[k].cables); });
@@ -2097,12 +2229,12 @@ function newState(fx, fy) {
 
 /* ═════════════ 나란히 보기 ═════════════════════════════════════
    네 칸에서 제자리걸음 — 바닥만 뒤로 흘러서 전극선이 뒤로 끌립니다.
-   B 칸은 네 단계를 차례로 보여 줍니다. */
+   E 칸은 네 단계를 차례로 보여 줍니다. */
 const LU = document.getElementById('lineup'), lg = LU.getContext('2d');
 lg.imageSmoothingEnabled = false;
 const SLOT = 72, LH = 96;
-const SLOTS = ['now', 'A', 'B', 'C'];
-const SLOT_PLACE = { now: 'well', A: 'ward', B: 'forest', C: 'well' };
+const SLOTS = ['now', 'D', 'E', 'F'];
+const SLOT_PLACE = { now: 'well', D: 'ward', E: 'forest', F: 'well' };
 const luState = SLOTS.map(() => newState(0, 0));
 let floorCache = {};
 function floorOf(place) {
@@ -2118,12 +2250,12 @@ let tagStage = -1;
 function drawLineup(t) {
   lg.fillStyle = '#000'; lg.fillRect(0, 0, LU.width, LU.height);
   const bs = Math.floor(t / 150) % 4;
-  if (bs !== tagStage) { tagStage = bs; tagB.textContent = `B · ${bs + 1} ${STAGE_NAME[bs]}`; }
+  if (bs !== tagStage) { tagStage = bs; tagB.textContent = `E · ${bs + 1} ${STAGE_NAME[bs]}`; }
   SLOTS.forEach((key, i) => {
     const st = luState[i];
     const stage = Math.floor(t / 150) % 4;
-    const who = key === 'B' ? B_STAGES[stage] : key;
-    const place = key === 'B' ? STAGE_PLACE[stage] : SLOT_PLACE[key];
+    const who = key === 'E' ? B_STAGES[stage] : key;
+    const place = key === 'E' ? STAGE_PLACE[stage] : SLOT_PLACE[key];
     const dir = TURN[Math.floor(t / 150 + i * .5) % 4];
     if (dir !== st.dir) st.dir = dir;
     // 걸음 — 세상 쪽 좌표는 앞으로 가고, 칸 안의 그림은 제자리
@@ -2155,12 +2287,12 @@ const ROOM = document.createElement('canvas'); ROOM.width = W; ROOM.height = H; 
 const g = ROOM.getContext('2d');
 g.imageSmoothingEnabled = false;
 let zoom = innerWidth < 700 ? 3 : 1;                // 좁은 화면에선 처음부터 확대
-let look = 'A', stage = 2, place = 'ward', placeTouched = false;
+let look = 'E', stage = 2, place = 'ward', placeTouched = false;
 const P = newState(W / 2, H / 2 + 30);
 const keys = {};
 let target = null, idle = 0, wander = null;
 
-function currentWho() { return look === 'B' ? B_STAGES[stage] : look; }
+function currentWho() { return look === 'E' ? B_STAGES[stage] : look; }
 
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -2225,7 +2357,7 @@ function drawScene(t) {
   }
   // 왼쪽 위 — 지금 보는 시안
   sg.font = '12px DungGeunMo, monospace'; sg.textBaseline = 'top';
-  const label = look === 'now' ? '지금 주인공' : look === 'B' ? `시안 B · ${stage + 1} ${STAGE_NAME[stage]}` : `시안 ${look}`;
+  const label = look === 'now' ? '지금 주인공' : look === 'E' ? `시안 E · ${stage + 1} ${STAGE_NAME[stage]}` : `시안 ${look}`;
   sg.fillStyle = 'rgba(0,0,0,.6)'; sg.fillRect(8, 8, sg.measureText(label).width + 12, 18);
   sg.fillStyle = '#e9e3d5'; sg.fillText(label, 14, 11);
 }
@@ -2236,14 +2368,14 @@ function press(group, v) {
 }
 function sync() {
   press('g-look', look); press('g-stage', stage); press('g-place', place); press('g-zoom', zoom);
-  document.getElementById('g-stage').hidden = look !== 'B';
+  document.getElementById('g-stage').hidden = look !== 'E';
   document.querySelectorAll('#cards .card').forEach(c => c.setAttribute('aria-pressed', c.dataset.look === look));
   document.querySelectorAll('.tags span').forEach(c => c.classList.toggle('on', c.dataset.look === look));
 }
 function setLook(v) {
   look = v;
-  if (look === 'B') place = STAGE_PLACE[stage];
-  else if (!placeTouched) place = look === 'C' ? 'well' : 'ward';
+  if (look === 'E') place = STAGE_PLACE[stage];
+  else if (!placeTouched) place = look === 'F' ? 'well' : 'ward';
   sync();
 }
 document.querySelectorAll('#g-look button').forEach(b => b.onclick = () => setLook(b.dataset.v));
