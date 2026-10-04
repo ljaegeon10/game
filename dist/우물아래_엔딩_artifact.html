@@ -4939,6 +4939,7 @@ const GLANCE = { yaw: .5, pitch: .14 };                 // 앉은 채 고개를 
 const lerpA = (a, b, k) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * k; };
 const camLerp = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: lerp(a.z, b.z, k), yaw: lerpA(a.yaw, b.yaw, k), pitch: lerp(a.pitch, b.pitch, k), roll: lerp(a.roll || 0, b.roll || 0, k) });
 /* 돌아다니며 다가가면 — 던전에서 본 것이 무엇이었는지 */
+const STRIDE = .75;                                     // 한 걸음 (m)
 const ROAM_SPOTS = [
   { at: [-2.75, 6.55], r: 1.9, lines: [['골격 모형. …해골은 이거였다.', 'me']] },
   { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불.', 'me'], ['열쇠는… 키카드였다.', 'me']] },
@@ -4970,7 +4971,7 @@ const WakeState = {
     if (k === 'wire')  { const i = s.wirePull.findIndex(v => v === 0); s.wirePull[i] = .01; s.sfx.snap(); s.shake = 2; }
     if (k === 'iv')    { s.ivOut = true; s.ivT = 0; s.sfx.wince(); s.shake = 4; s.flash = .5; s.wt = 0; }
     if (k === 'stand') { s.wk = 'stand'; s.wt = 0; s.sfx.sheet(); }
-    if (k === 'door')  { s.wk = 'leave'; s.wt = 0; s.sfx.door(); }
+    if (k === 'door')  { s.wk = 'leave'; s.wt = 0; s.sfx.door(); s.unlock(); }
   },
   ask(s, key, text, hold = false, keyLabel = null) { s.prompt = { key, text, hold, age: 0, keyLabel }; },
   update(s) {
@@ -5029,7 +5030,8 @@ const WakeState = {
       if (t === 380) {
         s.wk = 'roam'; s.wt = 0;
         s.cam = { ...CAM_STAND };
-        WakeState.ask(s, 'roam', '걷기 · 둘러보기 · 문을 찾는다', true, s.touch ? '왼쪽 끌기 · 오른쪽 끌기' : 'WASD · 드래그 / ← →');
+        WakeState.ask(s, 'roam', '걷기 · 둘러보기 · 문을 찾는다', true, s.touch ? '왼쪽 끌기 · 오른쪽 끌기' : 'WASD · 마우스로 둘러보기');
+        s.gait = 0; s.walkV = 0; s.gaitAmp = 0; s.swayPrev = 0;
       }
     }
     else if (s.wk === 'roam') WakeState.roam(s, t);
@@ -5074,21 +5076,33 @@ const WakeState = {
     if (H.has('ArrowLeft')) turn -= 1;
     if (H.has('ArrowRight')) turn += 1;
     fw += -s.stick[1]; st += s.stick[0];                // 터치 — 왼쪽 끌기
-    c.yaw += turn * .032 + s.lookDX * .0045; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0045 + tilt));
+    // 마우스 — 누르지 않고 움직이기만 해도 둘러봄 (잠금 중이면 끝없이). 잠기지 않았으면 화면 끝에 대고 있으면 천천히 돎
+    if (!s.locked && s.mouseIn && s.mx != null) { const ex = s.mx / W; if (ex < .04) turn -= .55 * (1 - ex / .04); else if (ex > .96) turn += .55 * ((ex - .96) / .04); }
+    c.yaw += turn * .032 + s.lookDX * .0032; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 + tilt));
     s.lookDX = 0; s.lookDY = 0;
-    const ml = Math.hypot(fw, st);
-    if (ml > .05) {
-      const k = Math.min(1, ml), sp = .03 * k / ml;
+    // 걷기 — 속도는 천천히 붙고 천천히 풀림. 한 걸음 0.75m, 발이 닿을 때 가라앉고 디딘 발 쪽으로 살짝 실림
+    const ml = Math.hypot(fw, st), want = ml > .05 ? .026 * Math.min(1, ml) : 0;
+    s.walkV = lerp(s.walkV || 0, want, want > (s.walkV || 0) ? .06 : .12);
+    if (s.walkV > .0015) {
+      if (ml > .05) { s.walkDir = [fw / ml, st / ml]; }
+      const [dF, dS] = s.walkDir || [1, 0], sp = s.walkV;
       const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
       const ox = c.x, oz = c.z;
-      [c.x, c.z] = LabRoom.collide(c.x + (fx * fw + fz * st) * sp, c.z + (fz * fw - fx * st) * sp);
+      [c.x, c.z] = LabRoom.collide(c.x + (fx * dF + fz * dS) * sp, c.z + (fz * dF - fx * dS) * sp);
       const moved = Math.hypot(c.x - ox, c.z - oz);
-      s.bob += moved * 9; s.stepAcc += moved;
-      if (s.stepAcc > .62) { s.stepAcc = 0; s.sfx.step(.08); }
+      const before = Math.floor(s.gait / Math.PI);
+      s.gait += moved / STRIDE * Math.PI;
+      if (Math.floor(s.gait / Math.PI) !== before) s.sfx.step(.05 + s.walkV * 1.6);      // 발이 닿는 순간
       if (s.prompt && s.prompt.key === 'roam' && s.prompt.age > 40) s.prompt = null;
     }
-    c.y = 1.62 + Math.sin(s.bob * 2) * .022;
-    c.roll = Math.sin(s.bob) * .006;
+    const amp = Math.min(1, s.walkV / .026);
+    s.gaitAmp = lerp(s.gaitAmp || 0, amp, .08);
+    const g = s.gait, A = s.gaitAmp;
+    c.y = 1.62 - (1 - Math.cos(2 * g)) * .5 * .034 * A;                     // 디딜 때 가장 낮고 발 사이에서 가장 높음
+    c.roll = Math.sin(g) * .011 * A;                                       // 디딘 발 쪽으로 실림
+    c.pitch += (Math.cos(2 * g) * .006 - .002) * A * 0;                    // (고개는 흔들지 않음 — 멀미)
+    const sway = Math.sin(g) * .018 * A, rx = Math.cos(c.yaw), rz = -Math.sin(c.yaw);
+    c.x += (sway - (s.swayPrev || 0)) * rx; c.z += (sway - (s.swayPrev || 0)) * rz; s.swayPrev = sway;
     // 다가가면 혼잣말 (하나씩 차례로)
     ROAM_SPOTS.forEach((sp, i) => {
       if (s.spotSaid[i] >= sp.lines.length || s.busyT > 0) return;
@@ -5117,6 +5131,10 @@ const WakeState = {
   },
   /* 화면 해상도 위에 얹는 것 — 어지러움 · 눈꺼풀 · 붉은 번쩍 · 암전 */
   drawOver(s, c, img) {
+    if (s.wk === 'roam' && !s.touch) {                   // 돌아다닐 땐 커서 대신 가운데 작은 점
+      c.fillStyle = 'rgba(0,0,0,.5)'; c.beginPath(); c.arc(W / 2, H / 2, 3.2, 0, Math.PI * 2); c.fill();
+      c.fillStyle = 'rgba(235,242,250,.75)'; c.beginPath(); c.arc(W / 2, H / 2, 2, 0, Math.PI * 2); c.fill();
+    }
     if (s.dizzy > .02) { c.save(); c.globalAlpha = .34 * s.dizzy; c.drawImage(img, Math.sin(s.frame * .07) * 18 * s.dizzy, 0, W, H); c.restore(); }
     if (s.wk === 'ceil') {
       const t = s.wt;
@@ -6357,7 +6375,7 @@ class EscapeScene {
     };
     this.held = new Set();                               // 누르고 있는 걷기 키 · 손가락
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
+    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'onLock', 'onLeave'].forEach(k => this[k] = this[k].bind(this));
     this.running = false;
   }
   /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
@@ -6385,6 +6403,9 @@ class EscapeScene {
     addEventListener('pointerup', this.onUp); addEventListener('pointercancel', this.onUp);
     this.canvas.addEventListener('pointerdown', this.onDown);
     this.canvas.addEventListener('pointermove', this.onMove);
+    this.canvas.addEventListener('pointerleave', this.onLeave);
+    document.addEventListener('pointerlockchange', this.onLock);
+    this.locked = false; this.mouseIn = false;
     this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
     this.canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
     this.canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
@@ -6403,6 +6424,9 @@ class EscapeScene {
     this.canvas.removeEventListener('touchmove', this.onTouchMove);
     this.sfx.stopAll();
     this.canvas.style.imageRendering = '';
+    this.canvas.removeEventListener('pointerleave', this.onLeave);
+    document.removeEventListener('pointerlockchange', this.onLock);
+    this.unlock();
     if (this.subEl) { this.subEl.remove(); if (this.subMap) this.subMap.clear(); }
   }
   finish(result) { this.stop(); this.onDone(result); }
@@ -6488,7 +6512,7 @@ class EscapeScene {
   }
   draw() {
     const c = this.ctx;
-    this.canvas.style.cursor = this.gun ? 'none' : '';
+    this.canvas.style.cursor = this.gun || (this.stateName === 'wake' && this.wk === 'roam' && !this.touch) ? 'none' : '';
     // 보이는 크기만큼 선명하게 — 창 전체로 커지면 캔버스도 키워 그림 (좌표는 그대로 960×540)
     const want = Math.max(1, Math.min(2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
     if (want !== this.k) { this.k = want; this.canvas.width = Math.round(W * want); this.canvas.height = Math.round(H * want); }
@@ -6590,14 +6614,30 @@ class EscapeScene {
     return [(clientX - r.left) * W / r.width, (clientY - r.top) * H / r.height];
   }
   onMove(e) {
+    const roam = this.stateName === 'wake' && this.wk === 'roam' && e.pointerType !== 'touch';
+    if (roam) {                                           // 누르지 않아도 — 움직인 만큼 둘러봄
+      const r = this.canvas.getBoundingClientRect(), k = W / (r.width || W);
+      const mx = e.movementX || 0, my = e.movementY || 0;
+      // 화면에 처음 들어오는 순간 · 튀는 값(창 밖에서 들어올 때 수백 픽셀)은 버림
+      if (this.mouseIn && Math.abs(mx) < 160 && Math.abs(my) < 160) { this.lookDX += mx * k; this.lookDY += my * k; }
+      this.mouseIn = true;
+      if (!this.locked) { const [x, y] = this.toLocal(e.clientX, e.clientY); this.mx = x; this.my = y; }
+      return;
+    }
     const [x, y] = this.toLocal(e.clientX, e.clientY); this.mx = x; this.my = y;
     if (this.drag && this.stateName === 'wake' && e.pointerType !== 'touch') {   // 끌어서 둘러보기
       this.lookDX += x - this.drag[0]; this.lookDY += y - this.drag[1]; this.drag = [x, y];
     }
   }
+  onLock() { this.locked = document.pointerLockElement === this.canvas; }
+  onLeave() { if (!this.locked) this.mouseIn = false; }
+  unlock() { if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock(); }
   onDown(e) {
     if (this.stateName === 'wake') {
       if (e.pointerType === 'touch') return;
+      if (this.wk === 'roam' && !this.locked && this.canvas.requestPointerLock) {   // 한 번 누르면 마우스를 잠가 끝없이 돌릴 수 있게
+        try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* 막힌 환경 — 끝에 대고 돌리기 */ }
+      }
       const [x, y] = this.toLocal(e.clientX, e.clientY); this.drag = [x, y];
       if (this.wk === 'hall') this.held.add('ptr');
       this.act('ok'); return;
