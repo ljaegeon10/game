@@ -80,7 +80,7 @@ const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 /* ═════════════ 소리 ═══════════════════════════════════════ */
 /* 탈출 브금의 반복 구간 · 음량 — tools/make_escape_bgm.py 가 찍어 준 값 */
-const ESC_BGM = { loop0: 38.360, loop1: 73.560, vol: .36 };
+const ESC_BGM = { loop0: 44.760, loop1: 79.960, vol: .44, drop: 9.82 };   // drop — 본편이 터지는 자리 (초)
 class EscSfx {
   constructor(audioFn) { this.audioFn = audioFn; this.ac = null; }
   ctx() {
@@ -233,10 +233,18 @@ class EscSfx {
     const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
     src.buffer = this.bgmBuf; src.loop = true;
     src.loopStart = ESC_BGM.loop0; src.loopEnd = Math.min(ESC_BGM.loop1, this.bgmBuf.duration);
-    // 처음부터면 천천히 차오름 — 앞 2마디 빌드업(3.2초) 동안 커져 본편이 터질 때 다 올라옴. 중간부터면 짧게
+    // 처음부터면 앞 6마디(9.6초) 동안 아주 작게서 천천히 차오르다가, 본편이 터지는 박자에 맞춰 단숨에 최대로.
+    // 중간부터면 짧게
+    const V = ESC_BGM.vol, D = ESC_BGM.drop;
     g.gain.setValueAtTime(.0001, t);
-    if (at > 0) g.gain.exponentialRampToValueAtTime(ESC_BGM.vol, t + .6);
-    else { g.gain.linearRampToValueAtTime(ESC_BGM.vol * .12, t + 1.2); g.gain.linearRampToValueAtTime(ESC_BGM.vol * .5, t + 2.6); g.gain.linearRampToValueAtTime(ESC_BGM.vol, t + 3.5); }
+    if (at > 0) g.gain.exponentialRampToValueAtTime(V, t + .6);
+    else {
+      g.gain.linearRampToValueAtTime(V * .04, t + 2);
+      g.gain.linearRampToValueAtTime(V * .14, t + 5);
+      g.gain.linearRampToValueAtTime(V * .34, t + 8);
+      g.gain.linearRampToValueAtTime(V * .45, t + D - .12);
+      g.gain.linearRampToValueAtTime(V, t + D);                 // 터짐
+    }
     src.connect(g).connect(this.master);
     src.start(t, at < src.loopEnd ? at : ESC_BGM.loop0);
     this.bgmNode = { src, g };

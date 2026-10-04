@@ -198,25 +198,48 @@ precision mediump float;
 varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
 uniform vec3 uL[12]; uniform vec3 uLC[12]; uniform int uNL;
 uniform vec3 uEye; uniform vec3 uFog; uniform float uFogD; uniform float uDim; uniform float uAlpha;
-uniform vec3 uAmb; uniform sampler2D uTex; uniform vec4 uRoom;
+uniform vec3 uAmb; uniform sampler2D uTex; uniform vec4 uRoom; uniform float uPB[8];
+float h3(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vn(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),
+             mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
+/* 천장 형광등 판 i 의 밝기 (깜빡임) */
+float panelB(vec3 p){ float b=1.0; for(int i=0;i<8;i++){ vec3 d=p-uL[i]; if(abs(d.x)<0.8 && abs(d.z)<0.4) b=uPB[i]; } return b; }
+/* 형광등 판 아래로 떨어지는 빛 — 판 바로 밑이 가장 밝고 둘레로 갈수록 빠르게 어두워짐 (추격 복도의 빛 고임) */
+float pool(vec3 p, vec3 L){ vec2 d=abs(p.xz-L.xz); d=max(d-vec2(0.7,0.25),0.0); float r=length(d); return 1.0/(1.0+r*r*1.6); }
 void main(){
   vec3 c=vC;
   if(vUV.x>=0.0){ vec4 t=texture2D(uTex,vUV); c*=t.rgb; }
   vec3 col;
-  if(vE>0.5 && vE<1.5){ col=c; }
+  if(vE>0.5 && vE<1.5){ col=c; if(vP.y>2.85) col*=panelB(vP); }
   else{
     vec3 n=normalize(vN), V=normalize(uEye-vP);
     if(dot(n,V)<0.0) n=-n;
     float sp=vE>1.5 ? vE-2.0 : 0.0;
-    vec3 acc=uAmb, spec=vec3(0.0);
+    bool floorF = n.y>0.9 && vP.y<0.02 && vP.z<uRoom.w;
+    if(floorF) sp=0.5;                                    // 비닐 바닥 — 형광등이 비침 (추격 복도와 같은 결)
+    if(sp<0.05) c*=0.9+0.2*vn(vP*vec3(1.6,1.6,1.6));       // 넓은 얼룩 — 고른 색이 평평해 보이지 않게
+    vec3 acc=uAmb*(0.7+0.3*n.y), spec=vec3(0.0);
     for(int i=0;i<12;i++){
       if(i>=uNL) break;
       vec3 L=uL[i]-vP; float d=length(L); L/=d;
-      float df=max(dot(n,L),0.0)*0.8+0.2, at=1.0/(1.0+d*d*0.16);
+      float df=max(dot(n,L),0.0)*0.92+0.08, at=1.0/(1.0+d*d*0.3);
+      if(i<8) at*=0.18+0.82*pool(vP,uL[i]);              // 천장등은 아래로 고이게
       acc+=uLC[i]*df*at;
-      if(sp>0.0) spec+=uLC[i]*pow(max(dot(n,normalize(L+V)),0.0),12.0+sp*60.0)*sp*1.8*at;
+      if(sp>0.0) spec+=uLC[i]*pow(max(dot(n,normalize(L+V)),0.0),12.0+sp*90.0)*sp*1.6*at;
     }
     col=c*acc+spec;
+    if(floorF){                                           // 바닥에 비친 천장 형광등 — 반사 광선이 판에 닿으면 번진 빛
+      vec3 R=reflect(-V,n); float t=(3.04-vP.y)/max(R.y,0.05); vec3 hp=vP+R*t;
+      float blur=0.06+t*0.05; vec3 rf=vec3(0.0);
+      for(int i=0;i<8;i++){
+        vec3 d=hp-uL[i];
+        float k=(1.0-smoothstep(0.74-blur,0.74+blur,abs(d.x)))*(1.0-smoothstep(0.3-blur,0.3+blur,abs(d.z)));
+        rf+=uLC[i]*k*uPB[i];
+      }
+      float fr=0.22+0.5*pow(1.0-max(dot(n,V),0.0),3.0);
+      col+=rf*fr*(0.6+0.4*vn(vP*vec3(9.0,1.0,9.0)));
+    }
     // 그늘 — 바닥에 가까운 옆면 · 벽 가까운 바닥 · 천장 구석 (간이 차폐)
     float wd=min(min(vP.x-uRoom.x,uRoom.y-vP.x),min(vP.z-uRoom.z,uRoom.w-vP.z));
     float ao=1.0;
@@ -1107,7 +1130,7 @@ class LabRoom {
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
     this.pr = pr; gl.useProgram(pr);
     this.at = ['aP', 'aN', 'aC', 'aUV', 'aE'].map(n => gl.getAttribLocation(pr, n));
-    this.un = {}; ['uVP', 'uL', 'uLC', 'uNL', 'uEye', 'uFog', 'uFogD', 'uDim', 'uAlpha', 'uAmb', 'uTex', 'uRoom'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
+    this.un = {}; ['uVP', 'uL', 'uLC', 'uNL', 'uEye', 'uFog', 'uFogD', 'uDim', 'uAlpha', 'uAmb', 'uTex', 'uRoom', 'uPB'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
     // 정적 메시
     const m = buildStatic(), g = new Mesh(); buildFront(m, g);
     this.stat = this.upload(new Float32Array(m.v)); this.statN = m.v.length / 12;
@@ -1195,6 +1218,19 @@ class LabRoom {
     const steam = new Mesh();
     for (let i = 0; i < 6; i++) { const ph = ((st.t * .006 + i / 6) % 1);
       steam.billboard([-.38 + Math.sin(ph * 6 + i) * .02, OBS.floor + .9 + ph * .22, 8.45], B, .03 + ph * .05, .05 + ph * .05, [.85, .9, .95]); }
+    const pb = [1, 1, 1, 1, 1, 1, 1, 1], fl = Math.sin(st.t * .9) > .2 && (Math.floor(st.t / 23) % 7 < 2);
+    const pb7 = fl ? .12 : 1;
+    // 형광등 아래 빛 기둥 — 먼지 낀 공기에 비친 옅은 원뿔 (추격 복도의 형광등과 같은 느낌)
+    const beams = new Mesh();
+    // 겹겹의 옅은 원뿔 — 바깥 겹일수록 넓고 옅어서 가장자리가 흐려짐 (빛은 위에서 밝고 아래로 사라짐)
+    for (let i = 0; i < 8; i++) {
+      const p = this.lights[i], k = (i === 7 && pb7 < .5) ? .12 : 1, top = RCH - .07;
+      for (let layer = 0; layer < 4; layer++) {
+        const sp = 1.15 + layer * .3, bot = 1.3 - layer * .35, col = [.8 * k, .86 * k, .95 * k].map(v => v * (1 - layer * .2));
+        for (const [a, b] of [[[-.74, -.3], [.74, -.3]], [[.74, -.3], [.74, .3]], [[.74, .3], [-.74, .3]], [[-.74, .3], [-.74, -.3]]])
+          beams.quad([p[0] + a[0], top, p[2] + a[1]], [p[0] + b[0], top, p[2] + b[1]], [p[0] + b[0] * sp, bot, p[2] + b[1] * sp * 1.5], [p[0] + a[0] * sp, bot, p[2] + a[1] * sp * 1.5], col, { e: true });
+      }
+    }
     const glass = new Mesh();
     glass.quad([WIN.x0, WIN.y1, RZ1 + .05], [WIN.x1, WIN.y1, RZ1 + .05], [WIN.x1, WIN.y0, RZ1 + .05], [WIN.x0, WIN.y0, RZ1 + .05], C.glass);
     glass.quad([WIN.x0 + .2, WIN.y1 - .05, RZ1 + .049], [WIN.x0 + .26, WIN.y1 - .05, RZ1 + .049], [WIN.x0 + .1, WIN.y0 + .3, RZ1 + .049], [WIN.x0 + .04, WIN.y0 + .3, RZ1 + .049], [1, 1, 1]);
@@ -1208,17 +1244,23 @@ class LabRoom {
     for (let k = 0; k < 16; k += 4) V[k] = -V[k];          // 좌우 반전 — 엔딩 컷과 같은 배치 (문 · 해골은 왼쪽, 링거 · 모니터는 오른쪽)
     gl.uniformMatrix4fv(this.un.uVP, false, new Float32Array(mat4mul(P, V)));
     const L = this.lights, flat = [], col = [];
-    L.forEach((p, i) => { flat.push(...p); col.push(...(i < 8 ? [.42, .44, .48] : i === 8 ? [.05, .22, .1] : [.06, .2, .1])); });
+    // 천장 형광등 — 하나(오른쪽 안쪽)는 가끔 깜빡임. 빛은 추격 복도처럼 진하게 떨어지고, 판 아래로 고임
+    pb[7] = fl ? .12 : 1;
+    L.forEach((p, i) => { if (i < 8) p[1] = RCH - .066; });            // 빛의 자리 = 판 높이 (판 깜빡임 판정과 같게)
+    L.forEach((p, i) => { flat.push(...p); col.push(...(i < 8 ? [1.85, 1.9, 2.0].map(v => v * pb[i]) : i === 8 ? [.07, .3, .14] : [.09, .3, .15])); });
+    gl.uniform1fv(this.un.uPB, new Float32Array(pb));
     gl.uniform3fv(this.un.uL, new Float32Array(flat)); gl.uniform3fv(this.un.uLC, new Float32Array(col)); gl.uniform1i(this.un.uNL, L.length);
     gl.uniform3fv(this.un.uEye, new Float32Array(eye)); gl.uniform3fv(this.un.uFog, new Float32Array([.02, .03, .045]));
-    gl.uniform1f(this.un.uFogD, .055); gl.uniform1f(this.un.uDim, st.dim == null ? 1 : st.dim);
-    gl.uniform3fv(this.un.uAmb, new Float32Array([.2, .22, .26])); gl.uniform1i(this.un.uTex, 0); gl.uniform1f(this.un.uAlpha, 1);
+    gl.uniform1f(this.un.uFogD, .075); gl.uniform1f(this.un.uDim, st.dim == null ? 1 : st.dim);
+    gl.uniform3fv(this.un.uAmb, new Float32Array([.085, .095, .115])); gl.uniform1i(this.un.uTex, 0); gl.uniform1f(this.un.uAlpha, 1);
     gl.uniform4f(this.un.uRoom, RX0, RX1, RZ0, RZ1);
     gl.disable(gl.BLEND); gl.depthMask(true);
     this.bind(this.stat); gl.drawArrays(gl.TRIANGLES, 0, this.statN);
     const drawDyn = (mesh) => { if (!mesh.v.length) return; gl.bindBuffer(gl.ARRAY_BUFFER, this.dyn); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.v), gl.DYNAMIC_DRAW); this.bind(this.dyn); gl.drawArrays(gl.TRIANGLES, 0, mesh.v.length / 12); };
     drawDyn(d);
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.uniform1f(this.un.uAlpha, .012); drawDyn(beams);   // 더하기 — 빛
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     gl.uniform1f(this.un.uAlpha, .12); drawDyn(glass);
     gl.uniform1f(this.un.uAlpha, .14); this.bind(this.glassS); gl.drawArrays(gl.TRIANGLES, 0, this.glassN);
     gl.uniform1f(this.un.uAlpha, .1); drawDyn(steam);
