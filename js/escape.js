@@ -467,6 +467,8 @@ const WakeState = {
     // 앉기 · 일어서기 동안의 카메라 (돌아다닐 땐 roam 이 직접 움직임)
     if (s.wk === 'ceil' || s.wk === 'sit' || s.wk === 'wires' || s.wk === 'iv' || s.wk === 'stand') {
       let c = camLerp(CAM_LIE, CAM_SIT, s.sitK);
+      const pe = LabRoomGeo.patientEye && LabRoomGeo.patientEye(s.sitK);    // 3D 모델이 있으면 — 눈은 모델의 눈 자리 그대로
+      if (pe) { c.x = pe[0]; c.y = pe[1]; c.z = pe[2]; }
       if (s.glance > 0) c = camLerp(c, { ...c, yaw: GLANCE.yaw, pitch: GLANCE.pitch }, s.glance);
       c = camLerp(c, CAM_STAND, s.rise);
       c.roll = Math.sin(s.frame * .07) * .08 * s.dizzy;
@@ -1826,6 +1828,7 @@ class EscapeScene {
     } catch (e) { return false; }
     const k = this.realK || 0, t = this.realT, calm = t >= 1000;
     const cam = { x: -1.24, y: .98, z: 5.8, yaw: HP, pitch: 1.05 + k * .05, roll: calm ? 0 : Math.sin(this.frame * .7) * .05 };
+    const pe = LabRoomGeo.patientEye && LabRoomGeo.patientEye(0); if (pe) { cam.x = pe[0]; cam.y = pe[1]; cam.z = pe[2]; }
     const img = this.lab.render({ cam, t: this.frame, wires: 4, wirePull: [0, 0, 0, 0], ivOut: false, ivT: 0, rise: 0, sit: true, doorSlide: 0,
                                   body: LabRoomGeo.bodyPose(cam, 0, 0), dim: .9 });
     c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);

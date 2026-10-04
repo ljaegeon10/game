@@ -1115,6 +1115,143 @@ function buildArm(m, S, El, Wr, fwd, up, left, band) {
   buildHand(m, Wr, fwd, up, left ? -1 : 1, left);   // 캐뉼라는 링거대 쪽 손
 }
 
+/* ═════════════ 피험자 07 — 3D 모델 (patient_model.js) ═════════════════════
+   MakeHuman 바탕의 환자복 차림 모델을 자세 다섯으로 구워 둔 것(tools/make_patient.py)을 받아,
+   누움 → 앉음은 이웃한 두 자세를, 일어설 땐 앉음 ↔ 선 자세를 GPU 가 정점끼리 섞어 그립니다.
+   침대 위 자리 — 모델의 앞(+Z, 발 쪽)을 방의 +x 로 돌려 머리를 베개 쪽에. 선 자세는 카메라 밑에 붙임. */
+const PAT_META = typeof PATIENT_META !== 'undefined' ? PATIENT_META : null;
+const PAT_BED = [0, 0, -1, 0, 0, 1, 0, 0, 1, 0, 0, 0, -.51, .715, 5.8, 1];   // 모델 → 침대 위 (열 우선)
+let PAT_READY = false;
+const xform = (M, p) => [M[0] * p[0] + M[4] * p[1] + M[8] * p[2] + M[12], M[1] * p[0] + M[5] * p[1] + M[9] * p[2] + M[13], M[2] * p[0] + M[6] * p[1] + M[10] * p[2] + M[14]];
+/* 선 자세 — 모델의 카메라 소켓을 눈에, 모델 앞을 바라보는 쪽으로 */
+function patStand(cam) {
+  const S = PAT_META.sockets[4].cam, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+  const R = [cy, 0, -sy, 0, 0, 1, 0, 0, sy, 0, cy, 0, 0, 0, 0, 1], t = xform(R, S);
+  R[12] = cam.x - t[0]; R[13] = cam.y - t[1]; R[14] = cam.z - t[2];
+  return R;
+}
+/* 지금 자세 — 섞을 두 자세 · 각자의 자리 · 섞는 정도 */
+function patPose(sitK, rise, cam) {
+  const kf = Math.max(0, Math.min(1, sitK)) * 3, ia = Math.min(2, Math.floor(kf));
+  return { ia, ib: ia + 1, MA: PAT_BED, MB: PAT_BED, k: kf - ia };
+}
+function patSock(pp, name) { const S = PAT_META.sockets; return lerp3(xform(pp.MA, S[pp.ia][name]), xform(pp.MB, S[pp.ib][name]), pp.k); }
+
+const PAT_VS = `
+attribute vec3 aPA; attribute vec3 aNA; attribute vec3 aPB; attribute vec3 aNB; attribute vec2 aUV;
+uniform mat4 uVP; uniform mat4 uMA; uniform mat4 uMB; uniform float uK;
+varying vec3 vP; varying vec3 vN; varying vec2 vUV;
+void main(){
+  vec3 pa=(uMA*vec4(aPA,1.0)).xyz, pb=(uMB*vec4(aPB,1.0)).xyz;
+  vP=mix(pa,pb,uK); vN=mix(mat3(uMA)*aNA, mat3(uMB)*aNB, uK); vUV=aUV;
+  gl_Position=uVP*vec4(vP,1.0);
+}`;
+const PAT_FS = `
+precision mediump float;
+varying vec3 vP; varying vec3 vN; varying vec2 vUV;
+uniform vec3 uL[12]; uniform vec3 uLC[12]; uniform int uNL; uniform float uPB[8];
+uniform vec3 uEye; uniform vec3 uFog; uniform float uFogD; uniform float uDim; uniform vec3 uAmb;
+uniform vec3 uCol; uniform float uUseTex; uniform float uSkin; uniform float uRough; uniform sampler2D uTex;
+float pool(vec3 p, vec3 L){ vec2 d=abs(p.xz-L.xz); d=max(d-vec2(0.7,0.25),0.0); float r=length(d); return 1.0/(1.0+r*r*1.6); }
+void main(){
+  vec3 c=uCol; if(uUseTex>0.5) c*=texture2D(uTex,vUV).rgb;
+  vec3 n=normalize(vN), V=normalize(uEye-vP);
+  if(dot(n,V)<0.0) n=-n;
+  float wrap=uSkin>0.5 ? 0.45 : 0.15, sh=8.0+(1.0-uRough)*70.0, sk=(1.0-uRough)*0.45;
+  vec3 acc=uAmb*(0.75+0.25*n.y), sp=vec3(0.0);
+  for(int i=0;i<12;i++){
+    if(i>=uNL) break;
+    vec3 L=uL[i]-vP; float d=length(L); L/=d;
+    float at=1.0/(1.0+d*d*0.3);
+    if(i<8) at*=(0.18+0.82*pool(vP,uL[i]))*uPB[i];
+    acc+=uLC[i]*max((dot(n,L)+wrap)/(1.0+wrap),0.0)*at;
+    sp+=uLC[i]*pow(max(dot(n,normalize(L+V)),0.0),sh)*sk*at;
+  }
+  if(uSkin>0.5) acc+=vec3(0.05,0.012,0.006)*(1.0-abs(dot(n,V)));          // 피부 가장자리로 비치는 붉은 기
+  vec3 col=c*acc+sp;
+  float f=exp(-length(vP-uEye)*uFogD);
+  gl_FragColor=vec4(mix(uFog,col,f)*uDim,1.0);
+}`;
+class PatientBody {
+  constructor(gl) {
+    this.gl = gl; this.ready = false;
+    if (!PAT_META || typeof PATIENT_B64 === 'undefined' || typeof DecompressionStream === 'undefined') return;
+    const sh = (t, src) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x);
+      if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, PAT_VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, PAT_FS)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return;
+    this.pr = pr;
+    this.at = ['aPA', 'aNA', 'aPB', 'aNB', 'aUV'].map(n => gl.getAttribLocation(pr, n));
+    this.un = {}; ['uVP', 'uMA', 'uMB', 'uK', 'uL', 'uLC', 'uNL', 'uPB', 'uEye', 'uFog', 'uFogD', 'uDim', 'uAmb', 'uCol', 'uUseTex', 'uSkin', 'uRough', 'uTex'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
+    // 그림 (피부 · 면 원단)
+    this.tex = {};
+    for (const k in (typeof PATIENT_TEX !== 'undefined' ? PATIENT_TEX : {})) {
+      const t = gl.createTexture(), im = new Image();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 190, 180, 255]));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      im.onload = () => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+        gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); };
+      im.src = PATIENT_TEX[k]; this.tex[k] = t;
+    }
+    // 정점 묶음 풀기 (gzip) — 끝나면 그리기 시작
+    const bin = atob(PATIENT_B64), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()
+      .then(buf => this.build(buf)).catch(() => {});
+  }
+  build(buf) {
+    const gl = this.gl, M = PAT_META, n = M.verts, P = k => M.parts[k];
+    const up = (arr, target = gl.ARRAY_BUFFER) => { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, arr, gl.STATIC_DRAW); return b; };
+    this.poses = M.poses.map((_, i) => {
+      const q = new Uint16Array(buf, P('pos' + i)[0], n * 3), nn = new Int8Array(buf, P('nor' + i)[0], n * 3), a = new Float32Array(n * 6);
+      for (let v = 0; v < n; v++) for (let c = 0; c < 3; c++) {
+        a[v * 6 + c] = M.lo[c] + q[v * 3 + c] / 65535 * (M.hi[c] - M.lo[c]); a[v * 6 + 3 + c] = nn[v * 3 + c] / 127;
+      }
+      return up(a);
+    });
+    const qu = new Uint16Array(buf, P('uv')[0], n * 2), uv = new Float32Array(n * 2);
+    for (let v = 0; v < n * 2; v++) uv[v] = M.uvlo[v & 1] + qu[v] / 65535 * (M.uvhi[v & 1] - M.uvlo[v & 1]);
+    this.uv = up(uv);
+    this.prims = M.prims.map((pm, k) => ({ ...pm, ib: up(new Uint16Array(buf, P('idx' + k)[0], pm.in), gl.ELEMENT_ARRAY_BUFFER) }));
+    this.ready = true; PAT_READY = true;
+  }
+  /* 그리기 — VP 는 방과 같은 (좌우 반전된) 행렬, light 는 방의 빛 값 그대로 */
+  draw(VP, pp, light) {
+    if (!this.ready) return;
+    const gl = this.gl, un = this.un;
+    for (let i = 0; i < 8; i++) gl.disableVertexAttribArray(i);
+    gl.useProgram(this.pr);
+    gl.uniformMatrix4fv(un.uVP, false, VP); gl.uniformMatrix4fv(un.uMA, false, new Float32Array(pp.MA)); gl.uniformMatrix4fv(un.uMB, false, new Float32Array(pp.MB));
+    gl.uniform1f(un.uK, pp.k);
+    gl.uniform3fv(un.uL, light.L); gl.uniform3fv(un.uLC, light.LC); gl.uniform1i(un.uNL, light.n); gl.uniform1fv(un.uPB, light.pb);
+    gl.uniform3fv(un.uEye, light.eye); gl.uniform3fv(un.uFog, light.fog); gl.uniform1f(un.uFogD, light.fogD); gl.uniform1f(un.uDim, light.dim);
+    gl.uniform3fv(un.uAmb, light.amb); gl.uniform1i(un.uTex, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    const [aPA, aNA, aPB, aNB, aUV] = this.at;
+    for (const pm of this.prims) {
+      const mat = PAT_META.mats[pm.mat] || { color: [.8, .8, .8], rough: 1 };
+      gl.uniform3fv(un.uCol, new Float32Array(mat.color));
+      const t = mat.tex != null ? this.tex[mat.tex] : null;
+      gl.uniform1f(un.uUseTex, t ? 1 : 0); if (t) gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.uniform1f(un.uSkin, /skin/i.test(mat.name || '') ? 1 : 0); gl.uniform1f(un.uRough, mat.rough == null ? 1 : mat.rough);
+      const o = pm.v0 * 24;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.poses[pp.ia]);
+      gl.enableVertexAttribArray(aPA); gl.vertexAttribPointer(aPA, 3, gl.FLOAT, false, 24, o);
+      gl.enableVertexAttribArray(aNA); gl.vertexAttribPointer(aNA, 3, gl.FLOAT, false, 24, o + 12);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.poses[pp.ib]);
+      gl.enableVertexAttribArray(aPB); gl.vertexAttribPointer(aPB, 3, gl.FLOAT, false, 24, o);
+      gl.enableVertexAttribArray(aNB); gl.vertexAttribPointer(aNB, 3, gl.FLOAT, false, 24, o + 12);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.uv);
+      gl.enableVertexAttribArray(aUV); gl.vertexAttribPointer(aUV, 2, gl.FLOAT, false, 8, pm.v0 * 8);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pm.ib);
+      gl.drawElements(gl.TRIANGLES, pm.in, gl.UNSIGNED_SHORT, 0);
+    }
+    for (const a of this.at) if (a >= 0) gl.disableVertexAttribArray(a);
+  }
+}
+
 /* ═════════════ 렌더러 ═══════════════════════════════════════ */
 class LabRoom {
   constructor() {
@@ -1151,6 +1288,8 @@ class LabRoom {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    try { this.patient = new PatientBody(gl); } catch (e) { this.patient = null; }
+    gl.useProgram(this.pr);
     this.lights = [];
     for (const cx of [-3.3, -1.1, 1.1, 3.3]) for (const cz of [2.3, 5.3]) this.lights.push([cx, RCH - .2, cz]);
     this.lights.push([.3, 2.4, 8.6]);                     // 관찰실 — 모니터의 초록 빛
@@ -1189,14 +1328,20 @@ class LabRoom {
     const legH = .085 * (1 - (st.rise || 0)) * (st.sit ? 1 : .9);
     d.box(BED.x0 + .01, BED.x1 - .01, .68, .72, BED.z0 + .03, BED.z1 - .03, C.sheet);
     d.box(BED.x0 + .45, BED.x0 + .58, .72, .725, BED.z0 + .03, BED.z1 - .03, C.stripe);
-    if (legH > .005) for (const z of [5.68, 5.92]) d.ellipsoid([-.12, .72, z], [.62, 0, 0], [0, legH, 0], [0, 0, .1], C.sheet2, 14, 6);
+    const usePat = !!(st.body && st.body.pp && this.patient && this.patient.ready);
+    if (legH > .005 && !usePat) for (const z of [5.68, 5.92]) d.ellipsoid([-.12, .72, z], [.62, 0, 0], [0, legH, 0], [0, 0, .1], C.sheet2, 14, 6);
     d.ellipsoid([BED.x0 + .22, .76, 5.8], [.15, 0, 0], [0, .06, 0], [0, 0, .3], hex('#eef1f5'), 12, 6);   // 베개
     // 링거 줄 — 백에서 오른손 캐뉼라까지 (뽑으면 바닥으로 늘어짐)
     const bagB = [IV[0] - .14, 1.76, IV[1] - .025];
     // ── 내 몸
     const body = st.body;
     if (body) {
-      body.arms.forEach(a => buildArm(d, a.S, a.E, a.W, a.fwd, a.up, a.left, !a.left));
+      if (!usePat) body.arms.forEach(a => buildArm(d, a.S, a.E, a.W, a.fwd, a.up, a.left, !a.left));
+      else {                                                   // 모델의 손등 — 의료 테이프 · 청록 캐뉼라
+        const c0 = body.cannula;
+        d.obox(c0, [.022, 0, 0], [0, .003, 0], [0, 0, .026], C.tape);
+        d.cyl(add(c0, [0, .004, 0]), add(c0, [-.03, .012, 0]), .006, .005, C.teal, 6);
+      }
       const cannula = body.cannula;
       if (!st.ivOut) d.tube(bez(bagB, [lerp(bagB[0], cannula[0], .5), .95, lerp(bagB[2], cannula[2], .6)], cannula, 16), .0035, C.redL);
       else d.tube(bez(bagB, [bagB[0] - .1, .9, bagB[2] - .05], [bagB[0] - .3, .02, bagB[2] - .2], 12), .0035, C.redL);
@@ -1260,6 +1405,11 @@ class LabRoom {
     this.bind(this.stat); gl.drawArrays(gl.TRIANGLES, 0, this.statN);
     const drawDyn = (mesh) => { if (!mesh.v.length) return; gl.bindBuffer(gl.ARRAY_BUFFER, this.dyn); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(mesh.v), gl.DYNAMIC_DRAW); this.bind(this.dyn); gl.drawArrays(gl.TRIANGLES, 0, mesh.v.length / 12); };
     drawDyn(d);
+    if (usePat) {                                             // 피험자 07 — 3D 모델
+      this.patient.draw(new Float32Array(mat4mul(P, V)), st.body.pp, { L: new Float32Array(flat), LC: new Float32Array(col), n: L.length, pb: new Float32Array(pb),
+        eye: new Float32Array(eye), fog: new Float32Array([.02, .03, .045]), fogD: .075, dim: st.dim == null ? 1 : st.dim, amb: new Float32Array([.085, .095, .115]) });
+      gl.useProgram(this.pr); gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    }
     gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE); gl.uniform1f(this.un.uAlpha, .012); drawDyn(beams);   // 더하기 — 빛
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1311,22 +1461,29 @@ function bodyPose(cam, rise, sitK = 1) {
     return { left, S, E, W, fwd, up };
   });
   const R = arms[0];                                     // 링거대 쪽 팔
-  const cannula = add(add(R.W, mul(R.fwd, .045)), mul(R.up, .034));
+  let cannula = add(add(R.W, mul(R.fwd, .045)), mul(R.up, .034));
+  const pp = PAT_READY && rise <= 0 ? patPose(sitK, 0, cam) : null;      // 일어서기 시작하면 예전 몸(몸 옆으로 늘어진 팔)으로
+  if (pp) cannula = add(patSock(pp, 'ivL'), [0, .012, 0]);             // 모델의 손등 소켓 (링거대 쪽 손)
   const wires = [0, 1, 2, 3].map(i => {
     const ro = (i - 1.5) * .045;
     // 누우면 관자놀이에서 베개 옆으로, 앉으면 정수리에서 무릎 위로
     const headLie = at(eye, -.04, ro * 1.6, eye[1] + .02), headSit = add(add(add(eye, [0, .08, 0]), mul(fwdH, -.05)), mul(right, ro * 2.4));
     const lapR = (i < 2 ? -1 : 1) * (.26 + (i % 2) * .06), lapF = .62 + (i % 2) * .08;
-    const lapLie = at(eye, lapF - .1, lapR * 1.25, .78), lapSit = add(add(add(eye, mul(fwdH, lapF)), mul(right, lapR)), [0, -.6, 0]);
+    let lapLie = at(eye, lapF - .1, lapR * 1.25, .78), lapSit = add(add(add(eye, mul(fwdH, lapF)), mul(right, lapR)), [0, -.6, 0]);
+    if (pp) { const lp = add(patSock(pp, i < 2 ? 'lapL' : 'lapR'), [0, .085, 0]); lapLie = lapSit = add(lp, mul(fwdH, (i % 2) * .08)); }   // 모델의 넓적다리 위
     // 머리 옆을 돌아 어깨 바깥으로 흘러내림 — 눈앞을 가로지르지 않게
     const side = Math.sign(lapR), midLie = at(eye, .12, side * .34, .86);
     const midSit = add(add(add(eye, mul(right, side * (.34 + (i % 2) * .05))), mul(fwdH, -.04)), [0, -.2, 0]);
     return { head: lerp3(headLie, headSit, sitK), mid: lerp3(midLie, midSit, sitK), lap: lerp3(lapLie, lapSit, sitK) };
   });
-  return { arms, cannula, wires };
+  return { arms, cannula, wires, pp };
+}
+/* 모델의 눈 자리 (침대 위 · 누움 ↔ 앉음) — 모델이 준비 안 됐으면 null */
+function patientEye(sitK) {               // 얼굴 쪽으로 조금 — 옷깃 안쪽이 보이지 않게 (누우면 위, 앉으면 앞)
+  return PAT_READY ? add(patSock(patPose(sitK, 0, null), 'cam'), lerp3([0, .045, 0], [.075, .03, 0], Math.max(0, Math.min(1, sitK)))) : null;
 }
 
 window.LabRoom = LabRoom;
 window.Lab3D = { Mesh, hex };                                 // 인물 3D (figure3d.js) 가 같은 메시 도구를 씁니다
-window.LabRoomGeo = { RX0, RX1, RZ0, RZ1, DOOR, LOCK, WIN, BED, CART, SKEL, IV, camBasis, bodyPose };
+window.LabRoomGeo = { RX0, RX1, RZ0, RZ1, DOOR, LOCK, WIN, BED, CART, SKEL, IV, camBasis, bodyPose, patientEye };
 })();
