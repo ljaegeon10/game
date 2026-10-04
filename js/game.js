@@ -4464,6 +4464,27 @@ function drawOpShaft(t, e) {
   g.restore();
 }
 
+/* 오프닝에서 들여다보는 방호복 후드 — figure3d.js 로 한 번만 찍어 둡니다 (없으면 그림으로) */
+let OP_HOOD;
+function opHoodImage() {
+  if (OP_HOOD !== undefined) return OP_HOOD;
+  OP_HOOD = null;
+  try {
+    if (!window.Figure3D) return null;
+    const F = new Figure3D(960, 540);
+    if (!F.ok) return null;
+    const lit = [1.05, 1.08, 1.12];
+    const img = F.render({ kind: 'suit', x: 0, y: -1.62, z: 1.0, yaw: .15, stride: 0, reach: 0, lean: .1 }, {
+      cam: { f: 450, px: 480, py: 270 }, sky: [.24, .25, .27], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+      lights: [[[-.4, 1.4, -1.6], lit], [[.6, 1.2, -1.2], lit.map(v => v * .8)], [[0, -.3, .6], [.12, .12, .13]]] });
+    const c = document.createElement('canvas'); c.width = 960; c.height = 540;
+    c.getContext('2d').drawImage(img, 0, 0);
+    const lose = F.gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+    OP_HOOD = c;
+  } catch (e) { OP_HOOD = null; }
+  return OP_HOOD;
+}
+
 /* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 방호복 후드 하나, 그리고 날아오르는 새 */
 function drawOpWatcher(w) {
   const hx = W * .63, hy = H * .3;
@@ -4531,25 +4552,35 @@ function renderOpening() {
       const L = n ? 0 : ease01((t - OP.CR0 - 6) / 30) * (1 - ease01((t - OP.CR1 - 4) / 30));
       const lean = Math.sin(t * .012) * 6 * (1 - L);
       const sc = 1 + L * .55, hx = W * .9 - L * W * .17 + lean, hy = H * .36 + L * H * .05;
-      // 노란 방호복의 후드 — 얼굴 자리는 새까만 얼굴창, 형광등이 그 위를 스칩니다
+      // 방호복의 후드 — 실사 3D (figure3d.js) 로 한 번 찍어 둔 그림. 천장 형광등을 등지고 내려다봅니다
       g.globalAlpha = .85 * k + L * .1;
-      g.fillStyle = '#6c6648';
-      g.beginPath(); g.ellipse(hx + 8 * sc, hy + 10 * sc, 104 * sc, 118 * sc, -.3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#a49660';
-      g.beginPath(); g.ellipse(hx, hy, 95 * sc, 110 * sc, -.3, 0, Math.PI * 2); g.fill();
-      g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);
-      g.strokeStyle = '#857c54'; g.lineWidth = 4 * sc;                          // 후드 이음선
-      g.beginPath(); g.ellipse(46 * sc, -6 * sc, 70 * sc, 96 * sc, 0, Math.PI * .85, Math.PI * 1.25); g.stroke();
-      g.fillStyle = '#262c38';                                                  // 얼굴창 고무 테두리
-      g.beginPath(); g.roundRect(-60 * sc, -74 * sc, 120 * sc, 150 * sc, 46 * sc); g.fill();
-      g.fillStyle = '#07080a';                                                  // 보호면 — 속은 새까맣게
-      g.beginPath(); g.roundRect(-51 * sc, -65 * sc, 102 * sc, 132 * sc, 38 * sc); g.fill();
-      g.strokeStyle = `rgba(230,240,255,${.45 + L * .4})`; g.lineCap = 'round';   // 비스듬히 스친 형광등
-      g.lineWidth = 7 * sc; g.beginPath(); g.moveTo(-34 * sc, -40 * sc); g.lineTo(-12 * sc, -56 * sc); g.stroke();
-      g.lineWidth = 3 * sc; g.beginPath(); g.moveTo(-38 * sc, -22 * sc); g.lineTo(-26 * sc, -31 * sc); g.stroke();
-      if (L > .2) { g.strokeStyle = `rgba(255,90,80,${.25 + L * .3})`; g.lineWidth = 2 * sc;   // 경보의 붉은 빛이 아래 가장자리에
-        g.beginPath(); g.moveTo(-30 * sc, 58 * sc); g.lineTo(30 * sc, 58 * sc); g.stroke(); }
-      g.lineCap = 'butt'; g.restore();
+      const hood = opHoodImage();
+      if (hood) {
+        g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);          // 그림 속 보호면 가운데(500, 250)를 여기에
+        const z2 = sc * .95; g.drawImage(hood, -500 * z2, -250 * z2, 960 * z2, 540 * z2);
+        if (L > .2) { g.strokeStyle = `rgba(255,90,80,${.2 + L * .3})`; g.lineWidth = 2 * sc; g.lineCap = 'round';   // 경보의 붉은 빛이 아래 가장자리에
+          g.beginPath(); g.moveTo(-36 * z2, 66 * z2); g.lineTo(36 * z2, 66 * z2); g.stroke(); g.lineCap = 'butt'; }
+        g.restore();
+      } else {
+        g.globalAlpha = .85 * k + L * .1;
+        g.fillStyle = '#6c6648';
+        g.beginPath(); g.ellipse(hx + 8 * sc, hy + 10 * sc, 104 * sc, 118 * sc, -.3, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#a49660';
+        g.beginPath(); g.ellipse(hx, hy, 95 * sc, 110 * sc, -.3, 0, Math.PI * 2); g.fill();
+        g.save(); g.translate(hx - 42 * sc, hy + 8 * sc); g.rotate(-.3);
+        g.strokeStyle = '#857c54'; g.lineWidth = 4 * sc;                          // 후드 이음선
+        g.beginPath(); g.ellipse(46 * sc, -6 * sc, 70 * sc, 96 * sc, 0, Math.PI * .85, Math.PI * 1.25); g.stroke();
+        g.fillStyle = '#262c38';                                                  // 얼굴창 고무 테두리
+        g.beginPath(); g.roundRect(-60 * sc, -74 * sc, 120 * sc, 150 * sc, 46 * sc); g.fill();
+        g.fillStyle = '#07080a';                                                  // 보호면 — 속은 새까맣게
+        g.beginPath(); g.roundRect(-51 * sc, -65 * sc, 102 * sc, 132 * sc, 38 * sc); g.fill();
+        g.strokeStyle = `rgba(230,240,255,${.45 + L * .4})`; g.lineCap = 'round';   // 비스듬히 스친 형광등
+        g.lineWidth = 7 * sc; g.beginPath(); g.moveTo(-34 * sc, -40 * sc); g.lineTo(-12 * sc, -56 * sc); g.stroke();
+        g.lineWidth = 3 * sc; g.beginPath(); g.moveTo(-38 * sc, -22 * sc); g.lineTo(-26 * sc, -31 * sc); g.stroke();
+        if (L > .2) { g.strokeStyle = `rgba(255,90,80,${.25 + L * .3})`; g.lineWidth = 2 * sc;   // 경보의 붉은 빛이 아래 가장자리에
+          g.beginPath(); g.moveTo(-30 * sc, 58 * sc); g.lineTo(30 * sc, 58 * sc); g.stroke(); }
+        g.lineCap = 'butt'; g.restore();
+      }
       g.globalAlpha = 1;
     });
     // 저쪽에서 지나가는 또 한 사람 — 조수 (위기 땐 뛰어옵니다)

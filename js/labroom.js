@@ -62,7 +62,7 @@ function camBasis(c) {
 
 /* ═════════════ 메시 — 위치 · 법선 · 색 · 텍스처 좌표 · 스스로 빛남 ═══════════ */
 /* 꼭짓점의 마지막 값 : 0 무광 · 1 스스로 빛남 · 2+s 광택 (s 0‥1, 금속일수록 큼) */
-const ecode = o => o.e ? 1 : o.s ? 2 + Math.min(.99, o.s) : 0;
+const ecode = o => o.m != null ? o.m : o.e ? 1 : o.s ? 2 + Math.min(.99, o.s) : 0;   // o.m : 재질 번호를 직접 (figure3d.js)
 class Mesh {
   constructor() { this.v = []; }
   tri(a, b, c, n, col, e, uva, uvb, uvc) {
@@ -1283,5 +1283,6 @@ function bodyPose(cam, rise, sitK = 1) {
 }
 
 window.LabRoom = LabRoom;
+window.Lab3D = { Mesh, hex };                                 // 인물 3D (figure3d.js) 가 같은 메시 도구를 씁니다
 window.LabRoomGeo = { RX0, RX1, RZ0, RZ1, DOOR, LOCK, WIN, BED, CART, SKEL, IV, camBasis, bodyPose };
 })();

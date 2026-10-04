@@ -893,7 +893,8 @@ function drawWorld(s, b) {
   b.save();
   const roll = (s.lane * LANE - s.x) * .045 * (back ? -1 : 1);
   b.translate(LW / 2, LH / 2); b.rotate(roll); b.translate(-LW / 2, -LH / 2);
-  if (s.shake > .3) b.translate((Math.random() - .5) * s.shake * .5, (Math.random() - .5) * s.shake * .5);
+  s.viewRoll = roll; s.shX = 0; s.shY = 0;                       // 3D 인물도 같은 기울기 · 흔들림으로
+  if (s.shake > .3) { s.shX = (Math.random() - .5) * s.shake * .5; s.shY = (Math.random() - .5) * s.shake * .5; b.translate(s.shX, s.shY); }
 
   drawCorridor(s, b, back);
   if (!back) {
@@ -1136,6 +1137,21 @@ function drawGuard(s, b, g) {
   }
   b.save();
   b.globalAlpha = pop;
+  {                                           // 실사 3D — 발밑 그림자 · 총구 섬광만 픽셀로
+    const f0 = pt(-.26, 0), f1 = pt(.26, 0), rw = (f1[0] - f0[0]) / 2;
+    b.fillStyle = 'rgba(0,0,0,.35)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill();
+    const X = g.x - s.camX, aiming = g.st === 'aim' || g.st === 'cool';
+    const lit3 = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : 0;
+    g.aimK = lerp(g.aimK || 0, aiming ? 1 : 0, .2);
+    if (figMark(s, b, { kind: 'guard', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz) * .85, stride: 0, aim: g.aimK, lean: 0,
+                        alpha: pop, hit: g.hitT > 0 ? .85 : 0, band: lit3 > 0 ? [1, .25 - lit3 * .15, .2 - lit3 * .1] : [.42, .86, .76] },
+                figEnv(s, dz, g.z, X))) {
+      if (g.flash > 0) { const m = pt(.06, 1.36);
+        b.globalCompositeOperation = 'lighter'; b.fillStyle = 'rgba(255,220,140,.9)';
+        b.beginPath(); b.arc(m[0], m[1], Math.max(2, .16 * k), 0, Math.PI * 2); b.fill(); }
+      b.restore(); return;
+    }
+  }
   // 실험실 보안 — 제복은 실험실 문 · 벽과 같은 청회색, 어깨는 한 단 밝게
   const uni = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [58, 72, 94], dz, g.z));
   const uniL = css(shade(s, g.hitT > 0 ? [240, 240, 255] : [84, 100, 122], dz, g.z));
@@ -1366,11 +1382,46 @@ function drawSuit(b, s, pt, k, dz, z, o) {
   b.lineCap = 'butt'; b.lineJoin = 'miter';
 }
 
+/* ── 실사 3D 인물 끼워 넣기 ──
+   지금까지 그린 픽셀을 한 겹으로 떼어 두고 버퍼를 비웁니다. 화면에 찍을 때 그 겹 → 3D 인물 →
+   다음 겹 순서로 쌓으므로, 더 가까운 장애물 · 총 · 붉은 테두리는 인물 위에 그대로 덮입니다. */
+function figMark(s, b, fig, env) {
+  const F = s.fig3d(); if (!F) return false;
+  const i = s.figQ.length;
+  let L = s.layers[i];
+  if (!L) { L = s.layers[i] = document.createElement('canvas'); L.width = LW; L.height = LH; }
+  const lx = L.getContext('2d'); lx.clearRect(0, 0, LW, LH); lx.drawImage(s.buf, 0, 0);
+  b.save(); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, LW, LH); b.restore();
+  s.figQ.push({ fig, env, roll: s.viewRoll || 0, shX: s.shX || 0, shY: s.shY || 0 });
+  return true;
+}
+/* 인물이 선 자리의 빛 — shade() 와 같은 안개 · 경보, 복도 천장 형광등 둘 + 경보등 */
+function figEnv(s, dz, z, X) {
+  const tb = theme(z), pal = palAt(z), u = c => c.map(v => v / 255);
+  const nearRaw = clamp01(1 - dz / 44), near = Math.pow(nearRaw, 1.25) * (s.lights * .85 + .15);
+  const red = s.alarm * (.5 + .5 * Math.sin(s.frame * .16)) * .34 * (1 - tb);
+  const br = s.flick > 0 ? .45 : 1, lc = u(pal.light), ceil = CH - s.camY - .05;
+  return {
+    cam: { f: FOC * SC, px: s.cx * SC, py: s.cy * SC },
+    sky: lc.map(v => v * .2 * br), gnd: u(pal.floor).map(v => v * .22), fog: u(pal.fog), near,
+    red: [210 / 255, 26 / 255, 26 / 255, red * (.4 + nearRaw * .6) * .45],
+    lights: [[[X * .5, ceil, -dz + 1.2], lc.map(v => v * 1.55 * br)], [[X, ceil, -dz - 1.5], lc.map(v => v * 1.35 * br)],
+             [[0, 0, .4], lc.map(v => v * .18)], [[X, ceil - .2, -dz + .5], [red * 2.6, red * .25, red * .2]]]
+  };
+}
+
 /* 뒤돌아보면 — 노란 방호복, 새까만 얼굴창. 가까울수록 검은 장갑이 뻗어 옵니다 */
 function drawPursuer(s, b) {
   const dz = Math.max(.32, s.dist);
   const px = -s.chaseX;                       // 뒤를 보면 좌우가 뒤집힙니다
   const run = s.frame * .32, bob = Math.abs(Math.sin(run)) * .05;
+  {                                           // 실사 3D (figure3d.js) — 발밑 그림자만 픽셀로
+    const f0 = P(s, px - .32, 0, dz), f1 = P(s, px + .32, 0, dz), rw = (f1[0] - f0[0]) / 2;
+    b.fillStyle = 'rgba(0,0,0,.4)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill();
+    const X = px - s.camX;
+    if (figMark(s, b, { kind: 'suit', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz), run, stride: 1, reach: clamp01((7 - s.dist) / 6) },
+                figEnv(s, dz * .7, s.z, X))) return;
+  }
   const pt = (x, y) => P(s, px + x, y + bob, dz);
   const k = FOC / dz;
   const reach = clamp01((7 - s.dist) / 6);
@@ -1518,6 +1569,11 @@ class EscapeScene {
     this.overlay = bakeOverlay();
     this.states = { wake: WakeState, door: DoorState, stay: StayState, open: OpenState, run: RunState, caught: CaughtState, free: FreeState };
     this.lab = null;                                     // 깨어남의 입체 실험실 (labroom.js) — 처음 쓸 때 만듦
+    this.figQ = []; this.layers = [];                    // 실사 3D 인물 (figure3d.js) — 픽셀 겹 사이에 끼워 넣음
+    this.fig3d = () => {
+      if (this._f3 === undefined) { try { this._f3 = window.Figure3D ? new Figure3D(W, H) : null; if (this._f3 && !this._f3.ok) this._f3 = null; } catch (e) { this._f3 = null; } }
+      return this._f3;
+    };
     this.held = new Set();                               // 누르고 있는 걷기 키 · 손가락
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
@@ -1617,8 +1673,18 @@ class EscapeScene {
       c.drawImage(hi, 0, 0, W, H);
       this.state.drawOver(this, c, hi);
     } else {
+      this.figQ = [];
       this.state.draw(this, this.b);
       c.imageSmoothingEnabled = false;
+      const F = this.figQ.length ? this.fig3d() : null;
+      this.figQ.forEach((q, i) => {                          // 픽셀 겹 → 실사 3D 인물 → … → 맨 위 겹
+        c.drawImage(this.layers[i], 0, 0, W, H);
+        const img = F && F.render(q.fig, q.env);
+        if (!img) return;
+        c.save(); c.translate(W / 2, H / 2); c.rotate(q.roll); c.translate(-W / 2 + q.shX * SC, -H / 2 + q.shY * SC);
+        c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0); c.restore();
+        c.imageSmoothingEnabled = false;
+      });
       c.drawImage(this.buf, 0, 0, W, H);
     }
     c.drawImage(this.overlay, 0, 0);
