@@ -7839,8 +7839,9 @@ class CableRig {
     });
   }
   /* 선을 1px 로 — 외곽선을 먼저 깔고 색을 얹음. glow 면 빛이 번짐.
-     keep(마디) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때 */
-  draw(g, glow = 0, t = 0, keep = null) {
+     keep(마디) 를 주면 그 마디만 — 주인공 앞/뒤를 나눠 그릴 때.
+     vis[선 번호] 0~1 을 주면 선마다 진하기 — 0 이면 안 그림 (아직 안 생긴 선) */
+  draw(g, glow = 0, t = 0, keep = null, vis = null) {
     const pts = C => {
       const out = [];
       for (let i = 1; i < this.n; i++) {
@@ -7852,11 +7853,14 @@ class CableRig {
       }
       return out;
     };
-    const all = this.cables.map(C => [C, pts(C)]);
+    const all = this.cables.map((C, k) => [C, pts(C), vis ? vis[k] : 1]).filter(([, , v]) => v > 0);
+    if (!all.length) return;
     g.save();
+    const base = g.globalAlpha;
     g.fillStyle = OUT;
-    all.forEach(([, P]) => P.forEach(([x, y]) => g.fillRect(x - 1, y, 3, 1) || g.fillRect(x, y - 1, 1, 3)));
-    all.forEach(([C, P]) => {
+    all.forEach(([, P, v]) => { g.globalAlpha = base * v; P.forEach(([x, y]) => g.fillRect(x - 1, y, 3, 1) || g.fillRect(x, y - 1, 1, 3)); });
+    all.forEach(([C, P, v]) => {
+      g.globalAlpha = base * v;
       g.fillStyle = C.color;
       P.forEach(([x, y]) => g.fillRect(x, y, 1, 1));
       g.fillStyle = '#05050a';                          // 끊긴 끝
@@ -7864,9 +7868,9 @@ class CableRig {
     });
     if (glow > 0) {                                      // 심연 — 선을 따라 빛이 흘러감
       g.globalCompositeOperation = 'lighter';
-      all.forEach(([C, P]) => P.forEach(([x, y], k) => {
+      all.forEach(([C, P, v]) => P.forEach(([x, y], k) => {
         const pulse = .5 + .5 * Math.sin(t * .12 - k * .35);
-        g.globalAlpha = glow * (.18 + .3 * pulse);
+        g.globalAlpha = base * v * glow * (.18 + .3 * pulse);
         g.fillStyle = C.color; g.fillRect(x - 1, y - 1, 3, 3);
       }));
     }
@@ -7961,8 +7965,29 @@ function drawGlitched(g, sheet, real, fi, sx, sy, power) {
 const ORIGINAL = {
   cables: [OB.B, OB.R, OB.Y, OB.W],
   rig: { temple: 11.5, nodes: 10 },
-  glitch: { rate: .014, every: 170, power: 1 }
+  glitch: { rate: .014, every: 170, power: 1 },     // 시안 페이지에서 보여 주는 가장 깊은 모습
+  /* 깊이마다 — 내려갈수록 자주 깨지고, 전극선이 그제야 하나씩 생깁니다.
+     rate 매 프레임 확률 · every 이만큼 조용하면 반드시 (프레임, 60 = 1초) · power 세기
+     jacks 관자놀이 커넥터 · cables 늘 보이는 선 수 (양쪽 번갈아: 청 → 황 → 적 → 백)
+     glow 늘 흐르는 빛. 아직 안 생긴 선도 깨지는 순간엔 유령처럼 비칩니다.  */
+  depth: [
+    { rate: .0008, every: 1e9, power: .5,  jacks: false, cables: 0, glow: 0 },    // 0 숲 — 약 20초에 한 번
+    { rate: .0017, every: 900, power: .7,  jacks: true,  cables: 0, glow: 0 },    // 1 우물 아래 · 갈림길 — 약 10초
+    { rate: .0028, every: 600, power: .85, jacks: true,  cables: 2, glow: 0 },    // 2 북쪽 · 남쪽 방 — 약 6초
+    { rate: .004,  every: 360, power: 1,   jacks: true,  cables: 3, glow: 0 },    // 3 중앙 · 북동 통로 — 약 4초
+    { rate: .0055, every: 240, power: 1,   jacks: true,  cables: 4, glow: 0 },    // 4 남동 통로 · 관문 — 약 3초
+    { rate: .008,  every: 170, power: 1,   jacks: true,  cables: 4, glow: .15 },  // 5 심층 · 탈출구 — 약 2초
+    { rate: .016,  every: 90,  power: 1,   jacks: true,  cables: 4, glow: .3 }    // 6 심연 (보스 마지막 페이즈) — 약 1초
+  ],
+  order: [0, 2, 1, 3]                                    // 선이 생기는 순서 — 왼쪽 청 · 오른쪽 황 · 왼쪽 적 · 오른쪽 백
 };
+/* 깊이 → 그 깊이의 모습. vis 는 선마다 진하기 (깨지는 동안엔 아직 없는 선도 반쯤) */
+function originalStage(depth, burst) {
+  const D = ORIGINAL.depth[Math.max(0, Math.min(ORIGINAL.depth.length - 1, depth | 0))];
+  const vis = [0, 0, 0, 0];
+  ORIGINAL.order.forEach((k, i) => { vis[k] = i < D.cables ? 1 : burst ? .55 : 0; });
+  return { ...D, vis };
+}
 
 /* 시안 목록 — 게임에 옮길 땐 이 중 하나만 남깁니다 */
 const LOOKS = {
@@ -7985,7 +8010,7 @@ const LOOKS = {
   F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .004, every: 1e9, power: .5 } }
 };
 
-window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, bakeSheet, bakeOriginal, frameIndex, CableRig,
+window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, originalStage, bakeSheet, bakeOriginal, frameIndex, CableRig,
                    tinted, glitchTick, drawGlitched };
 })();
 
@@ -10619,18 +10644,21 @@ function drawKey(x, y) {
 /* ── 캐릭터 ────────────────────────────────────────── */
 /* 주인공 생김새 — 시안 G (js/heroart.js).
    예전 노란 주인공 그림(assets/hero.png) 그대로에, 머리 양옆 관자놀이 커넥터에서
-   오방색 전극선 네 가닥이 늘어져 바닥에 끌립니다. 1~3초마다 시뮬레이션이 아바타를
-   놓치듯 크게 깨지며(띠 찢김 · 색 분리 · 찢긴 줄 · 깨진 조각) 그 틈으로 진짜 사람
-   (환자복 · 뇌파 캡을 한 피험자 07)이 섞여 비칩니다. 깨지는 동안 선에도 빛이 흐릅니다.
+   오방색 전극선이 늘어져 바닥에 끌리고, 시뮬레이션이 아바타를 놓치듯 크게 깨지며
+   (띠 찢김 · 색 분리 · 찢긴 줄 · 깨진 조각) 그 틈으로 진짜 사람(환자복 · 뇌파 캡을 한
+   피험자 07)이 섞여 비칩니다. 깨지는 동안 선에도 빛이 흐릅니다.
+   깊이 내려갈수록 자주 깨지고(숲 약 20초 → 심연 약 1초에 한 번), 커넥터와 전극선도
+   그제야 하나씩 생깁니다 — 단계는 heroart.js 의 ORIGINAL.depth.
    그림은 처음 그릴 때 한 번 굽고(30×36 · 방향마다 4장), 전극선은 매 프레임 줄로 흉내.
    heroart.js 가 없으면 예전 그대로 그립니다. */
 const HERO_G = window.HeroArt ? HeroArt.ORIGINAL : null;
 const HERO_REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;   // 움직임 줄이기면 글리치 끔
-let heroArtCache = null, heroRigT = -1, heroBurst = false;
+let heroArtCache = null, heroRigT = -1, heroBurst = false, heroStage = null;
 const heroGl = {};
 function heroArt() {
   if (!heroArtCache && HERO_G && IMG.hero) heroArtCache = {
-    sheet: HeroArt.bakeOriginal(IMG.hero, HERO, true),
+    sheet: HeroArt.bakeOriginal(IMG.hero, HERO, true),     // 관자놀이 커넥터 있음
+    bare: HeroArt.bakeOriginal(IMG.hero, HERO, false),     // 없음 (숲)
     real: HeroArt.bakeSheet(HeroArt.LOOKS.A),          // 깨진 틈으로 비치는 진짜 사람
     rig: new HeroArt.CableRig(HERO_G.cables, HERO_G.rig)
   };
@@ -10665,27 +10693,32 @@ function drawPlayer() {
     const feet = P.y + 10;                               // 발바닥 줄 (칸의 34 줄)
     // 전극선 · 글리치는 한 프레임에 한 번만 움직임 (변이 장면에선 한 프레임에 두 번 그려짐)
     if (heroRigT !== G.t) {
+      // 깊이 — 숲 0 · 던전 방 1~5 · 심연(보스 마지막 페이즈) 6
+      const depth = G.inForest ? 0 : (G.boss && G.boss.kind === 'abom') ? 6 : G.depth;
+      const stage = HeroArt.originalStage(depth, false);
       art.rig.update(P.x, feet - 1, 17 - bob, P.dir, 0);
-      heroBurst = HeroArt.glitchTick(heroGl, HERO_G.glitch, HERO_REDUCE);
+      heroBurst = HeroArt.glitchTick(heroGl, stage, HERO_REDUCE);
+      heroStage = HeroArt.originalStage(depth, heroBurst);
       heroRigT = G.t;
     }
-    const glow = heroBurst ? .45 : 0;
+    const st = heroStage, sheet = st.jacks ? art.sheet : art.bare;
+    const glow = heroBurst ? .45 : st.glow;
     const behind = n => n.z > 2 || n.y <= feet + 1;      // 매달린 부분은 몸 뒤
-    if (P.dir !== 'up') art.rig.draw(g, glow, G.t, behind);
+    if (P.dir !== 'up') art.rig.draw(g, glow, G.t, behind, st.vis);
     g.save();
     g.translate(P.x, P.y + bob - FH / 2 + 12);
     g.rotate(tilt);
     g.scale(stretch, squash);
-    if (heroBurst) HeroArt.drawGlitched(g, art.sheet, art.real, fi, -FW / 2, -FH / 2, HERO_G.glitch.power);
+    if (heroBurst) HeroArt.drawGlitched(g, sheet, art.real, fi, -FW / 2, -FH / 2, st.power);
     else {
-      g.drawImage(art.sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
-      if (!HERO_REDUCE && Math.random() < .02 * HERO_G.glitch.power) {   // 잔떨림 — 띠 하나만 튐
+      g.drawImage(sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+      if (!HERO_REDUCE && Math.random() < .02 * st.power * (st.rate / .008)) {   // 잔떨림 — 띠 하나만 튐 (깊을수록 자주)
         const y0 = 4 + (Math.random() * (FH - 8) | 0), h = 1 + (Math.random() * 3 | 0);
-        g.drawImage(art.sheet, fi * FW, y0, FW, h, -FW / 2 + (Math.random() < .5 ? -2 : 2), -FH / 2 + y0, FW, h);
+        g.drawImage(sheet, fi * FW, y0, FW, h, -FW / 2 + (Math.random() < .5 ? -2 : 2), -FH / 2 + y0, FW, h);
       }
     }
     g.restore();
-    art.rig.draw(g, glow, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
+    art.rig.draw(g, glow, G.t, P.dir === 'up' ? null : n => !behind(n), st.vis);   // 뒷모습이면 전부 몸 앞
   } else if (IMG.hero) {
     const seq = HERO[P.dir] || HERO.down;
     const idx = seq[Math.floor(P.anim) % seq.length];
