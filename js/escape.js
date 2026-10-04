@@ -270,116 +270,258 @@ const RUN_LINES = [
      walk   방을 가로질러 문까지 (누르고 있기)
      hall   복도 — 비상구까지 (누르고 있기)
 
-   방은 320×330 그림 한 장(위쪽은 누워서 본 천장, 아래쪽은 앉아서 본 벽)에
-   그리고, 고개를 드는 만큼 위아래로 옮겨 찍습니다. 걸을 땐 문 쪽으로 당겨 찍습니다. */
-const WALL_OFF = 40;                                     // 누워서 볼 땐 천장만 보이도록 벽을 이만큼 내려 그림
-const ROOM_W = 320, ROOM_H = 330 + WALL_OFF, WALL_Y = 150 + WALL_OFF;   // 앉으면 WALL_Y 부터 보임
-const DOOR_F = [42, 236 + WALL_OFF];                     // 걸어갈 문의 한가운데 (방 그림 좌표)
-const WIRE_COL = ['#2f6fb5', '#c2352c', '#e3b23c', '#e9e3d5'];
+   방은 입체(drawRoom3D) — 카메라가 실제로 고개를 들고, 일어서고, 문까지 걸어갑니다. */
+/* ── 방 (3D) ───────────────────────────────────────────────
+   엔딩의 실험실을 입체로 — 가로 5.2m · 깊이 5.7m · 높이 3m. 카메라가 실제로
+   그 안에서 움직입니다 (눕기 → 앉기 → 침대 옆에 서기 → 문 앞까지). 복도와 같은
+   초점 거리 · 같은 색 · 거리만큼 어두워지는 안개로 그려서 복도로 자연스럽게 이어집니다.
+   좌표 (m) : x 오른쪽 · y 위 · z 앞(문이 있는 벽 쪽)
+     앞벽 z=4.5 — 왼쪽부터 문(키카드 잠금장치) · 관찰창 · 심전도 모니터
+     바닥 — 골격 모형, 뇌파 증폭기 카트, 링거대, 침대 (침대 머리는 뒷벽 쪽) */
+const WIRE_COL = ['#2f6fb5', '#c2352c', '#e3b23c', '#e9e3d5'];   // 전극선 — 청 · 적 · 황 · 백
 const WAKE_HALL0 = -19;                                  // 복도에서 걷기 시작하는 자리 (비상구 앞까지 약 16m)
+const RX0 = -2.6, RX1 = 2.6, RZ0 = -1.2, RZ1 = 4.5, RCH = 3;
+const DOOR_X0 = -2.2, DOOR_X1 = -1.2, DOOR_H = 2.2;
+const WIN = { x0: -.25, x1: 1.55, y0: .98, y1: 2.04 };       // 관찰창
+const MON = { x0: 1.7, x1: 2.32, y0: 1.62, y1: 2.0 };        // 심전도 모니터 (앞벽)
+/* 카메라 자세 — 누움 · 앉음 · 침대 옆에 섬 · 문 앞 */
+const CAM_LIE   = { x: .55, y: .92, z: -.38, yaw: 0, pitch: 1.3 };
+const CAM_SIT   = { x: .55, y: 1.3, z: -.12, yaw: 0, pitch: -.1 };
+const CAM_STAND = { x: -.4, y: 1.62, z: .55, yaw: -.24, pitch: -.05 };
+const CAM_DOOR  = { x: -1.68, y: 1.62, z: 3.5, yaw: -.02, pitch: -.04 };
+const lerpCam = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: lerp(a.z, b.z, k), yaw: lerp(a.yaw, b.yaw, k), pitch: lerp(a.pitch, b.pitch, k) });
 
-function bakeRoom() {
-  const c = document.createElement('canvas'); c.width = ROOM_W; c.height = ROOM_H;
-  const x = c.getContext('2d');
-  const R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
-  // ── 천장 (누워서 올려다본 쪽) — 엔딩 · 오프닝과 같은 격자 조명
-  R('#0f131a', 0, 0, ROOM_W, WALL_Y + 10);              // 천장 (벽 위 끝까지)
-  for (let px = 0; px < ROOM_W; px += 40) R('#0b0f15', px, 0, 1, WALL_Y);
-  const panel = (lx, ly, lw, lh) => {
-    R('#262e39', lx - 3, ly - 3, lw + 6, lh + 6); R('#e3ecf8', lx, ly, lw, lh);
-    x.fillStyle = '#9fb0c4';
-    for (let gx = lx; gx <= lx + lw; gx += 12) x.fillRect(gx, ly, 1, lh);
-    x.fillRect(lx, ly + (lh >> 1), lw, 1);
-  };
-  panel(88, 34, 144, 52);                                // 바로 위
-  panel(14, 108, 70, 18); panel(236, 108, 70, 18);       // 발치 쪽 멀리
-  R('#11161d', 268, 20, 14, 8); R('#c2352c', 276, 23, 2, 2);   // 감시 카메라
-  // ── 벽 (앉아서 본 쪽) — 아래 좌표는 벽 기준(150 = 벽 위 끝), 통째로 WALL_OFF 만큼 내려 그림
-  x.save(); x.translate(0, WALL_OFF);
-  R('#1a212b', 0, 158, ROOM_W, 2);
-  const wg = x.createLinearGradient(0, 160, 0, 288);
-  wg.addColorStop(0, '#2c3747'); wg.addColorStop(1, '#1b222c');
-  x.fillStyle = wg; x.fillRect(0, 160, ROOM_W, 128);
-  for (let px = 30; px < ROOM_W; px += 46) R('#171e27', px, 160, 1, 128);
-  R('#3a4757', 0, 252, ROOM_W, 3); R('#131920', 0, 255, ROOM_W, 1);
-  const fg = x.createLinearGradient(0, 288, 0, ROOM_H);
-  fg.addColorStop(0, '#252d39'); fg.addColorStop(1, '#10151b');
-  x.fillStyle = fg; x.fillRect(0, 288, ROOM_W, ROOM_H - 288);
-  x.strokeStyle = 'rgba(70,84,102,.45)'; x.lineWidth = 1;
-  for (let i = 0, y = 291; y < ROOM_H; i++, y += 3 + i * 2) { x.beginPath(); x.moveTo(0, y + .5); x.lineTo(ROOM_W, y + .5); x.stroke(); }
-  for (let i = -10; i <= 10; i++) { x.beginPath(); x.moveTo(160 + i * 18 + .5, 288); x.lineTo(160 + i * 40 + .5, ROOM_H); x.stroke(); }
-  // 문 (왼쪽) — 엔딩의 그 문. 아래쪽 황·흑 경고 띠
-  R('#3a4656', 16, 184, 52, 104); R('#283140', 19, 187, 46, 101);
-  R('#0b1018', 28, 196, 28, 12); R('#1e2a38', 29, 197, 26, 3);
-  R('#4c5868', 58, 236, 5, 3);
-  for (let i = 0; i < 6; i++) R(i % 2 ? '#e3b23c' : '#15141b', 19 + i * 8, 280, 8, 5);
-  R('#1a212b', 71, 228, 10, 18); R('#3a4656', 72, 229, 8, 16);               // 키카드 잠금장치 (불빛은 매 프레임)
-  // 골격 모형 — 던전 바닥의 해골
-  const B = '#d9d2c0', Bd = '#a39c8a';
-  R('#3d4652', 105, 196, 2, 86); R('#20262e', 96, 282, 20, 3);                // 받침대
-  R(B, 101, 189, 9, 8); R(Bd, 102, 194, 7, 2); R('#1b222c', 103, 191, 2, 2); R('#1b222c', 107, 191, 2, 2);
-  R(B, 105, 197, 2, 30);
-  for (let i = 0; i < 4; i++) { R(B, 99 + i, 202 + i * 4, 14 - i * 2, 2); }
-  R(B, 98, 226, 16, 4); R(B, 100, 230, 3, 26); R(B, 109, 230, 3, 26);
-  R(B, 96, 200, 2, 22); R(B, 114, 200, 2, 22);
-  // 관찰창 틀 · 위의 카메라 (유리 안쪽은 매 프레임)
-  R('#3a4656', 132, 174, 108, 64);
-  R('#1a212b', 180, 166, 10, 5); R('#0b0f14', 186, 167, 3, 3);
-  // 뇌파 증폭기 카트
-  R('#5b6674', 244, 254, 28, 2); R('#3d4652', 246, 256, 2, 30); R('#3d4652', 268, 256, 2, 30);
-  R('#2c3644', 246, 232, 24, 22); R('#3e4a5a', 246, 232, 24, 2);
-  for (let i = 0; i < 4; i++) R('#11161d', 249 + i * 5, 246, 3, 4);
-  // 심전도 모니터 (벽걸이) — 화면은 매 프레임
-  R('#3d4652', 290, 190, 14, 2); R('#1a212b', 248, 176, 44, 30); R('#3a4656', 249, 177, 42, 28);
-  // 링거대와 붉은 배양액 — 던전의 피
-  R('#8e9aa8', 306, 168, 2, 120); R('#8e9aa8', 300, 168, 14, 1);
-  R('#d9cfcf', 300, 172, 13, 5); R('#a8232a', 300, 177, 13, 14); R('#c43a3e', 301, 178, 3, 12); R('#f1ece0', 303, 181, 7, 3);
-  R('#d9dee6', 306, 191, 2, 6);
-  x.restore();
-  return c;
+/* 월드 → 카메라 공간 (yaw 는 오른쪽으로 돌기, pitch 는 올려다보기) */
+function toCam(c, p) {
+  const dx = p[0] - c.x, dy = p[1] - c.y, dz = p[2] - c.z;
+  const cy = Math.cos(c.yaw), sy = Math.sin(c.yaw);
+  const x1 = dx * cy - dz * sy, z1 = dx * sy + dz * cy;
+  const cp = Math.cos(c.pitch), sp = Math.sin(c.pitch);
+  return [x1, dy * cp - z1 * sp, dy * sp + z1 * cp];
+}
+const NEARC = .05;
+function clipNear(pts) {
+  const out = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length], ain = a[2] > NEARC, bin = b[2] > NEARC;
+    if (ain) out.push(a);
+    if (ain !== bin) { const t = (NEARC - a[2]) / (b[2] - a[2]); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEARC]); }
+  }
+  return out;
+}
+const proj = q => [LW / 2 + q[0] / q[2] * FOC, LH / 2 - q[1] / q[2] * FOC];
+/* 거리만큼 어두워짐 — 복도의 shade 와 같은 결 */
+function roomShade(base, dist) {
+  const near = clamp01(1 - dist / 13);
+  return mixC(LAB.fog, base, Math.pow(near, 1.1) * .82 + .1);
+}
+/* 다각형 하나 — 카메라 공간으로 옮겨 잘라 내고 칠함. 돌려주는 값 : 화면 좌표 (못 그리면 null) */
+function poly3(b, c, pts, base, opt = {}) {
+  const q = clipNear(pts.map(p => toCam(c, p)));
+  if (q.length < 3) return null;
+  const cz = q.reduce((a, v) => a + Math.hypot(v[0], v[1], v[2]), 0) / q.length;
+  const sp = q.map(proj);
+  b.fillStyle = opt.emit ? css(base, opt.a || 1) : css(roomShade(base, cz), opt.a || 1);
+  b.beginPath(); b.moveTo(sp[0][0], sp[0][1]);
+  for (let i = 1; i < sp.length; i++) b.lineTo(sp[i][0], sp[i][1]);
+  b.closePath(); b.fill();
+  return sp;
+}
+function line3(b, c, p0, p1, col, dim = 1) {
+  let a = toCam(c, p0), d = toCam(c, p1);
+  if (a[2] <= NEARC && d[2] <= NEARC) return;
+  if (a[2] <= NEARC) { const t = (NEARC - a[2]) / (d[2] - a[2]); a = [a[0] + (d[0] - a[0]) * t, a[1] + (d[1] - a[1]) * t, NEARC]; }
+  if (d[2] <= NEARC) { const t = (NEARC - d[2]) / (a[2] - d[2]); d = [d[0] + (a[0] - d[0]) * t, d[1] + (a[1] - d[1]) * t, NEARC]; }
+  const m = (Math.hypot(...a) + Math.hypot(...d)) / 2, A = proj(a), D = proj(d);
+  b.strokeStyle = css(roomShade(col, m), dim); b.lineWidth = 1;
+  b.beginPath(); b.moveTo(A[0], A[1]); b.lineTo(D[0], D[1]); b.stroke();
+}
+/* 그림 한 장을 벽 위 사각형에 붙임 — 세 꼭짓점(왼위 · 오른위 · 왼아래)으로 기울여 찍기 */
+function image3(b, c, img, tl, tr, bl, alpha = 1) {
+  const A = toCam(c, tl), B = toCam(c, tr), C = toCam(c, bl);
+  if (A[2] <= NEARC || B[2] <= NEARC || C[2] <= NEARC) return;
+  const a = proj(A), bb = proj(B), cc = proj(C);
+  b.save(); b.globalAlpha = alpha;
+  b.setTransform((bb[0] - a[0]) / img.width, (bb[1] - a[1]) / img.width, (cc[0] - a[0]) / img.height, (cc[1] - a[1]) / img.height, a[0], a[1]);
+  b.drawImage(img, 0, 0);
+  b.restore();
+}
+/* 상자 — 카메라 쪽을 보는 면만 (위는 밝게, 옆은 어둡게) */
+function box3(b, c, x0, x1, y0, y1, z0, z1, col) {
+  const faces = [
+    [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], 0, 1, 0, .12],     // 위
+    [[x0, y0, z1], [x1, y0, z1], [x1, y0, z0], [x0, y0, z0], 0, -1, 0, -.3],    // 아래
+    [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], 0, 0, -1, -.05],   // 앞(카메라 쪽 -z)
+    [[x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y1, z1], 0, 0, 1, -.1],
+    [[x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], -1, 0, 0, -.18],
+    [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 1, 0, 0, -.22]
+  ];
+  for (const f of faces) {
+    const fc = [f[0][0], f[0][1], f[0][2]];
+    if ((c.x - fc[0]) * f[4] + (c.y - fc[1]) * f[5] + (c.z - fc[2]) * f[6] <= 0) continue;
+    poly3(b, c, f.slice(0, 4), mixC(col, f[7] > 0 ? [255, 255, 255] : [0, 0, 0], Math.abs(f[7])));
+  }
 }
 
-/* 매 프레임 — 관찰창 안 · 심전도 화면 · 잠금장치 불빛 */
-function drawRoomLive(s, x) {
+/* 매 프레임 바뀌는 그림 — 관찰창 안 (100×56) · 심전도 화면 (38×24) */
+function drawWindowTex(s, x) {
   const t = s.frame;
-  x.save(); x.translate(0, WALL_OFF);                    // 벽 기준 좌표
-  // 관찰창 — 텅 빈 의자, 책상 위 모니터 불빛, 아직 김이 오르는 커피
-  const gg = x.createLinearGradient(0, 178, 0, 234);
+  const gg = x.createLinearGradient(0, 0, 0, 56);
   gg.addColorStop(0, '#0f1a28'); gg.addColorStop(1, '#070b11');
-  x.fillStyle = gg; x.fillRect(136, 178, 100, 56);
-  x.fillStyle = '#1a2636'; x.fillRect(140, 218, 92, 4);                       // 책상
-  x.fillStyle = '#0b1119'; x.fillRect(176, 204, 14, 14); x.fillRect(174, 214, 18, 4); x.fillRect(182, 218, 2, 12);   // 빈 의자
-  x.fillStyle = 'rgba(40,255,90,.55)'; x.fillRect(206, 206, 14, 10);           // 책상 위 모니터
-  x.fillStyle = '#0d3a1e'; x.fillRect(207, 207, 12, 8);
+  x.fillStyle = gg; x.fillRect(0, 0, 100, 56);
+  x.fillStyle = '#1a2636'; x.fillRect(4, 40, 92, 4);                           // 책상
+  x.fillStyle = '#0b1119'; x.fillRect(40, 26, 14, 14); x.fillRect(38, 36, 18, 4); x.fillRect(46, 40, 2, 12);   // 빈 의자
+  x.fillStyle = 'rgba(40,255,90,.55)'; x.fillRect(70, 28, 14, 10);             // 책상 위 모니터
+  x.fillStyle = '#0d3a1e'; x.fillRect(71, 29, 12, 8);
   x.fillStyle = 'rgba(40,255,90,.8)';
-  for (let i = 0; i < 12; i++) x.fillRect(207 + i, 211 + Math.round(Math.sin((t + i * 6) * .12) * 1.5), 1, 1);
-  x.fillStyle = '#d9dee6'; x.fillRect(152, 213, 5, 5); x.fillRect(157, 214, 1, 3);   // 머그잔
-  for (let i = 0; i < 3; i++) {                                                // 김
+  for (let i = 0; i < 12; i++) x.fillRect(71 + i, 33 + Math.round(Math.sin((t + i * 6) * .12) * 1.5), 1, 1);
+  x.fillStyle = '#d9dee6'; x.fillRect(16, 35, 5, 5); x.fillRect(21, 36, 1, 3);   // 머그잔
+  for (let i = 0; i < 3; i++) {                                                  // 김
     const ph = ((t * .015 + i / 3) % 1);
     x.fillStyle = `rgba(220,230,240,${.35 * (1 - ph)})`;
-    x.fillRect(153 + Math.round(Math.sin(ph * 6 + i) * 1.5), 211 - Math.round(ph * 12), 1, 2);
+    x.fillRect(17 + Math.round(Math.sin(ph * 6 + i) * 1.5), 33 - Math.round(ph * 12), 1, 2);
   }
-  x.fillStyle = 'rgba(160,200,255,.06)'; x.fillRect(136, 178, 100, 56);        // 유리 반사
-  x.fillStyle = 'rgba(200,220,255,.12)'; x.fillRect(144, 180, 2, 20); x.fillRect(148, 180, 1, 12);
-  // 심전도 — 전극을 뗄수록 흔들리다, 다 떼면 일자로
-  x.fillStyle = '#04120a'; x.fillRect(251, 179, 38, 24);
+  x.fillStyle = 'rgba(160,200,255,.06)'; x.fillRect(0, 0, 100, 56);              // 유리 반사
+  x.fillStyle = 'rgba(200,220,255,.12)'; x.fillRect(8, 2, 2, 20); x.fillRect(12, 2, 1, 12);
+}
+function drawMonitorTex(s, x) {
+  const t = s.frame;
+  x.fillStyle = '#04120a'; x.fillRect(0, 0, 38, 24);
   const flat = s.wires <= 0, alarmOn = flat && (t >> 4) % 2;
   x.fillStyle = flat ? (alarmOn ? '#ff4040' : '#702020') : '#40ff70';
   for (let i = 0; i < 38; i++) {
-    let y = 191;
+    let y = 14;
     if (!flat) {
       const ph = ((t * .9 + i * 3) % 60), wob = (4 - s.wires) * .8;
       if (ph > 50 && ph < 53) y -= 8; else if (ph >= 53 && ph < 55) y += 4;
       y += Math.round((Math.random() - .5) * wob);
     }
-    x.fillRect(251 + i, y, 1, 1);
+    x.fillRect(i, y, 1, 1);
   }
   x.font = '6px monospace'; x.fillStyle = flat ? (alarmOn ? '#ff6060' : '#803030') : '#40ff70';
-  x.fillText(flat ? '---' : String(60 + (4 - s.wires) * 9), 252, 186);
+  x.fillText(flat ? '---' : String(60 + (4 - s.wires) * 9), 1, 7);
+}
+/* 골격 모형 — 던전 바닥의 해골. 늘 이쪽을 보는 그림 한 장 */
+function bakeSkeleton() {
+  const c = document.createElement('canvas'); c.width = 22; c.height = 70;
+  const x = c.getContext('2d'), R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+  const B = '#d9d2c0', Bd = '#a39c8a';
+  R('#3d4652', 10, 8, 2, 60); R('#20262e', 2, 67, 18, 3);                       // 받침대
+  R(B, 6, 0, 10, 9); R(Bd, 7, 6, 8, 2); R('#1b222c', 8, 3, 2, 2); R('#1b222c', 12, 3, 2, 2);
+  R(B, 10, 9, 2, 26);
+  for (let i = 0; i < 4; i++) R(B, 4 + i, 13 + i * 4, 14 - i * 2, 2);
+  R(B, 4, 33, 14, 4); R(B, 5, 37, 3, 28); R(B, 14, 37, 3, 28);
+  R(B, 2, 11, 2, 22); R(B, 18, 11, 2, 22);
+  return c;
+}
+
+/* 방 한 장 — 껍데기(바닥 · 천장 · 네 벽) → 벽에 붙은 것 → 바닥에 선 것(먼 것부터) */
+function drawRoom3D(s, b, c) {
+  b.fillStyle = css(LAB.fog); b.fillRect(0, 0, LW, LH);
+  const flo = LAB.floor, wal = LAB.wall, wal2 = LAB.wall2, cei = LAB.ceil;
+  // 껍데기 — 볼록한 상자 안이라 칠하는 순서가 겹치지 않습니다
+  poly3(b, c, [[RX0, 0, RZ0], [RX1, 0, RZ0], [RX1, 0, RZ1], [RX0, 0, RZ1]], flo);
+  poly3(b, c, [[RX0, RCH, RZ1], [RX1, RCH, RZ1], [RX1, RCH, RZ0], [RX0, RCH, RZ0]], cei);
+  poly3(b, c, [[RX0, 0, RZ1], [RX1, 0, RZ1], [RX1, RCH, RZ1], [RX0, RCH, RZ1]], wal);       // 앞벽
+  poly3(b, c, [[RX1, 0, RZ0], [RX0, 0, RZ0], [RX0, RCH, RZ0], [RX1, RCH, RZ0]], wal);       // 뒷벽
+  poly3(b, c, [[RX0, 0, RZ0], [RX0, 0, RZ1], [RX0, RCH, RZ1], [RX0, RCH, RZ0]], wal2);      // 왼벽
+  poly3(b, c, [[RX1, 0, RZ1], [RX1, 0, RZ0], [RX1, RCH, RZ0], [RX1, RCH, RZ1]], wal2);      // 오른벽
+  // 바닥 격자 · 벽 판넬 이음새 · 허리 높이 띠
+  for (let gx = -2.6; gx <= 2.6; gx += .65) line3(b, c, [gx, .001, RZ0], [gx, .001, RZ1], [70, 84, 102], .55);
+  for (let gz = RZ0; gz <= RZ1; gz += .65) line3(b, c, [RX0, .001, gz], [RX1, .001, gz], [70, 84, 102], .55);
+  for (let gx = -2.3; gx < 2.6; gx += .92) line3(b, c, [gx, 0, RZ1 - .002], [gx, RCH, RZ1 - .002], [23, 30, 39]);
+  for (let gz = RZ0 + .4; gz < RZ1; gz += .92) { line3(b, c, [RX0 + .002, 0, gz], [RX0 + .002, RCH, gz], [23, 30, 39]); line3(b, c, [RX1 - .002, 0, gz], [RX1 - .002, RCH, gz], [23, 30, 39]); }
+  const rail = (y0, y1, col) => {
+    poly3(b, c, [[RX0, y0, RZ1 - .003], [RX1, y0, RZ1 - .003], [RX1, y1, RZ1 - .003], [RX0, y1, RZ1 - .003]], col);
+    poly3(b, c, [[RX0 + .003, y0, RZ0], [RX0 + .003, y0, RZ1], [RX0 + .003, y1, RZ1], [RX0 + .003, y1, RZ0]], col);
+    poly3(b, c, [[RX1 - .003, y0, RZ1], [RX1 - .003, y0, RZ0], [RX1 - .003, y1, RZ0], [RX1 - .003, y1, RZ1]], col);
+    poly3(b, c, [[RX1, y0, RZ0 + .003], [RX0, y0, RZ0 + .003], [RX0, y1, RZ0 + .003], [RX1, y1, RZ0 + .003]], col);
+  };
+  rail(.95, 1.06, LAB.stripe); rail(0, .1, [19, 25, 32]);
+  // 천장 — 격자 조명 (엔딩 · 오프닝과 같은 모양). 스스로 빛나서 안개를 덜 탐
+  const panel = (x0, x1, z0, z1) => {
+    poly3(b, c, [[x0 - .06, RCH - .002, z1 + .06], [x1 + .06, RCH - .002, z1 + .06], [x1 + .06, RCH - .002, z0 - .06], [x0 - .06, RCH - .002, z0 - .06]], [38, 46, 57]);
+    const sp = poly3(b, c, [[x0, RCH - .004, z1], [x1, RCH - .004, z1], [x1, RCH - .004, z0], [x0, RCH - .004, z0]], [227, 236, 248], { emit: true });
+    if (!sp) return;
+    for (let gx = x0 + .12; gx < x1; gx += .12) line3(b, c, [gx, RCH - .005, z0], [gx, RCH - .005, z1], [159, 176, 196]);
+    line3(b, c, [x0, RCH - .005, (z0 + z1) / 2], [x1, RCH - .005, (z0 + z1) / 2], [159, 176, 196]);
+  };
+  panel(.05, 1.05, -.75, .45); panel(-1.6, -.4, 1.5, 2.3); panel(.3, 1.5, 2.3, 3.1); panel(-1.4, -.2, 3.4, 4.1);
+  box3(b, c, 1.85, 2.05, RCH - .12, RCH, 3.7, 3.9, [17, 22, 29]);                           // 감시 카메라
+  poly3(b, c, [[1.93, RCH - .121, 3.69], [1.97, RCH - .121, 3.69], [1.97, RCH - .08, 3.69], [1.93, RCH - .08, 3.69]], [194, 53, 44], { emit: true });
+  // ── 앞벽에 붙은 것
+  const F = RZ1 - .006;
+  // 문 — 열린 만큼 문짝이 오른쪽으로 밀림. 그 뒤로 어두운 복도와 멀리 초록 빛
+  poly3(b, c, [[DOOR_X0 - .07, 0, F], [DOOR_X1 + .07, 0, F], [DOOR_X1 + .07, DOOR_H + .07, F], [DOOR_X0 - .07, DOOR_H + .07, F]], [58, 70, 86]);
+  const ds = s.doorSlide || 0;
+  if (ds > 0) {
+    // 문 너머 — 어두운 복도 저 끝에 작은 EXIT 표지와 번지는 초록 빛
+    const sp = poly3(b, c, [[DOOR_X0, 0, F - .001], [DOOR_X1, 0, F - .001], [DOOR_X1, DOOR_H, F - .001], [DOOR_X0, DOOR_H, F - .001]], [5, 7, 11], { emit: true });
+    const e = toCam(c, [(DOOR_X0 + DOOR_X1) / 2, 1.5, F]);
+    if (sp && e[2] > NEARC) {
+      const [ex, ey] = proj(e), k = FOC / e[2];
+      b.save();
+      b.beginPath(); b.moveTo(sp[0][0], sp[0][1]); sp.forEach(q => b.lineTo(q[0], q[1])); b.closePath(); b.clip();
+      b.globalCompositeOperation = 'lighter';
+      const gr = b.createRadialGradient(ex, ey, 1, ex, ey, .55 * k);
+      gr.addColorStop(0, `rgba(60,255,120,${.28 * ds})`); gr.addColorStop(1, 'rgba(60,255,120,0)');
+      b.fillStyle = gr; b.fillRect(ex - .6 * k, ey - .6 * k, 1.2 * k, 1.2 * k);
+      b.fillStyle = `rgba(80,255,140,${.9 * ds})`; b.fillRect(ex - .05 * k, ey - .02 * k, Math.max(1, .1 * k), Math.max(1, .04 * k));
+      b.restore();
+    }
+  }
+  const lx = DOOR_X0 + .03 + ds * (DOOR_X1 - DOOR_X0);
+  if (lx < DOOR_X1 - .03) {
+    const L = (x0, x1, y0, y1, col, o = {}) => poly3(b, c, [[Math.max(lx, x0), y0, F - .003], [Math.min(DOOR_X1 - .03, x1), y0, F - .003], [Math.min(DOOR_X1 - .03, x1), y1, F - .003], [Math.max(lx, x0), y1, F - .003]], col, o);
+    L(-9, 9, 0, DOOR_H - .03, [40, 49, 64]);                                               // 문짝
+    L(lx + .15 - ds, lx + .8, 1.55, 1.82, [11, 16, 24]);                                   // 작은 창
+    for (let i = 0; i < 6; i++) L(lx + i * .16, lx + (i + 1) * .16, .05, .14, i % 2 ? [227, 178, 60] : [21, 20, 27]);   // 황·흑 경고 띠
+    L(lx + .78, lx + .86, .98, 1.04, [76, 88, 104]);                                        // 손잡이
+  }
   // 키카드 잠금장치 — 초록 불 (나간 사람이 서두르느라 열어 둔 채)
-  x.fillStyle = '#0b0f14'; x.fillRect(74, 236, 4, 1);
-  x.fillStyle = (t >> 5) % 2 ? '#40ff70' : '#1e8a3a'; x.fillRect(74, 232, 4, 2);
-  x.restore();
+  poly3(b, c, [[-1.1, 1.0, F], [-.96, 1.0, F], [-.96, 1.3, F], [-1.1, 1.3, F]], [26, 33, 43]);
+  poly3(b, c, [[-1.08, 1.02, F - .001], [-.98, 1.02, F - .001], [-.98, 1.28, F - .001], [-1.08, 1.28, F - .001]], [58, 70, 86]);
+  poly3(b, c, [[-1.06, 1.2, F - .002], [-1.0, 1.2, F - .002], [-1.0, 1.24, F - .002], [-1.06, 1.24, F - .002]], (s.frame >> 5) % 2 ? [64, 255, 112] : [30, 138, 58], { emit: true });
+  // 관찰창 — 틀, 그 안(빈 의자 · 김 오르는 커피)
+  poly3(b, c, [[WIN.x0 - .08, WIN.y0 - .08, F], [WIN.x1 + .08, WIN.y0 - .08, F], [WIN.x1 + .08, WIN.y1 + .08, F], [WIN.x0 - .08, WIN.y1 + .08, F]], [58, 70, 86]);
+  drawWindowTex(s, s.winTex.getContext('2d'));
+  image3(b, c, s.winTex, [WIN.x0, WIN.y1, F - .002], [WIN.x1, WIN.y1, F - .002], [WIN.x0, WIN.y0, F - .002]);
+  box3(b, c, .58, .72, 2.18, 2.27, RZ1 - .12, RZ1, [26, 33, 43]);                         // 창 위의 카메라
+  // 심전도 모니터 — 벽걸이 팔 위
+  box3(b, c, MON.x0 - .03, MON.x1 + .03, MON.y0 - .03, MON.y1 + .03, RZ1 - .16, RZ1, [42, 52, 66]);
+  drawMonitorTex(s, s.monTex.getContext('2d'));
+  image3(b, c, s.monTex, [MON.x0, MON.y1, RZ1 - .162], [MON.x1, MON.y1, RZ1 - .162], [MON.x0, MON.y0, RZ1 - .162]);
+  // ── 바닥에 선 것 — 먼 것부터
+  const things = [
+    { at: [2.1, 4.1], draw: () => {                                                         // 뇌파 증폭기 카트
+      box3(b, c, 1.85, 2.35, .6, 1.0, 3.9, 4.32, [44, 54, 68]);
+      box3(b, c, 1.82, 2.38, .56, .6, 3.86, 4.36, [91, 102, 116]);
+      [[1.86, 3.9], [2.31, 3.9], [1.86, 4.28], [2.31, 4.28]].forEach(([x, z]) => box3(b, c, x, x + .03, 0, .56, z, z + .03, [61, 70, 82]));
+      for (let i = 0; i < 4; i++) poly3(b, c, [[1.92 + i * .1, .7, 3.899], [1.98 + i * .1, .7, 3.899], [1.98 + i * .1, .78, 3.899], [1.92 + i * .1, .78, 3.899]], [17, 22, 29]);
+    } },
+    { at: [-.55, 4.05], draw: () => {                                                        // 골격 모형 — 늘 이쪽을 봄
+      const rx = Math.cos(c.yaw) * .29, rz = -Math.sin(c.yaw) * .29;
+      image3(b, c, s.skelTex, [-.55 - rx, 1.78, 4.05 - rz], [-.55 + rx, 1.78, 4.05 + rz], [-.55 - rx, 0, 4.05 - rz]);
+    } },
+    { at: [1.38, .35], draw: () => {                                                         // 링거대 · 붉은 배양액
+      box3(b, c, 1.36, 1.4, 0, 2.05, .33, .37, [142, 154, 168]);
+      box3(b, c, 1.2, 1.56, .02, .05, .33, .37, [61, 70, 82]); box3(b, c, 1.36, 1.4, .02, .05, .17, .53, [61, 70, 82]);
+      box3(b, c, 1.3, 1.46, 2.02, 2.05, .33, .37, [142, 154, 168]);
+      box3(b, c, 1.31, 1.45, 1.66, 1.98, .31, .39, [168, 35, 42]);
+      box3(b, c, 1.31, 1.45, 1.93, 1.99, .31, .39, [217, 207, 207]);
+    } },
+    { at: [.55, .1], draw: () => {                                                           // 침대
+      box3(b, c, 0, 1.1, .12, .48, -1.0, 1.15, [70, 80, 92]);
+      [[.02, -.98], [1.04, -.98], [.02, 1.09], [1.04, 1.09]].forEach(([x, z]) => box3(b, c, x, x + .04, 0, .12, z, z + .04, [40, 46, 54]));
+      box3(b, c, .02, 1.08, .48, .62, -.98, 1.13, [201, 207, 207]);                          // 담요
+      box3(b, c, .02, 1.08, .6, .63, .55, .7, [47, 111, 181]);                               // 담요의 파란 줄
+      box3(b, c, .15, .95, .62, .74, -.95, -.6, [226, 230, 228]);                            // 베개
+      box3(b, c, 0, 1.1, .48, 1.05, -1.06, -1.0, [91, 102, 116]);                            // 머리판
+      box3(b, c, -.04, 0, .62, .66, -.6, .7, [91, 102, 116]); box3(b, c, 1.1, 1.14, .62, .66, -.6, .7, [91, 102, 116]);   // 난간
+    } }
+  ];
+  things.sort((p, q) => Math.hypot(q.at[0] - c.x, q.at[1] - c.z) - Math.hypot(p.at[0] - c.x, p.at[1] - c.z));
+  things.forEach(t => t.draw());
 }
 
 /* 앉은 자리에서 본 내 몸 — 병원 담요, 침대 난간, 손(팔찌 · 링거), 머리에서 늘어진 전극선 */
@@ -563,34 +705,25 @@ const WakeState = {
       if (s.fade > 0) { b.fillStyle = `rgba(0,0,0,${s.fade})`; b.fillRect(0, 0, LW, LH); }
       return;
     }
-    const live = s.roomLive.getContext('2d');
-    live.drawImage(s.roomBase, 0, 0);
-    drawRoomLive(s, live);
-    // 걸어갈 문 — 열리는 만큼 문짝이 옆으로 밀리고 어두운 복도와 초록 빛
-    if (s.doorSlide > 0) {
-      const dy = WALL_OFF;
-      live.fillStyle = '#05070b'; live.fillRect(19, 187 + dy, 46, 101);
-      live.fillStyle = 'rgba(60,255,120,.22)'; live.fillRect(30, 200 + dy, 24, 30);
-      live.fillStyle = '#283140'; live.fillRect(19 + Math.round(s.doorSlide * 44), 187 + dy, Math.max(0, 46 - Math.round(s.doorSlide * 44)), 101);
-    }
+    // 카메라 — 눕기 → 앉기 → 침대 옆에 서기 → 문 앞까지 (걸음마다 살짝 출렁임)
+    let cam = lerpCam(CAM_LIE, CAM_SIT, s.pitch);
+    cam = lerpCam(cam, CAM_STAND, s.rise);
+    cam = lerpCam(cam, CAM_DOOR, ease(s.walkP));
+    const walking = s.wk === 'walk' && s.walkP > 0 && s.walkP < 1;
+    cam.y += Math.sin(s.bob * 2) * (walking ? .025 : .006);
+    cam.x += Math.sin(s.bob) * (walking ? .018 : 0);
     b.save();
     b.imageSmoothingEnabled = false;
     if (s.shake > .3) b.translate((Math.random() - .5) * s.shake, (Math.random() - .5) * s.shake);
-    // 고개 — 누우면 천장(0), 앉으면 벽(WALL_Y), 일어서면 조금 더 위에서
-    const vy = lerp(0, WALL_Y, s.pitch) - s.rise * 10 + Math.sin(s.bob * 2) * (s.wk === 'walk' ? 1.4 : .6);
-    const z = 1 + ease(s.walkP) * 2.3;                   // 걸어갈수록 문 쪽으로 당겨짐
-    const cx = lerp(ROOM_W / 2, DOOR_F[0], ease(s.walkP)), cy = lerp(vy + LH / 2, DOOR_F[1], ease(s.walkP));
-    const sw = LW / z, sh = LH / z;
-    const sx = Math.max(0, Math.min(ROOM_W - sw, cx - sw / 2)) + Math.sin(s.bob) * 1.2;
-    const sy = Math.max(0, Math.min(ROOM_H - sh, cy - sh / 2));
-    b.fillStyle = '#000'; b.fillRect(0, 0, LW, LH);
-    b.drawImage(s.roomLive, sx, sy, sw, sh, 0, 0, LW, LH);
-    if (s.dizzy > .02) {                                  // 어지러움 — 상이 두 겹으로 흔들림
-      b.globalAlpha = .38 * s.dizzy;
-      b.drawImage(s.roomLive, sx + Math.sin(s.frame * .07) * 6 * s.dizzy, sy, sw, sh, 0, 0, LW, LH);
-      b.globalAlpha = 1;
-    }
+    const roll = Math.sin(s.frame * .07) * .07 * s.dizzy + Math.sin(s.bob) * (walking ? .012 : 0);
+    if (roll) { b.translate(LW / 2, LH / 2); b.rotate(roll); b.translate(-LW / 2, -LH / 2); }
+    drawRoom3D(s, b, cam);
     b.restore();
+    if (s.dizzy > .02) {                                  // 어지러움 — 상이 두 겹으로 흔들림
+      b.save(); b.globalAlpha = .34 * s.dizzy;
+      b.drawImage(b.canvas, Math.sin(s.frame * .07) * 6 * s.dizzy, 0);
+      b.restore();
+    }
     if (s.pitch > .3 && s.rise < 1) drawBedFront(s, b, s.rise);
     // 눈꺼풀 — 처음에 천천히 뜨고 두 번 깜빡임
     if (s.wk === 'ceil') {
@@ -1527,8 +1660,9 @@ class EscapeScene {
     this.onDone = onDone || (() => {});
     this.overlay = bakeOverlay();
     this.states = { wake: WakeState, door: DoorState, stay: StayState, open: OpenState, run: RunState, caught: CaughtState, free: FreeState };
-    this.roomBase = bakeRoom();
-    this.roomLive = document.createElement('canvas'); this.roomLive.width = ROOM_W; this.roomLive.height = ROOM_H;
+    this.winTex = document.createElement('canvas'); this.winTex.width = 100; this.winTex.height = 56;   // 방(3D)의 관찰창 안
+    this.monTex = document.createElement('canvas'); this.monTex.width = 38; this.monTex.height = 24;    // 심전도 화면
+    this.skelTex = bakeSkeleton();
     this.held = new Set();                               // 누르고 있는 걷기 키 · 손가락
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
