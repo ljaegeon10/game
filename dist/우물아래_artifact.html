@@ -845,6 +845,36 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 .ec-thanks{ margin-top:6px; }
 /* 개발자 모드 — 타이틀 하단 · 엔드 카드의 제작진 크레딧을 띄우지 않습니다 */
 body.dev #credits, body.dev .e-credits{ display:none; }
+
+/* ── 개발자 모드 — 브라운관 TV ───────────────────────────────
+   일반 판의 노란 테두리 대신 짙은 플라스틱 베젤, 모서리가 둥근 유리면.
+   맨 위(#crt)에 주사선 · 빨강·초록·파랑 형광 줄 · 가장자리 그늘 · 미세한 깜빡임을 얹어
+   본편 · 엔딩 · 탈출까지 한 대의 브라운관으로 보이게 합니다. */
+body.dev #stage{
+  border-radius:16px;
+  box-shadow:
+    0 0 0 3px #08080a,
+    0 0 0 15px #26252a,
+    0 0 0 16px #3a383f,
+    0 0 0 19px #121115,
+    0 26px 70px rgba(0,0,0,.65);
+}
+#crt{ display:none; }
+body.dev #crt{
+  display:block; position:absolute; inset:0; z-index:90; pointer-events:none;
+  border-radius:16px;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 1px, rgba(0,0,0,.26) 1px 2px, rgba(0,0,0,0) 2px 3px),
+    repeating-linear-gradient(to right, rgba(255,40,40,.045) 0 1px, rgba(40,255,90,.035) 1px 2px, rgba(60,90,255,.045) 2px 3px),
+    radial-gradient(ellipse 72% 68% at 50% 46%, rgba(255,255,255,.045) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,.42) 100%);
+  box-shadow: inset 0 0 26px rgba(0,0,0,.85), inset 0 0 70px rgba(0,0,0,.45);
+  animation:crtflick .11s steps(2) infinite;
+}
+body.dev #crt::after{                 /* 유리에 비친 방 불빛 — 왼쪽 위의 옅은 반사 */
+  content:''; position:absolute; inset:0; border-radius:16px;
+  background:linear-gradient(135deg, rgba(255,255,255,.07) 0%, rgba(255,255,255,0) 32%);
+}
+@keyframes crtflick{ 0%{opacity:.9} 100%{opacity:1} }
 .ec-thanks-name{ color:var(--glow); text-shadow:0 0 6px rgba(125,227,200,.35); }
 
 /* ═══════════════════════════════════════════════════════
@@ -1045,6 +1075,7 @@ body.dev #credits, body.dev .e-credits{ display:none; }
     <div id="scanlines" aria-hidden="true"></div>
     <div id="vignette" aria-hidden="true"></div>
     <div id="glitchbar" aria-hidden="true"></div>
+    <div id="crt" aria-hidden="true"></div>       <!-- 개발자 모드 — 브라운관 화면 (css) -->
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
@@ -8269,6 +8300,8 @@ class EscSfx {
   thud()         { this.tone(140, .08, 'square', .1, 70); this.noise(.06, .1, 400, 3000); }
   glitch()       { for (let i = 0; i < 6; i++) this.tone(300 + Math.random() * 2400, .03, 'square', .07, 0, i * .022); this.noise(.14, .16, 2000, 12000); }
   beep(v = .05)  { this.tone(988, .09, 'sine', v); }                       // 심전도 한 박
+  boom(v = 1)    { this.tone(58, 2.4, 'sine', .62 * v, 30); this.tone(41, 3.0, 'sine', .4 * v, 26, .02);   // 둥 — 가슴을 울리는 낮은 한 방
+                   this.tone(116, .5, 'triangle', .16 * v, 48); this.noise(.45, .34 * v, 25, 320); this.noise(2.2, .07 * v, 20, 150, .05); }
   chime()        { this.tone(659, .5, 'sine', .07); this.tone(523, .7, 'sine', .07, 0, .32); }   // 방송 딩동
   sheet()        { this.noise(.7, .07, 600, 4000); }                       // 이불 스치는 소리
   wince()        { this.tone(180, .2, 'sine', .08, 120); this.noise(.12, .06, 1500, 6000); }
@@ -9004,10 +9037,10 @@ const FreeState = {
     if (t === 90) s.say('…밖이다.', 'me-dark', 150);
     if (t === 260) s.say('…들리세요?', 'far-dark', 140);
     // 빛이 걷히면 — 침대 위. 처음부터 어디로도 달린 적이 없었습니다
-    if (t === 420) { s.sfx.beep(.1); s.realT = 9999; s.realDur = 200; s.realK = 3; }
+    if (t === 420) { s.sfx.boom(1); s.shake = 10; s.realT = 9999; s.realDur = 200; s.realK = 3; }   // 둥 — 진짜 결말
     if (t === 450) s.say('진정됐어요. 맥박 정상.', 'cold', 140);
     if (t === 560) s.say('출구까지 갔네요. 이번엔.', 'doc', 150);
-    if (t === 690) { s.sfx.beep(.1); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
+    if (t === 690) { s.sfx.boom(.6); s.sfx.beep(.08); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
     if (t >= 800) s.finish('escaped');
   },
   draw(s, b) {
@@ -9664,6 +9697,51 @@ const SUB_STYLE = {
   'me-dark':  { c: '#2a2a26', y: H / 2, size: 30, light: true },
   'far-dark': { c: '#4a4a44', y: H / 2 + 44, size: 22, light: true }
 };
+/* ── 자막 — 본편(#subtitle)과 같은 모양 · 같은 둥근모꼴을 캔버스가 아닌 문서 요소로 얹습니다.
+   (캔버스 글자는 화면 배율에 맞춰 늘어나며 뭉개지기 때문) 576×324 좌표로 짓고 캔버스 크기에 맞춰 키웁니다 */
+const SUB_CSS = `
+.esc-subs{ position:absolute; left:0; top:0; width:576px; height:324px; pointer-events:none; transform-origin:0 0; z-index:5;
+  font-family:'DungGeunMo','Galmuri11','Neo둥근모',monospace; }
+.esc-subs .col{ position:absolute; left:14px; right:14px; bottom:12px; display:flex; flex-direction:column; gap:7px; transition:bottom .25s; }
+.esc-subs .mid{ position:absolute; left:60px; right:60px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; align-items:center; }
+.esc-line{ position:relative; background:linear-gradient(180deg, rgba(34,36,50,.94), rgba(24,26,38,.97));
+  border:1px solid rgba(241,236,224,.24); border-left:3px solid #e3b23c; padding:9px 11px 10px; min-height:44px; box-sizing:border-box; }
+.esc-line p{ margin:0; font-size:12.5px; line-height:1.7; color:#f0e9db; letter-spacing:.01em; }
+.esc-line.whisper p{ color:#b3c6d8; font-style:italic; }
+.esc-line.cold p{ color:#f0c6bc; }
+.esc-line .tag{ position:absolute; left:10px; top:-9px; font-size:8px; font-weight:700; letter-spacing:.3em; text-indent:.3em;
+  color:#7de3c8; background:#0b1414; padding:2px 7px; border:1px solid rgba(125,227,200,.55); }
+.esc-line.sys{ border-left:3px solid #7de3c8; background:linear-gradient(180deg, rgba(19,32,34,.94), rgba(13,24,27,.97)); min-width:240px; text-align:center; }
+.esc-line.sys p{ color:#7de3c8; font-size:14px; letter-spacing:.12em; }
+.esc-line.light{ background:rgba(255,252,240,.82); border-color:rgba(60,56,48,.25); border-left-color:#8a8a82; min-width:240px; text-align:center; }
+.esc-line.light p{ color:#2a2a26; }`;
+const SUB_KIND = { doc: ['whisper', '목소리'], cold: ['cold', '목소리'], pa: ['', '방송'], sys: ['sys', 'SYSTEM'], 'me-dark': ['light', ''], 'far-dark': ['light', ''] };
+function syncSubs(s) {
+  const root = s.subEl; if (!root) return;
+  const k = s.canvas.clientWidth / 576 || 1;
+  if (k !== s._subK) { s._subK = k; root.style.transform = `scale(${k})`; root.style.left = s.canvas.offsetLeft + 'px'; root.style.top = s.canvas.offsetTop + 'px'; }
+  root.querySelector('.col').style.bottom = (s.prompt && s.stateName === 'wake') ? '42px' : '12px';
+  const live = new Set();
+  for (const u of s.subs) {
+    const age = s.frame - u.t0; if (age > u.dur) continue;
+    live.add(u);
+    let el = s.subMap.get(u);
+    if (!el) {
+      const [cls, tag] = SUB_KIND[u.who] || ['', ''];
+      el = document.createElement('div'); el.className = 'esc-line ' + cls;
+      if (tag) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; el.appendChild(t); }
+      el.appendChild(document.createElement('p'));
+      root.querySelector(u.who === 'sys' || u.who === 'me-dark' || u.who === 'far-dark' ? '.mid' : '.col').appendChild(el);
+      s.subMap.set(u, el);
+    }
+    const n = Math.min(u.text.length, Math.floor(age / (u.spd || 2.2)) + 1);   // 한 글자씩
+    const p = el.lastChild, txt = u.text.slice(0, n);
+    if (p.textContent !== txt) p.textContent = txt;
+    el.style.opacity = Math.min(1, age / 12) * Math.min(1, (u.dur - age) / 14);
+  }
+  for (const [u, el] of s.subMap) if (!live.has(u)) { el.remove(); s.subMap.delete(u); }
+}
+
 function drawText(s, c) {
   c.save();
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -9751,7 +9829,7 @@ function drawHud(s, c) {
     return null;
   })();
   if (hint) {
-    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    c.textAlign = 'center'; c.font = `18px ${MONO}`;
     const hw = c.measureText(hint).width + 40;
     c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - hw / 2, 44, hw, 34, 8); c.fill();
     c.fillStyle = '#7de3c8'; c.fillText(hint, W / 2, 62);
@@ -9770,7 +9848,7 @@ function drawHud(s, c) {
     c.restore();
     const first = s.turnK === 0, key = s.touch ? (sg > 0 ? '오른쪽으로 쓸기' : '왼쪽으로 쓸기') : (sg > 0 ? 'D / →' : 'A / ←');
     const txt = first ? `모퉁이 — ${key} 로 꺾기` : `${key}  꺾기`;
-    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    c.textAlign = 'center'; c.font = `18px ${MONO}`;
     const tw = c.measureText(txt).width + 40;
     c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - tw / 2, 44, tw, 34, 8); c.fill();
     c.fillStyle = '#ffd25a'; c.fillText(txt, W / 2, 62);
@@ -9848,6 +9926,15 @@ class EscapeScene {
   /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
   start(from = 'wake') {
     this.frame = 0; this.held.clear(); this.prompt = null; this.fromWake = false;
+    this.canvas.style.imageRendering = 'auto';           // 화면 배율로 늘릴 때 매끈하게 (픽셀로 늘리면 글자 · 3D 가 뭉개짐)
+    if (typeof document !== 'undefined' && this.canvas.parentElement) {
+      if (!document.getElementById('esc-sub-css')) { const st = document.createElement('style'); st.id = 'esc-sub-css'; st.textContent = SUB_CSS; document.head.appendChild(st); }
+      if (!this.subEl) { this.subEl = document.createElement('div'); this.subEl.className = 'esc-subs';
+        this.subEl.innerHTML = '<div class="col"></div><div class="mid"></div>'; }
+      if (getComputedStyle(this.canvas.parentElement).position === 'static') this.canvas.parentElement.style.position = 'relative';
+      this.canvas.parentElement.appendChild(this.subEl); this.subMap = new Map(); this._subK = 0;
+      this.subEl.querySelector('.col').innerHTML = ''; this.subEl.querySelector('.mid').innerHTML = '';
+    }
     this.sfx.loadBgm();                                  // 복도 추격 브금 — 미리 풀어 둠 (경보 때 바로 울리게)
     this.drag = null; this.tch = {}; this.stick = [0, 0]; this.lookDX = 0; this.lookDY = 0; this.busyT = 0; this.subs = []; this.bob = 0; this.shake = 0; this.flash = 0; this.flick = 0;
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
@@ -9878,6 +9965,8 @@ class EscapeScene {
     this.canvas.removeEventListener('touchend', this.onTouchEnd);
     this.canvas.removeEventListener('touchmove', this.onTouchMove);
     this.sfx.stopAll();
+    this.canvas.style.imageRendering = '';
+    if (this.subEl) { this.subEl.remove(); if (this.subMap) this.subMap.clear(); }
   }
   finish(result) { this.stop(); this.onDone(result); }
   /* 현실이 끼어드는 몇 프레임 — 침대에 누운 채 올려다본 실험실(labroom.js), 들여다보는 방호복(figure3d.js) */
@@ -9998,7 +10087,7 @@ class EscapeScene {
     }
     c.drawImage(this.overlay, 0, 0);
     drawHud(this, c);
-    drawText(this, c);
+    if (this.subEl) syncSubs(this); else drawText(this, c);
     drawChoice(this, c);
     drawPrompt(this, c);
   }
@@ -11273,9 +11362,13 @@ const VW = 576, VH = 324, TS = 32;   // 화면 (16:9)
    방이 화면보다 넓으면 카메라(CAM)가 주인공을 따라 움직입니다. */
 let W = VW, H = VH;
 const CAM = { x: 0, y: 0 };
-const cv = document.getElementById('game');
-const g  = cv.getContext('2d');
+let cv = document.getElementById('game');
+let g  = cv.getContext('2d');
 g.imageSmoothingEnabled = false;
+/* 고해상도 화면 — 개발자 모드의 오프닝은 3배 해상도 캔버스(#gamehi)에 그립니다. 그리는 코드는 그대로
+   (576×324 좌표), cv · g 만 잠깐 바꿔 끼우고 기본 변환을 SR 배로 둡니다. 일반 판은 늘 SR = 1 */
+const cvMain = cv, gMain = g, HI_R = 3;
+let SR = 1, cvHi = null, gHi = null;
 
 const $ = id => document.getElementById(id);
 const stage = $('stage');
@@ -13402,7 +13495,26 @@ function updateCamera(snap) {
 }
 const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
 
+function useHiRes() {
+  const on = !!(G.opening && G.dev);
+  if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
+  if (!cvHi) {
+    cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
+    cvHi.width = VW * HI_R; cvHi.height = VH * HI_R;
+    Object.assign(cvHi.style, { position: 'absolute', left: '0', top: '0', width: VW + 'px', height: VH + 'px', zIndex: 2, imageRendering: 'auto', pointerEvents: 'none' });
+    cvMain.parentNode.insertBefore(cvHi, cvMain.nextSibling);
+    gHi = cvHi.getContext('2d');
+  }
+  cvHi.style.display = 'block';
+  return true;
+}
 function render() {
+  const hi = useHiRes();
+  if (hi) { cv = cvHi; g = gHi; SR = HI_R; g.setTransform(SR, 0, 0, SR, 0, 0); g.imageSmoothingEnabled = true; }
+  renderFrame();
+  if (hi) { cv = cvMain; g = gMain; SR = 1; }
+}
+function renderFrame() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.translate(-camX(), -camY());                 // 방 안의 것은 카메라만큼 밀어서
@@ -15664,15 +15776,16 @@ function drawOpCanopy(O, offY) {
 let _blurCv = null;
 function blurFrame(px) {
   if (px < .3) return;
-  if (!_blurCv) { _blurCv = document.createElement('canvas'); _blurCv.width = W; _blurCv.height = H; }
-  const s = 1 + px * .9;
-  const w = Math.max(2, Math.round(W / s)), h = Math.max(2, Math.round(H / s));
+  const CW = cv.width, CHt = cv.height;
+  if (!_blurCv || _blurCv.width !== CW) { _blurCv = document.createElement('canvas'); _blurCv.width = CW; _blurCv.height = CHt; }
+  const s = 1 + px * .9 * SR;                      // 흐림은 화면 크기(576) 기준 — 고해상도면 그만큼 크게
+  const w = Math.max(2, Math.round(CW / s)), h = Math.max(2, Math.round(CHt / s));
   const b = _blurCv.getContext('2d');
   b.imageSmoothingEnabled = true;
-  b.clearRect(0, 0, W, H);
+  b.clearRect(0, 0, CW, CHt);
   if (s > 2.5) {                       // 한 번에 크게 줄이면 거칠어서 두 번에 나눠 줄입니다
-    b.drawImage(cv, 0, 0, W / 2, H / 2);
-    b.drawImage(_blurCv, 0, 0, W / 2, H / 2, 0, 0, w, h);
+    b.drawImage(cv, 0, 0, CW / 2, CHt / 2);
+    b.drawImage(_blurCv, 0, 0, CW / 2, CHt / 2, 0, 0, w, h);
   } else {
     b.drawImage(cv, 0, 0, w, h);
   }
@@ -15680,7 +15793,7 @@ function blurFrame(px) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.imageSmoothingEnabled = true;
-  g.drawImage(_blurCv, 0, 0, w, h, 0, 0, W, H);
+  g.drawImage(_blurCv, 0, 0, w, h, 0, 0, CW, CHt);
   g.restore();
 }
 
@@ -15893,7 +16006,7 @@ function renderOpening() {
       g.save();
       g.globalAlpha = .35 * Math.sin(iw * Math.PI);
       g.globalCompositeOperation = 'screen';
-      g.drawImage(cv, 8 * (1 - iw), 0); g.drawImage(cv, -8 * (1 - iw), 2);
+      g.drawImage(cv, 8 * (1 - iw), 0, W, H); g.drawImage(cv, -8 * (1 - iw), 2, W, H);
       g.restore();
     }
     if (drug > 0) { g.fillStyle = `rgba(20,30,48,${drug * .25})`; g.fillRect(0, 0, W, H); }
@@ -15907,7 +16020,7 @@ function renderOpening() {
     g.save(); g.translate(0, -e * H * .9); drawOpWatcher(gt); g.restore();
     // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
     if ((gt >= 28 && gt <= 36) || (gt >= 82 && gt <= 85)) drawOpCeiling(.38, -.08);
-    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.setTransform(SR, 0, 0, SR, 0, 0);
     blurFrame((1 - o) * 5 + e * 6);
     if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }
   }

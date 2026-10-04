@@ -148,6 +148,8 @@ class EscSfx {
   thud()         { this.tone(140, .08, 'square', .1, 70); this.noise(.06, .1, 400, 3000); }
   glitch()       { for (let i = 0; i < 6; i++) this.tone(300 + Math.random() * 2400, .03, 'square', .07, 0, i * .022); this.noise(.14, .16, 2000, 12000); }
   beep(v = .05)  { this.tone(988, .09, 'sine', v); }                       // 심전도 한 박
+  boom(v = 1)    { this.tone(58, 2.4, 'sine', .62 * v, 30); this.tone(41, 3.0, 'sine', .4 * v, 26, .02);   // 둥 — 가슴을 울리는 낮은 한 방
+                   this.tone(116, .5, 'triangle', .16 * v, 48); this.noise(.45, .34 * v, 25, 320); this.noise(2.2, .07 * v, 20, 150, .05); }
   chime()        { this.tone(659, .5, 'sine', .07); this.tone(523, .7, 'sine', .07, 0, .32); }   // 방송 딩동
   sheet()        { this.noise(.7, .07, 600, 4000); }                       // 이불 스치는 소리
   wince()        { this.tone(180, .2, 'sine', .08, 120); this.noise(.12, .06, 1500, 6000); }
@@ -883,10 +885,10 @@ const FreeState = {
     if (t === 90) s.say('…밖이다.', 'me-dark', 150);
     if (t === 260) s.say('…들리세요?', 'far-dark', 140);
     // 빛이 걷히면 — 침대 위. 처음부터 어디로도 달린 적이 없었습니다
-    if (t === 420) { s.sfx.beep(.1); s.realT = 9999; s.realDur = 200; s.realK = 3; }
+    if (t === 420) { s.sfx.boom(1); s.shake = 10; s.realT = 9999; s.realDur = 200; s.realK = 3; }   // 둥 — 진짜 결말
     if (t === 450) s.say('진정됐어요. 맥박 정상.', 'cold', 140);
     if (t === 560) s.say('출구까지 갔네요. 이번엔.', 'doc', 150);
-    if (t === 690) { s.sfx.beep(.1); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
+    if (t === 690) { s.sfx.boom(.6); s.sfx.beep(.08); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
     if (t >= 800) s.finish('escaped');
   },
   draw(s, b) {
@@ -1543,6 +1545,51 @@ const SUB_STYLE = {
   'me-dark':  { c: '#2a2a26', y: H / 2, size: 30, light: true },
   'far-dark': { c: '#4a4a44', y: H / 2 + 44, size: 22, light: true }
 };
+/* ── 자막 — 본편(#subtitle)과 같은 모양 · 같은 둥근모꼴을 캔버스가 아닌 문서 요소로 얹습니다.
+   (캔버스 글자는 화면 배율에 맞춰 늘어나며 뭉개지기 때문) 576×324 좌표로 짓고 캔버스 크기에 맞춰 키웁니다 */
+const SUB_CSS = `
+.esc-subs{ position:absolute; left:0; top:0; width:576px; height:324px; pointer-events:none; transform-origin:0 0; z-index:5;
+  font-family:'DungGeunMo','Galmuri11','Neo둥근모',monospace; }
+.esc-subs .col{ position:absolute; left:14px; right:14px; bottom:12px; display:flex; flex-direction:column; gap:7px; transition:bottom .25s; }
+.esc-subs .mid{ position:absolute; left:60px; right:60px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; align-items:center; }
+.esc-line{ position:relative; background:linear-gradient(180deg, rgba(34,36,50,.94), rgba(24,26,38,.97));
+  border:1px solid rgba(241,236,224,.24); border-left:3px solid #e3b23c; padding:9px 11px 10px; min-height:44px; box-sizing:border-box; }
+.esc-line p{ margin:0; font-size:12.5px; line-height:1.7; color:#f0e9db; letter-spacing:.01em; }
+.esc-line.whisper p{ color:#b3c6d8; font-style:italic; }
+.esc-line.cold p{ color:#f0c6bc; }
+.esc-line .tag{ position:absolute; left:10px; top:-9px; font-size:8px; font-weight:700; letter-spacing:.3em; text-indent:.3em;
+  color:#7de3c8; background:#0b1414; padding:2px 7px; border:1px solid rgba(125,227,200,.55); }
+.esc-line.sys{ border-left:3px solid #7de3c8; background:linear-gradient(180deg, rgba(19,32,34,.94), rgba(13,24,27,.97)); min-width:240px; text-align:center; }
+.esc-line.sys p{ color:#7de3c8; font-size:14px; letter-spacing:.12em; }
+.esc-line.light{ background:rgba(255,252,240,.82); border-color:rgba(60,56,48,.25); border-left-color:#8a8a82; min-width:240px; text-align:center; }
+.esc-line.light p{ color:#2a2a26; }`;
+const SUB_KIND = { doc: ['whisper', '목소리'], cold: ['cold', '목소리'], pa: ['', '방송'], sys: ['sys', 'SYSTEM'], 'me-dark': ['light', ''], 'far-dark': ['light', ''] };
+function syncSubs(s) {
+  const root = s.subEl; if (!root) return;
+  const k = s.canvas.clientWidth / 576 || 1;
+  if (k !== s._subK) { s._subK = k; root.style.transform = `scale(${k})`; root.style.left = s.canvas.offsetLeft + 'px'; root.style.top = s.canvas.offsetTop + 'px'; }
+  root.querySelector('.col').style.bottom = (s.prompt && s.stateName === 'wake') ? '42px' : '12px';
+  const live = new Set();
+  for (const u of s.subs) {
+    const age = s.frame - u.t0; if (age > u.dur) continue;
+    live.add(u);
+    let el = s.subMap.get(u);
+    if (!el) {
+      const [cls, tag] = SUB_KIND[u.who] || ['', ''];
+      el = document.createElement('div'); el.className = 'esc-line ' + cls;
+      if (tag) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; el.appendChild(t); }
+      el.appendChild(document.createElement('p'));
+      root.querySelector(u.who === 'sys' || u.who === 'me-dark' || u.who === 'far-dark' ? '.mid' : '.col').appendChild(el);
+      s.subMap.set(u, el);
+    }
+    const n = Math.min(u.text.length, Math.floor(age / (u.spd || 2.2)) + 1);   // 한 글자씩
+    const p = el.lastChild, txt = u.text.slice(0, n);
+    if (p.textContent !== txt) p.textContent = txt;
+    el.style.opacity = Math.min(1, age / 12) * Math.min(1, (u.dur - age) / 14);
+  }
+  for (const [u, el] of s.subMap) if (!live.has(u)) { el.remove(); s.subMap.delete(u); }
+}
+
 function drawText(s, c) {
   c.save();
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -1630,7 +1677,7 @@ function drawHud(s, c) {
     return null;
   })();
   if (hint) {
-    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    c.textAlign = 'center'; c.font = `18px ${MONO}`;
     const hw = c.measureText(hint).width + 40;
     c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - hw / 2, 44, hw, 34, 8); c.fill();
     c.fillStyle = '#7de3c8'; c.fillText(hint, W / 2, 62);
@@ -1649,7 +1696,7 @@ function drawHud(s, c) {
     c.restore();
     const first = s.turnK === 0, key = s.touch ? (sg > 0 ? '오른쪽으로 쓸기' : '왼쪽으로 쓸기') : (sg > 0 ? 'D / →' : 'A / ←');
     const txt = first ? `모퉁이 — ${key} 로 꺾기` : `${key}  꺾기`;
-    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    c.textAlign = 'center'; c.font = `18px ${MONO}`;
     const tw = c.measureText(txt).width + 40;
     c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - tw / 2, 44, tw, 34, 8); c.fill();
     c.fillStyle = '#ffd25a'; c.fillText(txt, W / 2, 62);
@@ -1727,6 +1774,15 @@ class EscapeScene {
   /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
   start(from = 'wake') {
     this.frame = 0; this.held.clear(); this.prompt = null; this.fromWake = false;
+    this.canvas.style.imageRendering = 'auto';           // 화면 배율로 늘릴 때 매끈하게 (픽셀로 늘리면 글자 · 3D 가 뭉개짐)
+    if (typeof document !== 'undefined' && this.canvas.parentElement) {
+      if (!document.getElementById('esc-sub-css')) { const st = document.createElement('style'); st.id = 'esc-sub-css'; st.textContent = SUB_CSS; document.head.appendChild(st); }
+      if (!this.subEl) { this.subEl = document.createElement('div'); this.subEl.className = 'esc-subs';
+        this.subEl.innerHTML = '<div class="col"></div><div class="mid"></div>'; }
+      if (getComputedStyle(this.canvas.parentElement).position === 'static') this.canvas.parentElement.style.position = 'relative';
+      this.canvas.parentElement.appendChild(this.subEl); this.subMap = new Map(); this._subK = 0;
+      this.subEl.querySelector('.col').innerHTML = ''; this.subEl.querySelector('.mid').innerHTML = '';
+    }
     this.sfx.loadBgm();                                  // 복도 추격 브금 — 미리 풀어 둠 (경보 때 바로 울리게)
     this.drag = null; this.tch = {}; this.stick = [0, 0]; this.lookDX = 0; this.lookDY = 0; this.busyT = 0; this.subs = []; this.bob = 0; this.shake = 0; this.flash = 0; this.flick = 0;
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
@@ -1757,6 +1813,8 @@ class EscapeScene {
     this.canvas.removeEventListener('touchend', this.onTouchEnd);
     this.canvas.removeEventListener('touchmove', this.onTouchMove);
     this.sfx.stopAll();
+    this.canvas.style.imageRendering = '';
+    if (this.subEl) { this.subEl.remove(); if (this.subMap) this.subMap.clear(); }
   }
   finish(result) { this.stop(); this.onDone(result); }
   /* 현실이 끼어드는 몇 프레임 — 침대에 누운 채 올려다본 실험실(labroom.js), 들여다보는 방호복(figure3d.js) */
@@ -1877,7 +1935,7 @@ class EscapeScene {
     }
     c.drawImage(this.overlay, 0, 0);
     drawHud(this, c);
-    drawText(this, c);
+    if (this.subEl) syncSubs(this); else drawText(this, c);
     drawChoice(this, c);
     drawPrompt(this, c);
   }

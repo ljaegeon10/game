@@ -9,9 +9,13 @@ const VW = 576, VH = 324, TS = 32;   // 화면 (16:9)
    방이 화면보다 넓으면 카메라(CAM)가 주인공을 따라 움직입니다. */
 let W = VW, H = VH;
 const CAM = { x: 0, y: 0 };
-const cv = document.getElementById('game');
-const g  = cv.getContext('2d');
+let cv = document.getElementById('game');
+let g  = cv.getContext('2d');
 g.imageSmoothingEnabled = false;
+/* 고해상도 화면 — 개발자 모드의 오프닝은 3배 해상도 캔버스(#gamehi)에 그립니다. 그리는 코드는 그대로
+   (576×324 좌표), cv · g 만 잠깐 바꿔 끼우고 기본 변환을 SR 배로 둡니다. 일반 판은 늘 SR = 1 */
+const cvMain = cv, gMain = g, HI_R = 3;
+let SR = 1, cvHi = null, gHi = null;
 
 const $ = id => document.getElementById(id);
 const stage = $('stage');
@@ -2138,7 +2142,26 @@ function updateCamera(snap) {
 }
 const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
 
+function useHiRes() {
+  const on = !!(G.opening && G.dev);
+  if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
+  if (!cvHi) {
+    cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
+    cvHi.width = VW * HI_R; cvHi.height = VH * HI_R;
+    Object.assign(cvHi.style, { position: 'absolute', left: '0', top: '0', width: VW + 'px', height: VH + 'px', zIndex: 2, imageRendering: 'auto', pointerEvents: 'none' });
+    cvMain.parentNode.insertBefore(cvHi, cvMain.nextSibling);
+    gHi = cvHi.getContext('2d');
+  }
+  cvHi.style.display = 'block';
+  return true;
+}
 function render() {
+  const hi = useHiRes();
+  if (hi) { cv = cvHi; g = gHi; SR = HI_R; g.setTransform(SR, 0, 0, SR, 0, 0); g.imageSmoothingEnabled = true; }
+  renderFrame();
+  if (hi) { cv = cvMain; g = gMain; SR = 1; }
+}
+function renderFrame() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.translate(-camX(), -camY());                 // 방 안의 것은 카메라만큼 밀어서
@@ -4400,15 +4423,16 @@ function drawOpCanopy(O, offY) {
 let _blurCv = null;
 function blurFrame(px) {
   if (px < .3) return;
-  if (!_blurCv) { _blurCv = document.createElement('canvas'); _blurCv.width = W; _blurCv.height = H; }
-  const s = 1 + px * .9;
-  const w = Math.max(2, Math.round(W / s)), h = Math.max(2, Math.round(H / s));
+  const CW = cv.width, CHt = cv.height;
+  if (!_blurCv || _blurCv.width !== CW) { _blurCv = document.createElement('canvas'); _blurCv.width = CW; _blurCv.height = CHt; }
+  const s = 1 + px * .9 * SR;                      // 흐림은 화면 크기(576) 기준 — 고해상도면 그만큼 크게
+  const w = Math.max(2, Math.round(CW / s)), h = Math.max(2, Math.round(CHt / s));
   const b = _blurCv.getContext('2d');
   b.imageSmoothingEnabled = true;
-  b.clearRect(0, 0, W, H);
+  b.clearRect(0, 0, CW, CHt);
   if (s > 2.5) {                       // 한 번에 크게 줄이면 거칠어서 두 번에 나눠 줄입니다
-    b.drawImage(cv, 0, 0, W / 2, H / 2);
-    b.drawImage(_blurCv, 0, 0, W / 2, H / 2, 0, 0, w, h);
+    b.drawImage(cv, 0, 0, CW / 2, CHt / 2);
+    b.drawImage(_blurCv, 0, 0, CW / 2, CHt / 2, 0, 0, w, h);
   } else {
     b.drawImage(cv, 0, 0, w, h);
   }
@@ -4416,7 +4440,7 @@ function blurFrame(px) {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.imageSmoothingEnabled = true;
-  g.drawImage(_blurCv, 0, 0, w, h, 0, 0, W, H);
+  g.drawImage(_blurCv, 0, 0, w, h, 0, 0, CW, CHt);
   g.restore();
 }
 
@@ -4629,7 +4653,7 @@ function renderOpening() {
       g.save();
       g.globalAlpha = .35 * Math.sin(iw * Math.PI);
       g.globalCompositeOperation = 'screen';
-      g.drawImage(cv, 8 * (1 - iw), 0); g.drawImage(cv, -8 * (1 - iw), 2);
+      g.drawImage(cv, 8 * (1 - iw), 0, W, H); g.drawImage(cv, -8 * (1 - iw), 2, W, H);
       g.restore();
     }
     if (drug > 0) { g.fillStyle = `rgba(20,30,48,${drug * .25})`; g.fillRect(0, 0, W, H); }
@@ -4643,7 +4667,7 @@ function renderOpening() {
     g.save(); g.translate(0, -e * H * .9); drawOpWatcher(gt); g.restore();
     // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
     if ((gt >= 28 && gt <= 36) || (gt >= 82 && gt <= 85)) drawOpCeiling(.38, -.08);
-    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.setTransform(SR, 0, 0, SR, 0, 0);
     blurFrame((1 - o) * 5 + e * 6);
     if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }
   }
