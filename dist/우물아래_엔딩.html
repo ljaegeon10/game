@@ -2184,7 +2184,7 @@ const WIN = { x0: -.25, x1: 1.55, y0: .98, y1: 2.04 };       // 관찰창
 const MON = { x0: 1.7, x1: 2.32, y0: 1.62, y1: 2.0 };        // 심전도 모니터 (앞벽)
 /* 카메라 자세 — 누움 · 앉음 · 침대 옆에 섬 · 문 앞 */
 const CAM_LIE   = { x: .55, y: .92, z: -.38, yaw: 0, pitch: 1.3 };
-const CAM_SIT   = { x: .55, y: 1.3, z: -.12, yaw: 0, pitch: -.1 };
+const CAM_SIT   = { x: .55, y: 1.28, z: -.08, yaw: 0, pitch: -.36 };   // 무릎 위 손을 내려다보며 방을 봄
 const CAM_STAND = { x: -.4, y: 1.62, z: .55, yaw: -.24, pitch: -.05 };
 const CAM_DOOR  = { x: -1.68, y: 1.62, z: 3.5, yaw: -.02, pitch: -.04 };
 const lerpCam = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: lerp(a.z, b.z, k), yaw: lerp(a.yaw, b.yaw, k), pitch: lerp(a.pitch, b.pitch, k) });
@@ -2412,6 +2412,9 @@ function drawRoom3D(s, b, c) {
       box3(b, c, 0, 1.1, .12, .48, -1.0, 1.15, [70, 80, 92]);
       [[.02, -.98], [1.04, -.98], [.02, 1.09], [1.04, 1.09]].forEach(([x, z]) => box3(b, c, x, x + .04, 0, .12, z, z + .04, [40, 46, 54]));
       box3(b, c, .02, 1.08, .48, .62, -.98, 1.13, [201, 207, 207]);                          // 담요
+      const leg = .1 * (1 - ease(s.rise || 0));                                             // 담요 밑 다리 — 일어서면 납작해짐
+      if (leg > .005) { box3(b, c, .2, .5, .62, .62 + leg, .3, 1.08, [214, 219, 218]); box3(b, c, .6, .9, .62, .62 + leg, .3, 1.08, [214, 219, 218]); }
+      for (const z of [.15, .42, .8]) line3(b, c, [.05, .621, z], [1.05, .621, z + .06], [150, 156, 158], .5);   // 담요 주름
       box3(b, c, .02, 1.08, .6, .63, .55, .7, [47, 111, 181]);                               // 담요의 파란 줄
       box3(b, c, .15, .95, .62, .74, -.95, -.6, [226, 230, 228]);                            // 베개
       box3(b, c, 0, 1.1, .48, 1.05, -1.06, -1.0, [91, 102, 116]);                            // 머리판
@@ -2420,72 +2423,128 @@ function drawRoom3D(s, b, c) {
   ];
   things.sort((p, q) => Math.hypot(q.at[0] - c.x, q.at[1] - c.z) - Math.hypot(p.at[0] - c.x, p.at[1] - c.z));
   things.forEach(t => t.draw());
+  drawBody3D(s, b, c);                                     // 내 몸은 맨 마지막 — 늘 가장 가까움
 }
 
-/* 앉은 자리에서 본 내 몸 — 병원 담요, 침대 난간, 손(팔찌 · 링거), 머리에서 늘어진 전극선 */
-function drawBedFront(s, b, rise) {
-  const oy = Math.round(rise * 70);                     // 일어설수록 아래로 빠져나감
-  // 전극선 — 화면 위(머리)에서 늘어져 담요 위로
-  const anchor = [[132, -4], [148, -4], [172, -4], [188, -4]], foot = [[84, 150], [118, 156], [204, 156], [238, 150]];
-  WIRE_COL.forEach((col, i) => {
-    const pulled = s.wirePull[i];
-    if (pulled >= 1) return;
-    const lift = ease(pulled) * 190;
-    const [ax, ay] = anchor[i], [fx, fy] = foot[i];
-    b.strokeStyle = '#07070b'; b.lineWidth = 3;
-    const path = () => { b.beginPath(); b.moveTo(ax, ay); b.quadraticCurveTo((ax + fx) / 2 + (i < 2 ? -24 : 24), 120 - lift, fx, fy + oy - lift); b.stroke(); };
-    path(); b.strokeStyle = col; b.lineWidth = 1; path();
-    if (pulled > 0) { b.fillStyle = col; b.fillRect(fx - 1, fy + oy - lift - 1, 3, 3); }   // 떨어진 전극 패드
+/* ── 내 몸 (3D) — 담요 위의 손 · 팔, 머리에서 늘어진 전극선, 링거 줄 ─────────
+   앉아 있을 땐 담요 위에 놓여 있다가, 일어서는 만큼 몸(카메라)을 따라 시야 아래로
+   빠집니다. 손 · 팔은 그림 한 장씩을 담요 위 사각형에 붙입니다 (픽셀 1:1 쯤 되는 크기). */
+const SKIN = ['#3c282b', '#5e413f', '#82605a', '#a77f74', '#c79c8c', '#ddb8a6', '#efd3c2'];
+/* 손등 (위에서 내려다봄) — 20×34. 손끝이 위(0줄), 손목이 아래. right 면 링거 테이프 · 캐뉼라 */
+function bakeHand(right) {
+  const c = document.createElement('canvas'); c.width = 20; c.height = 34;
+  const x = c.getContext('2d'), R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+  const O = SKIN[0];
+  // 손가락 넷 — 가운데 둘이 길고, 마디마다 주름, 끝에 손톱
+  const fingers = [[1, 5], [5, 1], [9, 0], [13, 3]];
+  fingers.forEach(([fx, top], i) => {
+    R(O, fx - 1, top, 5, 14 - top + 1);
+    R(SKIN[4], fx, top + 1, 3, 13 - top);
+    R(SKIN[5], fx, top + 1, 1, 13 - top);                            // 빛 받는 쪽
+    R(SKIN[3], fx + 2, top + 1, 1, 13 - top);                        // 그늘 쪽
+    R('#e9c2b6', fx, top + 1, 3, 3); R('#f6dfd6', fx, top + 1, 2, 1); R(SKIN[3], fx, top + 3, 3, 1);   // 손톱
+    R(SKIN[3], fx, top + 7, 3, 1);                                   // 마디 주름
   });
-  if (rise >= 1) return;
-  // 침대 난간
-  b.fillStyle = '#5b6674'; b.fillRect(0, 122 + oy, 56, 3); b.fillRect(264, 122 + oy, 56, 3);
-  b.fillStyle = '#3d4652'; b.fillRect(10, 125 + oy, 2, 20); b.fillRect(44, 125 + oy, 2, 20); b.fillRect(274, 125 + oy, 2, 20); b.fillRect(308, 125 + oy, 2, 20);
-  // 담요 — 흰 바탕에 파란 줄, 주름
-  b.fillStyle = '#c9cfcf';
-  b.beginPath(); b.moveTo(0, 140 + oy); b.quadraticCurveTo(160, 120 + oy, 320, 140 + oy); b.lineTo(320, 180); b.lineTo(0, 180); b.closePath(); b.fill();
-  b.fillStyle = '#e6eae8';
-  b.beginPath(); b.moveTo(30, 146 + oy); b.quadraticCurveTo(160, 128 + oy, 290, 146 + oy); b.lineTo(280, 156 + oy); b.quadraticCurveTo(160, 140 + oy, 40, 156 + oy); b.closePath(); b.fill();
-  b.fillStyle = '#2f6fb5'; b.fillRect(0, 166 + oy, 320, 3); b.fillStyle = '#3d7ec4'; b.fillRect(0, 166 + oy, 320, 1);
-  b.fillStyle = 'rgba(0,0,0,.12)';
-  for (const [fx0, fw] of [[70, 40], [150, 30], [220, 46]]) b.fillRect(fx0, 158 + oy, fw, 1);
-  // 손 — 왼손엔 환자 팔찌, 오른손엔 링거
-  /* 담요 위에 얹은 손등 — 내 눈에서 멀어지는 쪽이라 짧게 줄어 보임. 손가락 넷은 앞(화면 위)으로,
-     엄지는 안쪽. 창백한 살결, 손톱 빛 · 마디 그늘 */
-  const hand = (hx, hy, flip) => {
-    const px = (v, y, w, h, col) => { b.fillStyle = col; b.fillRect(flip ? hx + 24 - v - w + 1 : hx + v, y, w, h); };
-    px(1, hy + 4, 21, 8, '#4a3236');                      // 외곽선
-    for (let f = 0; f < 4; f++) px(3 + f * 4, hy + 1 + (f === 0 || f === 3 ? 1 : 0), 4, 4, '#4a3236');
-    px(20, hy + 7, 6, 4, '#4a3236');                      // 엄지
-    px(2, hy + 5, 19, 6, '#cda393');                      // 손등
-    for (let f = 0; f < 4; f++) {
-      const top = hy + 2 + (f === 0 || f === 3 ? 1 : 0);
-      px(4 + f * 4, top, 3, 3, '#cda393');
-      px(4 + f * 4, top, 3, 1, '#e8c9b8');                // 손톱 빛
-      px(7 + f * 4, top + 1, 1, 3, '#a77f74');            // 손가락 사이
-    }
-    px(21, hy + 8, 4, 2, '#b58c80');
-    px(3, hy + 5, 17, 1, '#e8c9b8');                      // 빛 받는 윗면
-    px(2, hy + 10, 19, 1, '#7a5653');                     // 아래 그늘
-  };
-  // 팔 — 화면 아래에서 손목까지
-  b.fillStyle = '#a77f74'; b.fillRect(58, 156 + oy, 14, 24); b.fillRect(250, 156 + oy, 14, 24);
-  b.fillStyle = '#cda393'; b.fillRect(60, 156 + oy, 10, 24); b.fillRect(252, 156 + oy, 10, 24);
-  hand(52, 146 + oy, false);
-  b.fillStyle = '#e9edef'; b.fillRect(58, 156 + oy, 14, 5); b.fillStyle = '#9aa3a8'; b.fillRect(58, 160 + oy, 14, 1);   // 팔찌
-  b.fillStyle = '#3a3a40'; b.fillRect(62, 157 + oy, 1, 3); b.fillRect(64, 157 + oy, 1, 3); b.fillRect(63, 157 + oy, 1, 1); b.fillRect(63, 159 + oy, 1, 1);   // '0'
-  b.fillRect(66, 157 + oy, 2, 1); b.fillRect(67, 158 + oy, 1, 2);                                                        // '7'
-  hand(244, 146 + oy, true);
-  if (!s.ivOut) {
-    b.fillStyle = '#f1ece0'; b.fillRect(250, 150 + oy, 10, 5);                // 의료 테이프
-    b.fillStyle = '#00b89a'; b.fillRect(253, 149 + oy, 3, 2);                 // 청록 캐뉼라
-    b.strokeStyle = 'rgba(196,58,62,.9)'; b.lineWidth = 1;                    // 링거 줄 — 오른쪽 위 링거대로
-    b.beginPath(); b.moveTo(255, 149 + oy); b.quadraticCurveTo(300, 110, 330, 20); b.stroke();
-  } else if (s.ivT < 120) {                                                   // 붉은 방울
-    const k = s.ivT / 120;
-    b.fillStyle = `rgba(196,40,46,${1 - k * .6})`; b.fillRect(254, 151 + oy, 2, 2);
-    b.fillRect(254, 153 + oy + Math.round(k * 10), 2, 2);
+  // 손등
+  R(O, 0, 12, 18, 16); R(SKIN[4], 1, 13, 16, 14);
+  R(SKIN[5], 1, 13, 7, 13); R(SKIN[6], 2, 14, 3, 2);                 // 왼쪽 위에서 오는 빛
+  R(SKIN[3], 14, 14, 3, 13);                                          // 오른쪽 그늘
+  for (let i = 0; i < 4; i++) { R(SKIN[5], 1 + i * 4, 13, 2, 1); R(SKIN[3], 3 + i * 4, 14, 1, 1); }   // 손가락 뿌리 마디
+  R('#9fa6c0', 6, 18, 1, 6); R('#9fa6c0', 7, 23, 1, 3); R('#9fa6c0', 10, 19, 1, 5);   // 손등 핏줄 (희미한 푸른빛)
+  // 엄지 — 안쪽으로 비스듬히
+  R(O, 15, 17, 5, 10); R(SKIN[4], 16, 18, 3, 8); R(SKIN[5], 16, 18, 1, 8); R('#e9c2b6', 17, 18, 2, 2);
+  // 손목
+  R(O, 2, 27, 14, 7); R(SKIN[4], 3, 27, 12, 7); R(SKIN[5], 3, 27, 5, 7); R(SKIN[3], 13, 27, 2, 7);
+  if (right) {                                                        // 의료 테이프 · 청록 캐뉼라
+    R('#c9c4b8', 4, 19, 10, 6); R('#f1ece0', 5, 20, 8, 4); R('#d9d3c6', 5, 23, 8, 1);
+    R('#007a66', 8, 20, 3, 3); R('#00b89a', 8, 20, 2, 2); R('#7ff5e0', 8, 20, 1, 1);
   }
+  return c;
+}
+/* 팔뚝 — 16×44. 손목이 위(0줄), 팔꿈치 · 소매가 아래. left 면 환자 팔찌 07 */
+function bakeArm(left) {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 44;
+  const x = c.getContext('2d'), R = (col, X, Y, w, h) => { x.fillStyle = col; x.fillRect(X, Y, w, h); };
+  R(SKIN[0], 1, 0, 14, 44); R(SKIN[4], 2, 0, 12, 44); R(SKIN[5], 2, 0, 5, 44); R(SKIN[3], 11, 0, 3, 44);
+  R(SKIN[6], 3, 0, 2, 30);
+  if (left) {                                                          // 환자 팔찌 — 흰 띠에 07
+    R('#8e979c', 1, 3, 14, 7); R('#e9edef', 2, 4, 12, 5); R('#c3cacf', 2, 8, 12, 1);
+    R('#2a2a30', 5, 5, 1, 3); R('#2a2a30', 7, 5, 1, 3); R('#2a2a30', 6, 5, 1, 1); R('#2a2a30', 6, 7, 1, 1);   // 0
+    R('#2a2a30', 9, 5, 3, 1); R('#2a2a30', 11, 6, 1, 1); R('#2a2a30', 10, 7, 1, 1);                         // 7
+  }
+  // 환자복 소매 — 옅은 청회색, 접힌 단
+  R('#3a4a50', 0, 30, 16, 14); R('#7d969c', 1, 31, 14, 13); R('#9db3b8', 1, 31, 6, 13); R('#5d7378', 12, 31, 3, 13);
+  R('#a9bec2', 1, 31, 14, 2); R('#4c6066', 1, 33, 14, 1);
+  return c;
+}
+
+/* 3D 점 여러 개를 이은 줄 — 외곽선 3px 위에 색 1px (전극선 · 링거 줄) */
+function cable3(b, c, pts, col) {
+  // 카메라 뒤로 넘어가는 마디는 카메라 앞 평면까지 잘라 이어서 — 줄이 화면 끝까지 닿게
+  const cam = pts.map(p => toCam(c, p)), runs = [];
+  let run = [];
+  for (let i = 0; i < cam.length; i++) {
+    const a = cam[i], inA = a[2] > NEARC;
+    if (i > 0) {
+      const p0 = cam[i - 1], inP = p0[2] > NEARC;
+      if (inP !== inA) {
+        const t = (NEARC - p0[2]) / (a[2] - p0[2]);
+        run.push(proj([p0[0] + (a[0] - p0[0]) * t, p0[1] + (a[1] - p0[1]) * t, NEARC + .001]));
+        if (!inA) { runs.push(run); run = []; }
+      }
+    }
+    if (inA) run.push(proj(a));
+  }
+  if (run.length) runs.push(run);
+  [['#07070b', 3], [col, 1]].forEach(([cc, w]) => {
+    b.strokeStyle = cc; b.lineWidth = w; b.lineCap = 'round';
+    b.beginPath();
+    runs.forEach(r => { if (r.length < 2) return; b.moveTo(r[0][0], r[0][1]); for (let i = 1; i < r.length; i++) b.lineTo(r[i][0], r[i][1]); });
+    b.stroke();
+  });
+}
+const bez = (a, m, d, n) => Array.from({ length: n + 1 }, (_, i) => { const t = i / n, u = 1 - t; return [0, 1, 2].map(k => u * u * a[k] + 2 * u * t * m[k] + t * t * d[k]); });
+
+const HANDS = [{ x: .33, z: .5, left: true }, { x: .78, z: .47, left: false }];   // 담요 위 손등 자리 (손목 쪽 끝)
+const HAND_W = .095, HAND_L = .17, ARM_W = .085, BLANKET_Y = .64;
+function drawBody3D(s, b, c) {
+  const r = ease(s.rise);
+  if (r >= .995 || s.pitch < .2) return;
+  // 머리 — 전극선이 나오는 자리 (카메라 바로 위 · 뒤)
+  const head = (dx) => [c.x + dx, c.y + .12, c.z - .05];
+  const foots = [[.13, BLANKET_Y, .62], [.45, BLANKET_Y + .03, .86], [.66, BLANKET_Y + .03, .86], [.97, BLANKET_Y, .62]];
+  WIRE_COL.forEach((col, i) => {
+    const v = s.wirePull[i];
+    if (v >= 1) return;
+    const h = head((i - 1.5) * .05);
+    const f = foots[i].map((q, k) => lerp(q, h[k] + (k === 1 ? .35 : 0), ease(v)));
+    const mid = [(h[0] + f[0]) / 2 + (i < 2 ? -.12 : .12), Math.min(h[1], f[1]) - .05 + v * .3, (h[2] + f[2]) / 2];
+    cable3(b, c, bez(h, mid, f, 14), col);
+  });
+  // 팔 · 손 — 일어서는 만큼 몸 옆으로 내려가 시야 밖으로
+  const sideHang = (left) => [c.x + (left ? -.26 : .26), c.y - .8, c.z + .12];
+  HANDS.forEach(H => {
+    const hang = sideHang(H.left);
+    const hx = lerp(H.x, hang[0], r), hy = lerp(BLANKET_Y, hang[1], r), hz = lerp(H.z, hang[2], r);
+    // 팔뚝 — 손목에서 팔꿈치(몸 쪽 · 조금 위)까지
+    const ex = hx + (H.left ? .07 : -.07), ey = hy + .12, ez = hz - .24;
+    const arm = H.left ? s.armL : s.armR;
+    image3(b, c, arm, [hx - ARM_W / 2, hy + .004, hz + .01], [hx + ARM_W / 2, hy + .004, hz + .01], [ex - ARM_W / 2, ey, ez]);
+    // 손등 — 손가락이 앞(+z)으로. 오른손은 그림을 좌우로 뒤집어 엄지가 안쪽에 오게
+    const hand = H.left ? s.handL : s.handR;
+    if (H.left) image3(b, c, hand, [hx - HAND_W / 2, hy + .006, hz + HAND_L], [hx + HAND_W / 2, hy + .006, hz + HAND_L], [hx - HAND_W / 2, hy + .006, hz]);
+    else image3(b, c, hand, [hx + HAND_W / 2, hy + .006, hz + HAND_L], [hx - HAND_W / 2, hy + .006, hz + HAND_L], [hx + HAND_W / 2, hy + .006, hz]);
+    if (!H.left) {
+      const cannula = [hx - .005, hy + .012, hz + .07];
+      if (!s.ivOut) cable3(b, c, bez([1.38, 1.66, .35], [1.2, .9, .3], cannula, 12), 'rgba(196,58,62,.95)');   // 링거 줄 — 링거대의 붉은 백에서
+      else if (s.ivT < 160 && r < .5) {                                                                       // 붉은 방울이 담요에 번짐
+        const k = Math.min(1, s.ivT / 60);
+        const y = hy + .009;                                                                                    // 손등 캐뉼라 자리에 맺힌 방울
+        poly3(b, c, [[hx - .004 - k * .004, y, hz + .065], [hx + .004 + k * .004, y, hz + .065],
+                     [hx + .004 + k * .004, y, hz + .075 + k * .01], [hx - .004 - k * .004, y, hz + .075 + k * .01]], [150, 22, 30]);
+      }
+    }
+  });
 }
 
 const WakeState = {
@@ -2622,7 +2681,6 @@ const WakeState = {
       b.drawImage(b.canvas, Math.sin(s.frame * .07) * 6 * s.dizzy, 0);
       b.restore();
     }
-    if (s.pitch > .3 && s.rise < 1) drawBedFront(s, b, s.rise);
     // 눈꺼풀 — 처음에 천천히 뜨고 두 번 깜빡임
     if (s.wk === 'ceil') {
       const t = s.wt;
@@ -3561,6 +3619,8 @@ class EscapeScene {
     this.winTex = document.createElement('canvas'); this.winTex.width = 100; this.winTex.height = 56;   // 방(3D)의 관찰창 안
     this.monTex = document.createElement('canvas'); this.monTex.width = 38; this.monTex.height = 24;    // 심전도 화면
     this.skelTex = bakeSkeleton();
+    this.handL = bakeHand(false); this.handR = bakeHand(true);   // 손등 (오른손엔 링거)
+    this.armL = bakeArm(true); this.armR = bakeArm(false);       // 팔뚝 (왼손목엔 팔찌)
     this.held = new Set();                               // 누르고 있는 걷기 키 · 손가락
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchEnd'].forEach(k => this[k] = this[k].bind(this));
