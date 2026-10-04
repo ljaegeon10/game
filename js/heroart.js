@@ -18,7 +18,7 @@
 
    D · E · F 는 원래 노란 주인공을 살린 시안입니다 — 아래 '아바타' 를 보세요.
 
-   쓰는 곳 : js/game.js (게임 주인공 — 시안 C) · prototypes/hero.html (시안 비교 페이지)
+   쓰는 곳 : js/game.js (게임 주인공 — 시안 G) · prototypes/hero.html (시안 비교 페이지)
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const FW = 30, FH = 36, N = FW * FH;
@@ -545,6 +545,96 @@ class CableRig {
   }
 }
 
+/* ═════════════ 원래 노란 주인공 + 글리치 (시안 G) ══════════════
+   예전 주인공 그림(assets/hero.png, 원본 8프레임 56×66)을 시안과 같은 칸(30×36 · 방향마다 4장)으로 다시 굽기.
+   게임처럼 가로 30px 로 줄이고(세로 35px), 발바닥이 34 줄에 오도록 한 줄 내림 */
+function bakeOriginal(img, meta, plug) {
+  const c = document.createElement('canvas'); c.width = FW * 16; c.height = FH;
+  const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+  const h = Math.round(FW * meta.fh / meta.fw);
+  ['down', 'up', 'left', 'right'].forEach((dir, di) => {
+    for (let st = 0; st < 4; st++) {
+      const seq = meta[dir], idx = seq[st % seq.length], ox = (di * 4 + st) * FW;
+      x.drawImage(img, idx * meta.fw, 0, meta.fw, meta.fh, ox, 1, FW, h);
+      if (!plug) continue;
+      // 관자놀이 커넥터 — 전극선이 여기서 두 가닥씩 나옵니다 (짙은 몸체 · 밝은 윗면 · 청록 표시등)
+      const R = (col, px, py, w, hh) => { x.fillStyle = col; x.fillRect(ox + px, py, w, hh); };
+      const jack = (px, py) => { R('#1c0808', px - 1, py - 1, 5, 7); R('#2a2f37', px, py, 3, 5); R('#59636e', px, py, 3, 1); R('#00ffd5', px + 1, py + 2, 1, 1); };
+      if (dir === 'down' || dir === 'up') { jack(1, 13); jack(26, 13); }
+      if (dir === 'left') jack(14, 12);
+      if (dir === 'right') jack(13, 12);
+    }
+  });
+  return c;
+}
+
+/* 시트를 한 색으로 — 그림자(검정) · 색 분리 잔상(빨강 · 청록) */
+const TINT = new WeakMap();
+function tinted(sheet, color) {
+  if (!TINT.has(sheet)) TINT.set(sheet, {});
+  const m = TINT.get(sheet);
+  if (!m[color]) {
+    const c = document.createElement('canvas'); c.width = sheet.width; c.height = sheet.height;
+    const x = c.getContext('2d'); x.drawImage(sheet, 0, 0);
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+    m[color] = c;
+  }
+  return m[color];
+}
+
+/* ═════════════ 글리치 ═════════════════════════════════════════
+   시뮬레이션이 아바타를 놓치는 순간. 8~20프레임 동안 매 프레임 새로 깨집니다.
+     · 몸이 2~6px 띠로 찢어져 좌우로 밀리고, 몇 띠는 빠짐
+     · 띠마다 진짜 사람(시안 A)이 섞여 비치고, 가끔은 통째로 사람으로 바뀜
+     · 빨강 · 청록으로 색이 갈라진 잔상
+     · 몸을 가로지르는 찢긴 줄, 둘레에 흩어지는 깨진 픽셀 조각
+   터지지 않을 땐 아주 가끔 띠 하나만 1~2px 튑니다.                       */
+function glitchTick(st, G, reduce = false) {
+  if (reduce || !G) return false;
+  st.since = (st.since || 0) + 1;
+  if (st.gl > 0) st.gl--;
+  else if (Math.random() < G.rate || st.since > G.every) { st.gl = 8 + (Math.random() * 13 | 0); st.since = 0; }
+  return st.gl > 0;
+}
+function drawGlitched(g, sheet, real, fi, sx, sy, power) {
+  const R = Math.random;
+  const swap = real && R() < .22 * power;                    // 통째로 사람
+  const base = swap ? real : sheet;
+  // 색 분리 잔상
+  g.save(); g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .6 * power;
+  g.drawImage(tinted(base, '#ff2050'), fi * FW, 0, FW, FH, sx - 2 - (R() * 3 | 0), sy, FW, FH);
+  g.drawImage(tinted(base, '#00ffd5'), fi * FW, 0, FW, FH, sx + 2 + (R() * 3 | 0), sy + (R() < .3 ? 1 : 0), FW, FH);
+  g.restore();
+  // 찢긴 띠
+  for (let y = 0; y < FH;) {
+    const h = Math.min(FH - y, 2 + (R() * 5 | 0));
+    const off = R() < .4 ? 0 : Math.round((R() - .5) * 12 * power);
+    const src = swap ? real : (real && R() < .42 * power ? real : sheet);
+    if (R() > .07 * power) g.drawImage(src, fi * FW, y, FW, h, sx + off, sy + y, FW, h);
+    y += h;
+  }
+  // 찢긴 줄 · 깨진 조각
+  const COL = ['#00ffd5', '#ffffff', '#ff2050', '#ffe92a'];
+  for (let i = 0; i < 2 + power * 5; i++) {
+    const len = 4 + R() * 30 * power, yy = sy + 2 + (R() * (FH - 4) | 0);
+    g.globalAlpha = .45 + R() * .55; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(sx + FW / 2 + (R() - .5) * FW - len / 2), yy, Math.round(len), 1);
+  }
+  for (let i = 0; i < power * 7; i++) {
+    g.globalAlpha = .5 + R() * .5; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(sx - 8 + R() * (FW + 16)), Math.round(sy + R() * FH), 1 + (R() * 3 | 0), 1 + (R() * 2 | 0));
+  }
+  g.globalAlpha = 1;
+}
+
+/* 시안 G — 지금 게임 주인공. 전극선은 관자놀이 커넥터에서 두 가닥씩 */
+const ORIGINAL = {
+  cables: [OB.B, OB.R, OB.Y, OB.W],
+  rig: { temple: 11.5, nodes: 10 },
+  glitch: { rate: .014, every: 170, power: 1 }
+};
+
 /* 시안 목록 — 게임에 옮길 땐 이 중 하나만 남깁니다 */
 const LOOKS = {
   A:  { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
@@ -566,5 +656,6 @@ const LOOKS = {
   F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .004, every: 1e9, power: .5 } }
 };
 
-window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, bakeSheet, frameIndex, CableRig };
+window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, bakeSheet, bakeOriginal, frameIndex, CableRig,
+                   tinted, glitchTick, drawGlitched };
 })();

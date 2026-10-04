@@ -2624,19 +2624,24 @@ function drawKey(x, y) {
 }
 
 /* ── 캐릭터 ────────────────────────────────────────── */
-/* 주인공 생김새 — 시안 C '병원 담요' (js/heroart.js).
-   흰 병원 담요를 후드처럼 뒤집어쓴 피험자 07. 그림은 처음 그릴 때 한 번 굽고
-   (30×36 칸 · 방향마다 4장 걷기), 후드 아래에서 나온 오방색 전극선 네 가닥은
-   매 프레임 줄로 흉내 내 바닥에 끌리며 따라옵니다.
-   heroart.js 가 없으면 예전 노란 주인공(assets/hero.png)으로 그립니다. */
-const HERO_LOOK = window.HeroArt ? HeroArt.LOOKS.C : null;
-let heroSheet = null, heroRig = null, heroRigT = -1;
+/* 주인공 생김새 — 시안 G (js/heroart.js).
+   예전 노란 주인공 그림(assets/hero.png) 그대로에, 머리 양옆 관자놀이 커넥터에서
+   오방색 전극선 네 가닥이 늘어져 바닥에 끌립니다. 1~3초마다 시뮬레이션이 아바타를
+   놓치듯 크게 깨지며(띠 찢김 · 색 분리 · 찢긴 줄 · 깨진 조각) 그 틈으로 진짜 사람
+   (환자복 · 뇌파 캡을 한 피험자 07)이 섞여 비칩니다. 깨지는 동안 선에도 빛이 흐릅니다.
+   그림은 처음 그릴 때 한 번 굽고(30×36 · 방향마다 4장), 전극선은 매 프레임 줄로 흉내.
+   heroart.js 가 없으면 예전 그대로 그립니다. */
+const HERO_G = window.HeroArt ? HeroArt.ORIGINAL : null;
+const HERO_REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;   // 움직임 줄이기면 글리치 끔
+let heroArtCache = null, heroRigT = -1, heroBurst = false;
+const heroGl = {};
 function heroArt() {
-  if (!heroSheet && HERO_LOOK) {
-    heroSheet = HeroArt.bakeSheet(HERO_LOOK);
-    heroRig = new HeroArt.CableRig(HERO_LOOK.cables);
-  }
-  return heroSheet;
+  if (!heroArtCache && HERO_G && IMG.hero) heroArtCache = {
+    sheet: HeroArt.bakeOriginal(IMG.hero, HERO, true),
+    real: HeroArt.bakeSheet(HeroArt.LOOKS.A),          // 깨진 틈으로 비치는 진짜 사람
+    rig: new HeroArt.CableRig(HERO_G.cables, HERO_G.rig)
+  };
+  return heroArtCache;
 }
 
 function drawPlayer() {
@@ -2660,22 +2665,34 @@ function drawPlayer() {
 
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
 
-  const sheet = heroArt();
-  if (sheet) {
+  const art = heroArt();
+  if (art) {
     const { FW, FH } = HeroArt;
     const fi = HeroArt.frameIndex(P.dir, Math.floor(P.anim) % HeroArt.STEPS);
     const feet = P.y + 10;                               // 발바닥 줄 (칸의 34 줄)
-    // 전극선 — 후드 아래 뒤통수에 매달려 늘어지고 바닥에 끌림. 한 프레임에 한 번만 움직임
-    if (heroRigT !== G.t) { heroRig.update(P.x, feet - 1, 17 - bob, P.dir); heroRigT = G.t; }
+    // 전극선 · 글리치는 한 프레임에 한 번만 움직임 (변이 장면에선 한 프레임에 두 번 그려짐)
+    if (heroRigT !== G.t) {
+      art.rig.update(P.x, feet - 1, 17 - bob, P.dir, 0);
+      heroBurst = HeroArt.glitchTick(heroGl, HERO_G.glitch, HERO_REDUCE);
+      heroRigT = G.t;
+    }
+    const glow = heroBurst ? .45 : 0;
     const behind = n => n.z > 2 || n.y <= feet + 1;      // 매달린 부분은 몸 뒤
-    if (P.dir !== 'up') heroRig.draw(g, 0, G.t, behind);
+    if (P.dir !== 'up') art.rig.draw(g, glow, G.t, behind);
     g.save();
     g.translate(P.x, P.y + bob - FH / 2 + 12);
     g.rotate(tilt);
     g.scale(stretch, squash);
-    g.drawImage(sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+    if (heroBurst) HeroArt.drawGlitched(g, art.sheet, art.real, fi, -FW / 2, -FH / 2, HERO_G.glitch.power);
+    else {
+      g.drawImage(art.sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+      if (!HERO_REDUCE && Math.random() < .02 * HERO_G.glitch.power) {   // 잔떨림 — 띠 하나만 튐
+        const y0 = 4 + (Math.random() * (FH - 8) | 0), h = 1 + (Math.random() * 3 | 0);
+        g.drawImage(art.sheet, fi * FW, y0, FW, h, -FW / 2 + (Math.random() < .5 ? -2 : 2), -FH / 2 + y0, FW, h);
+      }
+    }
     g.restore();
-    heroRig.draw(g, 0, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
+    art.rig.draw(g, glow, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
   } else if (IMG.hero) {
     const seq = HERO[P.dir] || HERO.down;
     const idx = seq[Math.floor(P.anim) % seq.length];
@@ -4793,22 +4810,16 @@ function renderFall() {
   }
   g.restore();
 
-  // 4) 작아지며 구르듯 떨어지는 주인공 (예전 노란 주인공과 같은 크기로 키워서)
-  const fallSheet = heroArt();
-  if (fallSheet || IMG.hero) {
+  // 4) 작아지며 구르듯 떨어지는 주인공
+  if (IMG.hero) {
     const scale = Math.max(.05, 1 - k * .92);
     g.save();
     g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
     g.rotate(k * 3.2);
     g.scale(scale, scale);
     g.globalAlpha = Math.min(1, 1.3 - k);
-    if (fallSheet) {
-      const { FW, FH } = HeroArt, fi = HeroArt.frameIndex('down', Math.floor(t / 6) % HeroArt.STEPS), z = 1.9;
-      g.drawImage(fallSheet, fi * FW, 0, FW, FH, -FW * z / 2, -FH * z / 2, FW * z, FH * z);
-    } else {
-      const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
-      g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
-    }
+    const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
+    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
     g.restore();
   }
 

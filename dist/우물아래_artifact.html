@@ -7338,7 +7338,7 @@ const CREEPY_STAFF = ['이재건', '장도우', '박하늘', '문서혁'];
 
    D · E · F 는 원래 노란 주인공을 살린 시안입니다 — 아래 '아바타' 를 보세요.
 
-   쓰는 곳 : js/game.js (게임 주인공 — 시안 C) · prototypes/hero.html (시안 비교 페이지)
+   쓰는 곳 : js/game.js (게임 주인공 — 시안 G) · prototypes/hero.html (시안 비교 페이지)
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const FW = 30, FH = 36, N = FW * FH;
@@ -7865,6 +7865,96 @@ class CableRig {
   }
 }
 
+/* ═════════════ 원래 노란 주인공 + 글리치 (시안 G) ══════════════
+   예전 주인공 그림(assets/hero.png, 원본 8프레임 56×66)을 시안과 같은 칸(30×36 · 방향마다 4장)으로 다시 굽기.
+   게임처럼 가로 30px 로 줄이고(세로 35px), 발바닥이 34 줄에 오도록 한 줄 내림 */
+function bakeOriginal(img, meta, plug) {
+  const c = document.createElement('canvas'); c.width = FW * 16; c.height = FH;
+  const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+  const h = Math.round(FW * meta.fh / meta.fw);
+  ['down', 'up', 'left', 'right'].forEach((dir, di) => {
+    for (let st = 0; st < 4; st++) {
+      const seq = meta[dir], idx = seq[st % seq.length], ox = (di * 4 + st) * FW;
+      x.drawImage(img, idx * meta.fw, 0, meta.fw, meta.fh, ox, 1, FW, h);
+      if (!plug) continue;
+      // 관자놀이 커넥터 — 전극선이 여기서 두 가닥씩 나옵니다 (짙은 몸체 · 밝은 윗면 · 청록 표시등)
+      const R = (col, px, py, w, hh) => { x.fillStyle = col; x.fillRect(ox + px, py, w, hh); };
+      const jack = (px, py) => { R('#1c0808', px - 1, py - 1, 5, 7); R('#2a2f37', px, py, 3, 5); R('#59636e', px, py, 3, 1); R('#00ffd5', px + 1, py + 2, 1, 1); };
+      if (dir === 'down' || dir === 'up') { jack(1, 13); jack(26, 13); }
+      if (dir === 'left') jack(14, 12);
+      if (dir === 'right') jack(13, 12);
+    }
+  });
+  return c;
+}
+
+/* 시트를 한 색으로 — 그림자(검정) · 색 분리 잔상(빨강 · 청록) */
+const TINT = new WeakMap();
+function tinted(sheet, color) {
+  if (!TINT.has(sheet)) TINT.set(sheet, {});
+  const m = TINT.get(sheet);
+  if (!m[color]) {
+    const c = document.createElement('canvas'); c.width = sheet.width; c.height = sheet.height;
+    const x = c.getContext('2d'); x.drawImage(sheet, 0, 0);
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
+    m[color] = c;
+  }
+  return m[color];
+}
+
+/* ═════════════ 글리치 ═════════════════════════════════════════
+   시뮬레이션이 아바타를 놓치는 순간. 8~20프레임 동안 매 프레임 새로 깨집니다.
+     · 몸이 2~6px 띠로 찢어져 좌우로 밀리고, 몇 띠는 빠짐
+     · 띠마다 진짜 사람(시안 A)이 섞여 비치고, 가끔은 통째로 사람으로 바뀜
+     · 빨강 · 청록으로 색이 갈라진 잔상
+     · 몸을 가로지르는 찢긴 줄, 둘레에 흩어지는 깨진 픽셀 조각
+   터지지 않을 땐 아주 가끔 띠 하나만 1~2px 튑니다.                       */
+function glitchTick(st, G, reduce = false) {
+  if (reduce || !G) return false;
+  st.since = (st.since || 0) + 1;
+  if (st.gl > 0) st.gl--;
+  else if (Math.random() < G.rate || st.since > G.every) { st.gl = 8 + (Math.random() * 13 | 0); st.since = 0; }
+  return st.gl > 0;
+}
+function drawGlitched(g, sheet, real, fi, sx, sy, power) {
+  const R = Math.random;
+  const swap = real && R() < .22 * power;                    // 통째로 사람
+  const base = swap ? real : sheet;
+  // 색 분리 잔상
+  g.save(); g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = .6 * power;
+  g.drawImage(tinted(base, '#ff2050'), fi * FW, 0, FW, FH, sx - 2 - (R() * 3 | 0), sy, FW, FH);
+  g.drawImage(tinted(base, '#00ffd5'), fi * FW, 0, FW, FH, sx + 2 + (R() * 3 | 0), sy + (R() < .3 ? 1 : 0), FW, FH);
+  g.restore();
+  // 찢긴 띠
+  for (let y = 0; y < FH;) {
+    const h = Math.min(FH - y, 2 + (R() * 5 | 0));
+    const off = R() < .4 ? 0 : Math.round((R() - .5) * 12 * power);
+    const src = swap ? real : (real && R() < .42 * power ? real : sheet);
+    if (R() > .07 * power) g.drawImage(src, fi * FW, y, FW, h, sx + off, sy + y, FW, h);
+    y += h;
+  }
+  // 찢긴 줄 · 깨진 조각
+  const COL = ['#00ffd5', '#ffffff', '#ff2050', '#ffe92a'];
+  for (let i = 0; i < 2 + power * 5; i++) {
+    const len = 4 + R() * 30 * power, yy = sy + 2 + (R() * (FH - 4) | 0);
+    g.globalAlpha = .45 + R() * .55; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(sx + FW / 2 + (R() - .5) * FW - len / 2), yy, Math.round(len), 1);
+  }
+  for (let i = 0; i < power * 7; i++) {
+    g.globalAlpha = .5 + R() * .5; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(sx - 8 + R() * (FW + 16)), Math.round(sy + R() * FH), 1 + (R() * 3 | 0), 1 + (R() * 2 | 0));
+  }
+  g.globalAlpha = 1;
+}
+
+/* 시안 G — 지금 게임 주인공. 전극선은 관자놀이 커넥터에서 두 가닥씩 */
+const ORIGINAL = {
+  cables: [OB.B, OB.R, OB.Y, OB.W],
+  rig: { temple: 11.5, nodes: 10 },
+  glitch: { rate: .014, every: 170, power: 1 }
+};
+
 /* 시안 목록 — 게임에 옮길 땐 이 중 하나만 남깁니다 */
 const LOOKS = {
   A:  { kind: 'gown', cap: 'full', band: true, cables: [OB.B, OB.R, OB.Y, OB.W] },
@@ -7886,7 +7976,8 @@ const LOOKS = {
   F:  { kind: 'avatar', peel: 0, body: 'gown', band: true, cables: [OB.B, OB.R, OB.Y, OB.W], glitch: { rate: .004, every: 1e9, power: .5 } }
 };
 
-window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, bakeSheet, frameIndex, CableRig };
+window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, bakeSheet, bakeOriginal, frameIndex, CableRig,
+                   tinted, glitchTick, drawGlitched };
 })();
 
 </script>
@@ -10517,19 +10608,24 @@ function drawKey(x, y) {
 }
 
 /* ── 캐릭터 ────────────────────────────────────────── */
-/* 주인공 생김새 — 시안 C '병원 담요' (js/heroart.js).
-   흰 병원 담요를 후드처럼 뒤집어쓴 피험자 07. 그림은 처음 그릴 때 한 번 굽고
-   (30×36 칸 · 방향마다 4장 걷기), 후드 아래에서 나온 오방색 전극선 네 가닥은
-   매 프레임 줄로 흉내 내 바닥에 끌리며 따라옵니다.
-   heroart.js 가 없으면 예전 노란 주인공(assets/hero.png)으로 그립니다. */
-const HERO_LOOK = window.HeroArt ? HeroArt.LOOKS.C : null;
-let heroSheet = null, heroRig = null, heroRigT = -1;
+/* 주인공 생김새 — 시안 G (js/heroart.js).
+   예전 노란 주인공 그림(assets/hero.png) 그대로에, 머리 양옆 관자놀이 커넥터에서
+   오방색 전극선 네 가닥이 늘어져 바닥에 끌립니다. 1~3초마다 시뮬레이션이 아바타를
+   놓치듯 크게 깨지며(띠 찢김 · 색 분리 · 찢긴 줄 · 깨진 조각) 그 틈으로 진짜 사람
+   (환자복 · 뇌파 캡을 한 피험자 07)이 섞여 비칩니다. 깨지는 동안 선에도 빛이 흐릅니다.
+   그림은 처음 그릴 때 한 번 굽고(30×36 · 방향마다 4장), 전극선은 매 프레임 줄로 흉내.
+   heroart.js 가 없으면 예전 그대로 그립니다. */
+const HERO_G = window.HeroArt ? HeroArt.ORIGINAL : null;
+const HERO_REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;   // 움직임 줄이기면 글리치 끔
+let heroArtCache = null, heroRigT = -1, heroBurst = false;
+const heroGl = {};
 function heroArt() {
-  if (!heroSheet && HERO_LOOK) {
-    heroSheet = HeroArt.bakeSheet(HERO_LOOK);
-    heroRig = new HeroArt.CableRig(HERO_LOOK.cables);
-  }
-  return heroSheet;
+  if (!heroArtCache && HERO_G && IMG.hero) heroArtCache = {
+    sheet: HeroArt.bakeOriginal(IMG.hero, HERO, true),
+    real: HeroArt.bakeSheet(HeroArt.LOOKS.A),          // 깨진 틈으로 비치는 진짜 사람
+    rig: new HeroArt.CableRig(HERO_G.cables, HERO_G.rig)
+  };
+  return heroArtCache;
 }
 
 function drawPlayer() {
@@ -10553,22 +10649,34 @@ function drawPlayer() {
 
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
 
-  const sheet = heroArt();
-  if (sheet) {
+  const art = heroArt();
+  if (art) {
     const { FW, FH } = HeroArt;
     const fi = HeroArt.frameIndex(P.dir, Math.floor(P.anim) % HeroArt.STEPS);
     const feet = P.y + 10;                               // 발바닥 줄 (칸의 34 줄)
-    // 전극선 — 후드 아래 뒤통수에 매달려 늘어지고 바닥에 끌림. 한 프레임에 한 번만 움직임
-    if (heroRigT !== G.t) { heroRig.update(P.x, feet - 1, 17 - bob, P.dir); heroRigT = G.t; }
+    // 전극선 · 글리치는 한 프레임에 한 번만 움직임 (변이 장면에선 한 프레임에 두 번 그려짐)
+    if (heroRigT !== G.t) {
+      art.rig.update(P.x, feet - 1, 17 - bob, P.dir, 0);
+      heroBurst = HeroArt.glitchTick(heroGl, HERO_G.glitch, HERO_REDUCE);
+      heroRigT = G.t;
+    }
+    const glow = heroBurst ? .45 : 0;
     const behind = n => n.z > 2 || n.y <= feet + 1;      // 매달린 부분은 몸 뒤
-    if (P.dir !== 'up') heroRig.draw(g, 0, G.t, behind);
+    if (P.dir !== 'up') art.rig.draw(g, glow, G.t, behind);
     g.save();
     g.translate(P.x, P.y + bob - FH / 2 + 12);
     g.rotate(tilt);
     g.scale(stretch, squash);
-    g.drawImage(sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+    if (heroBurst) HeroArt.drawGlitched(g, art.sheet, art.real, fi, -FW / 2, -FH / 2, HERO_G.glitch.power);
+    else {
+      g.drawImage(art.sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+      if (!HERO_REDUCE && Math.random() < .02 * HERO_G.glitch.power) {   // 잔떨림 — 띠 하나만 튐
+        const y0 = 4 + (Math.random() * (FH - 8) | 0), h = 1 + (Math.random() * 3 | 0);
+        g.drawImage(art.sheet, fi * FW, y0, FW, h, -FW / 2 + (Math.random() < .5 ? -2 : 2), -FH / 2 + y0, FW, h);
+      }
+    }
     g.restore();
-    heroRig.draw(g, 0, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
+    art.rig.draw(g, glow, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
   } else if (IMG.hero) {
     const seq = HERO[P.dir] || HERO.down;
     const idx = seq[Math.floor(P.anim) % seq.length];
@@ -12686,22 +12794,16 @@ function renderFall() {
   }
   g.restore();
 
-  // 4) 작아지며 구르듯 떨어지는 주인공 (예전 노란 주인공과 같은 크기로 키워서)
-  const fallSheet = heroArt();
-  if (fallSheet || IMG.hero) {
+  // 4) 작아지며 구르듯 떨어지는 주인공
+  if (IMG.hero) {
     const scale = Math.max(.05, 1 - k * .92);
     g.save();
     g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
     g.rotate(k * 3.2);
     g.scale(scale, scale);
     g.globalAlpha = Math.min(1, 1.3 - k);
-    if (fallSheet) {
-      const { FW, FH } = HeroArt, fi = HeroArt.frameIndex('down', Math.floor(t / 6) % HeroArt.STEPS), z = 1.9;
-      g.drawImage(fallSheet, fi * FW, 0, FW, FH, -FW * z / 2, -FH * z / 2, FW * z, FH * z);
-    } else {
-      const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
-      g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
-    }
+    const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
+    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
     g.restore();
   }
 

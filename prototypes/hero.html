@@ -88,7 +88,7 @@
     </div>
     <div class="cards" id="cards">
       <button class="card" data-look="now"><b>지금</b>원래 주인공. 둥근 노란 머리와 세로로 긴 검은 눈. 세 시안 모두 이 모습에서 출발합니다.</button>
-      <button class="card" data-look="G"><b>G · 지금 + 글리치</b>지금 그림 그대로. 머리 양옆 커넥터에서 전극선 네 가닥이 끌리고, 수시로 크게 깨지며 사람이 비칩니다.</button>
+      <button class="card" data-look="G"><b>G · 지금 + 글리치</b>게임 주인공. 원래 그림 그대로. 머리 양옆 커넥터에서 전극선 네 가닥이 끌리고, 수시로 크게 깨지며 사람이 비칩니다.</button>
       <button class="card" data-look="D"><b>D · 그림자만 사람</b>노란 모습은 그대로. 바닥의 그림자가 사람 모양이고, 등 뒤로 전극선이 끌립니다. 가끔 사람이 비칩니다.</button>
       <button class="card" data-look="E"><b>E · 벗겨지는 아바타</b>내려갈수록 노란 껍데기가 벗겨져 사람 얼굴이 드러납니다. 갈라진 틈은 청록 격자.</button>
       <button class="card" data-look="F"><b>F · 탈 쓴 사람</b>노란 머리를 탈처럼 쓴 진짜 몸. 환자복, 맨발, 손목 팔찌.</button>
@@ -147,95 +147,18 @@ const STAGE_NAME = ['숲', '초반', '깊은 곳', '심연'];
 const STAGE_PLACE = ['forest', 'well', 'ward', 'arena'];
 const PLACE_DEPTH = { forest: 0, well: 1, ward: 4, arena: 8 };
 
-/* 페이지에서만 쓰는 시안 — 지금 게임의 노란 주인공 그림(assets/hero.png) 그대로
-   now : 지금 그대로
-   G   : 지금 그대로 + D 의 글리치를 최대로 + 관자놀이 커넥터와 전극선 */
+/* 원래 노란 주인공 그림(assets/hero.png)을 쓰는 시안
+   now : 예전 그대로
+   G   : 예전 그대로 + D 의 글리치를 최대로 + 관자놀이 커넥터와 전극선 (지금 게임 주인공) */
 const ALL = {
   ...LOOKS,
   now: { kind: 'old', cables: [] },
-  G:   { kind: 'old', cables: [OB.B, OB.R, OB.Y, OB.W], plug: true, glitch: { rate: .014, every: 170, power: 1 } }
+  G:   { kind: 'old', cables: HeroArt.ORIGINAL.cables, plug: true, glitch: HeroArt.ORIGINAL.glitch }
 };
-/* 원본 8프레임(56×66)을 시안과 같은 칸(30×36 · 방향마다 4장)으로 다시 굽기.
-   게임처럼 가로 30px 로 줄이고(세로 35px), 발바닥이 34 줄에 오도록 한 줄 내림 */
-function bakeOld(plug) {
-  const c = document.createElement('canvas'); c.width = FW * 16; c.height = FH;
-  const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-  const h = Math.round(FW * HERO.fh / HERO.fw);
-  ['down', 'up', 'left', 'right'].forEach((dir, di) => {
-    for (let st = 0; st < 4; st++) {
-      const seq = HERO[dir], idx = seq[st % seq.length], ox = (di * 4 + st) * FW;
-      x.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, ox, 1, FW, h);
-      if (!plug) continue;
-      // 관자놀이 커넥터 — 전극선이 여기서 두 가닥씩 나옵니다 (짙은 몸체 · 밝은 윗면 · 청록 표시등)
-      const R = (col, px, py, w, hh) => { x.fillStyle = col; x.fillRect(ox + px, py, w, hh); };
-      const jack = (px, py) => { R('#1c0808', px - 1, py - 1, 5, 7); R('#2a2f37', px, py, 3, 5); R('#59636e', px, py, 3, 1); R('#00ffd5', px + 1, py + 2, 1, 1); };
-      if (dir === 'down' || dir === 'up') { jack(1, 13); jack(26, 13); }
-      if (dir === 'left') jack(14, 12);
-      if (dir === 'right') jack(13, 12);
-    }
-  });
-  return c;
-}
-
-/* 시트를 한 색으로 — 그림자(검정) · 색 분리 잔상(빨강 · 청록) */
-const TINT = new Map();
-function tinted(sheet, color) {
-  const k = sheet; if (!TINT.has(k)) TINT.set(k, {});
-  const m = TINT.get(k);
-  if (!m[color]) {
-    const c = document.createElement('canvas'); c.width = sheet.width; c.height = sheet.height;
-    const x = c.getContext('2d'); x.drawImage(sheet, 0, 0);
-    x.globalCompositeOperation = 'source-in'; x.fillStyle = color; x.fillRect(0, 0, c.width, c.height);
-    m[color] = c;
-  }
-  return m[color];
-}
-
-/* ═════════════ 글리치 ═════════════════════════════════════════
-   시뮬레이션이 아바타를 놓치는 순간. 8~20프레임 동안 매 프레임 새로 깨집니다.
-     · 몸이 2~6px 띠로 찢어져 좌우로 밀리고, 몇 띠는 빠짐
-     · 띠마다 진짜 사람(시안 A)이 섞여 비치고, 가끔은 통째로 사람으로 바뀜
-     · 빨강 · 청록으로 색이 갈라진 잔상
-     · 몸을 가로지르는 찢긴 줄, 둘레에 흩어지는 깨진 픽셀 조각
-   터지지 않을 땐 아주 가끔 띠 하나만 1~2px 튑니다.                       */
-function glitchTick(st, G) {
-  if (reduce || !G) return false;
-  st.since = (st.since || 0) + 1;
-  if (st.gl > 0) st.gl--;
-  else if (Math.random() < G.rate || st.since > G.every) { st.gl = 8 + (Math.random() * 13 | 0); st.since = 0; }
-  return st.gl > 0;
-}
-function drawGlitched(g, sheet, real, fi, sx, sy, power) {
-  const R = Math.random;
-  const swap = real && R() < .22 * power;                    // 통째로 사람
-  const base = swap ? real : sheet;
-  // 색 분리 잔상
-  g.save(); g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = .6 * power;
-  g.drawImage(tinted(base, '#ff2050'), fi * FW, 0, FW, FH, sx - 2 - (R() * 3 | 0), sy, FW, FH);
-  g.drawImage(tinted(base, '#00ffd5'), fi * FW, 0, FW, FH, sx + 2 + (R() * 3 | 0), sy + (R() < .3 ? 1 : 0), FW, FH);
-  g.restore();
-  // 찢긴 띠
-  for (let y = 0; y < FH;) {
-    const h = Math.min(FH - y, 2 + (R() * 5 | 0));
-    const off = R() < .4 ? 0 : Math.round((R() - .5) * 12 * power);
-    const src = swap ? real : (real && R() < .42 * power ? real : sheet);
-    if (R() > .07 * power) g.drawImage(src, fi * FW, y, FW, h, sx + off, sy + y, FW, h);
-    y += h;
-  }
-  // 찢긴 줄 · 깨진 조각
-  const COL = ['#00ffd5', '#ffffff', '#ff2050', '#ffe92a'];
-  for (let i = 0; i < 2 + power * 5; i++) {
-    const len = 4 + R() * 30 * power, yy = sy + 2 + (R() * (FH - 4) | 0);
-    g.globalAlpha = .45 + R() * .55; g.fillStyle = COL[R() * 4 | 0];
-    g.fillRect(Math.round(sx + FW / 2 + (R() - .5) * FW - len / 2), yy, Math.round(len), 1);
-  }
-  for (let i = 0; i < power * 7; i++) {
-    g.globalAlpha = .5 + R() * .5; g.fillStyle = COL[R() * 4 | 0];
-    g.fillRect(Math.round(sx - 8 + R() * (FW + 16)), Math.round(sy + R() * FH), 1 + (R() * 3 | 0), 1 + (R() * 2 | 0));
-  }
-  g.globalAlpha = 1;
-}
+/* 원래 그림 굽기 · 색 바꾼 시트 · 글리치는 heroart.js 와 같이 씁니다 (게임 주인공 G 와 같은 코드) */
+const bakeOld = plug => HeroArt.bakeOriginal(IMG.hero, HERO, plug);
+const { tinted, drawGlitched } = HeroArt;
+const glitchTick = (st, G) => HeroArt.glitchTick(st, G, reduce);
 
 /* 한 명 그리기 — 그림자 · 뒤쪽 전극선 · 몸 · 앞쪽 전극선 · 글리치
    (fx, fy) 는 발바닥 자리. 게임처럼 걸음에 맞춰 통통 뜹니다 */
@@ -281,7 +204,7 @@ function drawFigure(g, who, st, t) {
 function newState(fx, fy) {
   const rigs = {};
   // 원래 그림은 관자놀이 커넥터에서 두 가닥씩 — 정면에서도 머리 양옆으로 늘어진 선이 보임
-  Object.keys(ALL).forEach(k => { if (ALL[k].cables.length) rigs[k] = new CableRig(ALL[k].cables, ALL[k].kind === 'old' ? { temple: 11.5, nodes: 10 } : {}); });
+  Object.keys(ALL).forEach(k => { if (ALL[k].cables.length) rigs[k] = new CableRig(ALL[k].cables, ALL[k].kind === 'old' ? HeroArt.ORIGINAL.rig : {}); });
   return { fx, fy, dir: 'down', anim: 0, walkAmt: 0, rigs };
 }
 
