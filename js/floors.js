@@ -215,9 +215,10 @@ function floorRadial(g, R, W, H, TS) {
   g.fillStyle = '#0d0b10'; g.fillRect(TS, TS, W - TS * 2, H - TS * 2);
   floorFlag(g, R, W, H, TS, true);
   g.save();
-  g.beginPath(); g.ellipse(cx, cy, 196, 108, 0, 0, Math.PI * 2); g.clip();
+  const k = Math.min(W / 576, H / 324);                              // 방이 넓으면 원도 그만큼 크게
+  g.beginPath(); g.ellipse(cx, cy, 196 * k, 108 * k, 0, 0, Math.PI * 2); g.clip();
   g.fillStyle = '#0d0b10'; g.fillRect(0, 0, W, H);
-  for (let ring = 0; ring < 8; ring++) {                            // 고리마다 돌 블록
+  for (let ring = 0; ring < Math.ceil(8 * k); ring++) {             // 고리마다 돌 블록
     const r0 = 14 + ring * 24, r1 = r0 + 23, n = 6 + ring * 5, off = R() * 6;
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * Math.PI * 2 + off, a1 = ((i + 1) / n) * Math.PI * 2 + off - .03;

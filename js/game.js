@@ -4,7 +4,11 @@
 (() => {
 'use strict';
 
-const W = 576, H = 324, TS = 32;   // 16:9
+const VW = 576, VH = 324, TS = 32;   // 화면 (16:9)
+/* 지금 방의 크기. 보통은 화면과 같고, 보스방(심층)만 더 넓습니다 — rooms.js 의 size.
+   방이 화면보다 넓으면 카메라(CAM)가 주인공을 따라 움직입니다. */
+let W = VW, H = VH;
+const CAM = { x: 0, y: 0 };
 const cv = document.getElementById('game');
 const g  = cv.getContext('2d');
 g.imageSmoothingEnabled = false;
@@ -19,12 +23,12 @@ const OPP  = { N: 'S', S: 'N', W: 'E', E: 'W' };
 /* ── 화면 정수배 확대 ───────────────────────────────────── */
 function fit() {
   const n = Math.max(1, Math.min(
-    Math.floor((window.innerWidth  - 40) / W),
-    Math.floor((window.innerHeight - 90) / H)
+    Math.floor((window.innerWidth  - 40) / VW),
+    Math.floor((window.innerHeight - 90) / VH)
   ));
   stage.style.setProperty('--scale', `scale(${n})`);
   stage.style.transform = `scale(${n})`;
-  stage.style.margin = `${(n - 1) * H / 2}px ${(n - 1) * W / 2}px`;
+  stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
 
@@ -71,8 +75,8 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { key[e.key] = false; });
 cv.addEventListener('mousemove', e => {
   const r = cv.getBoundingClientRect();
-  mouse.x = (e.clientX - r.left) / r.width * W;
-  mouse.y = (e.clientY - r.top)  / r.height * H;
+  mouse.x = (e.clientX - r.left) / r.width * VW;     // 화면 좌표 — 쏠 때 카메라만큼 더합니다
+  mouse.y = (e.clientY - r.top)  / r.height * VH;
 });
 cv.addEventListener('mousedown', e => { e.preventDefault(); mouse.down = true; Sfx.unlock(); });
 addEventListener('mouseup', () => { mouse.down = false; });
@@ -493,6 +497,7 @@ $('againbtn').addEventListener('click', () => location.reload());
 /* ═══════════ 지상 ═════════════════════════════════════ */
 function loadForest(opening) {
   G.inForest = true; G.room = null; G.depth = 0;
+  W = VW; H = VH; CAM.x = CAM.y = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -615,6 +620,7 @@ function stateOf(id) {
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
+  [W, H] = r.size || [VW, VH];                // 보스방만 더 넓음
   G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
   G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
   G.glare = 0; G.medpack = null;
@@ -637,6 +643,7 @@ function loadRoom(id, fromDir) {
     N: [W / 2, TS + 26, 'down'],  S: [W / 2, H - TS - 26, 'up']
   }[fromDir] || [TS + 26, H / 2, 'right'];
   P.x = spawn[0]; P.y = spawn[1]; P.dir = spawn[2];
+  updateCamera(true);
 
   const first = !G.visited.has(id);
   G.visited.add(id);
@@ -1281,7 +1288,7 @@ function update() {
   if (!forest && P.fireCd <= 0) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
-    if (!ax && !ay && mouse.down) { ax = mouse.x - P.x; ay = mouse.y - P.y; }
+    if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
     if (ax || ay) {
       shoot(ax, ay);
       if (!ml) P.dir = Math.abs(ax) > Math.abs(ay)
@@ -1590,7 +1597,7 @@ function updateBoss() {
         G.shake = Math.max(G.shake, 15); glare(.6);
         shockRing(B.x, B.y, 150, '255,179,122', 5, 26);
       } else {
-        const n = ph === 1 ? 8 : 12, off = Math.random() * 6.28;
+        const n = (ph === 1 ? 8 : 12) + (BALANCE.bossRingAdd || 0), off = Math.random() * 6.28;
         for (let i = 0; i < n; i++) {
           const a = off + (i / n) * Math.PI * 2;
           foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (BALANCE.spore + (ph - 1) * .25) * BALANCE.bossShotMul);
@@ -2096,9 +2103,31 @@ function runAbomAct(B, dx, dy, d) {
 }
 
 /* ═══════════ 렌더 ═════════════════════════════════════ */
+/* ── 카메라 ─────────────────────────────────────────────
+   방이 화면보다 넓을 때(보스방)만 움직입니다. 주인공을 따라가되 보스 쪽으로
+   30% 당겨서 보스가 되도록 화면 안에 들어오게 하고, 보스 등장 · 변이 · 심연의 최후
+   컷신 동안엔 그 자리 쪽을 봅니다. 부드럽게 따라가고, 방에 들어설 때는 바로 맞춥니다. */
+function updateCamera(snap) {
+  if (G.inForest || (W <= VW && H <= VH)) { CAM.x = CAM.y = 0; return; }
+  let tx = P.x, ty = P.y - 10;
+  const B = G.boss;
+  const pull = (x, y, k) => { tx += (x - P.x) * k; ty += (y - P.y) * k; };
+  if (G.mode === 'morph' && G.morphX) { tx = G.morphX; ty = G.morphY; }
+  else if (G.mode === 'boss-intro') pull(W / 2, 118, .5);              // 눈이 솟는 자리
+  else if (G.mode === 'abomdeath') { const c = B || G.corpse; if (c) pull(c.x, c.y, .45); }  // 심연의 최후 — 열쇠가 날아올 주인공도 보이게
+  else if (B) pull(B.x, B.y, .3);
+  else if (G.corpse) pull(G.corpse.x, G.corpse.y, .2);
+  tx = Math.max(0, Math.min(W - VW, tx - VW / 2));
+  ty = Math.max(0, Math.min(H - VH, ty - VH / 2));
+  if (snap) { CAM.x = tx; CAM.y = ty; }
+  else { CAM.x += (tx - CAM.x) * .1; CAM.y += (ty - CAM.y) * .1; }
+}
+const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
+
 function render() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
+  g.translate(-camX(), -camY());                 // 방 안의 것은 카메라만큼 밀어서
   g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
   // 추락·착지·1인칭 중에는 지상/던전 화면이 뒤로 비쳐 보이면 안 됩니다
   const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
@@ -2106,7 +2135,17 @@ function render() {
     if (G.floor) g.drawImage(G.floor, 0, 0);
     if (G.inForest) renderForest(); else renderDungeon();
   }
+  if (G.mode === 'morph') renderMorph();         // 변신 컷신의 암막 · 입자도 방 안의 자리에
   g.restore();
+
+  // 여기부터는 화면 위에 얹는 것들 — 방 크기 대신 화면 크기로 그립니다
+  const roomW = W, roomH = H;
+  W = VW; H = VH;
+  renderScreen();
+  W = roomW; H = roomH;
+}
+function renderScreen() {
+  const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
 
   if (G.mode === 'fall') renderFall();
   if (G.mode === 'landing') renderLanding();
@@ -2114,7 +2153,6 @@ function render() {
   if (G.opening) renderOpening();
   if (G.doze) renderDoze();
   if (G.awayMsg) renderAwayMsg();
-  if (G.mode === 'morph') renderMorph();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
   if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
@@ -2292,7 +2330,7 @@ function renderDungeon() {
     carve(date, W * .72, H - 12, .8);
     if (R.boss) {                                  // 보스방 — 윗벽을 따라 같은 날짜를 몇 번이고
       g.font = '8px DungGeunMo, ui-monospace, monospace';
-      for (let i = 0; i < 9; i++) carve('5/20', 70 + i * 52 + (i % 2) * 9, 14 + (i % 3) * 5, .35 + (i % 2) * .15);
+      for (let i = 0; 70 + i * 52 < W - 50; i++) carve('5/20', 70 + i * 52 + (i % 2) * 9, 14 + (i % 3) * 5, .35 + (i % 2) * .15);
     }
     g.restore();
   }
@@ -2427,15 +2465,17 @@ function renderDungeon() {
   if (P.slow > 0) {
     g.save();
     g.globalAlpha = Math.min(1, P.slow / BALANCE.slowFrames) * .5;
-    const sg = g.createRadialGradient(P.x, P.y, 30, P.x, P.y, W * .55);
+    const sg = g.createRadialGradient(P.x, P.y, 30, P.x, P.y, VW * .55);
     sg.addColorStop(0, 'rgba(190,180,70,0)');
     sg.addColorStop(1, 'rgba(170,160,60,.55)');
     g.fillStyle = sg; g.fillRect(0, 0, W, H);
     g.restore();
   }
 
-  // 어둠 — 주인공 주변만 밝다
-  drawNightOverlay(g, W, H, P.x, P.y, .40 + G.depth * .022, 150);
+  // 어둠 — 주인공 주변만 밝다 (화면 기준으로 — 가장자리 어둠이 화면 가장자리에 오도록)
+  g.save(); g.translate(camX(), camY());
+  drawNightOverlay(g, VW, VH, P.x - camX(), P.y - camY(), .40 + G.depth * .022, 150);
+  g.restore();
 }
 
 /* ── 문 ────────────────────────────────────────────── */
@@ -2897,7 +2937,7 @@ function drawBoss() {
   }
   g.restore();
 
-  const bw = 220, bx = (W - bw) / 2, by = H - 18;
+  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH - 18;   // 화면 아래 가운데
   g.save();
   g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
@@ -3992,7 +4032,7 @@ function drawAbom() {
   }
 
   // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = (W - bw) / 2, by = H - 18;
+  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH - 18;   // 화면 아래 가운데
   g.save();
   g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
@@ -5253,7 +5293,7 @@ function loop(now) {
   acc += dt;
 
   let steps = 0;
-  while (acc >= STEP && steps < 5) { update(); acc -= STEP; steps++; }
+  while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
   if (acc > STEP * 5) acc = 0;
 
   if (G.mode !== 'ending') render();

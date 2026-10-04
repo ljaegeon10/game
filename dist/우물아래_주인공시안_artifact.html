@@ -1038,9 +1038,10 @@ function floorRadial(g, R, W, H, TS) {
   g.fillStyle = '#0d0b10'; g.fillRect(TS, TS, W - TS * 2, H - TS * 2);
   floorFlag(g, R, W, H, TS, true);
   g.save();
-  g.beginPath(); g.ellipse(cx, cy, 196, 108, 0, 0, Math.PI * 2); g.clip();
+  const k = Math.min(W / 576, H / 324);                              // 방이 넓으면 원도 그만큼 크게
+  g.beginPath(); g.ellipse(cx, cy, 196 * k, 108 * k, 0, 0, Math.PI * 2); g.clip();
   g.fillStyle = '#0d0b10'; g.fillRect(0, 0, W, H);
-  for (let ring = 0; ring < 8; ring++) {                            // 고리마다 돌 블록
+  for (let ring = 0; ring < Math.ceil(8 * k); ring++) {             // 고리마다 돌 블록
     const r0 = 14 + ring * 24, r1 = r0 + 23, n = 6 + ring * 5, off = R() * 6;
     for (let i = 0; i < n; i++) {
       const a0 = (i / n) * Math.PI * 2 + off, a1 = ((i + 1) / n) * Math.PI * 2 + off - .03;
@@ -1360,12 +1361,14 @@ function decorateFloor(g, theme, R, depth, W, H, TS) {
     }
     case 'arena': {
       // 둥근 의식 바닥 — 가운데로 모이는 케이블, 틈으로 비치는 실험실 격자
+      // 방이 넓으면(보스방) 원 · 케이블 자리도 그만큼 넓게
+      const sx = W / 576, sy = H / 324, k = Math.min(sx, sy);
       g.strokeStyle = 'rgba(194,53,44,.16)'; g.lineWidth = 2;
-      g.beginPath(); g.ellipse(cx, cy, 170, 98, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.ellipse(cx, cy, 170 * k, 98 * k, 0, 0, Math.PI * 2); g.stroke();
       g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 1;
-      g.beginPath(); g.ellipse(cx, cy, 120, 68, 0, 0, Math.PI * 2); g.stroke();
-      [[TS, 70], [W - TS, 70], [TS, 250], [W - TS, 250], [160, TS], [416, TS]].forEach(([x, y], i) => cable(g, x, y, cx + (i % 2 ? 14 : -14), cy, (i % 3 - 1) * 24));
-      labPatch(g, R, 120, 230, 30, 18, .4); labPatch(g, R, 460, 100, 30, 18, .4);
+      g.beginPath(); g.ellipse(cx, cy, 120 * k, 68 * k, 0, 0, Math.PI * 2); g.stroke();
+      [[TS, 70 * sy], [W - TS, 70 * sy], [TS, 250 * sy], [W - TS, 250 * sy], [160 * sx, TS], [416 * sx, TS]].forEach(([x, y], i) => cable(g, x, y, cx + (i % 2 ? 14 : -14), cy, (i % 3 - 1) * 24));
+      labPatch(g, R, 120 * sx, 230 * sy, 30, 18, .4); labPatch(g, R, 460 * sx, 100 * sy, 30, 18, .4);
       break;
     }
     case 'exit':

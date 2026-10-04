@@ -271,12 +271,14 @@ function decorateFloor(g, theme, R, depth, W, H, TS) {
     }
     case 'arena': {
       // 둥근 의식 바닥 — 가운데로 모이는 케이블, 틈으로 비치는 실험실 격자
+      // 방이 넓으면(보스방) 원 · 케이블 자리도 그만큼 넓게
+      const sx = W / 576, sy = H / 324, k = Math.min(sx, sy);
       g.strokeStyle = 'rgba(194,53,44,.16)'; g.lineWidth = 2;
-      g.beginPath(); g.ellipse(cx, cy, 170, 98, 0, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.ellipse(cx, cy, 170 * k, 98 * k, 0, 0, Math.PI * 2); g.stroke();
       g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 1;
-      g.beginPath(); g.ellipse(cx, cy, 120, 68, 0, 0, Math.PI * 2); g.stroke();
-      [[TS, 70], [W - TS, 70], [TS, 250], [W - TS, 250], [160, TS], [416, TS]].forEach(([x, y], i) => cable(g, x, y, cx + (i % 2 ? 14 : -14), cy, (i % 3 - 1) * 24));
-      labPatch(g, R, 120, 230, 30, 18, .4); labPatch(g, R, 460, 100, 30, 18, .4);
+      g.beginPath(); g.ellipse(cx, cy, 120 * k, 68 * k, 0, 0, Math.PI * 2); g.stroke();
+      [[TS, 70 * sy], [W - TS, 70 * sy], [TS, 250 * sy], [W - TS, 250 * sy], [160 * sx, TS], [416 * sx, TS]].forEach(([x, y], i) => cable(g, x, y, cx + (i % 2 ? 14 : -14), cy, (i % 3 - 1) * 24));
+      labPatch(g, R, 120 * sx, 230 * sy, 30, 18, .4); labPatch(g, R, 460 * sx, 100 * sy, 30, 18, .4);
       break;
     }
     case 'exit':

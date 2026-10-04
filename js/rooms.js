@@ -66,19 +66,22 @@ const BALANCE = {
   foeFlash:      9,      // 몹 피격 깜빡임 프레임
 
   bossHp:        78,     // 하트 3개 기준 약 60~75초
-  bossSpeed:     0.60,
+  bossSpeed:     0.66,   // 보스방이 넓어진 만큼 조금 빠르게 (0.60 → 0.66)
 
   /* 페이즈3 — 눈이 터진 자리에서 기어 나오는 것.
      졸개 없이 1:1 로만 싸우는 대신, 선공이 굵고 예비 동작이 짧습니다. */
   abomHp:        88,
-  abomSpeed:     0.50,
+  abomSpeed:     0.55,   // 넓어진 방에 맞춰 조금 빠르게 (0.50 → 0.55)
   abomPlayerMax: 5,     // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
 
-  /* 보스 패턴 배율 — 1 이 기준. 공격 간격·예비 동작은 클수록 느긋하고,
+  /* 보스 패턴 배율 — 1 이 예전 기준. 공격 간격·예비 동작은 클수록 느긋하고,
      탄속은 작을수록 느리며, 나선탄 간격은 클수록 드문드문 쏩니다.
-     boss* = 페이즈2(눈), abom* = 페이즈3(심연) */
-  bossCdMul:     1,  bossWindMul: 1,  bossShotMul: 1,  bossSpiralMul: 1,
-  abomCdMul:     1,  abomWindMul: 1,  abomShotMul: 1,  abomSpiralMul: 1,
+     boss* = 페이즈2(눈), abom* = 페이즈3(심연)
+     보스방이 넓어져(768×432) 피할 자리가 늘어난 만큼, 세 난이도 모두 살짝 올렸습니다 —
+     공격 간격 ×0.92 · 탄속 ×1.06 · 눈의 원형 포자 +2발. 예비 동작(피할 틈)은 그대로. */
+  bossCdMul:     .92, bossWindMul: 1,  bossShotMul: 1.06, bossSpiralMul: 1,
+  abomCdMul:     .92, abomWindMul: 1,  abomShotMul: 1.06, abomSpiralMul: 1,
+  bossRingAdd:   2,     // 눈의 원형 포자 발수에 더함 (8 · 12 → 10 · 14)
   abomGapAdd:    0      // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다
 };
 
@@ -110,12 +113,14 @@ const DIFF = {
       knockback: 9.0,
 
       /* 보스는 페이즈2(눈) · 페이즈3(심연)을 같은 폭으로 한 번 더 낮춥니다 —
-         체력 −15%, 느리게, 공격 간격 ×1.3, 예비 동작 ×1.25, 탄속 ×0.85,
-         나선탄 ×1.4 드물게. 심연은 비명의 틈도 넓어집니다. */
-      bossHp: 51, bossSpeed: 0.46,
-      bossCdMul: 1.3, bossWindMul: 1.25, bossShotMul: .85, bossSpiralMul: 1.4,
-      abomHp: 56, abomSpeed: 0.38,
-      abomCdMul: 1.3, abomWindMul: 1.25, abomShotMul: .85, abomSpiralMul: 1.4,
+         체력 −15%, 느리게, 공격 간격 ×1.2, 예비 동작 ×1.25, 탄속 ×0.9,
+         나선탄 ×1.4 드물게. 심연은 비명의 틈도 넓어집니다.
+         (넓어진 보스방에 맞춰 예전보다 살짝 올림 — 속도 0.46→0.50 · 0.38→0.42,
+          공격 간격 ×1.3→×1.2, 탄속 ×0.85→×0.9, 원형 포자 +2발) */
+      bossHp: 51, bossSpeed: 0.50,
+      bossCdMul: 1.2, bossWindMul: 1.25, bossShotMul: .9, bossSpiralMul: 1.4,
+      abomHp: 56, abomSpeed: 0.42,
+      abomCdMul: 1.2, abomWindMul: 1.25, abomShotMul: .9, abomSpiralMul: 1.4,
       abomGapAdd: .18
     }
   },
@@ -144,8 +149,13 @@ const DIFF = {
       blinkerHp: 4, blinkerSpeed: 0.33, blinkerCd: 116,
       knockback: 5.5,
 
-      bossHp: 96, bossSpeed: 0.72,
-      abomHp: 108, abomSpeed: 0.60
+      /* 보스는 보통보다 한 걸음 더 — 넓어진 보스방에 맞춰 살짝 올림
+         (속도 0.72→0.79 · 0.60→0.66, 공격 간격 ×0.88, 탄속 ×1.1, 나선탄 ×0.9 자주,
+          원형 포자 +2발) */
+      bossHp: 96, bossSpeed: 0.79,
+      bossCdMul: .88, bossShotMul: 1.1, bossSpiralMul: .9,
+      abomHp: 108, abomSpeed: 0.66,
+      abomCdMul: .88, abomShotMul: 1.1, abomSpiralMul: .9
     }
   }
 };
@@ -302,11 +312,12 @@ const MAP = {
 
   boss: {
     gx: 4, gy: 1, depth: 5, name: '심층', boss: true,
+    size: [768, 432],                // 보스방만 화면(576×324)보다 넓습니다 — 카메라가 따라갑니다
     intro: [
       { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
       { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
     ],
-    pots: [{ x: 84, y: 70 }, { x: 492, y: 70 }, { x: 84, y: 250 }, { x: 492, y: 250 }]
+    pots: [{ x: 96, y: 82 }, { x: 672, y: 82 }, { x: 96, y: 350 }, { x: 672, y: 350 }]
   },
 
   exit: {
