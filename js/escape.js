@@ -80,7 +80,7 @@ const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 /* ═════════════ 소리 ═══════════════════════════════════════ */
 /* 탈출 브금의 반복 구간 · 음량 — tools/make_escape_bgm.py 가 찍어 준 값 */
-const ESC_BGM = { loop0: 30.817, loop1: 66.777, vol: .42 };
+const ESC_BGM = { loop0: 38.360, loop1: 73.560, vol: .36 };
 class EscSfx {
   constructor(audioFn) { this.audioFn = audioFn; this.ac = null; }
   ctx() {
@@ -206,7 +206,7 @@ class EscSfx {
     });
   }
   stopAll() { ['alarm', 'hum', 'flat'].forEach(n => this.loop(n, false)); this.bgm(false); }
-  /* 탈출 브금 — 복도 추격 (escape_bgm.js, 원곡 하이라이트 편집). 경보와 함께 처음부터 흐르고,
+  /* 탈출 브금 — 복도 추격 (escape_bgm.js, The Firebird 하이라이트 편집). 경보와 함께 처음부터 흐르고,
      넘어져 늦어지면 가장 센 ②~③ 구간만 반복합니다. at : 몇 초 지점부터 */
   loadBgm() {
     if (this.bgmBuf || this.bgmLoading || typeof ESCAPE_BGM_B64 === 'undefined') return;
@@ -252,6 +252,8 @@ const OBS = {
   cart:    { kind: 'block', y0: 0,    y1: 1.95, d: .9 }
 };
 const ALL = [-1, 0, 1];
+/* 모퉁이 — corridor3d.js 의 길. [s, 방향(+1 오른쪽 · −1 왼쪽)] (실사 복도가 없으면 곧은 복도라 없음) */
+const CORNERS = () => (window.Corr3DPath ? window.Corr3DPath.CORNERS : []);
 function mkObs(type, z, lanes) { return { type, z, lanes, ...OBS[type], done: false, hit: false }; }
 
 function genObstacles() {
@@ -275,7 +277,7 @@ function genObstacles() {
   // 총격전 구간 — 경비원 몇은 카트 뒤에 숨어 있습니다 (카트는 피해야 하고)
   GUARDS.forEach(([gz, lane, cover]) => { if (cover) list.push(mkObs('cart', gz - 1.6, [lane])); });
   list.push(mkObs('pipe', 372, ALL), mkObs('barrier', 418, ALL));
-  return list;
+  return list.filter(o => !CORNERS().some(([S]) => o.z + o.d > S - 12 && o.z < S + 4 + 8));   // 모퉁이 앞뒤는 비움 (꺾는 데 집중)
 }
 
 /* 경비원 — [z, 칸, 엄폐물 뒤인지] */
@@ -656,6 +658,15 @@ const RunState = {
     tickGunBits(s);
     // 진행하며 들리는 말
     RUN_LINES.forEach(([z, txt, who], i) => { if (!(s.saidMask & (1 << i)) && s.z >= z) { s.saidMask |= 1 << i; s.say(txt, who, who === 'doc' ? 130 : 110); } });
+    // 모퉁이 — 다가가면 안내, 제때 꺾지 않으면 바깥 벽에 부딪힘 (실사 복도에서만)
+    s.turnK = -1;
+    if (s.mode3d) CORNERS().forEach(([S, sg], i) => {
+      if (s.turnDone & (1 << i)) return;
+      if (s.z >= S + 1.6) {
+        s.turnDone |= 1 << i; s.stumble = 70; s.immune = 40; s.shake = 16; s.flash = .8; s.sfx.hit();
+        s.say(['…벽!', '꺾었어야 했다.', '어깨가 벽에 부딪힌다.'][i % 3], 'me', 70);
+      } else if (s.z >= S - 16 && s.turnK < 0) s.turnK = i;
+    });
     REAL.forEach(([z, dur, k], i) => {
       if (!(s.realMask & (1 << i)) && s.z >= z) { s.realMask |= 1 << i; s.realT = dur; s.realDur = dur; s.realK = k; s.sfx.glitch(); s.sfx.beep(.09); if (k === 2) s.sfx.inject(); }
     });
@@ -880,6 +891,12 @@ function theme(z) { return ease((z - 140) / 260); }
 
 /* 카메라 기준 투영 — dz 는 앞으로의 거리, back 이면 좌우가 뒤집힙니다 */
 function P(s, x, y, dz) {
+  if (s.path3) {                                         // 실사 복도 — 꺾인 길 위의 자리를 그대로 투영
+    const W3 = s.path3, cs = s.z + (W3.back ? -dz : dz), cx = W3.back ? -x : x;
+    const p = W3.pos(cs, cx), dx = p[0] - W3.C[0], dzw = p[1] - W3.C[1];
+    const vx = dx * W3.r[0] + dzw * W3.r[1], vz = Math.max(.05, dx * W3.h[0] + dzw * W3.h[1]), k = FOC / vz;
+    return [s.cx + vx * k, s.cy - (y - s.camY) * k];
+  }
   const k = FOC / dz;
   return [s.cx + (x - s.camX) * k, s.cy - (y - s.camY) * k];
 }
@@ -953,6 +970,9 @@ function drawWorld(s, b) {
    그림자 · 문의 빛 · 손의 총 · 붉은 테두리). 사람은 s.figQ 로 모아 같은 깊이 버퍼에 넘깁니다 */
 function drawWorld3D(s, b, back) {
   s.mode3d = true; s.shadows3d = [];
+  const CP = window.Corr3DPath;
+  if (CP) { const h0 = CP.headingAt(s.z), h = back ? [-h0[0], -h0[1]] : h0;
+    s.path3 = { pos: CP.pathPos, back, C: CP.pathPos(s.z, s.x), h, r: [h[1], -h[0]] }; }
   b.save(); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, LW, LH); b.restore();
   b.save();
   const roll = (s.lane * LANE - s.x) * .045 * (back ? -1 : 1);
@@ -974,6 +994,7 @@ function drawWorld3D(s, b, back) {
     drawPursuer(s, b);
   }
   b.restore();
+  s.path3 = null;
   drawViewGun(s, b);
   const dg = s.danger || 0;
   if (dg > .02) {
@@ -1212,7 +1233,7 @@ function drawGuard(s, b, g) {
     const X = g.x - s.camX, aiming = g.st === 'aim' || g.st === 'cool';
     const lit3 = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : 0;
     g.aimK = lerp(g.aimK || 0, aiming ? 1 : 0, .2);
-    if (figMark(s, b, { kind: 'guard', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz) * .85, stride: 0, aim: g.aimK, lean: 0,
+    if (figMark(s, b, { kind: 'guard', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz) * .85, stride: 0, aim: g.aimK, lean: 0, cs: g.z, cx: g.x, yawK: .85,
                         alpha: pop, hit: g.hitT > 0 ? .85 : 0, band: lit3 > 0 ? [1, .25 - lit3 * .15, .2 - lit3 * .1] : [.42, .86, .76] },
                 figEnv(s, dz, g.z, X))) {
       if (g.flash > 0) { const m = pt(.06, 1.36);
@@ -1490,7 +1511,7 @@ function drawPursuer(s, b) {
     else { const f0 = P(s, px - .32, 0, dz), f1 = P(s, px + .32, 0, dz), rw = (f1[0] - f0[0]) / 2;
       b.fillStyle = 'rgba(0,0,0,.4)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill(); }
     const X = px - s.camX;
-    if (figMark(s, b, { kind: 'suit', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz), run, stride: 1, reach: clamp01((7 - s.dist) / 6) },
+    if (figMark(s, b, { kind: 'suit', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz), run, stride: 1, reach: clamp01((7 - s.dist) / 6), cs: s.z - dz, cx: s.chaseX },
                 figEnv(s, dz * .7, s.z, X))) return;
   }
   const pt = (x, y) => P(s, px + x, y + bob, dz);
@@ -1501,14 +1522,15 @@ function drawPursuer(s, b) {
 }
 
 /* ═════════════ 글자 · 선택지 (원래 해상도) ═══════════════════ */
+/* 자막 — 바탕 상자 · 외곽선으로 어떤 화면 위에서도 읽히게. 누가 말하는지는 색과 왼쪽 표시로 */
 const SUB_STYLE = {
-  me:   { c: '#e6f1ff', y: H - 70, size: 22 },
-  doc:  { c: '#d8e6ef', y: H - 106, size: 18, italic: true },
-  cold: { c: '#e8c9c0', y: H - 106, size: 20 },
-  sys:  { c: '#00ff00', y: H / 2, size: 26 },
-  pa:   { c: '#9fd6c0', y: H - 112, size: 17 },     // 천장 스피커 방송
-  'me-dark':  { c: '#3a3a36', y: H / 2, size: 26 },
-  'far-dark': { c: '#8a8a82', y: H / 2 + 40, size: 18 }
+  me:   { c: '#f2f7ff', y: H - 76, size: 26 },
+  doc:  { c: '#cfe6f2', y: H - 130, size: 23, tag: '목소리' },
+  cold: { c: '#ffd2c6', y: H - 130, size: 24, tag: '목소리' },
+  sys:  { c: '#3dff6a', y: H / 2, size: 30 },
+  pa:   { c: '#a8f0d2', y: H - 130, size: 22, tag: '방송' },     // 천장 스피커 방송
+  'me-dark':  { c: '#2a2a26', y: H / 2, size: 30, light: true },
+  'far-dark': { c: '#4a4a44', y: H / 2 + 44, size: 22, light: true }
 };
 function drawText(s, c) {
   c.save();
@@ -1519,13 +1541,29 @@ function drawText(s, c) {
     const st = SUB_STYLE[u.who] || SUB_STYLE.me;
     const a = Math.min(1, age / 12) * Math.min(1, (u.dur - age) / 14);
     c.globalAlpha = a;
-    c.font = `${st.size}px ${MONO}`;
+    c.font = `bold ${st.size}px ${MONO}`;
     const n = Math.min(u.text.length, Math.floor(age / (u.spd || 2.2)) + 1);   // 한 글자씩
     const txt = u.text.slice(0, n);
-    if (u.who === 'doc' || u.who === 'cold' || u.who === 'pa') { c.fillStyle = 'rgba(0,0,0,.5)'; c.fillText(txt, W / 2 + 2, st.y + 2); }
+    // 바탕 상자 — 다 쓴 문장 너비로 미리 잡아 두어 글자가 늘어나도 흔들리지 않게
+    const fw = c.measureText(u.text).width, tagW = st.tag ? 16 + st.tag.length * st.size * .55 : 0;
+    const bw = fw + tagW + 36, bh = st.size + 18, bx = W / 2 - bw / 2 + tagW / 2, by = st.y - bh / 2;
+    if (u.who !== 'sys') {
+      c.fillStyle = st.light ? 'rgba(255,252,240,.55)' : 'rgba(4,6,10,.68)';
+      c.beginPath(); c.roundRect(bx - tagW, by, bw, bh, 8); c.fill();
+      if (st.tag) {                                        // 들려오는 목소리 — 왼쪽 작은 표시
+        c.fillStyle = st.c; c.globalAlpha = a * .85;
+        c.font = `bold ${Math.round(st.size * .6)}px ${MONO}`; c.textAlign = 'left';
+        c.fillText(st.tag, bx - tagW + 14, st.y + 1);
+        c.textAlign = 'center'; c.font = `bold ${st.size}px ${MONO}`; c.globalAlpha = a;
+      }
+    }
+    const tx = W / 2 + tagW / 2;
+    c.lineJoin = 'round'; c.lineWidth = 4;
+    c.strokeStyle = st.light ? 'rgba(255,255,250,.7)' : 'rgba(0,0,0,.85)';
+    c.strokeText(txt, tx, st.y);
     c.fillStyle = st.c;
-    if (u.who === 'sys') { c.shadowColor = 'rgba(0,255,0,.6)'; c.shadowBlur = 10; }
-    c.fillText(txt, W / 2, st.y);
+    if (u.who === 'sys') { c.shadowColor = 'rgba(0,255,0,.7)'; c.shadowBlur = 14; }
+    c.fillText(txt, tx, st.y);
     c.shadowBlur = 0;
   });
   c.restore();
@@ -1574,16 +1612,36 @@ function drawHud(s, c) {
   const next = s.obs.find(o => !o.done);
   const hint = (() => {
     if (s.z > 12 && s.z < 34 && !s.lookedBack) return s.touch ? '두 손가락으로 누르고 있기 — 뒤돌아보기' : 'Q 누르고 있기 — 뒤돌아보기';
-    if (!next || next.z - s.z > 20) return null;
+    if (s.turnK >= 0 || !next || next.z - s.z > 20) return null;
     if (next.z === 42) return s.touch ? '위로 쓸기 — 뛰어넘기' : 'SPACE / W — 뛰어넘기';
     if (next.z === 82) return s.touch ? '아래로 쓸기 — 미끄러지기' : 'S / SHIFT — 미끄러지기';
     if (next.z === 120) return s.touch ? '좌우로 쓸기 — 옆으로 피하기' : 'A D / ← → — 옆으로 피하기';
     return null;
   })();
   if (hint) {
-    c.textAlign = 'center'; c.font = `16px ${MONO}`;
-    c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(W / 2 - 180, 46, 360, 30);
+    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    const hw = c.measureText(hint).width + 40;
+    c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - hw / 2, 44, hw, 34, 8); c.fill();
     c.fillStyle = '#7de3c8'; c.fillText(hint, W / 2, 62);
+  }
+  if (s.turnK >= 0 && s.view !== 'back') {                     // 모퉁이 — 꺾는 쪽 꺾쇠, 가까울수록 크게 깜빡
+    const [S, sg] = CORNERS()[s.turnK], near = clamp01(1 - (S - s.z) / 16), ready = s.z >= S - 14;
+    const cx = W / 2 + sg * (120 + near * 60), cy = H * .42, sz = 22 + near * 18, bl = .55 + .45 * Math.sin(s.frame * (ready ? .45 : .2));
+    c.save(); c.globalAlpha = .35 + .65 * bl * (ready ? 1 : .6);
+    c.lineJoin = 'round'; c.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      const x = cx + sg * k * sz * .7;
+      c.strokeStyle = 'rgba(0,0,0,.7)'; c.lineWidth = sz * .42;
+      c.beginPath(); c.moveTo(x - sg * sz * .35, cy - sz * .6); c.lineTo(x + sg * sz * .35, cy); c.lineTo(x - sg * sz * .35, cy + sz * .6); c.stroke();
+      c.strokeStyle = '#ffd25a'; c.lineWidth = sz * .24; c.stroke();
+    }
+    c.restore();
+    const first = s.turnK === 0, key = s.touch ? (sg > 0 ? '오른쪽으로 쓸기' : '왼쪽으로 쓸기') : (sg > 0 ? 'D / →' : 'A / ←');
+    const txt = first ? `모퉁이 — ${key} 로 꺾기` : `${key}  꺾기`;
+    c.textAlign = 'center'; c.font = `bold 18px ${MONO}`;
+    const tw = c.measureText(txt).width + 40;
+    c.fillStyle = 'rgba(4,6,10,.7)'; c.beginPath(); c.roundRect(W / 2 - tw / 2, 44, tw, 34, 8); c.fill();
+    c.fillStyle = '#ffd25a'; c.fillText(txt, W / 2, 62);
   }
   if (s.view === 'back') {
     c.textAlign = 'center'; c.font = `14px ${MONO}`; c.fillStyle = 'rgba(255,120,110,.8)';
@@ -1721,7 +1779,7 @@ class EscapeScene {
   resetRun() {
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.stumble = 0; this.immune = 0;
-    this.obs = genObstacles(); this.saidMask = 0; this.realMask = 0; this.realT = 0; this.lookedBack = false; this.view = 'fwd';
+    this.obs = genObstacles(); this.saidMask = 0; this.realMask = 0; this.realT = 0; this.turnDone = 0; this.turnK = -1; this.lookedBack = false; this.view = 'fwd';
     this.guards = genGuards(); this.gun = null; this.drops = []; this.bits = []; this.gunDone = false; this.kills = 0; this.shotOnce = false; this.shotDoc = false;
     this.doorOpen = .06; this.lights = .55; this.alarm = 0; this.lastStep = 0;
     this.sfx.hum(true);
@@ -1733,6 +1791,7 @@ class EscapeScene {
     this.sfx.alarm(true); this.sfx.humVol(1); this.sfx.bgm(true, ESC_BGM.loop0);   // 중간부터면 가장 센 구간부터
     RUN_LINES.forEach(([lz], i) => { if (lz < z) this.saidMask |= 1 << i; });
     REAL.forEach(([rz], i) => { if (rz < z) this.realMask |= 1 << i; });
+    CORNERS().forEach(([cz], i) => { if (cz < z + 4) this.turnDone |= 1 << i; });
     this.subs = [];
     this.go('run');
   }
@@ -1822,6 +1881,13 @@ class EscapeScene {
     }
     if (this.stateName === 'wake') return WakeState.act(this, a);
     if (this.stateName !== 'run') return;
+    if ((a === 'left' || a === 'right') && this.turnK >= 0) {        // 모퉁이 — 꺾는 쪽을 누르면 꺾기
+      const [S, sg] = CORNERS()[this.turnK];
+      if ((a === 'right' ? 1 : -1) === sg && this.z >= S - 14) {
+        this.turnDone |= 1 << this.turnK; this.turnK = -1; this.sfx.slide(); this.shake = 3;
+        return;
+      }
+    }
     if ((a === 'left' || a === 'right') && this.z < .6) return;   // 문틀을 지날 때까진 한가운데로
     if (a === 'left')  this.lane = Math.max(-1, this.lane - 1);
     if (a === 'right') this.lane = Math.min(1, this.lane + 1);

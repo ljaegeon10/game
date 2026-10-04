@@ -35,6 +35,59 @@ const hash = n => { n = (n * 374761393) ^ (n >>> 13); n = Math.imul(n, 127412617
 let RS = 11;
 const rnd = () => (RS = (RS * 16807) % 2147483647) / 2147483647;
 
+/* ═════════════ 길 — 곧은 구간과 90° 모퉁이 ═════════════════════
+   게임은 복도 좌표(s 앞 · x 옆)로만 생각하고, 그림만 이 길 위에 얹습니다.
+   모퉁이 [s, 방향(+1 오른쪽 · −1 왼쪽)] 는 길이 JL(4m) 동안 안쪽 모서리를 축으로 돌아 나갑니다 —
+   바깥 벽은 둥글게 휘고, 안쪽 벽은 모서리 한 점으로 모입니다. 좌우를 번갈아 꺾어 길이 겹치지 않습니다. */
+const JL = 4;
+const CORNERS = [[150, 1], [200, -1], [256, 1], [468, -1], [526, 1], [586, -1]];
+const right2 = d => [d[1], -d[0]];
+const PATH = (() => {
+  const segs = [{ s0: -1e9, sref: 0, O: [0, 0], d: [0, 1] }], juns = [];
+  for (const [S, sg] of CORNERS) {
+    const A = segs[segs.length - 1], rA = right2(A.d);
+    const P = [A.O[0] + A.d[0] * (S - A.sref), A.O[1] + A.d[1] * (S - A.sref)];
+    const K = [P[0] + sg * rA[0] * HW, P[1] + sg * rA[1] * HW];
+    const dB = [sg * rA[0], sg * rA[1]], J = [P[0] + A.d[0] * HW, P[1] + A.d[1] * HW];
+    juns.push({ S, sg, K, dA: A.d, rA });
+    segs.push({ s0: S + JL, sref: S + JL, O: [J[0] + dB[0] * HW, J[1] + dB[1] * HW], d: dB });
+  }
+  return { segs, juns };
+})();
+const junAt = s => { for (const J of PATH.juns) if (s >= J.S && s < J.S + JL) return J; return null; };
+const segAt = s => { let g = PATH.segs[0]; for (const q of PATH.segs) if (s >= q.s0) g = q; return g; };
+/* 복도 좌표 (s, x) → 바닥 위 [X, Z] */
+function pathPos(s, x) {
+  const J = junAt(s);
+  if (J) {
+    const th = (s - J.S) / JL * Math.PI / 2, c = Math.cos(th), sn = Math.sin(th), rho = HW - J.sg * x;
+    return [J.K[0] + (-J.sg * J.rA[0] * c + J.dA[0] * sn) * rho, J.K[1] + (-J.sg * J.rA[1] * c + J.dA[1] * sn) * rho];
+  }
+  const g = segAt(s), r = right2(g.d);
+  return [g.O[0] + g.d[0] * (s - g.sref) + r[0] * x, g.O[1] + g.d[1] * (s - g.sref) + r[1] * x];
+}
+/* 그 자리에서 앞을 보는 방향 [hx, hz] */
+function headingAt(s) {
+  const J = junAt(s);
+  if (J) { const th = (s - J.S) / JL * Math.PI / 2, c = Math.cos(th), sn = Math.sin(th);
+    return [J.dA[0] * c + J.sg * J.rA[0] * sn, J.dA[1] * c + J.sg * J.rA[1] * sn]; }
+  return segAt(s).d;
+}
+/* 곧게 지은 메시를 길 위로 — 꼭짓점마다 옮기고, 셰이더용 복도 좌표(s, x)를 덧붙여 14 개씩 */
+function mapMesh(v) {
+  const n = v.length / 12, o = new Float32Array(n * 14);
+  for (let i = 0; i < n; i++) {
+    const a = i * 12, b = i * 14, x = v[a], z = v[a + 2];
+    const p = pathPos(z, x), h = headingAt(z), r = right2(h);
+    o[b] = p[0]; o[b + 1] = v[a + 1]; o[b + 2] = p[1];
+    o[b + 3] = r[0] * v[a + 3] + h[0] * v[a + 5]; o[b + 4] = v[a + 4]; o[b + 5] = r[1] * v[a + 3] + h[1] * v[a + 5];
+    for (let k = 6; k < 12; k++) o[b + k] = v[a + k];
+    o[b + 12] = z; o[b + 13] = x;
+  }
+  return o;
+}
+const nearCorner = (z0, z1, pad = 4) => CORNERS.some(([S]) => z1 > S - pad && z0 < S + JL + pad);
+
 /* ── 재질 번호 — 0 무광 · 1 빛 · 2+s 광택 · 7 바닥(실험실 비닐은 반짝, 백룸 카펫은 무광) ── */
 const FLOOR = 7;
 
@@ -98,17 +151,17 @@ const TEX = {
 
 /* ═════════════ 셰이더 ═════════════════════════════════════ */
 const VS = `
-attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aUV; attribute float aE;
+attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aUV; attribute float aE; attribute vec2 aSX;
 uniform mat4 uVP;
-varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
-void main(){ vP=aP; vN=aN; vC=aC; vUV=aUV; vE=aE; gl_Position=uVP*vec4(aP,1.0); }`;
+varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE; varying vec2 vSX;
+void main(){ vP=aP; vN=aN; vC=aC; vUV=aUV; vE=aE; vSX=aSX; gl_Position=uVP*vec4(aP,1.0); }`;
 const FS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;
 #endif
-varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
+varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE; varying vec2 vSX;
 uniform vec3 uEye; uniform vec3 uL[8]; uniform vec3 uLC[8]; uniform int uNL;
 uniform vec3 uFogA; uniform vec3 uFogB; uniform vec3 uAmbA; uniform vec3 uAmbB;
 uniform float uLights; uniform float uRed; uniform float uFlick; uniform float uTexOn;
@@ -118,7 +171,7 @@ float vn(vec3 x){ vec3 i=floor(x), f=fract(x); f=f*f*(3.0-2.0*f);
   return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),
              mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z); }
 void main(){
-  float th=smoothstep(140.0,400.0,vP.z);
+  float th=smoothstep(140.0,400.0,vSX.x);                     // 복도 좌표로 — 꺾여도 같은 자리에서 바뀜
   vec3 c=vC;
   if(uTexOn>0.5 && vUV.x>-0.5){
     c*=mix(texture2D(uTa,vUV).rgb, texture2D(uTb,vUV).rgb, th);
@@ -142,7 +195,7 @@ void main(){
       sp+=uLC[i]*pow(max(dot(n,normalize(L+V)),0.0),rough)*spec*at;
     }
     float ao=(.55+.45*smoothstep(0.0,.55,vP.y))*(.78+.22*smoothstep(0.0,.45,3.0-vP.y));
-    if(abs(n.y)>.6) ao=(.7+.3*smoothstep(0.0,.7,1.9-abs(vP.x)));
+    if(abs(n.y)>.6) ao=(.7+.3*smoothstep(0.0,.7,1.9-abs(vSX.y)));
     col=c*acc*ao+sp;
   }
   float d=length(vP-uEye), nr=clamp(1.0-d/44.0,0.0,1.0);
@@ -182,17 +235,43 @@ function doorAt(idx) {
 const lightAt = idx => idx % 3 === 0;
 const brokenAt = idx => hash(idx * 7 + 3) < .18 && idx * SEG > 120;
 
+/* 모퉁이 조각 — 잘게 나눠 지어야 휘어 붙일 때 바깥 벽이 매끈합니다. 안쪽 벽은 한 점으로 모이므로 짓지 않음 */
+function buildJunction(F, W, Ce, Pm, J, z0, z1) {
+  const n = 10, os = -J.sg, x = os * HW, tb = theme(z0 + 1), rc = tcol(C.rail, z0), bc = tcol(C.base, z0);
+  for (let i = 0; i < n; i++) {
+    const a = lerp(z0, z1, i / n), b = lerp(z0, z1, (i + 1) / n);
+    floorQuad(F, -HW, HW, a, b); ceilQuad(Ce, -HW, HW, a, b); wallQuad(W, x, a, b, 0, CH);
+    Pm.rbox(os < 0 ? x : x - .045, os < 0 ? x + .045 : x, .95, 1.08, a, b, rc, .006, { s: tb < .5 ? .35 : .15 });
+    Pm.rbox(os < 0 ? x : x - .018, os < 0 ? x + .018 : x, 0, .12, a, b, bc, .004, { s: .2 });
+  }
+  // 바깥 벽 한가운데 — 꺾는 쪽을 가리키는 표지 (검은 판 · 노란 꺾쇠 셋, 스스로 빛남)
+  if (z0 === J.S) {
+    const wx = x - os * .012, zc = J.S + JL / 2;
+    for (let i = 0; i < 15; i++) { const za = zc - .75 + i * .1, zb = za + .1;      // 판도 잘게 — 휜 벽을 따라
+      Pm.quad([wx, 2.0, za], [wx, 2.0, zb], [wx, 1.32, zb], [wx, 1.32, za], hex('#15161b'), { s: .3 }); }
+    const fx = wx - os * .003;
+    for (let k = -1; k <= 1; k++) {
+      const c = zc + k * .38, y = 1.66, t = .05;
+      Pm.quad([fx, y + .24, c - .14], [fx, y + .24, c - .14 + t * 2], [fx, y, c + .1 + t], [fx, y, c + .1 - t], C.yel, { e: true });
+      Pm.quad([fx, y, c + .1 - t], [fx, y, c + .1 + t], [fx, y - .24, c - .14 + t * 2], [fx, y - .24, c - .14], C.yel, { e: true });
+    }
+  }
+}
+
 function buildChunk(c0) {
   const F = new Mesh(), W = new Mesh(), Ce = new Mesh(), Pm = new Mesh();
   for (let idx = Math.floor(c0 / SEG); idx < Math.floor((c0 + CHUNK) / SEG); idx++) {
     const z0 = idx * SEG, z1 = z0 + SEG, zm = z0 + 1, tb = theme(zm);
     if (z1 <= Z0 || z0 >= RUN_LEN) continue;
+    const Jn = junAt(z0 + .01);
+    if (Jn) { buildJunction(F, W, Ce, Pm, Jn, z0, z1); if (lightAt(idx)) Pm.rbox(-.6, .6, CH - .035, CH, z0 + .66, z0 + 1.34, C.housing, .012, { s: .3 }); continue; }
+    const calm = nearCorner(z0, z1);                                     // 모퉁이 앞뒤는 문 · 소품 없이 깔끔하게
     floorQuad(F, -HW, HW, z0, z1);
     // 천장 — 백룸으로 갈수록 타일이 하나둘 빠져 있습니다
     ceilQuad(Ce, -HW, HW, z0, z1);
     if (tb > .55 && hash(idx * 31 + 7) < .22) { const cx = -1.2 + hash(idx * 3) * 1.8, cz = z0 + .2 + hash(idx * 5) * 1.1;
       Pm.quad([cx, CH - .004, cz], [cx + .6, CH - .004, cz], [cx + .6, CH - .004, cz + .6], [cx, CH - .004, cz + .6], C.dark, { e: true }); }
-    const door = doorAt(idx);
+    const door = calm ? null : doorAt(idx);
     for (const side of [-1, 1]) {
       const x = side * HW;
       if (door && door.side === side) {
@@ -211,7 +290,7 @@ function buildChunk(c0) {
     if (lightAt(idx)) Pm.rbox(-.6, .6, CH - .035, CH, z0 + .66, z0 + 1.34, C.housing, .012, { s: .3 });
     // 실험실 소품 — 백룸으로 갈수록 드물어지다 사라집니다
     const labK = tb < .5 + (hash(idx * 17) - .5) * .4;
-    if (labK && idx > -20) {
+    if (labK && idx > -20 && !calm) {
       const free = s => !(door && door.side === s);
       if (hash(idx * 41 + 1) < .5) {                                   // 케이블 트레이 (오른쪽 천장 가장자리)
         Pm.rbox(HW - .42, HW - .06, CH - .27, CH - .24, z0, z1, C.tray, .006, { s: .4 });
@@ -421,7 +500,7 @@ class Corridor3D {
     gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
     this.pr = pr;
-    this.at = ['aP', 'aN', 'aC', 'aUV', 'aE'].map(n => gl.getAttribLocation(pr, n));
+    this.at = ['aP', 'aN', 'aC', 'aUV', 'aE', 'aSX'].map(n => gl.getAttribLocation(pr, n));
     this.un = {};
     ['uVP', 'uEye', 'uL', 'uLC', 'uNL', 'uFogA', 'uFogB', 'uAmbA', 'uAmbB', 'uLights', 'uRed', 'uFlick', 'uTexOn', 'uTa', 'uTb'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
     // 무늬 텍스처
@@ -458,12 +537,12 @@ class Corridor3D {
     this.k = k; this.canvas.width = Math.round(this.w * k); this.canvas.height = Math.round(this.h * k);
     this.fig.w = this.canvas.width; this.fig.h = this.canvas.height;
   }
-  up(m) { const gl = this.gl, b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(m.v), gl.STATIC_DRAW); return { b, n: m.v.length / 12 }; }
+  up(m) { const gl = this.gl, b = gl.createBuffer(), arr = mapMesh(m.v); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW); return { b, n: arr.length / 14 }; }
   draw(p) {
     if (!p || !p.n) return;
     const gl = this.gl; gl.bindBuffer(gl.ARRAY_BUFFER, p.b);
-    const sz = [3, 3, 3, 2, 1]; let off = 0;
-    this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 48, off * 4); } off += sz[i]; });
+    const sz = [3, 3, 3, 2, 1, 2]; let off = 0;
+    this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 56, off * 4); } off += sz[i]; });
     gl.drawArrays(gl.TRIANGLES, 0, p.n);
   }
   bindTex(a, b) {
@@ -484,10 +563,12 @@ class Corridor3D {
     gl.useProgram(this.pr);
     const cam = { f: v.f * K, px: v.cx * K, py: v.cy * K, roll: v.roll, shx: v.shx * K, shy: v.shy * K };
     const P = camProj(cam, VW, VH, 52);
-    const view = v.back ? [-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, v.x, -v.camY, -v.z, 1]
-                        : [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, -v.x, -v.camY, v.z, 1];
+    // 카메라 — 길 위의 그 자리, 그 자리의 앞(뒤돌아보면 반대)을 봄
+    const Cw = pathPos(v.z, v.x), h0 = headingAt(v.z), h = v.back ? [-h0[0], -h0[1]] : h0, r = right2(h);
+    const view = [r[0], 0, -h[0], 0, 0, 1, 0, 0, r[1], 0, -h[1], 0, -(Cw[0] * r[0] + Cw[1] * r[1]), -v.camY, Cw[0] * h[0] + Cw[1] * h[1], 1];
+    const toCam = (X, Y, Z) => { const dx = X - Cw[0], dz = Z - Cw[1]; return [dx * r[0] + dz * r[1], Y - v.camY, -(dx * h[0] + dz * h[1])]; };
     gl.uniformMatrix4fv(un.uVP, false, new Float32Array(M4.mul(P, view)));
-    const eye = [v.x, v.camY, v.z];
+    const eye = [Cw[0], v.camY, Cw[1]];
     gl.uniform3fv(un.uEye, new Float32Array(eye));
     // 형광등 — 바라보는 쪽 가까운 것부터 열둘
     const dir = v.back ? -1 : 1, red = v.alarm * (.5 + .5 * Math.sin(v.frame * .16));
@@ -498,7 +579,7 @@ class Corridor3D {
       const tb = theme(l.z), base = mixC([227, 236, 248], [255, 250, 212], tb).map(c => c / 255);
       const k = (on ? 1 : .05) * (v.flick > 0 ? .3 : 1) * (v.lights * .8 + .2);
       const lc = mixC(base, [1, .27, .23], red * .38 * (1 - tb));
-      Ls.push(0, CH - .25, l.z); LC.push(...lc.map(c => c * k * 1.25));
+      const lp = pathPos(l.z, 0); Ls.push(lp[0], CH - .25, lp[1]); LC.push(...lc.map(c => c * k * 1.25));
       panels.push({ z: l.z, c: lc.map(c => c * (on ? 1.15 : .12) * (v.flick > 0 ? .4 : 1)) });
     }
     gl.uniform3fv(un.uL, new Float32Array(Ls.length ? Ls : [0, 0, 0])); gl.uniform3fv(un.uLC, new Float32Array(LC.length ? LC : [0, 0, 0]));
@@ -545,17 +626,21 @@ class Corridor3D {
       for (let i = 0; i < n; i++) { const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
         d.tri([sx, .003, sz], [sx + Math.cos(a0) * r, .003, sz + Math.sin(a0) * r * .8], [sx + Math.cos(a1) * r, .003, sz + Math.sin(a1) * r * .8], [0, 1, 0], c, 0); }
     }
-    if (d.v.length) { gl.bindBuffer(gl.ARRAY_BUFFER, this.dynBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(d.v), gl.DYNAMIC_DRAW); this.draw({ b: this.dynBuf, n: d.v.length / 12 }); }
+    if (d.v.length) { const arr = mapMesh(d.v); gl.bindBuffer(gl.ARRAY_BUFFER, this.dynBuf); gl.bufferData(gl.ARRAY_BUFFER, arr, gl.DYNAMIC_DRAW); this.draw({ b: this.dynBuf, n: arr.length / 14 }); }
     // 사람 — 같은 깊이 버퍼에, 가까운 형광등을 카메라 기준으로 옮겨 비춤
+    const sxIdx = this.at[5]; if (sxIdx >= 0) gl.disableVertexAttribArray(sxIdx);
     for (const q of v.figs || []) {
-      const env = q.env, fz = v.back ? v.z - q.fig.z : v.z + q.fig.z;
-      const near = lamps.map((o, i) => ({ i, d: Math.abs(o.l.z - fz) })).sort((a, b) => a.d - b.d).slice(0, 2);
-      const fl = near.map(({ i }) => {
-        const p = [Ls[i * 3], Ls[i * 3 + 1], Ls[i * 3 + 2]];
-        const cp = v.back ? [-(p[0] - v.x), p[1] - v.camY, p[2] - v.z] : [p[0] - v.x, p[1] - v.camY, -(p[2] - v.z)];
-        return [cp, [LC[i * 3] * 1.1, LC[i * 3 + 1] * 1.1, LC[i * 3 + 2] * 1.1]];
-      });
-      env.lights = env.lights.slice(0, 4).concat(fl.slice(0, 1));          // 인물 둘레의 빛 + 가장 가까운 실제 형광등
+      const env = q.env, f = q.fig;
+      if (f.cs != null) {                                             // 길 위의 자리 → 카메라 기준
+        const wp = pathPos(f.cs, f.cx), cp = toCam(wp[0], 0, wp[1]);
+        f.x = cp[0]; f.y = cp[1]; f.z = -cp[2]; f.yaw = Math.atan2(-f.x, f.z) * (f.yawK == null ? 1 : f.yawK);
+        const ceil = CH - v.camY - .05, L = env.lights;
+        env.lights = [[[f.x * .5, ceil, -f.z + 1.2], L[0][1]], [[f.x, ceil, -f.z - 1.5], L[1][1]], L[2], [[f.x, ceil - .2, -f.z + .5], L[3][1]]];
+      }
+      if (f.z < .05) continue;
+      const near = lamps.map((o, i) => ({ i, d: Math.abs(o.l.z - (f.cs != null ? f.cs : v.z)) })).sort((a, b) => a.d - b.d).slice(0, 1);
+      const fl = near.map(({ i }) => [toCam(Ls[i * 3], Ls[i * 3 + 1], Ls[i * 3 + 2]), [LC[i * 3] * 1.1, LC[i * 3 + 1] * 1.1, LC[i * 3 + 2] * 1.1]]);
+      env.lights = env.lights.slice(0, 4).concat(fl);                  // 인물 둘레의 빛 + 가장 가까운 실제 형광등
       env.cam = cam;
       this.fig.render(q.fig, env, true);
       gl.useProgram(this.pr);
@@ -565,4 +650,5 @@ class Corridor3D {
 }
 
 window.Corridor3D = Corridor3D;
+window.Corr3DPath = { pathPos, headingAt, CORNERS, JL, HW };
 })();
