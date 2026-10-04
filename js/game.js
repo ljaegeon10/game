@@ -1598,10 +1598,10 @@ function updateBoss() {
         shockRing(B.x, B.y, 150, '255,179,122', 5, 26);
       } else {
         const n = (ph === 1 ? 8 : 12) + (BALANCE.bossRingAdd || 0), off = Math.random() * 6.28;
-        for (let i = 0; i < n; i++) {
-          const a = off + (i / n) * Math.PI * 2;
-          foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (BALANCE.spore + (ph - 1) * .25) * BALANCE.bossShotMul);
-        }
+        bossRing(B, n, off, ph);
+        // 여러 겹 — 첫 고리 뒤로 같은 수의 고리가 반 칸씩 돌아 가며 더 날아옵니다
+        B.waveLeft = (ph === 1 ? BALANCE.bossRingWaves1 : BALANCE.bossRingWaves) - 1;
+        B.waveT = 14; B.waveN = n; B.waveOff = off; B.wavePh = ph;
         Sfx.glitch();
         G.shake = Math.max(G.shake, 12); glare(.75);
         shockRing(B.x, B.y, 230, '201,160,255', 6, 32);
@@ -1615,6 +1615,12 @@ function updateBoss() {
       B.windKind = (ph >= 2 && Math.random() < .45) ? 'dash' : 'ring';
     }
   }
+  if (B.waveLeft > 0 && --B.waveT <= 0) {           // 남은 겹
+    B.waveLeft--; B.waveT = 14;
+    B.waveOff += Math.PI / B.waveN;                  // 반 칸 돌려서 — 빠져나갈 틈이 매번 옮겨 감
+    bossRing(B, B.waveN, B.waveOff, B.wavePh);
+    Sfx.glitch(); G.shake = Math.max(G.shake, 7);
+  }
   if (ph === 3 && B.t % Math.round(11 * BALANCE.bossSpiralMul) === 0) {
     B.spiralA += .78;
     foeShot(B.x, B.y, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.5 * BALANCE.bossShotMul);
@@ -1622,6 +1628,14 @@ function updateBoss() {
   B.x = Math.max(TS + B.r, Math.min(W - TS - B.r, B.x));
   B.y = Math.max(TS + B.r, Math.min(H - TS - B.r, B.y));
   if (d < B.r * .72 + P.r) hurt(1);
+}
+
+/* 눈의 원형 포자 한 겹 */
+function bossRing(B, n, off, ph) {
+  for (let i = 0; i < n; i++) {
+    const a = off + (i / n) * Math.PI * 2;
+    foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (BALANCE.spore + (ph - 1) * .25) * BALANCE.bossShotMul);
+  }
 }
 
 function killBoss() {
