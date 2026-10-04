@@ -8711,20 +8711,20 @@ function genGuards() {
 
 /* 지나가며 들려오는 목소리 · 혼잣말 — [z, 대사, 누구] */
 const RUN_LINES = [
-  [8,   '달려.', 'me'],
+  [8,   '달려야 돼.', 'me'],
   [60,  '어디 가요, 07.', 'doc'],
   [136, '잡았어요. 진정제 준비.', 'cold'],             // ── 여기서부터 사실은 이미 붙잡혀 침대 위
-  [156, '…바닥이 물렁하다.', 'me'],
+  [156, '…바닥이 왜 이렇게 물렁하지?', 'me'],
   [180, '거긴 출구가 아니에요.', 'doc'],
   [208, '용량 올려.', 'cold'],
   [230, '쉬이… 괜찮아요. 꿈에선 마음껏 달려도 돼요.', 'doc'],
-  [262, '…벽지가 누렇다.', 'me'],
+  [262, '…벽지가 왜 누렇지?', 'me'],
   [GUN_Z - 6, '…총?', 'me'],
-  [ZONE0 + 4, '경비원들이다.', 'me'],
+  [ZONE0 + 4, '경비원이잖아.', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
-  [ZONE1 + 56, '…이 복도, 이렇게 길었나.', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
+  [ZONE1 + 56, '…이 복도, 원래 이렇게 길었나?', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
-  [560, '…빛이다.', 'me']
+  [560, '…빛이야.', 'me']
 ];
 
 /* 현실이 끼어드는 순간 — [z, 프레임, 몇 번째].  실험실이 백룸으로 바뀌기 시작할 즈음,
@@ -8763,12 +8763,12 @@ const camLerp = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: l
 /* 돌아다니며 다가가면 — 던전에서 본 것이 무엇이었는지 */
 const STRIDE = .75;                                     // 한 걸음 (m)
 const ROAM_SPOTS = [
-  { at: [-2.75, 6.55], r: 1.9, lines: [['골격 모형. …해골은 이거였다.', 'me']] },
-  { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불.', 'me'], ['열쇠는… 키카드였다.', 'me']] },
-  { at: [.4, .2], r: 2.0, lines: [['피험자 07. 세션 141, 각성 0.', 'me'], ['…각성 1.', 'me']] },
-  { at: [3.6, .2], r: 1.8, lines: [['붉은 배양액. 링거와 같은 색.', 'me']] },
-  { at: [3.4, 6.6], r: 1.7, lines: [['일자로 그어진 선. 여기선 나는 이미 죽어 있다.', 'me']] },
-  { at: [.15, 6.6], r: 1.8, lines: [['빈 의자. 식어 가는 커피.', 'me']] }
+  { at: [-2.75, 6.55], r: 1.9, lines: [['골격 모형… 던전에 굴러다니던 해골이 이거였나?', 'me']] },
+  { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불이 켜져 있네.', 'me'], ['열쇠가… 키카드였던 거야?', 'me']] },
+  { at: [.4, .2], r: 2.0, lines: [['피험자 07… 141번째 세션, 깨어난 건 0번.', 'me'], ['…이제 1번이네.', 'me']] },
+  { at: [3.6, .2], r: 1.8, lines: [['빨간 배양액… 링거랑 같은 색이잖아.', 'me']] },
+  { at: [3.4, 6.6], r: 1.7, lines: [['선이 일자로 쭉… 여기선 난 이미 죽은 거네.', 'me']] },
+  { at: [.15, 6.6], r: 1.8, lines: [['빈 의자에… 커피가 아직 식는 중이야.', 'me']] }
 ];
 const DOOR_AT = [-3.85, 6.9];
 
@@ -8804,8 +8804,8 @@ const WakeState = {
     if (s.wires > 0 && s.frame % per === 0 && s.wk !== 'hall') s.sfx.beep(.05);
 
     if (s.wk === 'ceil') {
-      if (t === 100) s.say('…천장.', 'me', 150);
-      if (t === 260) s.say('격자 조명. 우물 입구가 아니다.', 'me', 190);
+      if (t === 100) s.say('…천장?', 'me', 150);
+      if (t === 260) s.say('격자 조명… 우물 입구가 아니잖아.', 'me', 190);
       if (t === 470) s.sfx.chime();
       if (t === 500) s.say('07번 피험자, 의식 회복. 담당 연구원은 관찰실로 복귀 바랍니다.', 'pa', 300, 1.6);
       if (t === 720) WakeState.ask(s, 'sit', '몸을 일으킨다');
@@ -8814,9 +8814,9 @@ const WakeState = {
       s.sitK = ease(t / 100);
       // 커피 대사 동안 고개를 돌려 관찰창 쪽을 봤다가 다시 무릎으로
       s.glance = t < 250 ? 0 : t < 330 ? ease((t - 250) / 80) : t < 520 ? 1 : t < 600 ? 1 - ease((t - 520) / 80) : 0;
-      if (t === 120) s.say('…아무도 없다.', 'me', 150);
-      if (t === 300) s.say('관찰창 너머, 아직 김이 오르는 커피 한 잔.', 'me', 200);
-      if (t === 470) s.say('방금까지 누군가 있었다.', 'me', 170);
+      if (t === 120) s.say('…아무도 없어?', 'me', 150);
+      if (t === 300) s.say('관찰창 너머에… 커피에서 아직 김이 나.', 'me', 200);
+      if (t === 470) s.say('방금까지 누가 있었던 거야.', 'me', 170);
       if (t === 640) { s.wk = 'wires'; s.wt = 0; WakeState.ask(s, 'wire', '전극을 뗀다  (4)'); }
     }
     else if (s.wk === 'wires') {
@@ -8824,13 +8824,13 @@ const WakeState = {
       const pulled = s.wirePull.filter(v => v > 0).length;
       if (pulled !== 4 - s.wires) {
         s.wires = 4 - pulled;
-        if (s.wires === 3) s.say('…선이 네 가닥.', 'me', 140);
+        if (s.wires === 3) s.say('…선이 네 가닥이나 붙어 있어.', 'me', 140);
         if (s.wires === 0) { s.sfx.flat(true); s.flash = .3; s.wt = 0; }
         else WakeState.ask(s, 'wire', `전극을 뗀다  (${s.wires})`);
       }
       if (s.wires === 0) {
-        if (t === 40) s.say('청 · 적 · 황 · 백.', 'me', 150);
-        if (t === 200) s.say('던전을 물들인 색은, 이 선의 색이었다.', 'me', 210);
+        if (t === 40) s.say('빨강, 파랑, 노랑, 흰색.', 'me', 150);
+        if (t === 200) s.say('던전을 물들이던 색… 이 선 색깔이었던 거야?', 'me', 210);
         if (t === 300) s.sfx.chime();
         if (t === 330) s.say('07번 생체 신호 소실. 관찰실, 확인 바랍니다.', 'pa', 240, 1.6);
         if (t === 420) { s.wk = 'iv'; s.wt = 0; WakeState.ask(s, 'iv', '링거를 뽑는다'); }
@@ -8839,7 +8839,7 @@ const WakeState = {
     else if (s.wk === 'iv') {
       if (s.ivOut) {
         s.ivT++;
-        if (s.wt === 30) s.say('붉은 방울. …던전의 피는 이거였다.', 'me', 200);
+        if (s.wt === 30) s.say('빨간 방울… 던전에서 본 피가 이거였나?', 'me', 200);
         if (s.wt === 240) WakeState.ask(s, 'stand', '일어선다');
       }
     }
@@ -8847,8 +8847,8 @@ const WakeState = {
       s.rise = ease(t / 110); s.ivT++;
       s.dizzy = t < 220 ? Math.sin(Math.min(1, t / 40) * HP) * (1 - Math.max(0, t - 140) / 80) : 0;
       if (t === 30) s.sfx.flat(false);
-      if (t === 80) s.say('다리가 남의 것 같다.', 'me', 150);
-      if (t === 240) s.say('백마흔한 번을 누워 있었으니까.', 'me', 180);
+      if (t === 80) s.say('다리가… 내 다리 같지가 않아.', 'me', 150);
+      if (t === 240) s.say('141번이나 누워만 있었으니까.', 'me', 180);
       if (t === 380) {
         s.wk = 'roam'; s.wt = 0;
         s.cam = { ...CAM_STAND };
@@ -8869,7 +8869,7 @@ const WakeState = {
       if (s.held.has('KeyW') || s.held.has('ArrowUp') || s.held.has('ptr') || s.held.has('touch')) {
         if (s.fade < .5) { s.z = Math.min(START_Z, s.z + .034); s.bob += .09; if (s.frame % 24 === 0) s.sfx.step(.1); if (s.prompt) s.prompt = null; }
       } else s.bob += .01;
-      const H_LINES = [[WAKE_HALL0 + 3, '…발소리. 아직 멀다.', 'me'], [-8, '복도 끝에 초록 불빛.', 'me']];
+      const H_LINES = [[WAKE_HALL0 + 3, '…발소리. 아직은 멀어.', 'me'], [-8, '복도 끝에 초록 불이 보여.', 'me']];
       H_LINES.forEach(([at, txt, who], i) => {
         if (s.z >= at && !(s.saidW & (1 << (8 + i)))) { s.saidW |= 1 << (8 + i); s.say(txt, who, 170); if (i === 0) s.sfx.chase(.05); }
       });
@@ -8935,7 +8935,7 @@ const WakeState = {
     if (s.busyT > 0) s.busyT--;
     s.roamT++;
     if (s.roamT === 900) { s.sfx.chime(); s.say('관찰실 응답 없음. 보안 요원, B동 3층으로.', 'pa', 260, 1.6); }
-    if (s.roamT === 2400) s.say('…문. 왼쪽 끝, 잠금장치에 초록 불.', 'me', 200);
+    if (s.roamT === 2400) s.say('…문이다. 왼쪽 끝, 초록 불 켜진 데.', 'me', 200);
     // 문 앞 — 열기
     const dd = Math.hypot(c.x - DOOR_AT[0], c.z - DOOR_AT[1]);
     if (dd < 1.45 && (!s.prompt || s.prompt.key === 'roam')) WakeState.ask(s, 'door', '문을 연다', false, s.touch ? '톡' : 'SPACE');
@@ -9006,9 +9006,9 @@ const DoorState = {
   },
   update(s) {
     const t = s.t, w = s.fromWake;                       // 깨어남에서 걸어왔으면 눈은 이미 떠 있습니다
-    if (!w && t === 50) s.say('…몸이 움직인다.', 'me', 150);
-    if (t === (w ? 20 : 200)) s.say('비상구가 반쯤 열려 있다. 바깥에서 바람이 든다.', 'me', 190);
-    if (t === (w ? 220 : 380)) s.say('…나갈까?', 'me', 9999);
+    if (!w && t === 50) s.say('…몸이 움직여.', 'me', 150);
+    if (t === (w ? 20 : 200)) s.say('비상구가 반쯤 열려 있어. 바깥에서 바람이 들어와.', 'me', 190);
+    if (t === (w ? 220 : 380)) s.say('…나가 볼까?', 'me', 9999);
     if (t === (w ? 260 : 420)) s.choose(['탈출한다', '안 한다'], i => s.go(i === 0 ? 'open' : 'stay'));
     s.bob += .012;
   },
@@ -9021,7 +9021,7 @@ const DoorState = {
 };
 
 const StayState = {
-  enter(s) { s.say('…아니. 다시 눕는다.', 'me', 170); },
+  enter(s) { s.say('…아니. 그냥 다시 누울래.', 'me', 170); },
   update(s) {
     s.doorOpen = Math.max(0, s.doorOpen - .003);
     if (s.t === 90) s.sfx.slam();
@@ -9044,9 +9044,9 @@ const OpenState = {
   update(s) {
     const t = s.t;
     s.doorOpen = Math.min(1, s.doorOpen + .022);
-    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보.', 'me', 80); }
+    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보다.', 'me', 80); }
     if (t === 76) { s.view = 'back'; s.sfx.chase(.18); s.shake = 4; }      // 휙 돌아봅니다
-    if (t === 82) s.say('노란 방호복. 얼굴이 있어야 할 자리가 새까맣다.', 'me', 110);
+    if (t === 82) s.say('노란 방호복… 얼굴이 있어야 할 데가 새까매.', 'me', 110);
     if (t === 150) { s.view = 'fwd'; s.shake = 3; }
     s.chaseX = 0;
     if (t >= 160) s.go('run');
@@ -9093,7 +9093,7 @@ const RunState = {
       if (!passes(s, o) && s.immune <= 0) {
         o.hit = true; s.stumble = 60; s.immune = 40; s.shake = 12; s.flash = .7;
         s.sfx.hit();
-        if (s.dist < 6) s.say(['넘어지면 안 돼…!', '…가깝다.', '숨소리가 바로 뒤에서.'][(Math.random() * 3) | 0], 'me', 80);
+        if (s.dist < 6) s.say(['넘어지면 끝이야…!', '…가까워.', '숨소리가 바로 뒤에서 들려.'][(Math.random() * 3) | 0], 'me', 80);
       }
     }
     updateGun(s);
@@ -9106,7 +9106,7 @@ const RunState = {
       if (s.turnDone & (1 << i)) return;
       if (s.z >= S + 1.6) {
         s.turnDone |= 1 << i; s.stumble = 70; s.immune = 40; s.shake = 16; s.flash = .8; s.sfx.hit();
-        s.say(['…벽!', '꺾었어야 했다.', '어깨가 벽에 부딪힌다.'][i % 3], 'me', 70);
+        s.say(['…벽!', '꺾었어야 했는데.', '아, 어깨…!'][i % 3], 'me', 70);
       } else if (s.z >= S - 16 && s.turnK < 0) s.turnK = i;
     });
     REAL.forEach(([z, dur, k], i) => {
@@ -9195,7 +9195,7 @@ function updateGun(s) {
     G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
-    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총을 버린다.', 'me', 240, 5); s.sfx.empty(); }
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총이네, 버리자.', 'me', 240, 5); s.sfx.empty(); }
   }
   // 경비원
   for (const g of s.guards) {
@@ -9217,7 +9217,7 @@ function updateGun(s) {
         const dodged = Math.abs(s.x - g.lockX) > .55 || slideK(s) > .5;
         if (!dodged && s.immune <= 0) {
           s.stumble = 40; s.immune = 30; s.shake = 14; s.flash = .9; s.sfx.hit();
-          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 조준선이 붉어지면 비켜야 해.', 'me', 120); }
+          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 빨간 선 뜨면 비켜야 해.', 'me', 120); }
         }
       }
     }
@@ -9311,7 +9311,7 @@ const FreeState = {
     const t = s.t;
     if (t < 50) s.z += .12;
     if (t === 70 || t === 96 || t === 150) s.sfx.bird();
-    if (t === 90) s.say('…밖이다.', 'me-dark', 150);
+    if (t === 90) s.say('…밖이야.', 'me-dark', 150);
     if (t === 260) s.say('…들리세요?', 'far-dark', 140);
     // 빛이 걷히면 — 침대 위. 처음부터 어디로도 달린 적이 없었습니다
     if (t === 420) { s.sfx.boom(1); s.shake = 10; s.realT = 9999; s.realDur = 200; s.realK = 3; }   // 둥 — 진짜 결말
