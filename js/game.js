@@ -4930,9 +4930,15 @@ function beginEnding() {
     // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
     source: () => { render(); return cv; },
     audio: () => Sfx.context(),
-    onReturn: () => beginEscape()        // 눈을 뜬 그 자리에서 1인칭으로 이어집니다
+    // 일반 판은 엔딩에서 끝 — 엔드 카드로. 제4막 탈출(시제품)은 개발자 모드에서만 이어집니다
+    onReturn: () => { if (G.dev) beginEscape(); else showEndCard(); }
   });
   endingScene.start();
+}
+
+function showEndCard() {
+  $('endcard').querySelector('.e-sub').textContent = END_SUB.calm;
+  $('endcard').classList.add('on');
 }
 
 /* ═══════════ 제4막 (시제품) — 연구소 탈출, 1인칭 ═══════════════
@@ -4940,6 +4946,7 @@ function beginEnding() {
    어떻게 끝났는지에 따라 엔드 카드의 한 줄이 달라집니다. */
 let escapeScene = null;
 const END_SUB = {
+  calm:    '2145 / 05 / 20 · 실험체 07 · 뇌파 안정화 완료',
   stay:    '2145 / 05 / 20 · 실험체 07 · 다시 잠듦 — 세션 142 예약',
   caught:  '2145 / 05 / 20 · 실험체 07 · 이탈 시도 — 세션 142 예약',
   escaped: '2145 / 05 / 20 · 실험체 07 · 세션 이탈 — 위치 확인 불가'

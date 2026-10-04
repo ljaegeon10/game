@@ -71,6 +71,8 @@ const mixC = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 const css = (c, a = 1) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
 
 /* ═════════════ 소리 ═══════════════════════════════════════ */
+/* 탈출 브금의 반복 구간 · 음량 — tools/make_escape_bgm.py 가 찍어 준 값 */
+const ESC_BGM = { loop0: 30.817, loop1: 66.777, vol: .42 };
 class EscSfx {
   constructor(audioFn) { this.audioFn = audioFn; this.ac = null; }
   ctx() {
@@ -195,7 +197,39 @@ class EscSfx {
       return { g, nodes: [o] };
     });
   }
-  stopAll() { ['alarm', 'hum', 'flat'].forEach(n => this.loop(n, false)); }
+  stopAll() { ['alarm', 'hum', 'flat'].forEach(n => this.loop(n, false)); this.bgm(false); }
+  /* 탈출 브금 — 복도 추격 (escape_bgm.js, 원곡 하이라이트 편집). 경보와 함께 처음부터 흐르고,
+     넘어져 늦어지면 가장 센 ②~③ 구간만 반복합니다. at : 몇 초 지점부터 */
+  loadBgm() {
+    if (this.bgmBuf || this.bgmLoading || typeof ESCAPE_BGM_B64 === 'undefined') return;
+    const c = this.ctx(); if (!c) return;
+    this.bgmLoading = true;
+    const bin = atob(ESCAPE_BGM_B64), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    c.decodeAudioData(u8.buffer, buf => {
+      this.bgmBuf = buf; this.bgmLoading = false;
+      if (this.bgmWant) this.bgm(true, this.bgmAt + (c.currentTime - this.bgmAsk));   // 디코딩을 기다린 만큼 앞으로
+    }, () => { this.bgmLoading = false; });
+  }
+  bgm(on, at = 0) {
+    const c = this.ctx(); if (!c) return;
+    if (!on) {
+      this.bgmWant = false;
+      const n = this.bgmNode; this.bgmNode = null;
+      if (n) { try { n.g.gain.cancelScheduledValues(c.currentTime); n.g.gain.setTargetAtTime(.0001, c.currentTime, .35); n.src.stop(c.currentTime + 1.8); } catch (e) { /* 이미 멈춤 */ } }
+      return;
+    }
+    if (this.bgmNode) return;
+    if (!this.bgmBuf) { this.bgmWant = true; this.bgmAt = at; this.bgmAsk = c.currentTime; this.loadBgm(); return; }
+    this.bgmWant = false;
+    const src = c.createBufferSource(), g = c.createGain(), t = c.currentTime;
+    src.buffer = this.bgmBuf; src.loop = true;
+    src.loopStart = ESC_BGM.loop0; src.loopEnd = Math.min(ESC_BGM.loop1, this.bgmBuf.duration);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(ESC_BGM.vol, t + (at > 0 ? .6 : .08));
+    src.connect(g).connect(this.master);
+    src.start(t, at < src.loopEnd ? at : ESC_BGM.loop0);
+    this.bgmNode = { src, g };
+  }
 }
 
 /* ═════════════ 장애물 ═════════════════════════════════════
@@ -548,7 +582,7 @@ const OpenState = {
   update(s) {
     const t = s.t;
     s.doorOpen = Math.min(1, s.doorOpen + .022);
-    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.shake = 6; s.say('…경보.', 'me', 80); }
+    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보.', 'me', 80); }
     if (t === 76) { s.view = 'back'; s.sfx.chase(.18); s.shake = 4; }      // 휙 돌아봅니다
     if (t === 82) s.say('흰 가운. 안경알이 번뜩인다.', 'me', 90);
     if (t === 150) { s.view = 'fwd'; s.shake = 3; }
@@ -775,7 +809,7 @@ const slideK = s => s.slideT < 0 ? 0 : Math.min(1, s.slideT / 6, (SLIDE - s.slid
 const CaughtState = {
   enter(s) {
     s.view = 'back'; s.dist = .35; s.shake = 22; s.flash = 1;
-    s.sfx.grab(); s.sfx.alarmVol(0);
+    s.sfx.grab(); s.sfx.alarmVol(0); s.sfx.bgm(false);
     s.subs = [];
   },
   update(s) {
@@ -796,7 +830,7 @@ const CaughtState = {
 
 /* 바깥 문 — 빛 속으로. 그리고 들리는 한마디 */
 const FreeState = {
-  enter(s) { s.sfx.swell(); s.sfx.alarm(false); s.sfx.hum(false); s.subs = []; },
+  enter(s) { s.sfx.swell(); s.sfx.alarm(false); s.sfx.hum(false); s.sfx.bgm(false); s.subs = []; },
   update(s) {
     const t = s.t;
     if (t < 50) s.z += .12;
@@ -1409,6 +1443,7 @@ class EscapeScene {
   /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
   start(from = 'wake') {
     this.frame = 0; this.held.clear(); this.prompt = null; this.fromWake = false;
+    this.sfx.loadBgm();                                  // 복도 추격 브금 — 미리 풀어 둠 (경보 때 바로 울리게)
     this.drag = null; this.tch = {}; this.stick = [0, 0]; this.lookDX = 0; this.lookDY = 0; this.busyT = 0; this.subs = []; this.bob = 0; this.shake = 0; this.flash = 0; this.flick = 0;
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.alarm = 0; this.lights = .55; this.doorOpen = .06;
@@ -1452,7 +1487,7 @@ class EscapeScene {
   jumpTo(z) {
     this.resetRun();
     this.z = z; this.doorOpen = 1; this.lights = 1; this.alarm = 1;
-    this.sfx.alarm(true); this.sfx.humVol(1);
+    this.sfx.alarm(true); this.sfx.humVol(1); this.sfx.bgm(true, ESC_BGM.loop0);   // 중간부터면 가장 센 구간부터
     RUN_LINES.forEach(([lz], i) => { if (lz < z) this.saidMask |= 1 << i; });
     this.subs = [];
     this.go('run');
