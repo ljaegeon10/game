@@ -53,7 +53,7 @@ const MAT = { suit: 0, glow: 1, gloss: s => 2 + s, visor: 3, cloth: 4, skin: 5, 
 const C = {
   suit: hex('#beac60'), suitD: hex('#8c7e46'), rubber: hex('#262d3a'), tape: hex('#8e98a4'), gasket: hex('#2a303c'),
   hose: hex('#c89a3c'), plate: hex('#2a3140'), black: hex('#16191f'),
-  uni: hex('#3a485e'), uniL: hex('#55657d'), pants: hex('#1e2430'), boot: hex('#121418'), skin: hex('#c49a84'),
+  uni: hex('#4c5d76'), uniL: hex('#6a7b94'), pants: hex('#1e2430'), boot: hex('#121418'), skin: hex('#c49a84'),
   cap: hex('#1a1f28'), metal: hex('#5b6674'), gun: hex('#22252b'), yel: hex('#d8a83c')
 };
 
@@ -405,11 +405,24 @@ void main(){
 }`;
 
 /* ═════════════ 렌더러 ═════════════════════════════════════ */
+/* 원근 — 초점 거리 f · 주점(px, py) 픽셀, 그리고 화면 가운데를 축으로 한 기울기(roll) · 흔들림(shx, shy 픽셀).
+   escape.js 의 P() 와 같은 투영이라 픽셀 그림 · 판정과 어긋나지 않습니다 */
+function camProj(cam, W, H, far = 80) {
+  const n = .03, fa = far;
+  const sx = 2 * cam.f / W, sy = 2 * cam.f / H, ox = -(2 * cam.px / W - 1), oy = -(1 - 2 * cam.py / H);
+  const P = [sx, 0, 0, 0, 0, sy, 0, 0, ox, oy, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0];
+  if (!cam.roll && !cam.shx && !cam.shy) return P;
+  const c = Math.cos(cam.roll || 0), s = Math.sin(cam.roll || 0), a = W / 2, b = H / 2;
+  const T = [c, -s * a / b, 0, 0, s * b / a, c, 0, 0, 0, 0, 1, 0, (cam.shx || 0) / a, -(cam.shy || 0) / b, 0, 1];
+  return M4.mul(T, P);
+}
 class Figure3D {
-  constructor(w = 960, h = 540) {
+  /* shared : { canvas, gl } 를 주면 그 화면에 같이 그립니다 (복도 3D 와 깊이를 나눠 씀) */
+  constructor(w = 960, h = 540, shared = null) {
     this.w = w; this.h = h;
-    this.canvas = document.createElement('canvas'); this.canvas.width = w; this.canvas.height = h;
-    const gl = this.canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true }) || this.canvas.getContext('experimental-webgl', { alpha: true });
+    this.canvas = shared ? shared.canvas : document.createElement('canvas');
+    if (!shared) { this.canvas.width = w; this.canvas.height = h; }
+    const gl = shared ? shared.gl : (this.canvas.getContext('webgl', { antialias: true, alpha: true, premultipliedAlpha: true }) || this.canvas.getContext('experimental-webgl', { alpha: true }));
     this.ok = !!gl;
     if (!gl) return;
     this.gl = gl;
@@ -436,11 +449,7 @@ class Figure3D {
     this.guard = up(gp);
   }
   /* cam : { f, px, py } — 초점 거리 · 주점(화면 픽셀) */
-  proj(cam) {
-    const W = this.w, H = this.h, n = .03, fa = 60;
-    const sx = 2 * cam.f / W, sy = 2 * cam.f / H, ox = -(2 * cam.px / W - 1), oy = -(1 - 2 * cam.py / H);
-    return [sx, 0, 0, 0, 0, sy, 0, 0, ox, oy, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0];
-  }
+  proj(cam) { return camProj(cam, this.w, this.h); }
   draw(set, key, m) {
     const gl = this.gl, p = set[key]; if (!p) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, p.b);
@@ -462,7 +471,9 @@ class Figure3D {
   render(fig, env, keep) {
     if (!this.ok) return null;
     const gl = this.gl, un = this.un;
+    gl.useProgram(this.pr);
     if (!keep) this.begin();
+    else { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex); }
     gl.uniformMatrix4fv(un.uVP, false, new Float32Array(this.proj(env.cam)));
     const L = env.lights.slice(0, 5); while (L.length < 5) L.push([[0, 0, 0], [0, 0, 0]]);
     gl.uniform3fv(un.uL, new Float32Array(L.flatMap(l => l[0]))); gl.uniform3fv(un.uLC, new Float32Array(L.flatMap(l => l[1])));
@@ -507,4 +518,5 @@ class Figure3D {
 }
 
 window.Figure3D = Figure3D;
+window.Fig3DUtil = { camProj, M4 };
 })();

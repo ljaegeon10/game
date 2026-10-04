@@ -9,8 +9,16 @@
      안 한다  → 다시 눕는다. 끝.
      탈출한다 → 경보. 뒤에서 누군가 달려옵니다. 장애물을 넘고, 밑으로
                 미끄러지고, 옆으로 피하며 끝없이 이어지는 복도를 달립니다.
-                흰 실험실 복도는 달릴수록 누런 벽지의 "백룸"으로 바뀝니다 —
-                여기가 정말 현실인지는 알려 주지 않습니다.
+                흰 실험실 복도는 달릴수록 누런 벽지의 "백룸"으로 바뀝니다.
+                그런데 이건 탈출이 아닙니다 — 134m 즈음 이미 붙잡혀 침대로 돌아가
+                진정제를 맞았고, 달리는 건 그 뒤의 꿈입니다. 넘어가는 동안 몇 프레임씩
+                현실이 끼어들고(REAL : 누운 채 올려다본 천장, 들여다보는 방호복, 바늘),
+                바닥엔 내 머리의 전극선이 따라오고, 복도엔 링거대 · 심전도 · 묶는 끈 달린
+                빈 침대가 서 있으며, 어딘가에서 심전도가 울립니다. 바깥 문의 빛이
+                걷히면 침대 위 — "출구까지 갔네요. 이번엔." SESSION 142 진행 중.
+
+   그림 — 복도는 corridor3d.js (실사 WebGL), 사람은 figure3d.js 를 같은 깊이 버퍼에.
+   WebGL 이 없으면 아래의 픽셀 복도로 그립니다.
 
    중간 (286~450m) — 총격전. 바닥에 떨어진 권총을 줍고, 앞을 막아서는
    경비원들과 맞섭니다. 경비원은 붉은 조준선을 겨눈 뒤 쏩니다 — 그사이
@@ -281,7 +289,12 @@ function genGuards() {
 const RUN_LINES = [
   [8,   '달려.', 'me'],
   [60,  '어디 가요, 07.', 'doc'],
+  [136, '잡았어요. 진정제 준비.', 'cold'],             // ── 여기서부터 사실은 이미 붙잡혀 침대 위
+  [156, '…바닥이 물렁하다.', 'me'],
   [180, '거긴 출구가 아니에요.', 'doc'],
+  [208, '용량 올려.', 'cold'],
+  [230, '쉬이… 괜찮아요. 꿈에선 마음껏 달려도 돼요.', 'doc'],
+  [262, '…벽지가 누렇다.', 'me'],
   [GUN_Z - 6, '…총?', 'me'],
   [ZONE0 + 4, '경비원들이다.', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
@@ -289,6 +302,11 @@ const RUN_LINES = [
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
   [560, '…빛이다.', 'me']
 ];
+
+/* 현실이 끼어드는 순간 — [z, 프레임, 몇 번째].  실험실이 백룸으로 바뀌기 시작할 즈음,
+   몇 프레임씩 침대 위로 돌아갑니다: 누운 채 올려다본 천장, 들여다보는 방호복.
+   달리고 있는 건 꿈속이고, 몸은 진작 붙잡혀 진정제를 맞고 있습니다 (세 번째엔 바늘). */
+const REAL = [[134, 5, 0], [168, 8, 1], [206, 14, 2], [248, 6, 3]];
 
 /* ═════════════ 깨어남 — 침대에서 비상구까지 ═══════════════════════
    엔딩의 마지막에 눈을 뜬 그 자리, 엔딩에서 밖에서 내려다본 바로 그 실험실을
@@ -638,6 +656,11 @@ const RunState = {
     tickGunBits(s);
     // 진행하며 들리는 말
     RUN_LINES.forEach(([z, txt, who], i) => { if (!(s.saidMask & (1 << i)) && s.z >= z) { s.saidMask |= 1 << i; s.say(txt, who, who === 'doc' ? 130 : 110); } });
+    REAL.forEach(([z, dur, k], i) => {
+      if (!(s.realMask & (1 << i)) && s.z >= z) { s.realMask |= 1 << i; s.realT = dur; s.realDur = dur; s.realK = k; s.sfx.glitch(); s.sfx.beep(.09); if (k === 2) s.sfx.inject(); }
+    });
+    if (s.realT > 0) s.realT--;
+    if (theme(s.z) > .25 && s.runT % 52 === 0) s.sfx.beep(.012 + theme(s.z) * .02);    // 어딘가에서 심전도가 울립니다
 
     // 백룸으로 번져 갈수록 경보는 멀어지고 형광등 소리만 남습니다
     const tb = theme(s.z);
@@ -830,20 +853,25 @@ const CaughtState = {
 
 /* 바깥 문 — 빛 속으로. 그리고 들리는 한마디 */
 const FreeState = {
-  enter(s) { s.sfx.swell(); s.sfx.alarm(false); s.sfx.hum(false); s.sfx.bgm(false); s.subs = []; },
+  enter(s) { s.sfx.swell(); s.sfx.alarm(false); s.sfx.hum(false); s.sfx.bgm(false); s.subs = []; s.realT = 0; },
   update(s) {
     const t = s.t;
     if (t < 50) s.z += .12;
     if (t === 70 || t === 96 || t === 150) s.sfx.bird();
     if (t === 90) s.say('…밖이다.', 'me-dark', 150);
     if (t === 260) s.say('…들리세요?', 'far-dark', 140);
-    if (t >= 440) s.finish('escaped');
+    // 빛이 걷히면 — 침대 위. 처음부터 어디로도 달린 적이 없었습니다
+    if (t === 420) { s.sfx.beep(.1); s.realT = 9999; s.realDur = 200; s.realK = 3; }
+    if (t === 450) s.say('진정됐어요. 맥박 정상.', 'cold', 140);
+    if (t === 560) s.say('출구까지 갔네요. 이번엔.', 'doc', 150);
+    if (t === 690) { s.sfx.beep(.1); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
+    if (t >= 800) s.finish('escaped');
   },
   draw(s, b) {
     drawWorld(s, b);
     const w = clamp01(s.t / 46);
     b.fillStyle = `rgba(255,252,240,${w})`; b.fillRect(0, 0, LW, LH);
-    if (s.t > 380) { b.fillStyle = `rgba(0,0,0,${clamp01((s.t - 380) / 60)})`; b.fillRect(0, 0, LW, LH); }
+    if (s.t > 380) { b.fillStyle = `rgba(0,0,0,${clamp01((s.t - 380) / 40)})`; b.fillRect(0, 0, LW, LH); }
   }
 };
 
@@ -888,6 +916,8 @@ function drawWorld(s, b) {
   s.cy = LH / 2 + (sk * 6);
   const tbHere = theme(s.z);
   const fog = mixC(LAB.fog, BACK.fog, tbHere);
+  const C3 = !s.no3d && s.corr3d();
+  if (C3) return drawWorld3D(s, b, back);                // 실사 복도 (corridor3d.js) — 픽셀은 위에 얹는 것만
   b.fillStyle = css(fog); b.fillRect(0, 0, LW, LH);
 
   b.save();
@@ -917,6 +947,44 @@ function drawWorld(s, b) {
     b.fillStyle = g; b.fillRect(0, 0, LW, LH);
   }
   if (s.flash > .02) { b.fillStyle = `rgba(255,60,50,${s.flash * .35})`; b.fillRect(0, 0, LW, LH); }
+}
+
+/* 실사 복도 — 3D 는 draw() 에서 corridor3d.js 가 그리고, 여기선 그 위에 얹을 픽셀만 (조준선 · 섬광 ·
+   그림자 · 문의 빛 · 손의 총 · 붉은 테두리). 사람은 s.figQ 로 모아 같은 깊이 버퍼에 넘깁니다 */
+function drawWorld3D(s, b, back) {
+  s.mode3d = true; s.shadows3d = [];
+  b.save(); b.setTransform(1, 0, 0, 1, 0, 0); b.clearRect(0, 0, LW, LH); b.restore();
+  b.save();
+  const roll = (s.lane * LANE - s.x) * .045 * (back ? -1 : 1);
+  b.translate(LW / 2, LH / 2); b.rotate(roll); b.translate(-LW / 2, -LH / 2);
+  s.viewRoll = roll; s.shX = 0; s.shY = 0;
+  if (s.shake > .3) { s.shX = (Math.random() - .5) * s.shake * .5; s.shY = (Math.random() - .5) * s.shake * .5; b.translate(s.shX, s.shY); }
+  if (!back) {
+    for (const g of s.guards || []) if (g.st !== 'gone' && g.st !== 'wait' && g.z - s.z > NEAR && g.z - s.z < VIEW) drawGuard(s, b, g);
+    drawChaseShadow(s, b);
+    drawLasers(s, b);
+    // 빛 — 비상구의 녹색 EXIT, 복도 끝 바깥 문
+    const glow = (wx, wy, wz, r0, col) => { const dz = wz - s.z; if (dz <= NEAR || dz > VIEW) return; const p = P(s, wx, wy, dz), r = Math.max(4, r0 * FOC / dz);
+      b.save(); b.globalCompositeOperation = 'lighter'; const g = b.createRadialGradient(p[0], p[1], 1, p[0], p[1], r);
+      g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); b.fillStyle = g; b.fillRect(p[0] - r, p[1] - r, r * 2, r * 2); b.restore(); };
+    glow(0, 2.48, 0, .7, `rgba(60,255,120,${.22 + .06 * Math.sin(s.frame * .05)})`);
+    glow(0, 1.2, RUN_LEN, 2.6, 'rgba(255,248,220,.5)');
+    if (!s.gun && !s.gunDone) glow(0, .05, GUN_Z, .5, `rgba(255,230,160,${.25 + .2 * Math.sin(s.frame * .2)})`);
+  } else {
+    drawPursuer(s, b);
+  }
+  b.restore();
+  drawViewGun(s, b);
+  const dg = s.danger || 0;
+  if (dg > .02) {
+    const g = b.createRadialGradient(LW / 2, LH / 2, 40, LW / 2, LH / 2, LW * .62);
+    g.addColorStop(0, 'rgba(120,0,0,0)'); g.addColorStop(1, `rgba(150,0,0,${dg * .55 * (.75 + .25 * Math.sin(s.frame * .3))})`);
+    b.fillStyle = g; b.fillRect(0, 0, LW, LH);
+  }
+  if (s.flash > .02) { b.fillStyle = `rgba(255,60,50,${s.flash * .35})`; b.fillRect(0, 0, LW, LH); }
+  s.view3d = { z: s.z, x: s.x, back, camY: s.camY, cx: s.cx * SC, cy: s.cy * SC, f: FOC * SC, roll, shx: s.shX * SC, shy: s.shY * SC,
+               alarm: s.alarm, lights: s.lights, flick: s.flick, frame: s.frame, doorOpen: s.doorOpen, obs: s.obs,
+               pickup: !back && !s.gun && !s.gunDone, figs: s.figQ, shadows: s.shadows3d };
 }
 
 /* 복도 — 2m 마디마다 바닥 · 천장 · 양벽, 그리고 형광등 · 문 · 옆 통로 */
@@ -1138,8 +1206,9 @@ function drawGuard(s, b, g) {
   b.save();
   b.globalAlpha = pop;
   {                                           // 실사 3D — 발밑 그림자 · 총구 섬광만 픽셀로
-    const f0 = pt(-.26, 0), f1 = pt(.26, 0), rw = (f1[0] - f0[0]) / 2;
-    b.fillStyle = 'rgba(0,0,0,.35)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill();
+    if (s.mode3d) s.shadows3d.push([g.x, g.z, .32]);
+    else { const f0 = pt(-.26, 0), f1 = pt(.26, 0), rw = (f1[0] - f0[0]) / 2;
+      b.fillStyle = 'rgba(0,0,0,.35)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill(); }
     const X = g.x - s.camX, aiming = g.st === 'aim' || g.st === 'cool';
     const lit3 = g.st === 'aim' ? (g.t >= LOCK_T ? 1 : .5 + .3 * Math.sin(s.frame * .5)) : 0;
     g.aimK = lerp(g.aimK || 0, aiming ? 1 : 0, .2);
@@ -1386,6 +1455,7 @@ function drawSuit(b, s, pt, k, dz, z, o) {
    지금까지 그린 픽셀을 한 겹으로 떼어 두고 버퍼를 비웁니다. 화면에 찍을 때 그 겹 → 3D 인물 →
    다음 겹 순서로 쌓으므로, 더 가까운 장애물 · 총 · 붉은 테두리는 인물 위에 그대로 덮입니다. */
 function figMark(s, b, fig, env) {
+  if (s.mode3d) { s.figQ.push({ fig, env }); return true; }            // 실사 복도 — 같은 깊이 버퍼에 함께 그림
   const F = s.fig3d(); if (!F) return false;
   const i = s.figQ.length;
   let L = s.layers[i];
@@ -1416,8 +1486,9 @@ function drawPursuer(s, b) {
   const px = -s.chaseX;                       // 뒤를 보면 좌우가 뒤집힙니다
   const run = s.frame * .32, bob = Math.abs(Math.sin(run)) * .05;
   {                                           // 실사 3D (figure3d.js) — 발밑 그림자만 픽셀로
-    const f0 = P(s, px - .32, 0, dz), f1 = P(s, px + .32, 0, dz), rw = (f1[0] - f0[0]) / 2;
-    b.fillStyle = 'rgba(0,0,0,.4)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill();
+    if (s.mode3d) s.shadows3d.push([s.chaseX, s.z - dz, .36]);
+    else { const f0 = P(s, px - .32, 0, dz), f1 = P(s, px + .32, 0, dz), rw = (f1[0] - f0[0]) / 2;
+      b.fillStyle = 'rgba(0,0,0,.4)'; b.beginPath(); b.ellipse(f0[0] + rw, f0[1], Math.max(1, rw), Math.max(1, rw * .14), 0, 0, Math.PI * 2); b.fill(); }
     const X = px - s.camX;
     if (figMark(s, b, { kind: 'suit', x: X, y: -s.camY, z: dz, yaw: Math.atan2(-X, dz), run, stride: 1, reach: clamp01((7 - s.dist) / 6) },
                 figEnv(s, dz * .7, s.z, X))) return;
@@ -1570,6 +1641,11 @@ class EscapeScene {
     this.states = { wake: WakeState, door: DoorState, stay: StayState, open: OpenState, run: RunState, caught: CaughtState, free: FreeState };
     this.lab = null;                                     // 깨어남의 입체 실험실 (labroom.js) — 처음 쓸 때 만듦
     this.figQ = []; this.layers = [];                    // 실사 3D 인물 (figure3d.js) — 픽셀 겹 사이에 끼워 넣음
+    this.corr3d = () => {                                // 실사 복도 (corridor3d.js) — 처음 쓸 때 지음
+      if (this._c3 === undefined) { try { this._c3 = window.Corridor3D ? new Corridor3D(W, H) : null; if (this._c3 && !this._c3.ok) this._c3 = null; } catch (e) { this._c3 = null; } }
+      return this._c3;
+    };
+    this.realT = 0; this._n3 = 0;
     this.fig3d = () => {
       if (this._f3 === undefined) { try { this._f3 = window.Figure3D ? new Figure3D(W, H) : null; if (this._f3 && !this._f3.ok) this._f3 = null; } catch (e) { this._f3 = null; } }
       return this._f3;
@@ -1614,10 +1690,38 @@ class EscapeScene {
     this.sfx.stopAll();
   }
   finish(result) { this.stop(); this.onDone(result); }
+  /* 현실이 끼어드는 몇 프레임 — 침대에 누운 채 올려다본 실험실(labroom.js), 들여다보는 방호복(figure3d.js) */
+  drawReality(c) {
+    try {
+      if (!this.lab) this.lab = window.LabRoom ? new LabRoom() : null;
+      if (!this.lab || !this.lab.ok) return false;
+      if (this._rf === undefined) { this._rf = window.Figure3D ? new Figure3D(W, H) : null; if (this._rf && !this._rf.ok) this._rf = null; }
+    } catch (e) { return false; }
+    const k = this.realK || 0, t = this.realT, calm = t >= 1000;
+    const cam = { x: -1.24, y: .98, z: 5.8, yaw: HP, pitch: 1.05 + k * .05, roll: calm ? 0 : Math.sin(this.frame * .7) * .05 };
+    const img = this.lab.render({ cam, t: this.frame, wires: 4, wirePull: [0, 0, 0, 0], ivOut: false, ivT: 0, rise: 0, sit: true, doorSlide: 0,
+                                  body: LabRoomGeo.bodyPose(cam, 0, 0), dim: .9 });
+    c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
+    if (this._rf) {
+      const fimg = this._rf.render({ kind: 'suit', x: .3 - k * .05, y: -1.58, z: .95 - k * .06, yaw: -.25, stride: 0, reach: .5 + k * .12, lean: .35 }, {
+        cam: { f: 450, px: 480, py: 250, roll: -.55 }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+        lights: [[[-.3, 1.4, -1.8], [1.1, 1.12, 1.15]], [[.7, 1.2, -1.2], [.8, .8, .82]], [[0, -.3, .6], [.12, .12, .13]]] });
+      c.drawImage(fimg, 0, 0);
+    }
+    if (t < 1000) {                                          // 달리는 중 — 찢어지듯 몇 프레임
+      for (let i = 0; i < 6; i++) { const y = Math.random() * H, h = 6 + Math.random() * 30; c.drawImage(c.canvas, 0, y, W, h, (Math.random() - .5) * 40, y, W, h); }
+      c.fillStyle = `rgba(255,255,255,${t / (this.realDur || 8) * .35})`; c.fillRect(0, 0, W, H);
+    } else {                                                 // 끝 — 눈꺼풀이 다시 내려옴
+      const ft = this.t - 420, lid = clamp01((ft - 250) / 120) * H / 2;
+      c.fillStyle = `rgba(255,252,240,${clamp01(1 - ft / 40)})`; c.fillRect(0, 0, W, H);
+      c.fillStyle = '#000'; c.fillRect(0, 0, W, lid); c.fillRect(0, H - lid, W, lid);
+    }
+    return true;
+  }
   resetRun() {
     this.z = START_Z; this.x = 0; this.lane = 0; this.jumpT = -1; this.slideT = -1;
     this.dist = CHASE0; this.chaseX = 0; this.danger = 0; this.stumble = 0; this.immune = 0;
-    this.obs = genObstacles(); this.saidMask = 0; this.lookedBack = false; this.view = 'fwd';
+    this.obs = genObstacles(); this.saidMask = 0; this.realMask = 0; this.realT = 0; this.lookedBack = false; this.view = 'fwd';
     this.guards = genGuards(); this.gun = null; this.drops = []; this.bits = []; this.gunDone = false; this.kills = 0; this.shotOnce = false; this.shotDoc = false;
     this.doorOpen = .06; this.lights = .55; this.alarm = 0; this.lastStep = 0;
     this.sfx.hum(true);
@@ -1628,6 +1732,7 @@ class EscapeScene {
     this.z = z; this.doorOpen = 1; this.lights = 1; this.alarm = 1;
     this.sfx.alarm(true); this.sfx.humVol(1); this.sfx.bgm(true, ESC_BGM.loop0);   // 중간부터면 가장 센 구간부터
     RUN_LINES.forEach(([lz], i) => { if (lz < z) this.saidMask |= 1 << i; });
+    REAL.forEach(([rz], i) => { if (rz < z) this.realMask |= 1 << i; });
     this.subs = [];
     this.go('run');
   }
@@ -1672,10 +1777,23 @@ class EscapeScene {
       c.imageSmoothingEnabled = true;
       c.drawImage(hi, 0, 0, W, H);
       this.state.drawOver(this, c, hi);
+    } else if (this.realT > 0 && this.drawReality(c)) {
+      // 현실이 끼어듭니다 — 침대 위, 들여다보는 방호복 (drawReality 가 다 그림)
     } else {
-      this.figQ = [];
+      this.figQ = []; this.mode3d = false;
       this.state.draw(this, this.b);
       c.imageSmoothingEnabled = false;
+      if (this.mode3d) {                                      // 실사 복도 → 위에 픽셀 겹
+        const C3 = this.corr3d();
+        // 느린 기기 — 한 장 그리는 간격이 길면 해상도를 낮추고, 넉넉하면 되돌립니다
+        const now = performance.now(), dt = this._t3 ? now - this._t3 : 16; this._t3 = now;
+        this._dt3 = this._dt3 == null ? dt : this._dt3 * .95 + Math.min(200, dt) * .05;
+        if (++this._n3 % 60 === 0) { if (this._dt3 > 24) C3.setScale(C3.k * .8); else if (this._dt3 < 15 && C3.k < 1) C3.setScale(C3.k * 1.12); }
+        const img = C3.render(this.view3d);
+        c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H); c.imageSmoothingEnabled = false;
+        c.drawImage(this.buf, 0, 0, W, H);
+        this.figQ = [];
+      }
       const F = this.figQ.length ? this.fig3d() : null;
       this.figQ.forEach((q, i) => {                          // 픽셀 겹 → 실사 3D 인물 → … → 맨 위 겹
         c.drawImage(this.layers[i], 0, 0, W, H);
@@ -1685,7 +1803,7 @@ class EscapeScene {
         c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0); c.restore();
         c.imageSmoothingEnabled = false;
       });
-      c.drawImage(this.buf, 0, 0, W, H);
+      if (!this.mode3d) c.drawImage(this.buf, 0, 0, W, H);
     }
     c.drawImage(this.overlay, 0, 0);
     drawHud(this, c);
