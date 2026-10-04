@@ -4944,7 +4944,8 @@ const END_SUB = {
   caught:  '2145 / 05 / 20 · 실험체 07 · 이탈 시도 — 세션 142 예약',
   escaped: '2145 / 05 / 20 · 실험체 07 · 세션 이탈 — 위치 확인 불가'
 };
-function beginEscape() {
+/* from : 'wake' — 침대에서 깨어나 비상구까지 걸어가는 것부터 (엔딩 뒤 기본) · 'door' — 비상구 앞부터 */
+function beginEscape(from = 'wake') {
   escapeScene = new EscapeScene($('endcv'), {
     audio: () => Sfx.context(),
     onDone: result => {
@@ -4953,7 +4954,7 @@ function beginEscape() {
       $('endcard').classList.add('on');
     }
   });
-  escapeScene.start();
+  escapeScene.start(from);
 }
 
 /* ═══════════ 이스터에그 ③ — 코나미 코드 (타이틀) ═══════════════
@@ -5152,7 +5153,7 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 시제품)'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 깨어남부터)'], ['escapedoor', '탈출 — 비상구부터'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
   ['away', '이스터에그 : 화면 밖']
 ];
 
@@ -5242,10 +5243,11 @@ function devJump(kind) {
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
     case 'escape':
+    case 'escapedoor':
     case 'gunfight':  devExit(); G.mode = 'ending'; stopRun();
                       ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
                       $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
-                      beginEscape();
+                      beginEscape(kind === 'escapedoor' ? 'door' : 'wake');
                       if (kind === 'gunfight') escapeScene.jumpTo(270);
                       break;
     case 'away':      devPrepare(true); Sfx.dungeonBgm(true); loadRoom('fork', 'S'); G.mode = 'play';
