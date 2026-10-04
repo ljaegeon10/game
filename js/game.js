@@ -2624,6 +2624,21 @@ function drawKey(x, y) {
 }
 
 /* ── 캐릭터 ────────────────────────────────────────── */
+/* 주인공 생김새 — 시안 C '병원 담요' (js/heroart.js).
+   흰 병원 담요를 후드처럼 뒤집어쓴 피험자 07. 그림은 처음 그릴 때 한 번 굽고
+   (30×36 칸 · 방향마다 4장 걷기), 후드 아래에서 나온 오방색 전극선 네 가닥은
+   매 프레임 줄로 흉내 내 바닥에 끌리며 따라옵니다.
+   heroart.js 가 없으면 예전 노란 주인공(assets/hero.png)으로 그립니다. */
+const HERO_LOOK = window.HeroArt ? HeroArt.LOOKS.C : null;
+let heroSheet = null, heroRig = null, heroRigT = -1;
+function heroArt() {
+  if (!heroSheet && HERO_LOOK) {
+    heroSheet = HeroArt.bakeSheet(HERO_LOOK);
+    heroRig = new HeroArt.CableRig(HERO_LOOK.cables);
+  }
+  return heroSheet;
+}
+
 function drawPlayer() {
   // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
   // 위로 뜰 때 살짝 눌리고(squash), 내려올 때 살짝 늘어나는(stretch)
@@ -2645,11 +2660,26 @@ function drawPlayer() {
 
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
 
-  const seq = HERO[P.dir] || HERO.down;
-  const idx = seq[Math.floor(P.anim) % seq.length];
-  const w = 30, h = Math.round(30 * HERO.fh / HERO.fw);
-
-  if (IMG.hero) {
+  const sheet = heroArt();
+  if (sheet) {
+    const { FW, FH } = HeroArt;
+    const fi = HeroArt.frameIndex(P.dir, Math.floor(P.anim) % HeroArt.STEPS);
+    const feet = P.y + 10;                               // 발바닥 줄 (칸의 34 줄)
+    // 전극선 — 후드 아래 뒤통수에 매달려 늘어지고 바닥에 끌림. 한 프레임에 한 번만 움직임
+    if (heroRigT !== G.t) { heroRig.update(P.x, feet - 1, 17 - bob, P.dir); heroRigT = G.t; }
+    const behind = n => n.z > 2 || n.y <= feet + 1;      // 매달린 부분은 몸 뒤
+    if (P.dir !== 'up') heroRig.draw(g, 0, G.t, behind);
+    g.save();
+    g.translate(P.x, P.y + bob - FH / 2 + 12);
+    g.rotate(tilt);
+    g.scale(stretch, squash);
+    g.drawImage(sheet, fi * FW, 0, FW, FH, -FW / 2, -FH / 2, FW, FH);
+    g.restore();
+    heroRig.draw(g, 0, G.t, P.dir === 'up' ? null : n => !behind(n));   // 뒷모습이면 전부 몸 앞
+  } else if (IMG.hero) {
+    const seq = HERO[P.dir] || HERO.down;
+    const idx = seq[Math.floor(P.anim) % seq.length];
+    const w = 30, h = Math.round(30 * HERO.fh / HERO.fw);
     g.translate(P.x, P.y + bob - h / 2 + 12);
     g.rotate(tilt);
     g.scale(stretch, squash);
@@ -4763,16 +4793,22 @@ function renderFall() {
   }
   g.restore();
 
-  // 4) 작아지며 구르듯 떨어지는 주인공
-  if (IMG.hero) {
+  // 4) 작아지며 구르듯 떨어지는 주인공 (예전 노란 주인공과 같은 크기로 키워서)
+  const fallSheet = heroArt();
+  if (fallSheet || IMG.hero) {
     const scale = Math.max(.05, 1 - k * .92);
     g.save();
     g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
     g.rotate(k * 3.2);
     g.scale(scale, scale);
     g.globalAlpha = Math.min(1, 1.3 - k);
-    const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
-    g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
+    if (fallSheet) {
+      const { FW, FH } = HeroArt, fi = HeroArt.frameIndex('down', Math.floor(t / 6) % HeroArt.STEPS), z = 1.9;
+      g.drawImage(fallSheet, fi * FW, 0, FW, FH, -FW * z / 2, -FH * z / 2, FW * z, FH * z);
+    } else {
+      const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
+      g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
+    }
     g.restore();
   }
 
