@@ -9220,6 +9220,19 @@ class EscSfx {
   lock()         { this.tone(1760, .07, 'square', .05); this.tone(1760, .07, 'square', .05, 0, .1); }
   thud()         { this.tone(140, .08, 'square', .1, 70); this.noise(.06, .1, 400, 3000); }
   glitch()       { for (let i = 0; i < 6; i++) this.tone(300 + Math.random() * 2400, .03, 'square', .07, 0, i * .022); this.noise(.14, .16, 2000, 12000); }
+  /* 현실이 끼어들 때 — 날카롭고 서늘하게: 유리를 긁는 듯한 높은 불협(반음 겹침)이 길게 울리며 살짝 처지고,
+     얼음 같은 쉿 소리 한 번, 바닥엔 차가운 낮은 울림. 빈 복도처럼 두 번 메아리 */
+  stab(v = 1) {
+    this.noise(.08, .22 * v, 5000, 14000);                                   // 슥 — 칼날 같은 첫 소리
+    this.noise(1.4, .05 * v, 6500, 12000, .02);                              // 서리 낀 쉿
+    [[2794, .06], [2960, .055], [4186, .035], [5920, .02]].forEach(([f, a]) => {   // F7 · F#7 · C8 · F#8 — 반음이 비벼 날카롭게
+      this.tone(f, 1.9, 'triangle', a * v, f * .955);
+      this.tone(f * 1.003, 1.9, 'sine', a * .7 * v, f * .95);               // 미세하게 어긋나 서늘한 떨림
+    });
+    [.2, .42].forEach((d, i) => { const k = (i ? .25 : .45) * v;            // 메아리
+      this.tone(2960, 1.2, 'triangle', .04 * k, 2830, d); this.tone(4186, 1.0, 'sine', .025 * k, 4000, d); });
+    this.tone(73, 1.6, 'sine', .14 * v, 52);                                 // 바닥의 차가운 울림
+  }
   beep(v = .05)  { this.tone(988, .09, 'sine', v); }                       // 심전도 한 박
   boom(v = 1)    { this.tone(58, 2.4, 'sine', .62 * v, 30); this.tone(41, 3.0, 'sine', .4 * v, 26, .02);   // 둥 — 가슴을 울리는 낮은 한 방
                    this.tone(116, .5, 'triangle', .16 * v, 48); this.noise(.45, .34 * v, 25, 320); this.noise(2.2, .07 * v, 20, 150, .05); }
@@ -9689,9 +9702,9 @@ const StayState = {
   update(s) {
     s.doorOpen = Math.max(0, s.doorOpen - .003);
     if (s.t === 90) s.sfx.slam();
-    if (s.t === 140) s.say('SESSION 142 — 예약됨', 'sys', 9999);
+    if (s.t === 160) s.say('SESSION 142 — 예약됨', 'sys', 9999, 7);       // 한 글자씩 천천히
     s.lights = Math.max(0, s.lights - .004);
-    if (s.t >= 280) s.finish('stay');
+    if (s.t >= 560) s.finish('stay');
   },
   draw(s, b) {
     drawWorld(s, b);
@@ -9774,7 +9787,7 @@ const RunState = {
       } else if (s.z >= S - 16 && s.turnK < 0) s.turnK = i;
     });
     REAL.forEach(([z, dur, k], i) => {
-      if (!(s.realMask & (1 << i)) && s.z >= z) { s.realMask |= 1 << i; s.realT = dur; s.realDur = dur; s.realK = k; s.sfx.glitch(); s.sfx.beep(.09); if (k === 2) s.sfx.inject(); }
+      if (!(s.realMask & (1 << i)) && s.z >= z) { s.realMask |= 1 << i; s.realT = dur; s.realDur = dur; s.realK = k; s.sfx.stab(); if (k === 2) s.sfx.inject(); }
     });
     if (s.realT > 0) s.realT--;
     if (theme(s.z) > .25 && s.runT % 52 === 0) s.sfx.beep(.012 + theme(s.z) * .02);    // 어딘가에서 심전도가 울립니다
@@ -9981,8 +9994,9 @@ const FreeState = {
     if (t === 420) { s.sfx.boom(1); s.shake = 10; s.realT = 9999; s.realDur = 200; s.realK = 3; }   // 둥 — 진짜 결말
     if (t === 450) s.say('진정됐어요. 맥박 정상.', 'cold', 140);
     if (t === 560) s.say('출구까지 갔네요. 이번엔.', 'doc', 150);
-    if (t === 690) { s.sfx.boom(.6); s.sfx.beep(.08); s.say('SESSION 142 — 진행 중', 'sys', 9999); }
-    if (t >= 800) s.finish('escaped');
+    if (t === 720) { s.sfx.boom(.6); s.sfx.beep(.08); s.say('SESSION 142 — 진행 중', 'sys', 9999, 7); }   // 한 글자씩 천천히
+    if (t === 900 || t === 1020) s.sfx.beep(.05);                          // 다 찍힌 뒤 — 심전도 두 번
+    if (t >= 1180) s.finish('escaped');
   },
   draw(s, b) {
     drawWorld(s, b);
