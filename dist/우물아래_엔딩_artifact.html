@@ -4771,8 +4771,8 @@ const START_Z = -2.6;            // 처음 서 있는 자리 (문 앞)
 const JUMP = 42, SLIDE = 46;     // 점프 · 슬라이드 길이 (프레임)
 const CHASE0 = 13;               // 추격자와의 처음 거리
 const GUN_Z = 286, ZONE0 = 300, ZONE1 = 450;   // 총을 줍는 자리 · 총격전 구간
-const MAG = 12;                  // 탄창
-const AIM_T = 72, LOCK_T = 54;   // 경비원 조준 길이 · 조준선이 고정되는 시점
+const MAG = 16;                  // 탄창 (넉넉하게)
+const AIM_T = 104, LOCK_T = 78;  // 경비원 조준 길이 · 조준선이 고정되는 시점 (고정 뒤 비킬 틈 26프레임)
 
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -5018,15 +5018,14 @@ function genObstacles() {
   }
   // 총격전 구간 — 경비원 몇은 카트 뒤에 숨어 있습니다 (카트는 피해야 하고)
   GUARDS.forEach(([gz, lane, cover]) => { if (cover) list.push(mkObs('cart', gz - 1.6, [lane])); });
-  list.push(mkObs('pipe', 372, ALL), mkObs('barrier', 418, ALL));
+  list.push(mkObs('pipe', 376, ALL));                                       // 총격전 중 장애물은 하나만
   return list.filter(o => !CORNERS().some(([S]) => o.z + o.d > S - 12 && o.z < S + 4 + 8));   // 모퉁이 앞뒤는 비움 (꺾는 데 집중)
 }
 
 /* 경비원 — [z, 칸, 엄폐물 뒤인지] */
-const GUARDS = [[318, 0, false], [334, -1, true], [350, 1, false], [366, 0, true],
-                [384, -1, false], [398, 1, true], [412, 0, false], [430, -1, true], [442, 1, false]];
+const GUARDS = [[320, 0, false], [342, -1, true], [364, 1, false], [388, 0, false], [410, -1, true], [434, 1, false]];   // 여섯 — 간격을 넓게
 function genGuards() {
-  return GUARDS.map(([z, lane, cover]) => ({ z, x: lane * LANE, cover, hp: 2, st: 'wait', t: 0, lockX: 0, flash: 0, hitT: 0 }));
+  return GUARDS.map(([z, lane, cover]) => ({ z, x: lane * LANE, cover, hp: 1, st: 'wait', t: 0, lockX: 0, flash: 0, hitT: 0 }));
 }
 
 /* 지나가며 들려오는 목소리 · 혼잣말 — [z, 대사, 누구] */
@@ -5396,7 +5395,8 @@ const RunState = {
     if (s.slideT >= 0) { s.slideT++; if (s.slideT >= SLIDE) s.slideT = -1; }
 
     // 추격자 — 너무 멀어지면 고무줄처럼 다시 붙습니다
-    const vp = base * (s.dist > 16 ? 1.07 : .972);
+    const gunZone = s.z > GUN_Z && s.z < ZONE1;                    // 총격전 동안은 그가 조금 처짐 — 쏘는 데 집중하게
+    const vp = base * (s.dist > 16 ? 1.07 : gunZone ? .935 : .972);
     s.dist = Math.min(22, s.dist + (v - vp) / 60);
     s.chaseX += (s.x - s.chaseX) * .03;
     const danger = clamp01((9 - s.dist) / 9);
@@ -5452,7 +5452,7 @@ const RunState = {
    탄을 다 쓰거나 R 을 누르면 장전 열두 장(탄창 배출 → 삽입 → 슬라이드).
    시트가 없으면(모듈을 안 불렀을 때) 장전은 시간만 흐릅니다. */
 const PA = window.PistolArt || null;
-const RELOAD_SPEED = .8;                       // 시연보다 조금 빠르게 — 달리는 중이니까
+const RELOAD_SPEED = .6;                       // 시연보다 빠르게 — 달리는 중이니까
 const RSEQ = PA ? PA.SEQ.map(([c, r, d, ev]) => [c, r, Math.max(3, Math.round(d * RELOAD_SPEED)), ev]) : [[0, 0, 70, null]];
 const RELOAD_LEN = RSEQ.reduce((a, q) => a + q[2], 0);
 /* 총의 자리 — 조준할 땐 조준 칸의 소실점(PA.AT.aim)이 화면 한가운데(조준점)에 오도록,
@@ -5525,23 +5525,23 @@ function updateGun(s) {
     if (g.st === 'gone') continue;
     if (g.st === 'die') { if (++g.t > 26) g.st = 'gone'; continue; }
     if (dz < 3) { g.st = 'gone'; continue; }                       // 지나쳤습니다
-    if (g.st === 'wait') { if (dz < 34) { g.st = 'pop'; g.t = 0; } continue; }
+    if (g.st === 'wait') { if (dz < 40) { g.st = 'pop'; g.t = 0; } continue; }      // 조금 더 멀리서 나타나 쏠 틈이 넉넉
     g.t++;
-    if (g.st === 'pop' && g.t >= 20) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
+    if (g.st === 'pop' && g.t >= 30) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
     else if (g.st === 'aim') {
       if (g.t < LOCK_T) g.lockX = s.x;                              // 조준선이 따라옵니다
       if (g.t === LOCK_T) s.sfx.lock();                            // 고정 — 이제 비켜야 합니다
       if (g.t >= AIM_T) {
         g.st = 'cool'; g.t = 0; g.flash = 5;
         s.sfx.enemyShot();
-        const dodged = Math.abs(s.x - g.lockX) > .55 || slideK(s) > .5;
+        const dodged = Math.abs(s.x - g.lockX) > .4 || slideK(s) > .35;
         if (!dodged && s.immune <= 0) {
-          s.stumble = 40; s.immune = 30; s.shake = 14; s.flash = .9; s.sfx.hit();
+          s.stumble = 24; s.immune = 70; s.shake = 10; s.flash = .7; s.sfx.hit();   // 맞아도 잠깐 휘청 · 한동안 무적
           if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 빨간 선 뜨면 비켜야 하나 봐.', 'me', 120); }
         }
       }
     }
-    else if (g.st === 'cool' && g.t >= 46) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
+    else if (g.st === 'cool' && g.t >= 84) { g.st = 'aim'; g.t = 0; s.sfx.charge(); }
   }
 }
 
@@ -5583,7 +5583,7 @@ function autoFire(s) {
 function guardBox(s, g) {
   const dz = g.z - s.z;
   if (dz <= NEAR) return null;
-  const a = P(s, g.x - .3, 1.86, dz), c = P(s, g.x + .3, g.cover ? 1.0 : 0, dz);
+  const a = P(s, g.x - .42, 1.95, dz), c = P(s, g.x + .42, g.cover ? .9 : 0, dz);   // 넉넉한 판정
   return { x0: a[0], y0: a[1], x1: c[0], y1: c[1], headY: P(s, 0, 1.52, dz)[1] };
 }
 function pursuerBox(s) {
