@@ -2200,7 +2200,7 @@ function renderScreen() {
   if (G.doze) renderDoze();
   if (G.awayMsg) renderAwayMsg();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
-  if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
+  if (!G.inForest && !cine && !G.hideHero && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
 
   if (G.flash > .02) {
@@ -2734,6 +2734,7 @@ function heroArt() {
 }
 
 function drawPlayer() {
+  if (G.hideHero) return;                               // 엔딩 — 주인공을 뺀 방 그림을 뜰 때
   // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
   // 위로 뜰 때 살짝 눌리고(squash), 내려올 때 살짝 늘어나는(stretch)
   // 고전 애니메이션 원리로, 프레임이 몇 장 없는 스프라이트에도
@@ -5241,13 +5242,38 @@ function beginEnding() {
   $('ending').classList.remove('hidden');
   Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll();
 
+  const world = endingWorld();                  // 마지막 방 — 입체로 일어설 재료 (그리기 전에 떠 둠)
   endingScene = new EndingScene($('endcv'), {
+    world: world && (() => world),
     // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
     source: () => { render(); return cv; },
     audio: () => Sfx.context(),
     onReturn: () => beginEscape()        // 눈을 뜬 그 자리에서 1인칭으로 — 제4막 탈출
   });
   endingScene.start();
+}
+
+/* 마지막 방을 입체 모형으로 세울 재료 (diorama3d.js) — 주인공을 뺀 방 그림 · 주인공 그림 한 장 · 벽 · 문 자리.
+   무너지던 화면(endWarp) · 흔들림 · 번쩍임은 걷어 낸 깨끗한 한 장으로 */
+function endingWorld() {
+  if (G.inForest || !MAP[G.room] || !window.Diorama3D) return null;
+  const keep = { warp: G.endWarp, shake: G.shake, flash: G.flash, glare: G.glare };
+  G.endWarp = 0; G.shake = 0; G.flash = 0; G.glare = 0;
+  try {
+    const cx = camX(), cy = camY();
+    const hx = Math.round(P.x - 36), hy = Math.round(P.y - 45), hw = 72, hh = 65;
+    const hc = document.createElement('canvas'); hc.width = hw; hc.height = hh;
+    const gk = g, inv = P.inv; g = hc.getContext('2d'); g.imageSmoothingEnabled = false; g.translate(-hx, -hy);
+    P.inv = 0;                                               // 무적 깜빡임(반투명) 없이 또렷하게
+    try { drawPlayer(); } finally { g = gk; P.inv = inv; }
+    G.hideHero = true;
+    try { render(); } finally { G.hideHero = false; }
+    const rc = document.createElement('canvas'); rc.width = cv.width; rc.height = cv.height; rc.getContext('2d').drawImage(cv, 0, 0);
+    const whole = W === VW && H === VH;                       // 방 전체가 한 화면일 때만 테두리 벽을 세움
+    return { room: rc, hero: hc, heroAt: [hx - cx, hy - cy, hw, hh], W: VW, H: VH, TS,
+             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole };
+  } catch (e) { return null; }
+  finally { Object.assign(G, { endWarp: keep.warp, shake: keep.shake, flash: keep.flash, glare: keep.glare }); }
 }
 
 /* ═══════════ 제4막 (시제품) — 연구소 탈출, 1인칭 ═══════════════

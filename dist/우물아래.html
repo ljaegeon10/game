@@ -3945,14 +3945,20 @@ function drawPropsPass(g, props, t, refY, front) {
    전체를 즉시 실행 함수로 감싸 EndingScene 하나만 밖으로 냅니다.
 
    상태 머신
-     crash ─▶ awaken ─▶ reveal ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
-     현실 붕괴   심전도     모니터→실험실  타자기·눈 뜸  SPACE 대기   페이드
+     (rise ─▶) crash ─▶ awaken ─▶ reveal ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
+      입체로 일어섬  현실 붕괴   심전도     모니터→실험실  타자기·눈 뜸  SPACE 대기   페이드
+
+   rise   — world 를 받으면(게임 안) 마지막 방이 그대로 입체가 되어 일어서고, 주인공의 눈(1인칭)으로 내려앉습니다 (diorama3d.js)
+   reveal · truth — labroom.js 가 있으면 오프닝 · 탈출과 같은 3D 실험실을 07 의 눈으로 (침대에 누운 채).
+            마지막엔 천장을 올려다본 그 자리 — 탈출(escape.js)이 바로 그 화면에서 이어집니다.
+            WebGL 이 없으면 예전 픽셀 실험실 그대로.
 
    쓰는 법 (game.js 의 beginEnding)
      new EndingScene(canvas, {
        source:   () => 게임 화면 캔버스,   // 매 프레임 이걸 받아 무너뜨림 (없으면 대역 던전)
        audio:    () => AudioContext,       // 게임과 같은 오디오 컨텍스트
-       onReturn: () => 엔드 카드 띄우기
+       onReturn: () => 엔드 카드 띄우기,
+       world:    () => { room, hero, heroAt, W, H, TS, doors, walls }   // 있으면 rise 부터 (diorama3d.js)
      }).start();
    ═══════════════════════════════════════════════════════════════ */
 (() => {
@@ -4793,6 +4799,78 @@ const GLITCH_WORDS = ['SIGNAL LOST', 'DREAM DEPTH 4 → 0', 'ERR 0x07', 'REM ▓
    각 상태는 enter · update · draw · input 을 가진 평범한 객체입니다.
    s.t 는 상태에 들어온 뒤 지난 프레임 수입니다. */
 
+/* Phase 0 — 일어섬 (약 5.5초, world 가 있을 때만)
+   자물쇠를 연 그 탑뷰 화면이 그대로 멈춘 채로 시작해 — 벽이 솟고, 카메라가 위에서
+   주인공에게로 내려앉아 그 눈이 됩니다(1인칭). 2D 로 보던 곳이 입체였다는 것.
+     0‥45   : 탑뷰 그대로, 찢어진 화면이 가라앉음
+     40‥190 : 벽이 솟음 (낮게 우르릉)
+     70‥300 : 카메라가 주인공의 눈으로 — 주인공 그림은 흩어지고, 지나온 방을 1인칭으로 돌아봄 (쉬익)
+     300‥330: 멈칫 — 그리고 무너짐(crash) */
+const RISE_DUR = 330;
+const RiseState = {
+  enter(s) { s.riseK = 0; s.camK = 0; s.sfx.startNoise(); },
+  update(s) {
+    const t = s.t;
+    s.riseK = clamp01((t - 40) / 150);
+    s.camK = clamp01((t - 70) / 230);
+    if (t === 40) { s.sfx.tone(46, 3.2, { type: 'sawtooth', vol: .14, slideTo: 64, attack: .4 }); s.sfx.tone(92, 2.6, { type: 'triangle', vol: .06, slideTo: 130, attack: .3 }); }
+    if (t === 190) s.sfx.tone(60, .5, { type: 'sine', vol: .2, slideTo: 38 });           // 다 일어선 벽이 쿵
+    const sw = Math.sin(clamp01((t - 70) / 230) * Math.PI);
+    s.sfx.setNoise(t < 8 ? .2 : t < 40 ? .02 : .02 + sw * .1, 250 + s.camK * 1100);
+    if (t >= RISE_DUR) {
+      const d = s.dio;
+      s.source = () => d.render(1, d.camAt(1, s.frame + Math.random() * 40), { lit: 1, heroA: 0 });   // 무너지는 동안에도 그 눈 그대로
+      s.go('crash');
+    }
+  },
+  draw(s, c) {
+    const t = s.t, d = s.dio;
+    const cm = d.camAt(s.camK, s.frame), img = d.render(s.riseK, cm, { heroA: cm.heroA });
+    c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+    c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
+    // 처음 몇 프레임 — 무너지던 화면(endWarp)의 여진이 가라앉음
+    const tear = t < 45 ? (1 - t / 45) : (t > 296 && Math.random() < .35 ? .5 : 0);
+    if (tear > 0) {
+      for (let i = 0; i < 2 + tear * 8; i++) {
+        const y = ri(0, H - 1), h = ri(2, 4 + tear * 30), dx = (rand(-1, 1) * 60 * tear) | 0;
+        c.drawImage(c.canvas, 0, y, W, h, dx, y, W, h);
+      }
+    }
+  }
+};
+
+/* ── 3D 실험실 (labroom.js) — 오프닝 · 탈출과 같은 방, 같은 침대. 07 의 눈으로 ── */
+const HP = Math.PI / 2;
+const LIE = { x: -1.24, y: .98, z: 5.8, yaw: HP, pitch: 1.25, roll: 0 };        // 탈출(escape.js)의 CAM_LIE 와 같음
+const LOOK_MON = { yaw: 1.36, pitch: .2 };                                       // 발치 너머 — 벽의 심전도 모니터 쪽
+function lieCam() {
+  const pe = window.LabRoomGeo && LabRoomGeo.patientEye && LabRoomGeo.patientEye(0);
+  return pe ? { ...LIE, x: pe[0], y: pe[1], z: pe[2] } : { ...LIE };
+}
+/* look : 0 모니터 쪽 ‥ 1 천장,  open : 눈꺼풀 (0 감김 ‥ 1),  blur : 초점 */
+function drawLab3D(s, c, look, open, blur) {
+  const base = lieCam(), k = smooth(look);
+  const cam = { ...base, yaw: lerp(LOOK_MON.yaw, LIE.yaw, k), pitch: lerp(LOOK_MON.pitch, LIE.pitch, k) + Math.sin(s.frame * .02) * .006, roll: 0 };
+  const img = s.lab3.render({ cam, t: s.frame, wires: 4, wirePull: [0, 0, 0, 0], ivOut: false, ivT: 0, rise: 0, sit: true, doorSlide: 0,
+                              body: LabRoomGeo.bodyPose(base, 0, 0), dim: .14 + s.light * .8 });
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  c.save(); c.imageSmoothingEnabled = true;
+  if (blur > .3) c.filter = `blur(${blur.toFixed(1)}px)`;
+  c.drawImage(img, 0, 0, W, H);
+  c.restore();
+  if (open < 1) {                                          // 눈꺼풀 — 위아래에서 부드럽게
+    const lid = (1 - open) * H * .52;
+    for (const top of [true, false]) {
+      const gr = c.createLinearGradient(0, top ? lid - 60 : H - lid + 60, 0, top ? lid + 10 : H - lid - 10);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = '#000';
+      if (top) c.fillRect(0, 0, W, Math.max(0, lid - 60)); else c.fillRect(0, H - lid + 60, W, lid);
+      c.fillStyle = gr;
+      if (top) c.fillRect(0, lid - 60, W, 70); else c.fillRect(0, H - lid - 10, W, 70);
+    }
+  }
+}
+
 /* Phase 1 — 현실 붕괴 (약 5초)
      0‥50   : 마지막 방 그대로, 가끔 튀는 글리치
      50‥170 : 글리치가 차오름
@@ -4928,7 +5006,13 @@ const RevealState = {
     if (t === 192) s.sfx.humStart();
     if (t >= 350) s.go('truth');
   },
-  draw(s, c) { drawLabView(s, c); }
+  draw(s, c) {
+    if (!s.lab3) { drawLabView(s, c); return; }
+    // 심전도 화면이 걷히면 — 누운 채 발치 너머로 본 실험실. 반쯤 감긴 눈, 형광등이 튀며 켜짐
+    drawLab3D(s, c, 0, .42 + Math.sin(s.frame * .03) * .03, 2.6 - s.light * 1.2);
+    const a = 1 - smooth(clamp01((s.t - 20) / 110));
+    if (a > 0) { c.globalAlpha = a; drawMonitorScreen(s, c, { x: 0, y: 0, w: W, h: H }); c.globalAlpha = 1; }
+  }
 };
 
 /* Phase 4 — 진실 : 터미널이 떠오르고, 다 찍히면 카메라가 얼굴로 다가가
@@ -4947,7 +5031,11 @@ const TruthState = {
     if (s.pushT >= 220) s.go('standby');
   },
   draw(s, c) {
-    drawLabView(s, c);
+    if (s.lab3) {
+      // 다 찍히면 고개가 천장 쪽으로 넘어가고, 숨을 들이쉬며 눈이 번쩍 — 오프닝의 첫 화면, 탈출의 첫 화면
+      const look = clamp01((s.pushT - 20) / 180), op = s.awake ? .42 + smooth(clamp01((s.pushT - 130) / 26)) * .58 : .42 + Math.sin(s.frame * .03) * .03;
+      drawLab3D(s, c, look, op, s.awake ? Math.max(0, 1.4 - (s.pushT - 130) * .03) : 1.4);
+    } else drawLabView(s, c);
     drawTerminal(s, c);
   }
 };
@@ -5096,7 +5184,7 @@ function drawTerminal(s, c) {
 
 /* ═════════════ 씬 본체 ═════════════════════════════════════ */
 class EndingScene {
-  constructor(canvas, { source, audio, onReturn } = {}) {
+  constructor(canvas, { source, audio, onReturn, world } = {}) {
     this.canvas = canvas;
     canvas.width = W; canvas.height = H;
     this.ctx = canvas.getContext('2d');
@@ -5106,12 +5194,15 @@ class EndingScene {
     [this.src, this.sx] = makeCanvas(LW, LH);
     if (!source) this.dungeon = new Dungeon();
     this.lab = new Lab();
+    // 입체 — 마지막 방(diorama3d.js) · 실험실(labroom.js). 안 되면 예전 그림으로
+    try { const wd = world && window.Diorama3D && world(); if (wd) { this.dio = new Diorama3D(wd, W, H); if (!this.dio.ok) this.dio = null; } } catch (e) { this.dio = null; }
+    try { if (window.LabRoom) { this.lab3 = new LabRoom(); if (!this.lab3.ok) this.lab3 = null; } } catch (e) { this.lab3 = null; }
     this.glitch = new GlitchFX();
     this.ekg = new EKGMonitor(this.sfx);
     this.term = new Terminal(TRUTH_LINES, this.sfx);
     this.overlay = bakeOverlay();
     this.grid = bakeGrid();
-    this.states = { crash: CrashState, awaken: AwakenState, reveal: RevealState,
+    this.states = { rise: RiseState, crash: CrashState, awaken: AwakenState, reveal: RevealState,
                     truth: TruthState, standby: StandbyState, exit: ExitState };
     this.loop = this.loop.bind(this);
     this.onKey = this.onKey.bind(this);
@@ -5121,7 +5212,7 @@ class EndingScene {
     this.sfx.unlock();
     this.frame = 0;
     this.awake = false; this.light = 0; this.view = FULL_VIEW;
-    this.go('crash');
+    this.go(this.dio ? 'rise' : 'crash');
     this.running = true;
     this.acc = 0;
     this.last = performance.now();
@@ -5134,6 +5225,8 @@ class EndingScene {
     removeEventListener('keydown', this.onKey);
     this.sfx.stopNoise();
     this.sfx.humStop();
+    for (const r of [this.dio, this.lab3]) { const x = r && r.gl && r.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); }
+    this.dio = this.lab3 = null;
   }
   go(name) {
     if (this.state && this.state.exit) this.state.exit(this);
@@ -5167,7 +5260,8 @@ class EndingScene {
     c.globalCompositeOperation = 'source-over';
     c.imageSmoothingEnabled = false;
     this.state.draw(this, c);
-    c.drawImage(this.overlay, 0, 0);
+    // 주사선 · 가장자리 그늘 — 3D 실험실(탈출과 같은 화면)에선 걷어 냄
+    if (!(this.lab3 && /^(reveal|truth|standby|exit)$/.test(this.stateName))) c.drawImage(this.overlay, 0, 0);
   }
   onKey(e) {
     if (e.code !== 'Space') return;
@@ -8691,6 +8785,197 @@ class Opening3D {
 }
 
 window.Opening3D = Opening3D;
+})();
+
+</script>
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   diorama3d.js — 마지막 방이 입체로 일어섬 (WebGL)
+
+   마지막 자물쇠를 연 그 탑뷰 화면을 그대로 받아, 처음엔 위에서 똑같이 내려다보다가
+   벽이 솟고 · 카메라가 주인공에게로 내려앉아 그 눈이 됩니다(1인칭) — 주인공 그림은 흩어져 사라짐.
+   2D 로 보던 세계가 사실은 입체였다는 것 — 이어지는 실험실(3D)과 같은 결로 넘어가는 다리.
+
+     바닥   — 주인공을 뺀 방 그림을 판 하나에 (판은 두께가 있어 어둠 속에 떠 있는 모형처럼)
+     벽     — 테두리 한 칸(TS) 두께. 윗면은 그 자리의 그림, 옆면은 돌 그림을 늘여 붙임. 문 자리는 비움
+     주인공 — 바닥에 누운 그림 한 장(탑뷰 그대로). 카메라가 내려앉을수록 픽셀이 흩어져 사라짐 — 이제 내가 그 눈
+
+   쓰는 곳 : ending.js (RiseState) — game.js 의 beginEnding 이 world() 로 방 정보를 넘깁니다
+   ═══════════════════════════════════════════════════════════════ */
+(() => {
+const L3 = window.Lab3D;
+if (!L3) return;
+const { Mesh } = L3;
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const lerp = (a, b, k) => a + (b - a) * k;
+const lerp3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const smooth = k => { k = clamp01(k); return k * k * (3 - 2 * k); };
+
+function persp(fovy, asp, n, f) { const t = 1 / Math.tan(fovy / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]; }
+function look(e, f, up) {
+  const z = norm(mul(f, -1)), x = norm(cross(up, z)), y = cross(z, x);
+  return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -dot(x, e), -dot(y, e), -dot(z, e), 1];
+}
+function mmul(a, b) { const o = new Array(16); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + r] * b[c * 4 + k]; o[c * 4 + r] = s; } return o; }
+
+/* 재질 aE — 0 방 그림(바닥 · 벽 윗면, 빛을 그대로), 1 그림을 늘인 옆면(그늘), 2 판의 바깥 돌(어두운 바위), 3 주인공 그림(투명 부분은 뚫음) */
+const VS = `
+attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aUV; attribute float aE;
+uniform mat4 uVP;
+varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
+void main(){ vP=aP; vN=aN; vC=aC; vUV=aUV; vE=aE; gl_Position=uVP*vec4(aP,1.0); }`;
+const FS = `
+precision mediump float;
+varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
+uniform sampler2D uRoom; uniform sampler2D uHero; uniform vec3 uEye; uniform vec3 uLamp; uniform float uFogD; uniform float uDim; uniform float uLit; uniform float uHeroA;
+float h2(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
+void main(){
+  vec3 c;
+  if(vE>2.5){ vec4 h=texture2D(uHero,vUV); if(h.a<.55 || h2(floor(vUV*vec2(24.0,22.0)))>uHeroA) discard; c=h.rgb; }   // 흩어짐 — 픽셀 덩어리째
+  else if(vE>1.5){ c=vC*(.75+.5*h2(floor(vP.xz*6.0)+floor(vP.y*6.0))); }
+  else { c=texture2D(uRoom,vUV).rgb*vC*(1.0+.6*uLit); }       // 입체가 되면 조금 밝게 — 어둠 속 모형이 읽히게
+  // 입체가 드러날수록 — 주인공 머리 위 한 점의 빛이 벽 옆면 · 바닥 가장자리를 비춤 (윗면 그림은 원래 밝기 그대로)
+  vec3 L=uLamp-vP; float d=length(L); L/=d;
+  float lam=max(dot(normalize(vN),L),0.0)/(1.0+d*d*.018);
+  c*=mix(1.0, .55+2.3*lam, uLit*(vE>.5?1.0:.45));
+  float f=exp(-length(vP-uEye)*uFogD);
+  gl_FragColor=vec4(c*f*uDim,1.0);
+}`;
+
+class Diorama3D {
+  /* w : { room: 주인공 뺀 방 그림, hero: 주인공 그림(투명 바탕), heroAt: [x, y, w, h] 그 그림이 방 그림의 어디에 놓였나,
+           W, H, TS : 방 크기 · 칸 크기(px), doors: ['W', 'E', …] 문이 있는 쪽 } */
+  constructor(world, w = 960, h = 540) {
+    this.w = w; this.h = h; this.world = world;
+    this.canvas = document.createElement('canvas'); this.canvas.width = w; this.canvas.height = h;
+    const gl = this.canvas.getContext('webgl', { antialias: true, preserveDrawingBuffer: true }) || this.canvas.getContext('experimental-webgl');
+    this.ok = !!gl;
+    if (!gl) return;
+    this.gl = gl;
+    const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+    this.pr = pr; gl.useProgram(pr);
+    this.at = ['aP', 'aN', 'aC', 'aUV', 'aE'].map(n => gl.getAttribLocation(pr, n));
+    this.un = {}; ['uVP', 'uRoom', 'uHero', 'uEye', 'uLamp', 'uFogD', 'uDim', 'uLit', 'uHeroA'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
+    const tex = (img, nearest) => {
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      const f = nearest ? gl.NEAREST : gl.LINEAR;                  // 픽셀 그림은 픽셀 그대로
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return t;
+    };
+    this.texRoom = tex(world.room, true); this.texHero = tex(world.hero, true);
+    this.buf = gl.createBuffer(); this.hbuf = gl.createBuffer();
+    this.lastWallH = -1;
+  }
+  /* 1 칸(TS) = 1 m. 방 그림의 (px, py) → 바닥 위 (x, 0, z) */
+  px(x, y) { const T = this.world.TS; return [x / T, 0, y / T]; }
+  build(wallH) {
+    const { W, H, TS, doors } = this.world, m = new Mesh();
+    const U = (x, y) => [x / W, y / H];
+    const quadUV = (a, b, c, d, ua, ub, uc, ud, col, e) => {   // 꼭짓점마다 UV
+      const n = norm(cross(sub(b, a), sub(d, a)));
+      const push = (p, uv) => m.v.push(p[0], p[1], p[2], n[0], n[1], n[2], col[0], col[1], col[2], uv[0], uv[1], e);
+      push(a, ua); push(b, ub); push(c, uc); push(a, ua); push(c, uc); push(d, ud);
+    };
+    const nx = W / TS, nz = H / TS, P = (x, y, z) => [x, y, z];
+    // 바닥 — 벽 안쪽 (벽 칸 밑은 벽이 덮음)
+    quadUV(P(0, 0, 0), P(nx, 0, 0), P(nx, 0, nz), P(0, 0, nz), U(0, 0), U(W, 0), U(W, H), U(0, H), [1, 1, 1], 0);
+    // 판의 두께 — 어둠 속에 떠 있는 모형
+    const th = .7, rock = [.16, .14, .15];
+    quadUV(P(0, 0, nz), P(nx, 0, nz), P(nx, -th, nz), P(0, -th, nz), [0, 1], [1, 1], [1, 1], [0, 1], rock, 2);
+    quadUV(P(nx, 0, 0), P(0, 0, 0), P(0, -th, 0), P(nx, -th, 0), [0, 0], [1, 0], [1, 0], [0, 0], rock, 2);
+    quadUV(P(0, 0, 0), P(0, 0, nz), P(0, -th, nz), P(0, -th, 0), [0, 0], [0, 1], [0, 1], [0, 0], rock, 2);
+    quadUV(P(nx, 0, nz), P(nx, 0, 0), P(nx, -th, 0), P(nx, -th, nz), [1, 1], [1, 0], [1, 0], [1, 1], rock, 2);
+    if (wallH > .004 && this.world.walls !== false) {
+      // 벽 — 테두리 한 칸, 문 자리(가운데 52px)는 비움. 칸마다 상자 하나
+      const gapX = [W / 2 - 26, W / 2 + 26], gapY = [H / 2 - 26, H / 2 + 26];
+      const door = (d, a0, a1, g) => doors.includes(d) && a1 > g[0] && a0 < g[1];
+      const cell = (x0, y0, x1, y1) => {
+        const h = wallH * (.93 + .07 * Math.sin(x0 * .37 + y0 * .71));      // 돌 높이가 조금씩 다름
+        const a = this.px(x0, y0), b = this.px(x1, y1), t = [U(x0, y0), U(x1, y0), U(x1, y1), U(x0, y1)];
+        const X0 = a[0], X1 = b[0], Z0 = a[2], Z1 = b[2];
+        quadUV(P(X0, h, Z0), P(X1, h, Z0), P(X1, h, Z1), P(X0, h, Z1), t[0], t[1], t[2], t[3], [1, 1, 1], 0);       // 윗면 = 그 자리 그림
+        const side = [.62, .6, .64];
+        // 옆면 — 윗면 그림을 세로로 늘여 (돌 무늬가 이어져 보이게)
+        quadUV(P(X0, h, Z1), P(X1, h, Z1), P(X1, 0, Z1), P(X0, 0, Z1), t[3], t[2], t[1], t[0], side, 1);
+        quadUV(P(X1, h, Z0), P(X0, h, Z0), P(X0, 0, Z0), P(X1, 0, Z0), t[1], t[0], t[3], t[2], side, 1);
+        quadUV(P(X0, h, Z0), P(X0, h, Z1), P(X0, 0, Z1), P(X0, 0, Z0), t[0], t[3], t[2], t[1], side, 1);
+        quadUV(P(X1, h, Z1), P(X1, h, Z0), P(X1, 0, Z0), P(X1, 0, Z1), t[2], t[1], t[0], t[3], side, 1);
+      };
+      for (let x = 0; x < W; x += TS) {
+        if (!door('N', x, x + TS, gapX)) cell(x, 0, x + TS, TS);
+        if (!door('S', x, x + TS, gapX)) cell(x, H - TS, x + TS, H);
+      }
+      for (let y = TS; y < H - TS; y += TS) {
+        const y1 = Math.min(y + TS, H - TS);
+        if (!door('W', y, y1, gapY)) cell(0, y, TS, y1);
+        if (!door('E', y, y1, gapY)) cell(W - TS, y, W, y1);
+      }
+    }
+    return m;
+  }
+  /* k : 0‥1 일어섬 정도 (벽 높이 · 주인공), cam : { eye, at, up } */
+  render(k, cam, { dim = 1, lit = 1, heroA = 1 } = {}) {
+    if (!this.ok) return null;
+    const gl = this.gl, un = this.un, wd = this.world;
+    const wallH = smooth(k) * 2.5;                      // 눈높이(1.5m)보다 높게 — 갇힌 방
+    if (Math.abs(wallH - this.lastWallH) > .002) {
+      const m = this.build(wallH); this.lastWallH = wallH;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(m.v), gl.DYNAMIC_DRAW); this.n = m.v.length / 12;
+    }
+    // 주인공 — 바닥에 누운 그림 그대로 (탑뷰). 카메라가 그 눈으로 내려앉으며 흩어짐
+    const [hx, hy, hw, hh] = wd.heroAt, T = wd.TS, fx = (hx + hw / 2) / T, fz = (hy + hh) / T;
+    const A = [hx / T, .003, hy / T], B = [(hx + hw) / T, .003, hy / T], C = [(hx + hw) / T, .003, (hy + hh) / T], D = [hx / T, .003, (hy + hh) / T];
+    const hm = new Mesh(); hm.quad(A, B, C, D, [1, 1, 1], { uv: [0, 0, 1, 1], m: 3 });
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.hbuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(hm.v), gl.DYNAMIC_DRAW);
+    // 그리기
+    gl.viewport(0, 0, this.w, this.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(this.pr);
+    const fwd = norm(sub(cam.at, cam.eye));
+    gl.uniformMatrix4fv(un.uVP, false, new Float32Array(mmul(persp(cam.fov || .7, this.w / this.h, .05, 120), look(cam.eye, fwd, cam.up))));
+    gl.uniform3fv(un.uEye, new Float32Array(cam.eye)); gl.uniform3fv(un.uLamp, new Float32Array([lerp(fx, wd.W / T / 2, .35), 3.2, fz]));
+    gl.uniform1f(un.uFogD, cam.fog || 0); gl.uniform1f(un.uDim, dim); gl.uniform1f(un.uLit, lit * smooth(k)); gl.uniform1f(un.uHeroA, heroA);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texRoom); gl.uniform1i(un.uRoom, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texHero); gl.uniform1i(un.uHero, 1);
+    const draw = (b, n) => { gl.bindBuffer(gl.ARRAY_BUFFER, b); const sz = [3, 3, 3, 2, 1]; let off = 0;
+      this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 48, off * 4); } off += sz[i]; });
+      gl.drawArrays(gl.TRIANGLES, 0, n); };
+    draw(this.buf, this.n); draw(this.hbuf, hm.v.length / 12);
+    return this.canvas;
+  }
+  /* 카메라 길 — k 0 : 바로 위에서 탑뷰와 똑같이,  1 : 주인공의 눈(1인칭) — 지나온 방을 돌아봄.
+     시야도 실험실(labroom.js)과 같은 넓이로 벌어져, 이어지는 3D 장면과 한 눈으로 이어짐 */
+  camAt(k, t) {
+    const { W, H, TS } = this.world, [hx, hy, hw, hh] = this.world.heroAt;
+    const nx = W / TS, nz = H / TS, fov0 = .7, fov1 = 62 * Math.PI / 180;
+    const topH = (nz / 2) / Math.tan(fov0 / 2);
+    const fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .25;           // 주인공이 선 자리
+    const top = { eye: [nx / 2, topH, nz / 2], at: [nx / 2, 0, nz / 2], up: [0, 0, -1] };
+    const look = [lerp(fx, nx / 2, .75) - (fx > nx / 2 ? 0 : -nx * .3), .75, nz / 2];          // 방 가운데 너머 — 들어온 쪽
+    const end = { eye: [fx, 1.5, fz], at: look, up: [0, 1, 0] };
+    const mid = { eye: [lerp(nx / 2, fx, .7), topH * .38, lerp(nz / 2, fz, .7)], at: [lerp(nx / 2, fx, .5), 0, lerp(nz / 2, fz, .5)], up: norm(lerp3([0, 0, -1], norm(sub(look, end.eye)), .5)) };
+    const e = smooth(k), a = 1 - e;
+    const bz = (p, q, r) => [0, 1, 2].map(i => a * a * p[i] + 2 * a * e * q[i] + e * e * r[i]);
+    const bob = [0, Math.sin(t * .05) * .012 * e, 0];                 // 숨 쉬듯
+    const fov = lerp(fov0, fov1, smooth((k - .55) / .45));
+    return { eye: add(bz(top.eye, mid.eye, end.eye), bob), at: bz(top.at, mid.at, end.at), up: norm(bz(top.up, mid.up, end.up)), fov, fog: .028 * e,
+             heroA: 1 - smooth((k - .3) / .35) };
+  }
+  dispose() { const x = this.gl && this.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); this.ok = false; }
+}
+window.Diorama3D = Diorama3D;
 })();
 
 </script>
@@ -14149,7 +14434,7 @@ function renderScreen() {
   if (G.doze) renderDoze();
   if (G.awayMsg) renderAwayMsg();
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
-  if (!G.inForest && !cine && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
+  if (!G.inForest && !cine && !G.hideHero && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
 
   if (G.flash > .02) {
@@ -14683,6 +14968,7 @@ function heroArt() {
 }
 
 function drawPlayer() {
+  if (G.hideHero) return;                               // 엔딩 — 주인공을 뺀 방 그림을 뜰 때
   // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
   // 위로 뜰 때 살짝 눌리고(squash), 내려올 때 살짝 늘어나는(stretch)
   // 고전 애니메이션 원리로, 프레임이 몇 장 없는 스프라이트에도
@@ -17190,13 +17476,38 @@ function beginEnding() {
   $('ending').classList.remove('hidden');
   Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll();
 
+  const world = endingWorld();                  // 마지막 방 — 입체로 일어설 재료 (그리기 전에 떠 둠)
   endingScene = new EndingScene($('endcv'), {
+    world: world && (() => world),
     // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
     source: () => { render(); return cv; },
     audio: () => Sfx.context(),
     onReturn: () => beginEscape()        // 눈을 뜬 그 자리에서 1인칭으로 — 제4막 탈출
   });
   endingScene.start();
+}
+
+/* 마지막 방을 입체 모형으로 세울 재료 (diorama3d.js) — 주인공을 뺀 방 그림 · 주인공 그림 한 장 · 벽 · 문 자리.
+   무너지던 화면(endWarp) · 흔들림 · 번쩍임은 걷어 낸 깨끗한 한 장으로 */
+function endingWorld() {
+  if (G.inForest || !MAP[G.room] || !window.Diorama3D) return null;
+  const keep = { warp: G.endWarp, shake: G.shake, flash: G.flash, glare: G.glare };
+  G.endWarp = 0; G.shake = 0; G.flash = 0; G.glare = 0;
+  try {
+    const cx = camX(), cy = camY();
+    const hx = Math.round(P.x - 36), hy = Math.round(P.y - 45), hw = 72, hh = 65;
+    const hc = document.createElement('canvas'); hc.width = hw; hc.height = hh;
+    const gk = g, inv = P.inv; g = hc.getContext('2d'); g.imageSmoothingEnabled = false; g.translate(-hx, -hy);
+    P.inv = 0;                                               // 무적 깜빡임(반투명) 없이 또렷하게
+    try { drawPlayer(); } finally { g = gk; P.inv = inv; }
+    G.hideHero = true;
+    try { render(); } finally { G.hideHero = false; }
+    const rc = document.createElement('canvas'); rc.width = cv.width; rc.height = cv.height; rc.getContext('2d').drawImage(cv, 0, 0);
+    const whole = W === VW && H === VH;                       // 방 전체가 한 화면일 때만 테두리 벽을 세움
+    return { room: rc, hero: hc, heroAt: [hx - cx, hy - cy, hw, hh], W: VW, H: VH, TS,
+             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole };
+  } catch (e) { return null; }
+  finally { Object.assign(G, { endWarp: keep.warp, shake: keep.shake, flash: keep.flash, glare: keep.glare }); }
 }
 
 /* ═══════════ 제4막 (시제품) — 연구소 탈출, 1인칭 ═══════════════

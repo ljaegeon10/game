@@ -8,14 +8,20 @@
    전체를 즉시 실행 함수로 감싸 EndingScene 하나만 밖으로 냅니다.
 
    상태 머신
-     crash ─▶ awaken ─▶ reveal ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
-     현실 붕괴   심전도     모니터→실험실  타자기·눈 뜸  SPACE 대기   페이드
+     (rise ─▶) crash ─▶ awaken ─▶ reveal ─▶ truth ─▶ standby ─▶ exit ─▶ onReturn()
+      입체로 일어섬  현실 붕괴   심전도     모니터→실험실  타자기·눈 뜸  SPACE 대기   페이드
+
+   rise   — world 를 받으면(게임 안) 마지막 방이 그대로 입체가 되어 일어서고, 주인공의 눈(1인칭)으로 내려앉습니다 (diorama3d.js)
+   reveal · truth — labroom.js 가 있으면 오프닝 · 탈출과 같은 3D 실험실을 07 의 눈으로 (침대에 누운 채).
+            마지막엔 천장을 올려다본 그 자리 — 탈출(escape.js)이 바로 그 화면에서 이어집니다.
+            WebGL 이 없으면 예전 픽셀 실험실 그대로.
 
    쓰는 법 (game.js 의 beginEnding)
      new EndingScene(canvas, {
        source:   () => 게임 화면 캔버스,   // 매 프레임 이걸 받아 무너뜨림 (없으면 대역 던전)
        audio:    () => AudioContext,       // 게임과 같은 오디오 컨텍스트
-       onReturn: () => 엔드 카드 띄우기
+       onReturn: () => 엔드 카드 띄우기,
+       world:    () => { room, hero, heroAt, W, H, TS, doors, walls }   // 있으면 rise 부터 (diorama3d.js)
      }).start();
    ═══════════════════════════════════════════════════════════════ */
 (() => {
@@ -856,6 +862,78 @@ const GLITCH_WORDS = ['SIGNAL LOST', 'DREAM DEPTH 4 → 0', 'ERR 0x07', 'REM ▓
    각 상태는 enter · update · draw · input 을 가진 평범한 객체입니다.
    s.t 는 상태에 들어온 뒤 지난 프레임 수입니다. */
 
+/* Phase 0 — 일어섬 (약 5.5초, world 가 있을 때만)
+   자물쇠를 연 그 탑뷰 화면이 그대로 멈춘 채로 시작해 — 벽이 솟고, 카메라가 위에서
+   주인공에게로 내려앉아 그 눈이 됩니다(1인칭). 2D 로 보던 곳이 입체였다는 것.
+     0‥45   : 탑뷰 그대로, 찢어진 화면이 가라앉음
+     40‥190 : 벽이 솟음 (낮게 우르릉)
+     70‥300 : 카메라가 주인공의 눈으로 — 주인공 그림은 흩어지고, 지나온 방을 1인칭으로 돌아봄 (쉬익)
+     300‥330: 멈칫 — 그리고 무너짐(crash) */
+const RISE_DUR = 330;
+const RiseState = {
+  enter(s) { s.riseK = 0; s.camK = 0; s.sfx.startNoise(); },
+  update(s) {
+    const t = s.t;
+    s.riseK = clamp01((t - 40) / 150);
+    s.camK = clamp01((t - 70) / 230);
+    if (t === 40) { s.sfx.tone(46, 3.2, { type: 'sawtooth', vol: .14, slideTo: 64, attack: .4 }); s.sfx.tone(92, 2.6, { type: 'triangle', vol: .06, slideTo: 130, attack: .3 }); }
+    if (t === 190) s.sfx.tone(60, .5, { type: 'sine', vol: .2, slideTo: 38 });           // 다 일어선 벽이 쿵
+    const sw = Math.sin(clamp01((t - 70) / 230) * Math.PI);
+    s.sfx.setNoise(t < 8 ? .2 : t < 40 ? .02 : .02 + sw * .1, 250 + s.camK * 1100);
+    if (t >= RISE_DUR) {
+      const d = s.dio;
+      s.source = () => d.render(1, d.camAt(1, s.frame + Math.random() * 40), { lit: 1, heroA: 0 });   // 무너지는 동안에도 그 눈 그대로
+      s.go('crash');
+    }
+  },
+  draw(s, c) {
+    const t = s.t, d = s.dio;
+    const cm = d.camAt(s.camK, s.frame), img = d.render(s.riseK, cm, { heroA: cm.heroA });
+    c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+    c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
+    // 처음 몇 프레임 — 무너지던 화면(endWarp)의 여진이 가라앉음
+    const tear = t < 45 ? (1 - t / 45) : (t > 296 && Math.random() < .35 ? .5 : 0);
+    if (tear > 0) {
+      for (let i = 0; i < 2 + tear * 8; i++) {
+        const y = ri(0, H - 1), h = ri(2, 4 + tear * 30), dx = (rand(-1, 1) * 60 * tear) | 0;
+        c.drawImage(c.canvas, 0, y, W, h, dx, y, W, h);
+      }
+    }
+  }
+};
+
+/* ── 3D 실험실 (labroom.js) — 오프닝 · 탈출과 같은 방, 같은 침대. 07 의 눈으로 ── */
+const HP = Math.PI / 2;
+const LIE = { x: -1.24, y: .98, z: 5.8, yaw: HP, pitch: 1.25, roll: 0 };        // 탈출(escape.js)의 CAM_LIE 와 같음
+const LOOK_MON = { yaw: 1.36, pitch: .2 };                                       // 발치 너머 — 벽의 심전도 모니터 쪽
+function lieCam() {
+  const pe = window.LabRoomGeo && LabRoomGeo.patientEye && LabRoomGeo.patientEye(0);
+  return pe ? { ...LIE, x: pe[0], y: pe[1], z: pe[2] } : { ...LIE };
+}
+/* look : 0 모니터 쪽 ‥ 1 천장,  open : 눈꺼풀 (0 감김 ‥ 1),  blur : 초점 */
+function drawLab3D(s, c, look, open, blur) {
+  const base = lieCam(), k = smooth(look);
+  const cam = { ...base, yaw: lerp(LOOK_MON.yaw, LIE.yaw, k), pitch: lerp(LOOK_MON.pitch, LIE.pitch, k) + Math.sin(s.frame * .02) * .006, roll: 0 };
+  const img = s.lab3.render({ cam, t: s.frame, wires: 4, wirePull: [0, 0, 0, 0], ivOut: false, ivT: 0, rise: 0, sit: true, doorSlide: 0,
+                              body: LabRoomGeo.bodyPose(base, 0, 0), dim: .14 + s.light * .8 });
+  c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+  c.save(); c.imageSmoothingEnabled = true;
+  if (blur > .3) c.filter = `blur(${blur.toFixed(1)}px)`;
+  c.drawImage(img, 0, 0, W, H);
+  c.restore();
+  if (open < 1) {                                          // 눈꺼풀 — 위아래에서 부드럽게
+    const lid = (1 - open) * H * .52;
+    for (const top of [true, false]) {
+      const gr = c.createLinearGradient(0, top ? lid - 60 : H - lid + 60, 0, top ? lid + 10 : H - lid - 10);
+      gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = '#000';
+      if (top) c.fillRect(0, 0, W, Math.max(0, lid - 60)); else c.fillRect(0, H - lid + 60, W, lid);
+      c.fillStyle = gr;
+      if (top) c.fillRect(0, lid - 60, W, 70); else c.fillRect(0, H - lid - 10, W, 70);
+    }
+  }
+}
+
 /* Phase 1 — 현실 붕괴 (약 5초)
      0‥50   : 마지막 방 그대로, 가끔 튀는 글리치
      50‥170 : 글리치가 차오름
@@ -991,7 +1069,13 @@ const RevealState = {
     if (t === 192) s.sfx.humStart();
     if (t >= 350) s.go('truth');
   },
-  draw(s, c) { drawLabView(s, c); }
+  draw(s, c) {
+    if (!s.lab3) { drawLabView(s, c); return; }
+    // 심전도 화면이 걷히면 — 누운 채 발치 너머로 본 실험실. 반쯤 감긴 눈, 형광등이 튀며 켜짐
+    drawLab3D(s, c, 0, .42 + Math.sin(s.frame * .03) * .03, 2.6 - s.light * 1.2);
+    const a = 1 - smooth(clamp01((s.t - 20) / 110));
+    if (a > 0) { c.globalAlpha = a; drawMonitorScreen(s, c, { x: 0, y: 0, w: W, h: H }); c.globalAlpha = 1; }
+  }
 };
 
 /* Phase 4 — 진실 : 터미널이 떠오르고, 다 찍히면 카메라가 얼굴로 다가가
@@ -1010,7 +1094,11 @@ const TruthState = {
     if (s.pushT >= 220) s.go('standby');
   },
   draw(s, c) {
-    drawLabView(s, c);
+    if (s.lab3) {
+      // 다 찍히면 고개가 천장 쪽으로 넘어가고, 숨을 들이쉬며 눈이 번쩍 — 오프닝의 첫 화면, 탈출의 첫 화면
+      const look = clamp01((s.pushT - 20) / 180), op = s.awake ? .42 + smooth(clamp01((s.pushT - 130) / 26)) * .58 : .42 + Math.sin(s.frame * .03) * .03;
+      drawLab3D(s, c, look, op, s.awake ? Math.max(0, 1.4 - (s.pushT - 130) * .03) : 1.4);
+    } else drawLabView(s, c);
     drawTerminal(s, c);
   }
 };
@@ -1159,7 +1247,7 @@ function drawTerminal(s, c) {
 
 /* ═════════════ 씬 본체 ═════════════════════════════════════ */
 class EndingScene {
-  constructor(canvas, { source, audio, onReturn } = {}) {
+  constructor(canvas, { source, audio, onReturn, world } = {}) {
     this.canvas = canvas;
     canvas.width = W; canvas.height = H;
     this.ctx = canvas.getContext('2d');
@@ -1169,12 +1257,15 @@ class EndingScene {
     [this.src, this.sx] = makeCanvas(LW, LH);
     if (!source) this.dungeon = new Dungeon();
     this.lab = new Lab();
+    // 입체 — 마지막 방(diorama3d.js) · 실험실(labroom.js). 안 되면 예전 그림으로
+    try { const wd = world && window.Diorama3D && world(); if (wd) { this.dio = new Diorama3D(wd, W, H); if (!this.dio.ok) this.dio = null; } } catch (e) { this.dio = null; }
+    try { if (window.LabRoom) { this.lab3 = new LabRoom(); if (!this.lab3.ok) this.lab3 = null; } } catch (e) { this.lab3 = null; }
     this.glitch = new GlitchFX();
     this.ekg = new EKGMonitor(this.sfx);
     this.term = new Terminal(TRUTH_LINES, this.sfx);
     this.overlay = bakeOverlay();
     this.grid = bakeGrid();
-    this.states = { crash: CrashState, awaken: AwakenState, reveal: RevealState,
+    this.states = { rise: RiseState, crash: CrashState, awaken: AwakenState, reveal: RevealState,
                     truth: TruthState, standby: StandbyState, exit: ExitState };
     this.loop = this.loop.bind(this);
     this.onKey = this.onKey.bind(this);
@@ -1184,7 +1275,7 @@ class EndingScene {
     this.sfx.unlock();
     this.frame = 0;
     this.awake = false; this.light = 0; this.view = FULL_VIEW;
-    this.go('crash');
+    this.go(this.dio ? 'rise' : 'crash');
     this.running = true;
     this.acc = 0;
     this.last = performance.now();
@@ -1197,6 +1288,8 @@ class EndingScene {
     removeEventListener('keydown', this.onKey);
     this.sfx.stopNoise();
     this.sfx.humStop();
+    for (const r of [this.dio, this.lab3]) { const x = r && r.gl && r.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); }
+    this.dio = this.lab3 = null;
   }
   go(name) {
     if (this.state && this.state.exit) this.state.exit(this);
@@ -1230,7 +1323,8 @@ class EndingScene {
     c.globalCompositeOperation = 'source-over';
     c.imageSmoothingEnabled = false;
     this.state.draw(this, c);
-    c.drawImage(this.overlay, 0, 0);
+    // 주사선 · 가장자리 그늘 — 3D 실험실(탈출과 같은 화면)에선 걷어 냄
+    if (!(this.lab3 && /^(reveal|truth|standby|exit)$/.test(this.stateName))) c.drawImage(this.overlay, 0, 0);
   }
   onKey(e) {
     if (e.code !== 'Space') return;
