@@ -466,7 +466,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null;
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -4335,6 +4335,7 @@ function tickOpening() {
   if (t === OP.END - 30) Sfx.landThump(.1);
   if (t >= OP.END) {                                                       // 탑뷰로
     G.opening = null;
+    op3dDispose();
     G.mode = 'forest';
     $('hud').classList.remove('hidden');
     G.wake = WAKE_DUR;                    // 조리개가 열리듯 숲이 드러납니다
@@ -4528,6 +4529,91 @@ function opHoodImage() {
   return OP_HOOD;
 }
 
+/* ── 오프닝 실사 3D — 실험실(labroom.js) · 사람(figure3d.js) · 우물 · 숲(opening3d.js).
+   WebGL 이 없으면 아래 그림 함수들(drawOpCeiling · drawOpShaft · drawOpCanopy …)로 그대로 그립니다. */
+let OP3 = undefined;
+function op3d() {
+  if (OP3 !== undefined) return OP3;
+  OP3 = null;
+  try {
+    if (!window.LabRoom || !window.Figure3D || !window.Opening3D) return null;
+    const lab = new LabRoom(); if (!lab.ok) return null;
+    const fig = new Figure3D(960, 540); if (!fig.ok) return null;
+    const scene = new Opening3D(cvHi ? cvHi.width : 960, cvHi ? cvHi.height : 540); if (!scene.ok) return null;
+    lab.setScale((cvHi ? cvHi.width : 960) / 960);
+    OP3 = { lab, fig, scene, ceil: null };
+  } catch (e) { OP3 = null; }
+  return OP3;
+}
+function op3dDispose() {
+  if (!OP3) return;
+  for (const r of [OP3.lab, OP3.fig, OP3.scene]) { const x = r.gl && r.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); }
+  OP3 = undefined;                    // 다음 오프닝에서 새로 만듭니다
+}
+/* 누운 자리에서 올려다본 실험실 — 엔딩 · 탈출의 그 방, 그 침대 */
+function opLabCam(t) {
+  const cam = { x: -1.24, y: .98, z: 5.8, yaw: Math.PI / 2, pitch: 1.12 + Math.sin(t * .007) * .015, roll: -.08 + Math.sin(t * .01) * .01 };
+  const pe = window.LabRoomGeo && LabRoomGeo.patientEye && LabRoomGeo.patientEye(0);
+  if (pe) { cam.x = pe[0]; cam.y = pe[1]; cam.z = pe[2]; }
+  return cam;
+}
+function opLabImage(R, t, dim) {
+  const cam = opLabCam(t);
+  return R.lab.render({ cam, t, wires: 4, wirePull: [0, 0, 0, 0], ivOut: false, ivT: 0, rise: 0, sit: true, doorSlide: 0,
+                        body: LabRoomGeo.bodyPose(cam, 0, 0), dim });
+}
+const OP_LIT = [[[-.3, 1.4, -1.8], [1.1, 1.12, 1.15]], [[.7, 1.2, -1.2], [.8, .8, .82]], [[0, -.3, .6], [.12, .12, .13]]];
+function drawOpLab3D(R, t, cr) {
+  g.imageSmoothingEnabled = true;
+  g.drawImage(opLabImage(R, t, .9), 0, 0, W, H);
+  const red = cr > 0 ? [.9, .12, .1, cr * (.12 + .1 * Math.sin((t - OP.CR0) / 52 * Math.PI * 2))] : [0, 0, 0, 0];
+  const env = c => ({ cam: { f: 450, px: 480, py: 250, roll: c }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red, lights: OP_LIT });
+  // 저쪽에서 지나가는 또 한 사람 — 조수 (위기 땐 뛰어옵니다)
+  if (t > opT(540) && t < opT(700)) {
+    const k = (t - opT(540)) / (opT(700) - opT(540));
+    const img = R.fig.render({ kind: 'suit', x: -2.3 + k * 2.6, y: -1.1, z: 3.6, yaw: -Math.PI / 2 + .3, run: t * (.12 + cr * .1), stride: .7 + cr * .3,
+                               lean: .1 + cr * .2, alpha: .85 * Math.sin(k * Math.PI) }, env(.2));
+    g.drawImage(img, 0, 0, W, H);
+  }
+  // 가장자리에서 내려다보는 방호복 — 말을 걸 때마다 들여다봅니다
+  [[30, 700], [710, 1190]].forEach(([a0, b0], n) => {
+    const a = opT(a0), b = opT(b0);
+    if (t <= a || t >= b) return;
+    const k = Math.min(1, (t - a) / 40) * Math.min(1, (b - t) / 40);
+    const L = n ? 0 : ease01((t - OP.CR0 - 6) / 30) * (1 - ease01((t - OP.CR1 - 4) / 30));   // 깨려 하면 바짝
+    const sway = Math.sin(t * .012) * .04 * (1 - L);
+    const img = R.fig.render({ kind: 'suit', x: .34 - L * .1 + sway, y: -1.58 + L * .03, z: .98 - L * .12, yaw: -.25 + L * .08, stride: 0,
+                               reach: .45 + L * .25 + Math.sin(t * .02) * .03, lean: .35 + L * .15, alpha: Math.min(1, .9 * k + L * .1) }, env(-.55));
+    g.drawImage(img, 0, 0, W, H);
+  });
+}
+/* 숫자를 세며 가라앉는 우물 — 입구에 방금까지 보던 천장이 비칩니다 */
+function drawOpWell3D(R, t, sink) {
+  if (!R.ceil) {
+    const img = opLabImage(R, OP.SINK0, .9);
+    R.ceil = document.createElement('canvas'); R.ceil.width = img.width; R.ceil.height = img.height;
+    R.ceil.getContext('2d').drawImage(img, 0, 0);
+    R.ceilUp = false;
+  }
+  const img = R.scene.renderWell(sink, R.ceilUp ? null : R.ceil, -.08 + sink * .5);
+  R.ceilUp = true;
+  g.imageSmoothingEnabled = true;
+  g.drawImage(img, 0, 0, W, H);
+}
+/* 숲에서 눈을 뜸 — 땅에 누워 올려다본 나무 · 하늘, 가지 틈의 방호복 */
+function drawOpForest3D(R, t, rise) {
+  const gt = t - OP.DARK;
+  g.imageSmoothingEnabled = true;
+  g.drawImage(R.scene.renderForest(rise, t), 0, 0, W, H);
+  if (gt >= 58 && gt < 100) {                               // 노을을 등진 그림자 — 테두리만 빛남
+    const k = ease01((gt - 58) / 14), e = rise * rise;
+    const img = R.fig.render({ kind: 'suit', x: .55 + (1 - k) * .25, y: -1.45 - e * 1.5, z: 1.2, yaw: -.4, stride: 0, reach: .2, lean: .45 }, {
+      cam: { f: 450, px: 480, py: 250, roll: -.35 }, sky: [.07, .05, .06], gnd: [.02, .015, .02], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+      lights: [[[.4, 2.6, -2.6], [1.6, 1.05, .6]], [[-.6, 2.2, -2.4], [.9, .5, .35]], [[0, -.4, .4], [.05, .04, .05]]] });
+    g.drawImage(img, 0, 0, W, H);
+  }
+}
+
 /* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 방호복 후드 하나, 그리고 날아오르는 새 */
 function drawOpWatcher(w) {
   const hx = W * .63, hy = H * .3;
@@ -4581,6 +4667,10 @@ function renderOpening() {
     const cr = ease01((t - OP.CR0) / 24) * (1 - ease01((t - OP.CR1 + 6) / 10));
     // 하강 — 숫자를 세며 가라앉음, "7…" 에서 한 번 툭
     const sink = t > OP.SINK0 ? ease01((t - OP.SINK0) / (OP.SINK1 - OP.SINK0)) * .82 + ease01((t - OP.DROP) / 12) * .18 : 0;
+    const R = op3d();
+    if (R) {
+      if (sink > 0) drawOpWell3D(R, t, sink); else drawOpLab3D(R, t, cr);
+    } else {
     // 잠드는 쪽 — 졸려서 초점이 안 맞습니다
     g.save();
     if (sink > 0) { const sc = 1 - .62 * sink; g.translate(W / 2, H / 2); g.scale(sc, sc); g.translate(-W / 2, -H / 2); }
@@ -4637,6 +4727,7 @@ function renderOpening() {
       g.beginPath(); g.ellipse(ax + 18, ay + 6, 30, 34, .2, 0, Math.PI * 2); g.fill();
       g.globalAlpha = 1;
     }
+    }
     // 펜라이트 — 눈을 가로질러 훑고 지나갑니다
     const pl0 = opT(206);                     // 펜라이트는 이야기가 느려져도 휙 지나갑니다
     if (t > pl0 && t < pl0 + 44) {
@@ -4650,7 +4741,7 @@ function renderOpening() {
       g.fillStyle = pl; g.fillRect(0, 0, W, H);
       g.restore();
     }
-    if (sink > 0) drawOpShaft(t, sink);
+    if (sink > 0 && !R) drawOpShaft(t, sink);
     const drug = t > opT(690) ? Math.min(1, (t - opT(690)) / 120) * (1 - sink * .5) : 0;
     blurFrame(Math.max(.2, 1.2 - cr * 1.05) + (1 - o) * 2.4 + drug * 1.6);
     // 경보 — 붉은 맥박이 가장자리부터
@@ -4679,13 +4770,21 @@ function renderOpening() {
   } else if (t >= OP.DARK) {
     const rise = t > OP.LINES ? Math.min(1, (t - OP.LINES) / (OP.END - OP.LINES - 16)) : 0;
     const e = rise * rise;
+    const gt = t - OP.DARK, R = op3d();
+    const ghost = (gt >= 28 && gt <= 36) || (gt >= 82 && gt <= 85);
+    if (R) {                                  // 실사 3D — 몸을 일으키면 시선이 하늘에서 앞으로 내려옵니다
+      drawOpForest3D(R, t, rise);
+      if (gt >= 100) { g.save(); g.translate(0, -e * H * .9); drawOpWatcher(gt); g.restore(); }   // 날아오르는 새
+      // 첫 깜빡임 사이로 그 실험실 천장이 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
+      if (ghost && R.ceil) { g.globalAlpha = .38; g.drawImage(R.ceil, 0, 0, W, H); g.globalAlpha = 1; }
+    } else {
     // 몸을 일으키면 하늘이 위로 빠져나가고 시야가 기웁니다
     g.translate(W / 2, H / 2); g.rotate(e * .12); g.translate(-W / 2, -H / 2);
     drawOpCanopy(O, -e * H * .9);
-    const gt = t - OP.DARK;
     g.save(); g.translate(0, -e * H * .9); drawOpWatcher(gt); g.restore();
     // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
-    if ((gt >= 28 && gt <= 36) || (gt >= 82 && gt <= 85)) drawOpCeiling(.38, -.08);
+    if (ghost) drawOpCeiling(.38, -.08);
+    }
     g.setTransform(SR, 0, 0, SR, 0, 0);
     blurFrame((1 - o) * 5 + e * 6);
     if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }

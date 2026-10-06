@@ -6160,39 +6160,35 @@ const SUB_STYLE = {
   'me-dark':  { c: '#2a2a26', y: H / 2, size: 30, light: true },
   'far-dark': { c: '#4a4a44', y: H / 2 + 44, size: 22, light: true }
 };
-/* ── 자막 — 본편(#subtitle)과 같은 모양 · 같은 둥근모꼴을 캔버스가 아닌 문서 요소로 얹습니다.
-   (캔버스 글자는 화면 배율에 맞춰 늘어나며 뭉개지기 때문) 576×324 좌표로 짓고 캔버스 크기에 맞춰 키웁니다 */
+/* ── 자막 — 오프닝과 같은 모양: 상자 · 표시 없이 화면 아래 가운데에 둥근모꼴 글자만, 은은한 그림자로 읽히게.
+   누가 말하는지는 색으로만 (나 = 흰빛, 들려오는 목소리 = 푸른빛, 차가운 지시 = 분홍빛, 방송 = 옥빛).
+   캔버스가 아닌 문서 요소로 얹습니다 (캔버스 글자는 화면 배율에 맞춰 늘어나며 뭉개지기 때문) — 576×324 좌표로 짓고 캔버스 크기에 맞춰 키움 */
 const SUB_CSS = `
 .esc-subs{ position:absolute; left:0; top:0; width:576px; height:324px; pointer-events:none; transform-origin:0 0; z-index:5;
   font-family:'DungGeunMo','Galmuri11','Neo둥근모',monospace; }
-.esc-subs .col{ position:absolute; left:14px; right:14px; bottom:12px; display:flex; flex-direction:column; gap:7px; transition:bottom .25s; }
-.esc-subs .mid{ position:absolute; left:60px; right:60px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; align-items:center; }
-.esc-line{ position:relative; background:linear-gradient(180deg, rgba(34,36,50,.94), rgba(24,26,38,.97));
-  border:1px solid rgba(241,236,224,.24); border-left:3px solid #e3b23c; padding:9px 11px 10px; min-height:44px; box-sizing:border-box; }
-.esc-line p{ margin:0; font-size:12.5px; line-height:1.7; color:#f0e9db; letter-spacing:.01em; }
-.esc-line.whisper p{ color:#b3c6d8; font-style:italic; }
-.esc-line.cold p{ color:#f0c6bc; }
-.esc-line .tag{ position:absolute; left:10px; top:-9px; font-size:8px; font-weight:700; letter-spacing:.3em; text-indent:.3em;
-  color:#7de3c8; background:#0b1414; padding:2px 7px; border:1px solid rgba(125,227,200,.55); }
-.esc-line.sys{ border-left:3px solid #7de3c8; background:linear-gradient(180deg, rgba(19,32,34,.94), rgba(13,24,27,.97)); min-width:240px; text-align:center; }
-.esc-line.sys p{ color:#7de3c8; font-size:14px; letter-spacing:.12em; }
-.esc-line.light{ background:rgba(255,252,240,.82); border-color:rgba(60,56,48,.25); border-left-color:#8a8a82; min-width:240px; text-align:center; }
-.esc-line.light p{ color:#2a2a26; }`;
-const SUB_KIND = { doc: ['whisper', '목소리'], cold: ['cold', '목소리'], pa: ['', '방송'], sys: ['sys', 'SYSTEM'], 'me-dark': ['light', ''], 'far-dark': ['light', ''] };
+.esc-subs .col{ position:absolute; left:40px; right:40px; bottom:22px; display:flex; flex-direction:column; gap:4px; align-items:center; transition:bottom .25s; }
+.esc-subs .mid{ position:absolute; left:60px; right:60px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; align-items:center; }
+.esc-line{ text-align:center; }
+.esc-line p{ margin:0; font-size:11px; line-height:1.55; color:#e8eef6; letter-spacing:.02em;
+  text-shadow:0 0 3px rgba(0,0,0,.95), 0 1px 2px rgba(0,0,0,.9), 0 0 9px rgba(0,0,0,.55); }
+.esc-line.whisper p{ color:#d8e6ef; opacity:.92; }
+.esc-line.cold p{ color:#e8c9c0; }
+.esc-line.pa p{ color:#9fd6c0; }
+.esc-line.sys p{ color:#7de3c8; font-size:13px; letter-spacing:.14em; text-shadow:0 0 6px rgba(60,220,170,.35), 0 0 3px rgba(0,0,0,.95); }
+.esc-line.light p{ color:#2a2a26; font-size:12px; text-shadow:0 0 6px rgba(255,255,250,.9); }`;
+const SUB_KIND = { doc: 'whisper', cold: 'cold', pa: 'pa', sys: 'sys', 'me-dark': 'light', 'far-dark': 'light' };
 function syncSubs(s) {
   const root = s.subEl; if (!root) return;
   const k = s.canvas.clientWidth / 576 || 1;
   if (k !== s._subK) { s._subK = k; root.style.transform = `scale(${k})`; root.style.left = s.canvas.offsetLeft + 'px'; root.style.top = s.canvas.offsetTop + 'px'; }
-  root.querySelector('.col').style.bottom = (s.prompt && s.stateName === 'wake') ? '42px' : '12px';
+  root.querySelector('.col').style.bottom = (s.prompt && s.stateName === 'wake') ? '50px' : '22px';
   const live = new Set();
   for (const u of s.subs) {
     const age = s.frame - u.t0; if (age > u.dur) continue;
     live.add(u);
     let el = s.subMap.get(u);
     if (!el) {
-      const [cls, tag] = SUB_KIND[u.who] || ['', ''];
-      el = document.createElement('div'); el.className = 'esc-line ' + cls;
-      if (tag) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = tag; el.appendChild(t); }
+      el = document.createElement('div'); el.className = 'esc-line ' + (SUB_KIND[u.who] || '');
       el.appendChild(document.createElement('p'));
       root.querySelector(u.who === 'sys' || u.who === 'me-dark' || u.who === 'far-dark' ? '.mid' : '.col').appendChild(el);
       s.subMap.set(u, el);
