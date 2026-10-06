@@ -4898,11 +4898,11 @@ const RUN_LINES = [
   [230, '쉬이… 괜찮아요. 꿈에선 마음껏 달려도 돼요.', 'doc'],
   [262, '…벽지가 왜 누렇지?', 'me'],
   [GUN_Z - 6, '…총?', 'me'],
-  [ZONE0 + 4, '경비원이잖아.', 'me'],
+  [ZONE0 + 4, '경비원 같은데…', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
   [ZONE1 + 56, '…이 복도, 원래 이렇게 길었나?', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
-  [560, '…빛이야.', 'me']
+  [560, '…빛인 것 같은데.', 'me']
 ];
 
 /* 현실이 끼어드는 순간 — [z, 프레임, 몇 번째].  실험실이 백룸으로 바뀌기 시작할 즈음,
@@ -4942,11 +4942,11 @@ const camLerp = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: l
 const STRIDE = .75;                                     // 한 걸음 (m)
 const ROAM_SPOTS = [
   { at: [-2.75, 6.55], r: 1.9, lines: [['골격 모형… 던전에 굴러다니던 해골이 이거였나?', 'me']] },
-  { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불이 켜져 있네.', 'me'], ['열쇠가… 키카드였던 거야?', 'me']] },
+  { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불이 켜져 있는 것 같은데.', 'me'], ['열쇠가… 키카드였던 거야?', 'me']] },
   { at: [.4, .2], r: 2.0, lines: [['피험자 07… 141번째 세션, 깨어난 건 0번.', 'me'], ['…이제 1번이네.', 'me']] },
-  { at: [3.6, .2], r: 1.8, lines: [['빨간 배양액… 링거랑 같은 색이잖아.', 'me']] },
-  { at: [3.4, 6.6], r: 1.7, lines: [['선이 일자로 쭉… 여기선 난 이미 죽은 거네.', 'me']] },
-  { at: [.15, 6.6], r: 1.8, lines: [['빈 의자에… 커피가 아직 식는 중이야.', 'me']] }
+  { at: [3.6, .2], r: 1.8, lines: [['빨간 배양액… 링거랑 같은 색 같은데.', 'me']] },
+  { at: [3.4, 6.6], r: 1.7, lines: [['선이 일자로 쭉… 여기선 내가 이미 죽은 건가.', 'me']] },
+  { at: [.15, 6.6], r: 1.8, lines: [['빈 의자에… 커피가 아직 식는 중인 것 같은데.', 'me']] }
 ];
 const DOOR_AT = [-3.85, 6.9];
 
@@ -4983,7 +4983,7 @@ const WakeState = {
 
     if (s.wk === 'ceil') {
       if (t === 100) s.say('…천장?', 'me', 150);
-      if (t === 260) s.say('격자 조명… 우물 입구가 아니잖아.', 'me', 190);
+      if (t === 260) s.say('격자 조명…? 우물 입구가 아닌 것 같은데.', 'me', 190);
       if (t === 470) s.sfx.chime();
       if (t === 500) s.say('07번 피험자, 의식 회복. 담당 연구원은 관찰실로 복귀 바랍니다.', 'pa', 300, 1.6);
       if (t === 720) WakeState.ask(s, 'sit', '몸을 일으킨다');
@@ -4993,8 +4993,8 @@ const WakeState = {
       // 커피 대사 동안 고개를 돌려 관찰창 쪽을 봤다가 다시 무릎으로
       s.glance = t < 250 ? 0 : t < 330 ? ease((t - 250) / 80) : t < 520 ? 1 : t < 600 ? 1 - ease((t - 520) / 80) : 0;
       if (t === 120) s.say('…아무도 없어?', 'me', 150);
-      if (t === 300) s.say('관찰창 너머에… 커피에서 아직 김이 나.', 'me', 200);
-      if (t === 470) s.say('방금까지 누가 있었던 거야.', 'me', 170);
+      if (t === 300) s.say('관찰창 너머에… 커피에서 아직 김이 나는 것 같은데.', 'me', 200);
+      if (t === 470) s.say('방금까지 누가 있었던 건가…', 'me', 170);
       if (t === 640) { s.wk = 'wires'; s.wt = 0; WakeState.ask(s, 'wire', '전극을 뗀다  (4)'); }
     }
     else if (s.wk === 'wires') {
@@ -5002,7 +5002,7 @@ const WakeState = {
       const pulled = s.wirePull.filter(v => v > 0).length;
       if (pulled !== 4 - s.wires) {
         s.wires = 4 - pulled;
-        if (s.wires === 3) s.say('…선이 네 가닥이나 붙어 있어.', 'me', 140);
+        if (s.wires === 3) s.say('…선이 네 가닥이나 붙어 있는 것 같은데.', 'me', 140);
         if (s.wires === 0) { s.sfx.flat(true); s.flash = .3; s.wt = 0; }
         else WakeState.ask(s, 'wire', `전극을 뗀다  (${s.wires})`);
       }
@@ -5026,7 +5026,7 @@ const WakeState = {
       s.dizzy = t < 220 ? Math.sin(Math.min(1, t / 40) * HP) * (1 - Math.max(0, t - 140) / 80) : 0;
       if (t === 30) s.sfx.flat(false);
       if (t === 80) s.say('다리가… 내 다리 같지가 않아.', 'me', 150);
-      if (t === 240) s.say('141번이나 누워만 있었으니까.', 'me', 180);
+      if (t === 240) s.say('141번이나 누워만 있었으니까… 그래서 그런가.', 'me', 180);
       if (t === 380) {
         s.wk = 'roam'; s.wt = 0;
         s.cam = { ...CAM_STAND };
@@ -5047,7 +5047,7 @@ const WakeState = {
       if (s.held.has('KeyW') || s.held.has('ArrowUp') || s.held.has('ptr') || s.held.has('touch')) {
         if (s.fade < .5) { s.z = Math.min(START_Z, s.z + .034); s.bob += .09; if (s.frame % 24 === 0) s.sfx.step(.1); if (s.prompt) s.prompt = null; }
       } else s.bob += .01;
-      const H_LINES = [[WAKE_HALL0 + 3, '…발소리. 아직은 멀어.', 'me'], [-8, '복도 끝에 초록 불이 보여.', 'me']];
+      const H_LINES = [[WAKE_HALL0 + 3, '…발소리가 들리는 것 같은데. 아직은 멀어.', 'me'], [-8, '복도 끝에 초록 불이 보이는 것 같은데.', 'me']];
       H_LINES.forEach(([at, txt, who], i) => {
         if (s.z >= at && !(s.saidW & (1 << (8 + i)))) { s.saidW |= 1 << (8 + i); s.say(txt, who, 170); if (i === 0) s.sfx.chase(.05); }
       });
@@ -5113,7 +5113,7 @@ const WakeState = {
     if (s.busyT > 0) s.busyT--;
     s.roamT++;
     if (s.roamT === 900) { s.sfx.chime(); s.say('관찰실 응답 없음. 보안 요원, B동 3층으로.', 'pa', 260, 1.6); }
-    if (s.roamT === 2400) s.say('…문이다. 왼쪽 끝, 초록 불 켜진 데.', 'me', 200);
+    if (s.roamT === 2400) s.say('…문인가? 왼쪽 끝에 초록 불이 켜져 있는 것 같은데.', 'me', 200);
     // 문 앞 — 열기
     const dd = Math.hypot(c.x - DOOR_AT[0], c.z - DOOR_AT[1]);
     if (dd < 1.45 && (!s.prompt || s.prompt.key === 'roam')) WakeState.ask(s, 'door', '문을 연다', false, s.touch ? '톡' : 'SPACE');
@@ -5184,7 +5184,7 @@ const DoorState = {
   },
   update(s) {
     const t = s.t, w = s.fromWake;                       // 깨어남에서 걸어왔으면 눈은 이미 떠 있습니다
-    if (!w && t === 50) s.say('…몸이 움직여.', 'me', 150);
+    if (!w && t === 50) s.say('…몸이 움직이는 것 같은데.', 'me', 150);
     if (t === (w ? 20 : 200)) s.say('비상구가 반쯤 열려 있어. 바깥에서 바람이 들어오는 것 같은데.', 'me', 190);
     if (t === (w ? 220 : 380)) s.say('…나가 볼까?', 'me', 9999);
     if (t === (w ? 260 : 420)) s.choose(['탈출한다', '안 한다'], i => s.go(i === 0 ? 'open' : 'stay'));
@@ -5222,9 +5222,9 @@ const OpenState = {
   update(s) {
     const t = s.t;
     s.doorOpen = Math.min(1, s.doorOpen + .022);
-    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보다.', 'me', 80); }
+    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보 같은데.', 'me', 80); }
     if (t === 76) { s.view = 'back'; s.sfx.chase(.18); s.shake = 4; }      // 휙 돌아봅니다
-    if (t === 82) s.say('노란 방호복… 얼굴이 있어야 할 데가 새까매.', 'me', 110);
+    if (t === 82) s.say('노란 방호복… 얼굴이 있어야 할 데가 새까만 것 같은데.', 'me', 110);
     if (t === 150) { s.view = 'fwd'; s.shake = 3; }
     s.chaseX = 0;
     if (t >= 160) s.go('run');
@@ -5271,7 +5271,7 @@ const RunState = {
       if (!passes(s, o) && s.immune <= 0) {
         o.hit = true; s.stumble = 60; s.immune = 40; s.shake = 12; s.flash = .7;
         s.sfx.hit();
-        if (s.dist < 6) s.say(['넘어지면 끝이야…!', '…가까워.', '숨소리가 바로 뒤에서 들려.'][(Math.random() * 3) | 0], 'me', 80);
+        if (s.dist < 6) s.say(['넘어지면 끝이야…!', '…가까워.', '숨소리가 바로 뒤에서 들리는 것 같은데…'][(Math.random() * 3) | 0], 'me', 80);
       }
     }
     updateGun(s);
@@ -5373,7 +5373,7 @@ function updateGun(s) {
     G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
-    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총이네, 버리자.', 'me', 240, 5); s.sfx.empty(); }
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총인 것 같은데, 버리자.', 'me', 240, 5); s.sfx.empty(); }
   }
   // 경비원
   for (const g of s.guards) {
@@ -5395,7 +5395,7 @@ function updateGun(s) {
         const dodged = Math.abs(s.x - g.lockX) > .55 || slideK(s) > .5;
         if (!dodged && s.immune <= 0) {
           s.stumble = 40; s.immune = 30; s.shake = 14; s.flash = .9; s.sfx.hit();
-          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 빨간 선 뜨면 비켜야 해.', 'me', 120); }
+          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 빨간 선 뜨면 비켜야 하나 봐.', 'me', 120); }
         }
       }
     }
