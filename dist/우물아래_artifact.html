@@ -1560,17 +1560,17 @@ const Sfx = (() => {
     step()    { noise(0.05, 0.09, 300, 1400); },
 
     /* 몬스터가 죽을 때 — 피가 아니라 "코드가 튀는" 소리 */
-    glitch() {
+    glitch(k = 1) {                  // k : 세기 (오프닝의 가벼운 글리치는 작게)
       const c = ctx(), t = c.currentTime;
       for (let i = 0; i < 7; i++) {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'square';
         o.frequency.setValueAtTime(300 + Math.random() * 2600, t + i * 0.022);
-        env(g, t + i * 0.022, 0.002, 0.03, 0.12);
+        env(g, t + i * 0.022, 0.002, 0.03, 0.12 * k);
         o.connect(g); g.connect(master);
         o.start(t + i * 0.022); o.stop(t + i * 0.022 + 0.05);
       }
-      noise(0.14, 0.20, 2000, 12000);
+      noise(0.14, 0.20 * k, 2000, 12000);
     },
 
     fall() {
@@ -16224,6 +16224,11 @@ function beginOpening() {
 function tickOpening() {
   const O = G.opening, t = ++O.t;
   O.shake = Math.max(0, (O.shake || 0) * .9 - .05);
+  // 글리치 — 큰 것은 소리와 함께, 그 사이사이 한두 프레임짜리 잔글리치 (어둠 속에선 없음)
+  for (const [a, , k] of OP_GLITCH_ALL) if (t === a) Sfx.glitch(.25 + k * .45);
+  O.micro = Math.max(0, (O.micro || 0) - 1);
+  const lit = (t < OP.LAB) || t > OP.DARK + 20;
+  if (lit && !O.micro && Math.random() < 1 / 170) { O.micro = 1 + (Math.random() < .5 ? 1 : 0); O.microKind = Math.random() < .5 ? 'tear' : 'tear rgb'; }
   if (OP_BEEPS.includes(t)) Sfx.beep(t < opT(1200) ? (t >= OP.CR0 && t < OP.CR1 ? .06 : .045) : .035 - (t - opT(1200)) / 20000);   // 셀수록 멀어지는 비프
   if (t === opT(206) + 6) Sfx.beep(.02);                                   // 펜라이트 딸깍
   // 각성 — 눈이 번쩍, 경보, 흔들림
@@ -16481,13 +16486,6 @@ function drawOpLab3D(R, t, cr) {
   g.drawImage(opLabImage(R, t, .9), 0, 0, W, H);
   const red = cr > 0 ? [.9, .12, .1, cr * (.12 + .1 * Math.sin((t - OP.CR0) / 52 * Math.PI * 2))] : [0, 0, 0, 0];
   const env = c => ({ cam: { f: 450, px: 480, py: 250, roll: c }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red, lights: OP_LIT });
-  // 저쪽에서 지나가는 또 한 사람 — 조수 (위기 땐 뛰어옵니다)
-  if (t > opT(540) && t < opT(700)) {
-    const k = (t - opT(540)) / (opT(700) - opT(540));
-    const img = R.fig.render({ kind: 'suit', x: -2.3 + k * 2.6, y: -1.1, z: 3.6, yaw: -Math.PI / 2 + .3, run: t * (.12 + cr * .1), stride: .7 + cr * .3,
-                               lean: .1 + cr * .2, alpha: .85 * Math.sin(k * Math.PI) }, env(.2));
-    g.drawImage(img, 0, 0, W, H);
-  }
   // 가장자리에서 내려다보는 방호복 — 말을 걸 때마다 들여다봅니다
   [[30, 700], [710, 1190]].forEach(([a0, b0], n) => {
     const a = opT(a0), b = opT(b0);
@@ -16525,6 +16523,102 @@ function drawOpForest3D(R, t, rise) {
       lights: [[[.4, 2.6, -2.6], [1.6, 1.05, .6]], [[-.6, 2.2, -2.4], [.9, .5, .35]], [[0, -.4, .4], [.05, .04, .05]]] });
     g.drawImage(img, 0, 0, W, H);
   }
+}
+
+/* ── 오프닝 글리치 — 화면이 순간 찢어지고 · 색이 어긋나고 · 픽셀 그림으로 무너졌다가 돌아옵니다.
+   "방금 뭐였지?" 하고 넘어갈 만큼 짧게. 실험실이 또렷이 보이는 순간마다 끼어들어 무엇인지 단정하지 못하게 하고,
+   픽셀로 무너지는 순간엔 이 게임(탑뷰 픽셀)의 그림이 언뜻 겹칩니다 — 이어지는 본편과 같은 결.
+   [시작(기준 시간), 길이(프레임), 세기, 종류] — tear 찢어짐 · rgb 색 어긋남 · pix 픽셀로 무너짐 · roll 화면이 위아래로 미끄러짐 · block 깨진 조각 */
+const OP_GLITCH = [
+  [96, 5, .4, 'tear'],
+  [252, 8, .6, 'tear rgb'],                    // 펜라이트 뒤
+  [380, 4, .35, 'pix'],
+  [468, 10, .7, 'pix tear'],                   // "141번째예요."
+  [566, 7, .9, 'rgb tear block'],              // 각성
+  [626, 12, 1, 'pix rgb roll'],                // 바짝 들여다볼 때 — 가장 크게
+  [760, 6, .5, 'tear'],
+  [880, 8, .6, 'pix'],
+  [1010, 5, .45, 'tear rgb'],
+  [1215, 9, .7, 'pix block'],                  // 숫자를 세기 시작
+  [1320, 6, .55, 'tear rgb'],
+  [1420, 8, .7, 'pix'],
+  [1522, 10, 1, 'roll rgb block']              // "7…" 툭
+].map(([a, d, k, kind]) => [opT(a), d, k, kind]);
+/* 숲 — 어둠이 걷힌 뒤(OP.DARK 기준 실제 프레임) */
+const OP_GLITCH_WOOD = [[30, 7, .6, 'pix tear'], [83, 4, .5, 'tear rgb'], [150, 6, .45, 'pix'], [214, 4, .4, 'tear']]
+  .map(([a, d, k, kind]) => [OP.DARK + a, d, k, kind]);
+const OP_GLITCH_ALL = OP_GLITCH.concat(OP_GLITCH_WOOD);
+function opGlitchAt(O, t) {
+  for (const [a, d, k, kind] of OP_GLITCH_ALL) if (t >= a && t < a + d) {
+    const u = (t - a) / d;
+    return { k: k * (u < .7 ? 1 : (1 - u) / .3 * .8 + .2), kind, u, big: true };
+  }
+  if (O.micro > 0) return { k: .25, kind: O.microKind, u: 0, big: false };   // 가끔 한두 프레임 스치는 잔글리치
+  return null;
+}
+let _glCv = null, _glSm = null;
+function opGlitch(G1, t) {
+  const CW = cv.width, CH = cv.height;
+  if (!_glCv || _glCv.width !== CW || _glCv.height !== CH) { _glCv = document.createElement('canvas'); _glCv.width = CW; _glCv.height = CH; }
+  const b = _glCv.getContext('2d'), k = G1.k, has = s => G1.kind.includes(s);
+  let seed = (t * 9301 + 49297) % 233280;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  b.globalCompositeOperation = 'copy'; b.drawImage(cv, 0, 0); b.globalCompositeOperation = 'source-over';
+  g.save();
+  g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false; g.globalAlpha = 1; g.filter = 'none';
+  // 픽셀로 무너짐 — 작게 줄여 몇 가지 색으로 눌러 담았다가 계단 그대로 키움 (탑뷰 본편의 그 결)
+  if (has('pix')) {
+    const ps = Math.round((3 + k * 4) * SR), w = Math.max(8, Math.round(CW / ps)), h = Math.max(6, Math.round(CH / ps));
+    if (!_glSm) _glSm = document.createElement('canvas');
+    _glSm.width = w; _glSm.height = h;
+    const sm = _glSm.getContext('2d', { willReadFrequently: true });
+    sm.imageSmoothingEnabled = true; sm.drawImage(_glCv, 0, 0, w, h);
+    const id = sm.getImageData(0, 0, w, h), px = id.data, lv = 7;
+    for (let i = 0; i < px.length; i += 4) {                                 // 몇 단계 색으로 — 밝기를 조금 올려 어둠 속 덩어리가 보이게
+      for (let c = 0; c < 3; c++) px[i + c] = Math.round(Math.min(1, Math.pow(px[i + c] / 255, .8) * 1.1) * (lv - 1)) / (lv - 1) * 255;
+      px[i + 1] = Math.min(255, px[i + 1] + 6);                              // 본편 화면처럼 살짝 초록 기
+    }
+    sm.putImageData(id, 0, 0);
+    g.drawImage(_glSm, 0, 0, w, h, 0, 0, CW, CH);
+    b.globalCompositeOperation = 'copy'; b.drawImage(cv, 0, 0); b.globalCompositeOperation = 'source-over';
+  }
+  // 위아래로 미끄러짐 — 수직 동기가 풀린 것처럼
+  if (has('roll')) {
+    const dy = Math.round((rnd() * .5 + .2) * CH * k) % CH;
+    g.drawImage(_glCv, 0, dy - CH); g.drawImage(_glCv, 0, dy);
+    g.fillStyle = 'rgba(0,0,0,.85)'; g.fillRect(0, dy - 6 * SR, CW, 5 * SR);
+    b.globalCompositeOperation = 'copy'; b.drawImage(cv, 0, 0); b.globalCompositeOperation = 'source-over';
+  }
+  // 찢어짐 — 가로 띠 몇 줄이 옆으로 밀림
+  if (has('tear')) {
+    const n = 3 + Math.round(k * 7);
+    for (let i = 0; i < n; i++) {
+      const y = Math.floor(rnd() * CH), h = Math.max(2, Math.floor((2 + rnd() * 24 * k) * SR)), dx = Math.round((rnd() - .5) * 90 * k * SR);
+      g.drawImage(_glCv, 0, y, CW, h, dx, y, CW, h);
+      if (rnd() < .4) g.drawImage(_glCv, 0, y, CW, h, dx - Math.sign(dx || 1) * CW, y, CW, h);   // 밀려난 자리 메움
+    }
+  }
+  // 깨진 조각 — 다른 자리의 네모가 끼어들고, 몇 칸은 원색으로
+  if (has('block')) {
+    const bs = Math.round(16 * SR), n = 4 + Math.round(k * 10);
+    for (let i = 0; i < n; i++) {
+      const x = Math.floor(rnd() * CW / bs) * bs, y = Math.floor(rnd() * CH / bs) * bs, w = bs * (1 + Math.floor(rnd() * 4)), h = bs * (1 + Math.floor(rnd() * 2));
+      if (rnd() < .3) { g.fillStyle = ['#1fe07a', '#e01f9a', '#20d8e8', '#0b0c10'][Math.floor(rnd() * 4)]; g.globalAlpha = .55; g.fillRect(x, y, w, h); g.globalAlpha = 1; }
+      else g.drawImage(_glCv, Math.floor(rnd() * CW / bs) * bs, Math.floor(rnd() * CH / bs) * bs, w, h, x, y, w, h);
+    }
+  }
+  // 색 어긋남 — 빨강만 옆으로
+  if (has('rgb')) {
+    const dx = Math.round((6 + rnd() * 10) * k * SR) * (rnd() < .5 ? -1 : 1);
+    b.globalCompositeOperation = 'multiply'; b.fillStyle = '#ff0000'; b.fillRect(0, 0, CW, CH); b.globalCompositeOperation = 'source-over';
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = '#00ffff'; g.fillRect(0, 0, CW, CH);
+    g.globalCompositeOperation = 'lighter'; g.drawImage(_glCv, dx, 0);
+    g.globalCompositeOperation = 'source-over';
+  }
+  // 주사선 한 줄 · 잡음 몇 점
+  g.fillStyle = `rgba(255,255,255,${.06 + k * .1})`;
+  g.fillRect(0, Math.floor(rnd() * CH), CW, Math.max(1, Math.round(SR)));
+  g.restore();
 }
 
 /* 숲 — 깜빡임 사이 가지 틈에서 내려다보는 방호복 후드 하나, 그리고 날아오르는 새 */
@@ -16629,17 +16723,6 @@ function renderOpening() {
       }
       g.globalAlpha = 1;
     });
-    // 저쪽에서 지나가는 또 한 사람 — 조수 (위기 땐 뛰어옵니다)
-    if (t > opT(540) && t < opT(700)) {
-      const k = (t - opT(540)) / (opT(700) - opT(540));
-      g.globalAlpha = .7 * Math.sin(k * Math.PI);
-      const ax = -40 + k * 170, ay = H * .2 + Math.sin(t * .4) * 3 * cr;
-      g.fillStyle = '#56523c';                                                  // 이쪽도 노란 방호복
-      g.beginPath(); g.ellipse(ax, ay, 70, 60, .2, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#08090b';
-      g.beginPath(); g.ellipse(ax + 18, ay + 6, 30, 34, .2, 0, Math.PI * 2); g.fill();
-      g.globalAlpha = 1;
-    }
     }
     // 펜라이트 — 눈을 가로질러 훑고 지나갑니다
     const pl0 = opT(206);                     // 펜라이트는 이야기가 느려져도 휙 지나갑니다
@@ -16705,6 +16788,8 @@ function renderOpening() {
 
   // 눈꺼풀 (우물 바닥에서 깨어날 때와 같은 모양)
   drawEyelids(o);
+  const gl1 = opGlitchAt(O, t);
+  if (gl1 && t < OP.END - 20) opGlitch(gl1, t);
 
   // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게
   OP_TEXT.forEach(([a, b, s, who]) => {

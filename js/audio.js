@@ -150,17 +150,17 @@ const Sfx = (() => {
     step()    { noise(0.05, 0.09, 300, 1400); },
 
     /* 몬스터가 죽을 때 — 피가 아니라 "코드가 튀는" 소리 */
-    glitch() {
+    glitch(k = 1) {                  // k : 세기 (오프닝의 가벼운 글리치는 작게)
       const c = ctx(), t = c.currentTime;
       for (let i = 0; i < 7; i++) {
         const o = c.createOscillator(), g = c.createGain();
         o.type = 'square';
         o.frequency.setValueAtTime(300 + Math.random() * 2600, t + i * 0.022);
-        env(g, t + i * 0.022, 0.002, 0.03, 0.12);
+        env(g, t + i * 0.022, 0.002, 0.03, 0.12 * k);
         o.connect(g); g.connect(master);
         o.start(t + i * 0.022); o.stop(t + i * 0.022 + 0.05);
       }
-      noise(0.14, 0.20, 2000, 12000);
+      noise(0.14, 0.20 * k, 2000, 12000);
     },
 
     fall() {
