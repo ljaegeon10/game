@@ -16234,10 +16234,14 @@ function tickOpening() {
   const O = G.opening, t = ++O.t;
   O.shake = Math.max(0, (O.shake || 0) * .9 - .05);
   // 글리치 — 큰 것은 소리와 함께, 그 사이사이 한두 프레임짜리 잔글리치 (어둠 속에선 없음)
-  for (const [a, , k] of OP_GLITCH_ALL) if (t === a) Sfx.glitch(.25 + k * .45);
+  for (const [a, , k] of OP_GLITCH_ALL) if (t === a) { Sfx.glitch(.4 + k * .5); if (k >= 1.4) O.shake = Math.max(O.shake, 8); }
   O.micro = Math.max(0, (O.micro || 0) - 1);
   const lit = (t < OP.LAB) || t > OP.DARK + 20;
-  if (lit && !O.micro && Math.random() < 1 / 170) { O.micro = 1 + (Math.random() < .5 ? 1 : 0); O.microKind = Math.random() < .5 ? 'tear' : 'tear rgb'; }
+  if (lit && !O.micro && Math.random() < 1 / 60) {
+    O.micro = 1 + Math.floor(Math.random() * 3);
+    O.microKind = ['tear', 'tear rgb', 'pix', 'inv', 'block rgb'][Math.floor(Math.random() * 5)];
+    if (Math.random() < .4) Sfx.glitch(.25);
+  }
   if (OP_BEEPS.includes(t)) Sfx.beep(t < opT(1200) ? (t >= OP.CR0 && t < OP.CR1 ? .06 : .045) : .035 - (t - opT(1200)) / 20000);   // 셀수록 멀어지는 비프
   if (t === opT(206) + 6) Sfx.beep(.02);                                   // 펜라이트 딸깍
   // 각성 — 눈이 번쩍, 경보, 흔들림
@@ -16539,42 +16543,62 @@ function drawOpForest3D(R, t, rise) {
    픽셀로 무너지는 순간엔 이 게임(탑뷰 픽셀)의 그림이 언뜻 겹칩니다 — 이어지는 본편과 같은 결.
    [시작(기준 시간), 길이(프레임), 세기, 종류] — tear 찢어짐 · rgb 색 어긋남 · pix 픽셀로 무너짐 · roll 화면이 위아래로 미끄러짐 · block 깨진 조각 */
 const OP_GLITCH = [
-  [96, 5, .4, 'tear'],
-  [252, 8, .6, 'tear rgb'],                    // 펜라이트 뒤
-  [380, 4, .35, 'pix'],
-  [468, 10, .7, 'pix tear'],                   // "141번째예요."
-  [566, 7, .9, 'rgb tear block'],              // 각성
-  [626, 12, 1, 'pix rgb roll'],                // 바짝 들여다볼 때 — 가장 크게
-  [760, 6, .5, 'tear'],
-  [880, 8, .6, 'pix'],
-  [1010, 5, .45, 'tear rgb'],
-  [1215, 9, .7, 'pix block'],                  // 숫자를 세기 시작
-  [1320, 6, .55, 'tear rgb'],
-  [1420, 8, .7, 'pix'],
-  [1522, 10, 1, 'roll rgb block']              // "7…" 툭
+  [70, 8, .8, 'tear rgb'],
+  [96, 9, 1, 'pix tear rgb'],
+  [180, 6, .9, 'inv tear'],
+  [252, 14, 1.2, 'tear rgb block drop'],          // 펜라이트 뒤
+  [330, 8, 1, 'freeze tear rgb'],
+  [380, 10, 1.1, 'pix rgb'],
+  [440, 6, .9, 'inv block'],
+  [468, 18, 1.4, 'pix tear rgb roll'],           // "141번째예요."
+  [520, 8, 1, 'freeze block rgb'],
+  [566, 14, 1.5, 'rgb tear block inv drop'],     // 각성
+  [600, 8, 1.2, 'pix tear'],
+  [626, 22, 1.7, 'pix rgb roll block'],          // 바짝 들여다볼 때 — 가장 크게
+  [676, 8, 1.1, 'inv tear rgb'],
+  [760, 12, 1.1, 'tear rgb drop'],
+  [830, 8, 1, 'freeze pix'],
+  [880, 14, 1.2, 'pix block'],
+  [950, 8, 1, 'inv tear'],
+  [1010, 12, 1.1, 'tear rgb roll'],
+  [1090, 8, 1, 'pix rgb'],
+  [1215, 16, 1.3, 'pix block rgb'],              // 숫자를 세기 시작
+  [1320, 12, 1.2, 'tear rgb inv'],
+  [1380, 8, 1, 'freeze roll'],
+  [1420, 14, 1.3, 'pix tear'],
+  [1490, 8, 1.1, 'block rgb'],
+  [1522, 20, 1.7, 'roll rgb block inv drop']     // "7…" 툭
 ].map(([a, d, k, kind]) => [opT(a), d, k, kind]);
 /* 숲 — 어둠이 걷힌 뒤(OP.DARK 기준 실제 프레임) */
-const OP_GLITCH_WOOD = [[30, 7, .6, 'pix tear'], [83, 4, .5, 'tear rgb'], [150, 6, .45, 'pix'], [214, 4, .4, 'tear']]
+const OP_GLITCH_WOOD = [[30, 14, 1.3, 'pix tear rgb'], [60, 8, 1, 'inv tear'], [83, 10, 1.2, 'tear rgb roll'], [120, 8, 1, 'freeze block'],
+                        [150, 12, 1.1, 'pix rgb'], [190, 6, .9, 'inv'], [214, 10, 1.1, 'tear rgb drop'], [OP.LINES - OP.DARK + 30, 12, 1.2, 'pix roll rgb']]
   .map(([a, d, k, kind]) => [OP.DARK + a, d, k, kind]);
 const OP_GLITCH_ALL = OP_GLITCH.concat(OP_GLITCH_WOOD);
 function opGlitchAt(O, t) {
   for (const [a, d, k, kind] of OP_GLITCH_ALL) if (t >= a && t < a + d) {
     const u = (t - a) / d;
-    return { k: k * (u < .7 ? 1 : (1 - u) / .3 * .8 + .2), kind, u, big: true };
+    return { k: k * (u < .7 ? 1 : (1 - u) / .3 * .8 + .2), kind, u, a, big: true };
   }
-  if (O.micro > 0) return { k: .25, kind: O.microKind, u: 0, big: false };   // 가끔 한두 프레임 스치는 잔글리치
+  if (O.micro > 0) return { k: .7, kind: O.microKind, u: 0, a: t, big: false };   // 가끔 한두 프레임 스치는 잔글리치
   return null;
 }
-let _glCv = null, _glSm = null;
+let _glCv = null, _glSm = null, _glHold = null;
 function opGlitch(G1, t) {
   const CW = cv.width, CH = cv.height;
   if (!_glCv || _glCv.width !== CW || _glCv.height !== CH) { _glCv = document.createElement('canvas'); _glCv.width = CW; _glCv.height = CH; }
   const b = _glCv.getContext('2d'), k = G1.k, has = s => G1.kind.includes(s);
   let seed = (t * 9301 + 49297) % 233280;
   const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-  b.globalCompositeOperation = 'copy'; b.drawImage(cv, 0, 0); b.globalCompositeOperation = 'source-over';
   g.save();
   g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false; g.globalAlpha = 1; g.filter = 'none';
+  // 멈춤 — 글리치가 시작된 그 한 장에 화면이 걸려 버림 (소리 · 글자는 흘러감)
+  if (has('freeze')) {
+    if (!_glHold || _glHold.width !== CW || _glHold.height !== CH) { _glHold = document.createElement('canvas'); _glHold.width = CW; _glHold.height = CH; G1.a = t; }
+    const h = _glHold.getContext('2d');
+    if (t === G1.a || !_glHold._ok) { h.drawImage(cv, 0, 0); _glHold._ok = true; }
+    else g.drawImage(_glHold, Math.round((rnd() - .5) * 6 * SR), 0);
+  } else if (_glHold) _glHold._ok = false;
+  b.globalCompositeOperation = 'copy'; b.drawImage(cv, 0, 0); b.globalCompositeOperation = 'source-over';
   // 픽셀로 무너짐 — 작게 줄여 몇 가지 색으로 눌러 담았다가 계단 그대로 키움 (탑뷰 본편의 그 결)
   if (has('pix')) {
     const ps = Math.round((3 + k * 4) * SR), w = Math.max(8, Math.round(CW / ps)), h = Math.max(6, Math.round(CH / ps));
@@ -16600,33 +16624,45 @@ function opGlitch(G1, t) {
   }
   // 찢어짐 — 가로 띠 몇 줄이 옆으로 밀림
   if (has('tear')) {
-    const n = 3 + Math.round(k * 7);
+    const n = 5 + Math.round(k * 12);
     for (let i = 0; i < n; i++) {
-      const y = Math.floor(rnd() * CH), h = Math.max(2, Math.floor((2 + rnd() * 24 * k) * SR)), dx = Math.round((rnd() - .5) * 90 * k * SR);
+      const y = Math.floor(rnd() * CH), h = Math.max(2, Math.floor((2 + rnd() * 40 * k) * SR)), dx = Math.round((rnd() - .5) * 240 * k * SR);
       g.drawImage(_glCv, 0, y, CW, h, dx, y, CW, h);
       if (rnd() < .4) g.drawImage(_glCv, 0, y, CW, h, dx - Math.sign(dx || 1) * CW, y, CW, h);   // 밀려난 자리 메움
     }
   }
   // 깨진 조각 — 다른 자리의 네모가 끼어들고, 몇 칸은 원색으로
   if (has('block')) {
-    const bs = Math.round(16 * SR), n = 4 + Math.round(k * 10);
+    const bs = Math.round(16 * SR), n = 8 + Math.round(k * 22);
     for (let i = 0; i < n; i++) {
       const x = Math.floor(rnd() * CW / bs) * bs, y = Math.floor(rnd() * CH / bs) * bs, w = bs * (1 + Math.floor(rnd() * 4)), h = bs * (1 + Math.floor(rnd() * 2));
-      if (rnd() < .3) { g.fillStyle = ['#1fe07a', '#e01f9a', '#20d8e8', '#0b0c10'][Math.floor(rnd() * 4)]; g.globalAlpha = .55; g.fillRect(x, y, w, h); g.globalAlpha = 1; }
+      if (rnd() < .3) { g.fillStyle = ['#1fe07a', '#e01f9a', '#20d8e8', '#0b0c10'][Math.floor(rnd() * 4)]; g.globalAlpha = .8; g.fillRect(x, y, w, h); g.globalAlpha = 1; }
       else g.drawImage(_glCv, Math.floor(rnd() * CW / bs) * bs, Math.floor(rnd() * CH / bs) * bs, w, h, x, y, w, h);
     }
   }
   // 색 어긋남 — 빨강만 옆으로
   if (has('rgb')) {
-    const dx = Math.round((6 + rnd() * 10) * k * SR) * (rnd() < .5 ? -1 : 1);
+    const dx = Math.round((10 + rnd() * 18) * k * SR) * (rnd() < .5 ? -1 : 1);
     b.globalCompositeOperation = 'multiply'; b.fillStyle = '#ff0000'; b.fillRect(0, 0, CW, CH); b.globalCompositeOperation = 'source-over';
     g.globalCompositeOperation = 'multiply'; g.fillStyle = '#00ffff'; g.fillRect(0, 0, CW, CH);
     g.globalCompositeOperation = 'lighter'; g.drawImage(_glCv, dx, 0);
     g.globalCompositeOperation = 'source-over';
   }
-  // 주사선 한 줄 · 잡음 몇 점
-  g.fillStyle = `rgba(255,255,255,${.06 + k * .1})`;
-  g.fillRect(0, Math.floor(rnd() * CH), CW, Math.max(1, Math.round(SR)));
+  // 반전 — 몇 프레임 색이 뒤집힘
+  if (has('inv') && (G1.big || (G1.a * 7) % 3)) {          // 한 번 뒤집히면 그 글리치 동안 그대로 (번쩍번쩍 깜빡이지 않게)
+    g.globalCompositeOperation = 'difference'; g.fillStyle = '#fff'; g.fillRect(0, 0, CW, CH);
+    g.globalCompositeOperation = 'source-over';
+  }
+  // 신호가 끊김 — 한두 프레임 새까맣게, 가운데 가로줄 하나만
+  if (has('drop') && rnd() < .35) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, CW, CH);
+    g.fillStyle = 'rgba(220,235,255,.8)'; g.fillRect(0, CH / 2 - SR, CW, 2 * SR);
+  }
+  // 흔들림 · 주사선 · 잡음
+  if (k > .8) { const sx = Math.round((rnd() - .5) * 14 * k * SR); g.drawImage(cv, sx, 0); }
+  g.fillStyle = `rgba(255,255,255,${.1 + k * .12})`;
+  for (let i = 0; i < 1 + Math.round(k * 3); i++) g.fillRect(0, Math.floor(rnd() * CH), CW, Math.max(1, Math.round(SR * (1 + rnd() * 2))));
+  for (let i = 0; i < 40 * k; i++) { g.fillStyle = rnd() < .5 ? '#fff' : '#000'; g.fillRect(Math.floor(rnd() * CW), Math.floor(rnd() * CH), 2 * SR, SR); }
   g.restore();
 }
 
