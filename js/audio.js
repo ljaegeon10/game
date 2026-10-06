@@ -163,6 +163,33 @@ const Sfx = (() => {
       noise(0.14, 0.20 * k, 2000, 12000);
     },
 
+    /* 치지직 — 전파가 끊긴 TV 잡음. 덩어리째 커졌다 작아지며 갈라지고, 사이사이 탁탁 튀는 소리.
+       dur 초 동안 고르게 이어집니다 (오프닝 글리치 길이에 맞춤), k 세기 */
+    static(dur = .2, k = 1) {
+      const c = ctx(), t = c.currentTime, sr = c.sampleRate;
+      const n = Math.floor(sr * (dur + .03)), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+      let amp = 1, seg = 0, hold = 0, held = 0;
+      for (let i = 0; i < n; i++) {
+        if (--seg <= 0) {                                    // 4‥28ms 마다 세기가 툭툭 바뀜 (지·직·지직)
+          seg = Math.floor(sr * (.004 + Math.random() * .024));
+          amp = Math.random() < .18 ? .08 : .45 + Math.random() * .55;
+          hold = 1 + Math.floor(Math.random() * 6);          // 거칠게 — 샘플을 몇 개씩 붙잡아 비트가 깨진 소리
+        }
+        if (i % hold === 0) held = Math.random() * 2 - 1;
+        let v = held * amp;
+        if (Math.random() < .0016) v = (Math.random() < .5 ? -1 : 1);   // 탁 · 탁 튀는 소리
+        const e = Math.min(1, i / (sr * .004), (n - i) / (sr * .02));
+        d[i] = v * e;
+      }
+      const src = c.createBufferSource(); src.buffer = buf;
+      const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+      const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 3200; pk.Q.value = .8; pk.gain.value = 6;
+      const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000;
+      const g = c.createGain(); g.gain.value = .22 * k;
+      src.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(g); g.connect(master);
+      src.start(t);
+    },
+
     fall() {
       const c = ctx(), t = c.currentTime;
       const o = c.createOscillator(), g = c.createGain();

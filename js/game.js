@@ -4312,13 +4312,13 @@ function tickOpening() {
   const O = G.opening, t = ++O.t;
   O.shake = Math.max(0, (O.shake || 0) * .9 - .05);
   // 글리치 — 큰 것은 소리와 함께, 그 사이사이 한두 프레임짜리 잔글리치 (어둠 속에선 없음)
-  for (const [a, , k] of OP_GLITCH_ALL) if (t === a) { Sfx.glitch(.4 + k * .5); if (k >= 1.4) O.shake = Math.max(O.shake, 8); }
+  for (const [a, d, k] of OP_GLITCH_ALL) if (t === a) { Sfx.static(d / 60 + .05, .5 + k * .45); if (k >= 1.4) O.shake = Math.max(O.shake, 8); }
   O.micro = Math.max(0, (O.micro || 0) - 1);
   const lit = (t < OP.LAB) || t > OP.DARK + 20;
   if (lit && !O.micro && Math.random() < 1 / 60) {
     O.micro = 1 + Math.floor(Math.random() * 3);
     O.microKind = ['tear', 'tear rgb', 'pix', 'inv', 'block rgb'][Math.floor(Math.random() * 5)];
-    if (Math.random() < .4) Sfx.glitch(.25);
+    if (Math.random() < .5) Sfx.static(O.micro / 60 + .03, .35);
   }
   if (OP_BEEPS.includes(t)) Sfx.beep(t < opT(1200) ? (t >= OP.CR0 && t < OP.CR1 ? .06 : .045) : .035 - (t - opT(1200)) / 20000);   // 셀수록 멀어지는 비프
   if (t === opT(206) + 6) Sfx.beep(.02);                                   // 펜라이트 딸깍
