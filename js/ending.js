@@ -1301,6 +1301,9 @@ class EndingScene {
                     truth: TruthState, standby: StandbyState, exit: ExitState };
     this.loop = this.loop.bind(this);
     this.onKey = this.onKey.bind(this);
+    // 길게 눌러 건너뛰기 — SPACE · Enter 나 화면을 약 1초 누르고 있으면 마지막(SPACE 대기)으로
+    this.onKeyUp = e => { if (e.code === 'Space' || e.code === 'Enter') this.holdK = false; };
+    this.onPtr = e => { this.holdP = e.type === 'pointerdown'; };
     this.running = false;
   }
   start() {
@@ -1312,12 +1315,17 @@ class EndingScene {
     this.acc = 0;
     this.last = performance.now();
     addEventListener('keydown', this.onKey);
+    addEventListener('keyup', this.onKeyUp);
+    addEventListener('pointerdown', this.onPtr); addEventListener('pointerup', this.onPtr); addEventListener('pointercancel', this.onPtr);
+    this.holdK = this.holdP = false; this.skipT = 0; this.skipShow = 0;
     this.raf = requestAnimationFrame(this.loop);
   }
   stop() {
     this.running = false;
     cancelAnimationFrame(this.raf);
     removeEventListener('keydown', this.onKey);
+    removeEventListener('keyup', this.onKeyUp);
+    ['pointerdown', 'pointerup', 'pointercancel'].forEach(n => removeEventListener(n, this.onPtr));
     this.sfx.stopNoise();
     this.sfx.humStop();
     for (const r of [this.dio, this.lab3]) { const x = r && r.gl && r.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); }
@@ -1346,7 +1354,22 @@ class EndingScene {
   update() {
     this.frame++;
     this.t++;
+    if (/^(rise|crash|awaken|reveal|truth)$/.test(this.stateName)) {
+      if (this.holdK || this.holdP) { this.skipT++; this.skipShow = 120; }
+      else { this.skipT = Math.max(0, this.skipT - 3); this.skipShow = Math.max(0, this.skipShow - 1); }
+      if (this.skipT >= 60 && this.frame > 30) { this.skipToEnd(); return; }
+    } else this.skipShow = 0;
     this.state.update(this);
+  }
+  /* 건너뛰기 — 눈을 뜬 마지막 장면(SPACE 대기)으로. 터미널은 다 찍힌 채, 불은 켜진 채 */
+  skipToEnd() {
+    this.skipT = 0; this.skipShow = 0; this.holdK = this.holdP = false;
+    this.sfx.setNoise(0); this.sfx.stopNoise(); this.sfx.humStart();
+    if (!this.ekg.running) { this.ekg.start(); this.ekg.nextBeat = 4; this.ekg.period = 70; }
+    this.ekg.target = 46; this.hudA = 1; this.light = 1; this.awake = true;
+    const T = this.term; T.shown = T.lines.map(l => l.text); T.li = T.lines.length - 1; T.done = true;
+    this.panelA = 1; this.pushT = 220; this.view = FACE_VIEW; this.source = null;
+    this.go('standby');
   }
   draw() {
     const c = this.ctx;
@@ -1357,10 +1380,21 @@ class EndingScene {
     this.state.draw(this, c);
     // 주사선 · 가장자리 그늘 — 3D 실험실(탈출과 같은 화면)에선 걷어 냄
     if (!(this.lab3 && /^(reveal|truth|standby|exit)$/.test(this.stateName))) c.drawImage(this.overlay, 0, 0);
+    if (this.skipShow > 0) {                                     // 길게 눌러 건너뛰기 — 오른쪽 아래 고리
+      const x = W - 36, y = H - 32, k = Math.min(1, this.skipT / 60);
+      c.save(); c.globalAlpha = Math.min(1, this.skipShow / 30) * .85; c.lineCap = 'round'; c.lineWidth = 3;
+      c.strokeStyle = 'rgba(232,238,246,.25)'; c.beginPath(); c.arc(x, y, 11, 0, Math.PI * 2); c.stroke();
+      if (k > 0) { c.strokeStyle = '#e8eef6'; c.beginPath(); c.arc(x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke(); }
+      c.font = `13px ${MONO}`; c.textAlign = 'right'; c.textBaseline = 'middle'; c.fillStyle = '#c9d3df';
+      c.fillText('길게 눌러 건너뛰기', x - 20, y + 1); c.restore();
+    }
   }
   onKey(e) {
+    if (e.code === 'Enter' && !e.repeat) this.holdK = true;
     if (e.code !== 'Space') return;
     e.preventDefault();
+    if (e.repeat) return;                    // 길게 누르는 동안의 반복 입력으로 넘어가지 않게
+    this.holdK = true;
     if (this.state.input) this.state.input(this, 'space');
   }
 }

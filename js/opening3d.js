@@ -249,6 +249,8 @@ class Opening3D {
     this.draw(this.sky); this.draw(this.forest); this.draw(this.leaves);
     return this.canvas;
   }
+  /* 해상도 바꾸기 — 느린 기기에서 줄였다가, 넉넉해지면 되돌림 (투영 비율은 그대로) */
+  setSize(w, h) { if (w === this.w && h === this.h) return; this.w = w; this.h = h; this.canvas.width = w; this.canvas.height = h; }
   dispose() { const x = this.gl && this.gl.getExtension('WEBGL_lose_context'); if (x) x.loseContext(); this.ok = false; }
 }
 

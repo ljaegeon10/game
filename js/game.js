@@ -77,6 +77,11 @@ addEventListener('keydown', e => {
   }
 });
 addEventListener('keyup', e => { key[e.key] = false; });
+/* 화면을 누르고 있는지 — 컷신 "길게 눌러 건너뛰기" (터치 · 마우스) */
+let ptrHeld = false;
+addEventListener('pointerdown', () => { ptrHeld = true; });
+['pointerup', 'pointercancel', 'blur'].forEach(n => addEventListener(n, () => { ptrHeld = false; }));
+const skipHeld = () => !!(key[' '] || key.Enter || key.Escape || ptrHeld);
 cv.addEventListener('mousemove', e => {
   const r = cv.getBoundingClientRect();
   mouse.x = (e.clientX - r.left) / r.width * VW;     // 화면 좌표 — 쏠 때 카메라만큼 더합니다
@@ -648,6 +653,18 @@ function loadRoom(id, fromDir) {
     N: [W / 2, TS + 26, 'down'],  S: [W / 2, H - TS - 26, 'up']
   }[fromDir] || [TS + 26, H / 2, 'right'];
   P.x = spawn[0]; P.y = spawn[1]; P.dir = spawn[2];
+  // 문턱에 바짝 붙어 선 적은 조금 물러나 있게 — 들어서자마자 맞는 일이 없도록 (북쪽 방의 버섯은 문에서 26px).
+  // 그리고 들어선 직후 잠깐은 아무도 쏘지 않습니다 (공격 대기 cd 를 넉넉히)
+  const SAFE = 120;
+  for (const f of G.foes) {
+    let dx = f.x - P.x, dy = f.y - P.y, d = Math.hypot(dx, dy);
+    if (d < SAFE) {
+      if (d < 1) { dx = W / 2 - P.x; dy = H / 2 - P.y; d = Math.hypot(dx, dy) || 1; }
+      f.x = Math.max(TS + 16, Math.min(W - TS - 16, P.x + dx / d * SAFE));
+      f.y = Math.max(TS + 16, Math.min(H - TS - 16, P.y + dy / d * SAFE));
+    }
+    f.cd = Math.max(f.cd, 70);
+  }
   updateCamera(true);
 
   const first = !G.visited.has(id);
@@ -4309,8 +4326,21 @@ function beginOpening() {
   Sfx.ambientStop();
 }
 
+/* 오프닝 — 길게 눌러(약 1초) 건너뛰기. 누르기 시작하면 오른쪽 아래에 고리가 차오릅니다 */
+const OP_SKIP_T = 60;
+function finishOpening() {
+  G.opening = null;
+  op3dDispose();
+  G.mode = 'forest';
+  $('hud').classList.remove('hidden');
+  G.wake = WAKE_DUR;                    // 조리개가 열리듯 숲이 드러납니다
+  say(FOREST_HINT);
+}
 function tickOpening() {
   const O = G.opening, t = ++O.t;
+  if (skipHeld()) { O.skip = (O.skip || 0) + 1; O.skipShow = 120; }
+  else { O.skip = Math.max(0, (O.skip || 0) - 3); O.skipShow = Math.max(0, (O.skipShow || 0) - 1); }
+  if (O.skip >= OP_SKIP_T && t > 30) { Sfx.ambient('forest'); finishOpening(); return; }
   O.shake = Math.max(0, (O.shake || 0) * .9 - .05);
   // 글리치 — 큰 것은 소리와 함께, 그 사이사이 한두 프레임짜리 잔글리치 (어둠 속에선 없음)
   for (const [a, d, k] of OP_GLITCH_ALL) if (t === a) { Sfx.static(d / 60 + .05, .5 + k * .45); if (k >= 1.4) O.shake = Math.max(O.shake, 8); }
@@ -4343,14 +4373,7 @@ function tickOpening() {
     talk.back = 'opening';
   }
   if (t === OP.END - 30) Sfx.landThump(.1);
-  if (t >= OP.END) {                                                       // 탑뷰로
-    G.opening = null;
-    op3dDispose();
-    G.mode = 'forest';
-    $('hud').classList.remove('hidden');
-    G.wake = WAKE_DUR;                    // 조리개가 열리듯 숲이 드러납니다
-    say(FOREST_HINT);
-  }
+  if (t >= OP.END) finishOpening();                                       // 탑뷰로
 }
 
 /* 위를 올려다본 천장 — 격자 조명 두 장. alpha 로 숲 장면 위에 유령처럼도 씁니다 */
@@ -4654,11 +4677,14 @@ const OP_GLITCH_WOOD = [[30, 14, 1.3, 'pix tear rgb'], [60, 8, 1, 'inv tear'], [
   .map(([a, d, k, kind]) => [OP.DARK + a, d, k, kind]);
 const OP_GLITCH_ALL = OP_GLITCH.concat(OP_GLITCH_WOOD);
 function opGlitchAt(O, t) {
+  const calm = HERO_REDUCE;                  // "동작 줄이기" 설정 — 번쩍임(반전 · 검은 프레임 · 화면 미끄러짐) 없이 약하게
   for (const [a, d, k, kind] of OP_GLITCH_ALL) if (t >= a && t < a + d) {
     const u = (t - a) / d;
-    return { k: k * (u < .7 ? 1 : (1 - u) / .3 * .8 + .2), kind, u, a, big: true };
+    const kk = k * (u < .7 ? 1 : (1 - u) / .3 * .8 + .2);
+    return calm ? { k: kk * .4, kind: kind.replace(/inv|drop|roll|freeze/g, '') || 'tear', u, a, big: true }
+                : { k: kk, kind, u, a, big: true };
   }
-  if (O.micro > 0) return { k: .7, kind: O.microKind, u: 0, a: t, big: false };   // 가끔 한두 프레임 스치는 잔글리치
+  if (O.micro > 0 && !calm) return { k: .7, kind: O.microKind, u: 0, a: t, big: false };   // 가끔 한두 프레임 스치는 잔글리치
   return null;
 }
 let _glCv = null, _glSm = null, _glHold = null;
@@ -4786,8 +4812,19 @@ function drawOpWatcher(w) {
   }
 }
 
+/* 오프닝 3D 해상도 — 한 장 그리는 간격이 길면 낮추고(최저 0.7배), 넉넉하면 되돌림 (최고 1.8배 = 고해상도 화면 그대로) */
+function opAdapt(R) {
+  const now = performance.now(), dt = R.t0 ? now - R.t0 : 16; R.t0 = now;
+  R.dt = R.dt == null ? dt : R.dt * .93 + Math.min(200, dt) * .07;
+  if (++R.n % 45) return;
+  const k0 = R.k || R.lab.k || 1.8;
+  const k = R.dt > 26 ? Math.max(.7, k0 * .8) : R.dt < 17 && k0 < 1.8 ? Math.min(1.8, k0 * 1.12) : k0;
+  if (k === k0) return;
+  R.k = k; R.lab.setScale(k); R.scene.setSize(Math.round(960 * k), Math.round(540 * k));
+}
 function renderOpening() {
   const O = G.opening, t = O.t;
+  if (OP3) { OP3.n = OP3.n || 0; opAdapt(OP3); }
   const o = opEye(t);
   g.save();
   g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
@@ -4947,6 +4984,22 @@ function renderOpening() {
     }
     g.restore();
   });
+  drawSkipRing(O.skip || 0, O.skipShow || 0, OP_SKIP_T);
+  g.restore();
+}
+
+/* 길게 눌러 건너뛰기 — 오른쪽 아래, 누르는 동안 고리가 차오름 */
+function drawSkipRing(k, show, full) {
+  if (show <= 0 && k <= 0) return;
+  const a = Math.min(1, show / 30, 1) * .85, x = W - 22, y = H - 20;
+  g.save();
+  g.setTransform(SR, 0, 0, SR, 0, 0);
+  g.globalAlpha = a; g.lineCap = 'round';
+  g.strokeStyle = 'rgba(232,238,246,.25)'; g.lineWidth = 2;
+  g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.stroke();
+  if (k > 0) { g.strokeStyle = '#e8eef6'; g.beginPath(); g.arc(x, y, 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, k / full)); g.stroke(); }
+  g.font = '8px DungGeunMo, ui-monospace, monospace'; g.textAlign = 'right'; g.textBaseline = 'middle';
+  g.fillStyle = '#c9d3df'; g.fillText('길게 눌러 건너뛰기', x - 13, y + .5);
   g.restore();
 }
 
