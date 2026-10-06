@@ -65,13 +65,13 @@ const BALANCE = {
   knockback:     7.5,    // 몹이 맞았을 때 밀려나는 거리
   foeFlash:      9,      // 몹 피격 깜빡임 프레임
 
-  bossHp:        86,     // 하트 3개 기준 약 70~85초
-  bossSpeed:     0.74,
+  bossHp:        77,     // 하트 3개 기준 약 65~75초 (86 → 77, 살짝 쉽게)
+  bossSpeed:     0.70,
 
   /* 페이즈3 — 눈이 터진 자리에서 기어 나오는 것.
      졸개 없이 1:1 로만 싸우는 대신, 선공이 굵고 예비 동작이 짧습니다. */
-  abomHp:        96,
-  abomSpeed:     0.62,
+  abomHp:        86,     // 96 → 86
+  abomSpeed:     0.58,
   abomPlayerMax: 5,     // 변신하는 틈에 떨어진 피팩을 주워 먹어 체력칸이 늘어납니다
 
   /* 보스 패턴 배율 — 1 이 예전 기준. 공격 간격·예비 동작은 클수록 느긋하고,
@@ -79,12 +79,14 @@ const BALANCE = {
      boss* = 페이즈2(눈), abom* = 페이즈3(심연)
      보통은 '넓어진 보스방(768×432)에서 제대로 긴장되는' 쪽으로 맞췄습니다 —
      자주 · 빠르게 · 촘촘하게 쏘고, 예비 동작은 조금만 짧게(×0.9) 해서 보고 피할 틈은 남깁니다. */
-  bossCdMul:     .78, bossWindMul: .9, bossShotMul: 1.15, bossSpiralMul: .8,
-  abomCdMul:     .78, abomWindMul: .9, abomShotMul: 1.15, abomSpiralMul: .8,
-  bossRingAdd:   4,     // 눈의 원형 포자 발수에 더함 (8 · 12 → 12 · 16)
+  /* 살짝 쉽게 — 공격 간격 .78 → .86 · 예비 동작 .9 → 1.0(줄이지 않음) · 탄속 1.15 → 1.07 · 나선탄 .8 → .88 ·
+     원형 포자 +4 → +3발 · 비명 틈 조금 넓게 */
+  bossCdMul:     .86, bossWindMul: 1.0, bossShotMul: 1.07, bossSpiralMul: .88,
+  abomCdMul:     .86, abomWindMul: 1.0, abomShotMul: 1.07, abomSpiralMul: .88,
+  bossRingAdd:   3,     // 눈의 원형 포자 발수에 더함 (8 · 12 → 11 · 15)
   bossRingWaves1: 1,    // 원형 포자를 몇 겹 연달아 — 페이즈1
   bossRingWaves:  2,    //                          — 페이즈2 · 3 (겹마다 반 칸씩 돌아서 틈이 옮겨 감)
-  abomGapAdd:    0      // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다 (음수면 좁게)
+  abomGapAdd:    .07    // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다 (음수면 좁게)
 };
 
 /* ── 난이도 ───────────────────────────────────────────────
