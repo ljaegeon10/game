@@ -2452,27 +2452,29 @@ function renderDungeon() {
   drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
   drawRings();
 
+  const g0 = g; if (window.PixFX) g = PixFX.layerBegin(g0);    // 탄 — 도트 겹에 모아 (계단 가장자리 · 디더 빛무리)
   G.bullets.forEach(b => {
     g.save();
+    // 도트 탄 — 짙은 테 · 몸 · 왼쪽 위 한 점 빛 (꽉 찬 색이라 디더 없이 또렷)
+    const bx = Math.round(b.x), by = Math.round(b.y), r = b.r;
+    const dot = (rr, col) => { g.fillStyle = col; g.beginPath(); g.arc(bx, by, rr, 0, Math.PI * 2); g.fill(); };
     if (b.mine) {
-      g.fillStyle = '#dff6ee';
-      g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fill();
-      g.fillStyle = 'rgba(125,227,200,.55)';
-      g.beginPath(); g.arc(b.x, b.y, b.r + 2.5, 0, Math.PI * 2); g.fill();
+      dot(r + 1.6, '#1f6f63'); dot(r + .6, '#7de3c8'); dot(r - .6, '#effffa');
     } else {
-      g.fillStyle = 'rgba(194,53,44,.4)';
-      g.beginPath(); g.arc(b.x, b.y, b.r + 3, 0, Math.PI * 2); g.fill();
-      g.fillStyle = '#e2604f';
-      g.beginPath(); g.arc(b.x, b.y, b.r, 0, Math.PI * 2); g.fill();
+      const fl = (G.t >> 2) % 2;                                  // 적 탄은 두 박자로 깜빡이는 속
+      dot(r + 1.6, '#5a1414'); dot(r + .4, '#d8453a'); dot(Math.max(1, r - 1.4), fl ? '#ffb39c' : '#ff7a5e');
     }
+    g.fillStyle = '#ffffff'; g.fillRect(bx - Math.ceil(r * .5), by - Math.ceil(r * .5), 1, 1);
     g.restore();
   });
+  g = g0;
 
   G.fx.forEach(f => {
     const k = f.life / f.max;
     if (f.k === 'p') {
-      g.globalAlpha = k; g.fillStyle = f.c;
-      g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3); g.globalAlpha = 1;
+      g.globalAlpha = k > .5 ? 1 : k * 2; g.fillStyle = f.c;          // 튀는 조각 — 정수 픽셀, 작아지며 사라짐
+      const sz = k > .6 ? 3 : k > .3 ? 2 : 1;
+      g.fillRect(Math.round(f.x) - (sz >> 1), Math.round(f.y) - (sz >> 1), sz, sz); g.globalAlpha = 1;
     } else if (f.k === 'trail') {            // 보스 돌진 잔상
       g.save();
       g.globalCompositeOperation = 'lighter';
@@ -2488,7 +2490,7 @@ function renderDungeon() {
       g.globalCompositeOperation = 'lighter';
       g.globalAlpha = (1 - k) * .9;
       g.fillStyle = f.c;
-      g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
+      g.fillRect(Math.round(f.x) - 1, Math.round(f.y) - 1, 3, 3);
       g.restore();
     } else {
       // 죽으면서 흩어지는 숫자/기호 — "피 대신 숫자가 흩어졌다"는 복선이라
@@ -2512,17 +2514,19 @@ function renderDungeon() {
       g.globalAlpha = fade;
       g.font = 'bold 15px DungGeunMo, ui-monospace, monospace';
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.shadowColor = 'rgba(125,227,200,.85)'; g.shadowBlur = 9;
+      // 흐린 빛번짐(shadowBlur) 대신 도트 글자 — 1px 짙은 테 + 청록 그림자 한 칸 + 밝은 속
       f.chars.forEach(c => {
-        const cx = f.x + c.dx * spread, cy = f.y + c.dy * spread;
-        g.lineWidth = 3; g.strokeStyle = 'rgba(4,8,10,.85)';
-        g.strokeText(c.c, cx, cy);
-        g.fillStyle = '#c8f7ec';
-        g.fillText(c.c, cx, cy);
+        const cx = Math.round(f.x + c.dx * spread), cy = Math.round(f.y + c.dy * spread);
+        g.fillStyle = '#04080a';
+        for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) g.fillText(c.c, cx + ox, cy + oy);
+        g.fillStyle = '#3fa58c'; g.fillText(c.c, cx + 1, cy + 2);
+        g.fillStyle = '#c8f7ec'; g.fillText(c.c, cx, cy);
       });
       g.restore();
     }
   });
+
+  if (window.PixFX) PixFX.layerFlush(g);                      // 탄 · 고리 · 예고선 겹을 도트로 정리해 얹음
 
   // 포자에 닿아 느려진 동안은 화면 가장자리가 누렇게 물듭니다
   if (P.slow > 0) {
@@ -2768,7 +2772,8 @@ function drawPlayer() {
   g.save();
   g.fillStyle = 'rgba(0,0,0,.5)';
   const shadowSquish = 1 + lift * 0.14;                 // 뜰 때 그림자가 살짝 좁아짐
-  g.beginPath(); g.ellipse(P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 0, 0, Math.PI * 2); g.fill();
+  if (window.PixFX) PixFX.ellipse(g, P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 'rgba(0,0,0,.5)');
+  else { g.beginPath(); g.ellipse(P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 0, 0, Math.PI * 2); g.fill(); }
 
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
 
@@ -2863,8 +2868,8 @@ function drawFoe(f) {
 
   g.save();
   g.globalAlpha = warpK;
-  g.fillStyle = 'rgba(0,0,0,.4)';
-  g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill();
+  if (window.PixFX) PixFX.ellipse(g, f.x, f.y + 11, s * .44, s * .17, 'rgba(0,0,0,.42)');      // 도트 그림자
+  else { g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.ellipse(f.x, f.y + 11, s * .38, s * .15, 0, 0, Math.PI * 2); g.fill(); }
 
   // 발밑에 깔리는 제 빛 — 어두운 방에서 뭐가 다가오는지 색으로 먼저 압니다
   // (둥근 공처럼 떠 보이지 않게 바닥에 납작하게 깐 타원)
@@ -2907,26 +2912,28 @@ function drawFoe(f) {
   // 피격 중에는 주인공처럼 깜빡인다
   if (f.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .45 * warpK;
 
-  g.translate(f.x, f.y + bob);
-  // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
-  if (f.wind > 0) { const k = 1 - f.wind / BALANCE.chargerWind; g.scale(1 + k * .18, 1 - k * .14); }
-  if (f.dash > 0) g.scale(1.14, .90);      // 튀어나가는 동안엔 납작하게 늘어납니다
-
-  // 몸통은 종류마다 다르게 — foeart.js
-  drawFoeBody(g, f, s, G.t);
-
-  if (f.flash > 0) {
-    g.globalCompositeOperation = 'lighter';
-    g.globalAlpha = .45;
-    g.fillStyle = C.eye;
-    g.beginPath(); g.ellipse(0, 0, s * .46, s * .46, 0, 0, Math.PI * 2); g.fill();
-  }
+  // 몸통은 종류마다 다르게 — foeart.js. 한 장의 도트 그림으로 정리해 찍습니다 (pixfx.js —
+  // 계단 가장자리 · 1px 외곽선 · 위 빛 아래 그늘 · 맞으면 흰 실루엣). 조금 크게(1.15배) — 어두운 방에서도 읽히게
+  const Z = 1.15, box = Math.ceil(s * 2.2 * Z) + 8, flash = f.flash > 0 ? ((G.t >> 1) % 2 ? .85 : .35) : 0;
+  const body = c => {
+    c.scale(Z, Z);
+    // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
+    if (f.wind > 0) { const k = 1 - f.wind / BALANCE.chargerWind; c.scale(1 + k * .18, 1 - k * .14); }
+    if (f.dash > 0) c.scale(1.14, .90);      // 튀어나가는 동안엔 납작하게 늘어납니다
+    drawFoeBody(c, f, s, G.t);
+  };
+  if (window.PixFX) PixFX.sprite(g, f.x, f.y + Math.round(bob), box, box, box / 2, box * .58, body, { outline: '#0a080e', flash });
+  else { g.translate(f.x, f.y + bob); body(g); }
   g.restore();
 }
 
 /* 퍼져 나가는 충격파 고리 */
 function drawRings() {
   if (!G.rings.length) return;
+  const g0 = g; if (window.PixFX) g = PixFX.layerBegin(g0);    // 도트 겹으로
+  try { drawRingsIn(); } finally { g = g0; }
+}
+function drawRingsIn() {
   g.save();
   if (!G.inForest) { g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip(); }
   g.globalCompositeOperation = 'lighter';
@@ -2982,23 +2989,23 @@ function drawBoss() {
   const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
   const sc = 1 + Math.sin(B.bob) * .04 + wind * .18;
   g.save();
-  g.fillStyle = 'rgba(0,0,0,.45)';
-  g.beginPath(); g.ellipse(B.x, B.y + 30, 34, 10, 0, 0, Math.PI * 2); g.fill();
+  if (window.PixFX) PixFX.ellipse(g, B.x, B.y + 30, 34, 10, 'rgba(0,0,0,.45)');
+  else { g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(B.x, B.y + 30, 34, 10, 0, 0, Math.PI * 2); g.fill(); }
   g.globalAlpha = .25 + wind * .5;
   const ag = g.createRadialGradient(B.x, B.y, 10, B.x, B.y, 60 + wind * 26);
   ag.addColorStop(0, 'rgba(150,60,220,.55)'); ag.addColorStop(1, 'rgba(150,60,220,0)');
   g.fillStyle = ag;
   g.beginPath(); g.arc(B.x, B.y, 62 + wind * 26, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1;
-  if (B.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .5;
-  g.translate(B.x, B.y); g.scale(sc, sc);
-  const w = 96, h = 87;
-  if (IMG.eye) g.drawImage(IMG.eye, -w / 2, -h / 2, w, h);
-  else { g.fillStyle = '#c33'; g.beginPath(); g.arc(0, 0, 34, 0, 6.3); g.fill(); }
-  if (B.flash > 0) {
-    g.globalCompositeOperation = 'lighter'; g.globalAlpha = .5;
-    g.fillStyle = '#ffffff'; g.fillRect(-w / 2, -h / 2, w, h);
-  }
+  // 눈 — 도트 그림 그대로, 숨 쉬는 크기는 2픽셀 단위로만 (소수 배율로 늘이면 픽셀이 일렁입니다) · 외곽선 · 맞으면 흰 실루엣
+  const w = Math.round(96 * sc / 2) * 2, h = Math.round(87 * sc / 2) * 2;
+  const eye = c => {
+    if (IMG.eye) { c.imageSmoothingEnabled = false; c.drawImage(IMG.eye, -w / 2, -h / 2, w, h); }
+    else { c.fillStyle = '#c33'; c.beginPath(); c.arc(0, 0, 34, 0, 6.3); c.fill(); }
+  };
+  const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .8 : .3) : 0;
+  if (window.PixFX) PixFX.sprite(g, B.x, B.y, w + 6, h + 6, w / 2 + 3, h / 2 + 3, eye, { outline: '#07050c', hi: .12, lo: .18, flash: fl });
+  else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
   const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH - 18;   // 화면 아래 가운데
@@ -3949,6 +3956,8 @@ function drawAbom() {
   g.beginPath(); g.arc(B.x, y, 92 + wind * 28, 0, Math.PI * 2); g.fill();
   g.restore();
 
+  // 예고 고리 · 내리찍기 표시 · 촉수 — 도트 겹(pixfx.js)으로: 점선 · 고리가 벡터처럼 매끈하게 뜨지 않게
+  const gA = g; if (window.PixFX) g = PixFX.layerBegin(gA);
   /* 모든 행동 공통 — 예비 동작 동안 몸 주위로 고리가 조여듭니다.
      "지금 뭔가 나온다, 이만큼 남았다"를 한눈에 보여 주는 신호입니다. */
   if (A && B.actT <= abomWind(B.act)) {
@@ -4040,20 +4049,30 @@ function drawAbom() {
     }
     g.restore();
   }
+  g = gA;
 
   const po = abomPose(B);
-  abomBody(B.x, y, sc, 0, 1, po);
-
-  // 피격 깜빡임 — 몸통과 같은 자세로 겹쳐야 팔이 따로 놀지 않습니다
-  if (B.flash > 0 && (G.t >> 1) % 2) {
-    g.save();
-    g.globalCompositeOperation = 'lighter';
-    abomBody(B.x, y, sc, 0, .55, po, ['#ffffff', .8]);
-    g.restore();
+  // 몸 — 도트 그림 한 장으로 정리해 찍음 (pixfx.js: 돌아간 팔의 계단 가장자리 · 1px 외곽선 · 위 빛 아래 그늘).
+  // 피격 깜빡임은 같은 자세 그대로 흰 실루엣
+  if (window.PixFX) {
+    const bw = Math.ceil(ABOM_W * sc * 1.9) + 24, bh = Math.ceil(ABOM_H * sc * 2.1) + 24;
+    const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .75 : .25) : 0;
+    PixFX.sprite(g, B.x, y, bw, bh, bw / 2, bh / 2, c => { const gg = g; g = c; try { abomBody(0, 0, sc, 0, 1, po); } finally { g = gg; } },
+                 { outline: '#080306', hi: .14, lo: .2, flash: fl });
+  } else {
+    abomBody(B.x, y, sc, 0, 1, po);
+    // 피격 깜빡임 — 몸통과 같은 자세로 겹쳐야 팔이 따로 놀지 않습니다
+    if (B.flash > 0 && (G.t >> 1) % 2) {
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      abomBody(B.x, y, sc, 0, .55, po, ['#ffffff', .8]);
+      g.restore();
+    }
   }
 
-  // 왼팔의 녹슨 낫 — 예비 동작 때는 궤적 예고, 칠 때는 실제 날
+  // 왼팔의 녹슨 낫 — 예비 동작 때는 궤적 예고, 칠 때는 실제 날 (도트 겹으로)
   if (B.act === 'blade') {
+    const gB = g; if (window.PixFX) g = PixFX.layerBegin(gB);
     g.save();
     const R0 = 42, R1 = 132;
     if (B.actT <= abomWind('blade')) {
@@ -4080,6 +4099,7 @@ function drawAbom() {
       g.lineCap = 'butt';
     }
     g.restore();
+    g = gB;
   }
 
   // 아래쪽 아가리 — 비명 직전에 벌겋게 달아오릅니다

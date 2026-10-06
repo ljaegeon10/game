@@ -100,28 +100,44 @@ const THEME_TILES = {
   exit:    ['#1d2027', '#23262e', '#2a2e37']
 };
 
-/* 실험실 바닥 타일 조각 — 꿈의 바닥이 갈라진 틈으로 비치는 현실 */
+/* 실험실 바닥 타일 조각 — 꿈의 바닥이 갈라진 틈으로 비치는 현실.
+   돌이 깨져 나간 구멍 아래로 한 단 낮게 흰 타일이 보입니다 — 들쭉날쭉한 깨진 가장자리(짙은 테 · 깨진 면의 밝은 돌),
+   위쪽 가장자리엔 돌이 드리운 그늘, 타일은 줄눈 · 얼룩 · 금. 전부 1픽셀 단위 (벡터 선 없이) */
 function labPatch(g, R, cx, cy, rw, rh, a = .55) {
-  const T = 8;
-  for (let y = cy - rh; y < cy + rh; y += T) for (let x = cx - rw; x < cx + rw; x += T) {
-    const nx = (x - cx) / rw, ny = (y - cy) / rh;
-    if (nx * nx + ny * ny > .65 + R() * .35) continue;
-    g.globalAlpha = a * (.6 + R() * .4);
-    g.fillStyle = R() > .8 ? '#9aa6b5' : '#7f8a99';
-    g.fillRect(x | 0, y | 0, T - 1, T - 1);
-    g.fillStyle = 'rgba(40,46,56,.6)';
-    g.fillRect(x | 0, (y + T - 1) | 0, T, 1); g.fillRect((x + T - 1) | 0, y | 0, 1, T);
+  const N = 28, jit = Array.from({ length: N }, () => .78 + R() * .34);       // 둘레를 따라 깨진 정도
+  const thr = (x, y) => { let an = Math.atan2(y / rh, x / rw) / (Math.PI * 2) * N; if (an < 0) an += N;
+    const i = an | 0, f = an - i; return jit[i % N] * (1 - f) + jit[(i + 1) % N] * f; };
+  const inside = (x, y) => { const nx = x / rw, ny = y / rh; return Math.sqrt(nx * nx + ny * ny) < thr(x, y); };
+  const T = 8, op = Math.min(1, .45 + a);                                     // 타일 크기 · 얼마나 또렷이 비치나
+  const tileV = {};
+  for (let y = -rh - 3; y <= rh + 3; y++) for (let x = -rw - 3; x <= rw + 3; x++) {
+    const px = (cx + x) | 0, py = (cy + y) | 0;
+    if (inside(x, y)) {
+      const tx = Math.floor(px / T), ty = Math.floor(py / T), key = tx + ',' + ty;
+      if (tileV[key] == null) tileV[key] = R() < .12 ? -26 : R() < .25 ? 10 : (R() - .5) * 10;   // 얼룩진 타일 · 밝은 타일
+      const grout = (px % T === T - 1) || (py % T === T - 1);
+      let v = grout ? 78 : 148 + tileV[key];
+      if (!grout && (px % T === 0 || py % T === 0)) v += 12;                  // 타일 위 · 왼 모서리 — 빛
+      const shade = !inside(x, y - 1) ? .45 : !inside(x, y - 2) ? .62 : !inside(x, y - 3) ? .8 : 1;   // 돌이 드리운 그늘
+      v *= shade;
+      g.globalAlpha = op;
+      g.fillStyle = `rgb(${v * .9 | 0},${v * .96 | 0},${v | 0})`;            // 차가운 흰빛
+      g.fillRect(px, py, 1, 1);
+    } else {
+      const n1 = inside(x + 1, y) || inside(x - 1, y) || inside(x, y + 1) || inside(x, y - 1);
+      const n2 = !n1 && (inside(x + 2, y) || inside(x - 2, y) || inside(x, y + 2) || inside(x, y - 2));
+      if (n1) { g.globalAlpha = 1; g.fillStyle = '#08070b'; g.fillRect(px, py, 1, 1); }                     // 깨진 가장자리 — 짙은 테
+      else if (n2 && inside(x, y + 2)) { g.globalAlpha = .85; g.fillStyle = '#5a5566'; g.fillRect(px, py, 1, 1); }   // 위쪽 깨진 면 — 빛 받은 돌
+      else if (n2) { g.globalAlpha = .5; g.fillStyle = '#16141c'; g.fillRect(px, py, 1, 1); }
+    }
+  }
+  // 금 — 타일 위로 가는 한 줄
+  if (R() < .7) {
+    let x = cx - rw * .4, y = cy - rh * .2;
+    g.globalAlpha = op * .8; g.fillStyle = '#4a5260';
+    for (let i = 0; i < rw; i++) { x += 1; y += R() < .35 ? (R() < .5 ? -1 : 1) : 0; if (inside(x - cx, y - cy)) g.fillRect(x | 0, y | 0, 1, 1); }
   }
   g.globalAlpha = 1;
-  // 둘레의 갈라진 돌 가장자리
-  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1;
-  g.beginPath();
-  for (let i = 0; i <= 14; i++) {
-    const a2 = i / 14 * Math.PI * 2, j = .9 + R() * .25;
-    const px = cx + Math.cos(a2) * rw * j, py = cy + Math.sin(a2) * rh * j;
-    i ? g.lineTo(px, py) : g.moveTo(px, py);
-  }
-  g.stroke();
 }
 /* 픽셀 웅덩이 (물) */
 function puddle(g, R, cx, cy, rw, rh, deep = false) {
