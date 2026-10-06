@@ -137,21 +137,22 @@ class EndSfx {
     o.start(t); o.stop(t + dur + .03);
   }
   /* 치지직 — 오프닝 글리치와 같은 TV 잡음 (덩어리째 커졌다 작아지며 갈라지고 탁탁 튐) */
-  crackle(dur = .2, k = 1) {
+  crackle(dur = .2, k = 1) {         // 가볍게 — 얇고 높은 "직 · 지직" (audio.js 의 Sfx.static 과 같은 소리)
     if (!this.ac) return;
     const c = this.ac, t = c.currentTime, sr = c.sampleRate;
-    const n = Math.floor(sr * (dur + .03)), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+    dur = Math.min(dur, .16);
+    const n = Math.floor(sr * (dur + .02)), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
     let amp = 1, seg = 0, hold = 1, held = 0;
     for (let i = 0; i < n; i++) {
-      if (--seg <= 0) { seg = Math.floor(sr * (.004 + Math.random() * .024)); amp = Math.random() < .18 ? .08 : .45 + Math.random() * .55; hold = 1 + Math.floor(Math.random() * 6); }
+      if (--seg <= 0) { seg = Math.floor(sr * (.002 + Math.random() * .008)); amp = Math.random() < .45 ? 0 : .3 + Math.random() * .5; hold = Math.random() < .7 ? 1 : 2; }
       if (i % hold === 0) held = Math.random() * 2 - 1;
-      let v = held * amp; if (Math.random() < .0016) v = Math.random() < .5 ? -1 : 1;
-      d[i] = v * Math.min(1, i / (sr * .004), (n - i) / (sr * .02));
+      let v = held * amp; if (Math.random() < .0008) v = Math.random() < .5 ? -.6 : .6;
+      d[i] = v * Math.min(1, i / (sr * .002), (n - i) / (sr * .015));
     }
     const s = c.createBufferSource(); s.buffer = buf;
-    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
-    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 3200; pk.Q.value = .8; pk.gain.value = 6;
-    const g = c.createGain(); g.gain.value = .3 * k;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2400;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 6000; pk.Q.value = .9; pk.gain.value = 4;
+    const g = c.createGain(); g.gain.value = .16 * k;
     s.connect(hp).connect(pk).connect(g).connect(this.master); s.start(t);
   }
   beep()     { this.tone(988, .12, { vol: .15 }); }
@@ -908,7 +909,7 @@ const RiseState = {
     if (t === 40) { s.sfx.tone(46, 3.2, { type: 'sawtooth', vol: .14, slideTo: 64, attack: .4 }); s.sfx.tone(92, 2.6, { type: 'triangle', vol: .06, slideTo: 130, attack: .3 }); }
     if (t === 190) s.sfx.tone(60, .5, { type: 'sine', vol: .2, slideTo: 38 });           // 다 일어선 벽이 쿵
     const sw = Math.sin(clamp01((t - 70) / 230) * Math.PI);
-    s.sfx.setNoise(s.rg ? s.rg * .32 : .02 + sw * .08, s.rg ? 500 + s.rg * 3200 : 250 + s.camK * 1100);   // 붕괴의 그 지직거림
+    s.sfx.setNoise(s.rg ? s.rg * .12 : .01 + sw * .04, s.rg ? 2600 + s.rg * 3000 : 900 + s.camK * 1400);   // 붕괴의 그 지직거림 — 얇고 가볍게
     if (t >= RISE_DUR) {
       const d = s.dio;
       s.source = () => d.render(1, d.camAt(1, s.frame + Math.random() * 40), { lit: 1, heroA: 0 });   // 무너지는 동안에도 그 눈 그대로
@@ -986,8 +987,8 @@ const CrashState = {
   update(s) {
     const t = s.t;
     s.gk = CrashState.intensity(t);
-    if (t < 170)      s.sfx.setNoise(Math.random() < .12 ? 0 : s.gk * .32, 500 + s.gk * 3200);
-    else if (t < 235) s.sfx.setNoise(.45, 5200);
+    if (t < 170)      s.sfx.setNoise(Math.random() < .12 ? 0 : s.gk * .2, 1600 + s.gk * 3600);   // 가볍게 — 높고 얇은 잡음
+    else if (t < 235) s.sfx.setNoise(.26, 6800);
     if (t === 170) s.sfx.rip();
     if (t === 235) { s.sfx.setNoise(0); s.sfx.powerOff(); }
     if (t === 260) s.sfx.stopNoise();
