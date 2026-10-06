@@ -5271,7 +5271,8 @@ function endingWorld() {
     const rc = document.createElement('canvas'); rc.width = cv.width; rc.height = cv.height; rc.getContext('2d').drawImage(cv, 0, 0);
     const whole = W === VW && H === VH;                       // 방 전체가 한 화면일 때만 테두리 벽을 세움
     return { room: rc, hero: hc, heroAt: [hx - cx, hy - cy, hw, hh], W: VW, H: VH, TS,
-             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole };
+             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole,
+             dir: P.dir, final: whole && !!MAP[G.room].final };      // 1인칭은 주인공이 보던 쪽으로 · 마지막 문
   } catch (e) { return null; }
   finally { Object.assign(G, { endWarp: keep.warp, shake: keep.shake, flash: keep.flash, glare: keep.glare }); }
 }

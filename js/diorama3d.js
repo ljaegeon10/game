@@ -9,6 +9,8 @@
      바닥   — 주인공을 뺀 방 그림을 판 하나에 (판은 두께가 있어 어둠 속에 떠 있는 모형처럼)
      벽     — 테두리 한 칸(TS) 두께. 윗면은 그 자리의 그림, 옆면은 돌 그림을 늘여 붙임. 문 자리는 비움
      주인공 — 바닥에 누운 그림 한 장(탑뷰 그대로). 카메라가 내려앉을수록 픽셀이 흩어져 사라짐 — 이제 내가 그 눈
+     문     — 마지막 방(final)이면 동쪽 벽 전체가 그 나무 문(색동 띠 · 태극, 가운데 틈으로 새는 빛),
+              그 앞에 잠금장치 기둥(청록 불). 1인칭은 주인공이 보던 쪽(world.dir)을 그대로 봄
 
    쓰는 곳 : ending.js (RiseState) — game.js 의 beginEnding 이 world() 로 방 정보를 넘깁니다
    ═══════════════════════════════════════════════════════════════ */
@@ -43,11 +45,13 @@ void main(){ vP=aP; vN=aN; vC=aC; vUV=aUV; vE=aE; gl_Position=uVP*vec4(aP,1.0); 
 const FS = `
 precision mediump float;
 varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
-uniform sampler2D uRoom; uniform sampler2D uHero; uniform vec3 uEye; uniform vec3 uLamp; uniform float uFogD; uniform float uDim; uniform float uLit; uniform float uHeroA;
+uniform sampler2D uRoom; uniform sampler2D uHero; uniform vec3 uEye; uniform vec3 uLamp; uniform float uFogD; uniform float uDim; uniform float uLit; uniform float uHeroA; uniform sampler2D uDoor;
 float h2(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
 void main(){
   vec3 c;
-  if(vE>2.5){ vec4 h=texture2D(uHero,vUV); if(h.a<.55 || h2(floor(vUV*vec2(24.0,22.0)))>uHeroA) discard; c=h.rgb; }   // 흩어짐 — 픽셀 덩어리째
+  if(vE>4.5){ gl_FragColor=vec4(vC*uDim,1.0); return; }                       // 빛 (잠금장치 불 · 문틈)
+  if(vE>3.5){ c=texture2D(uDoor,vUV).rgb; }
+  else if(vE>2.5){ vec4 h=texture2D(uHero,vUV); if(h.a<.55 || h2(floor(vUV*vec2(24.0,22.0)))>uHeroA) discard; c=h.rgb; }   // 흩어짐 — 픽셀 덩어리째
   else if(vE>1.5){ c=vC*(.75+.5*h2(floor(vP.xz*6.0)+floor(vP.y*6.0))); }
   else { c=texture2D(uRoom,vUV).rgb*vC*(1.0+.6*uLit); }       // 입체가 되면 조금 밝게 — 어둠 속 모형이 읽히게
   // 입체가 드러날수록 — 주인공 머리 위 한 점의 빛이 벽 옆면 · 바닥 가장자리를 비춤 (윗면 그림은 원래 밝기 그대로)
@@ -57,6 +61,31 @@ void main(){
   float f=exp(-length(vP-uEye)*uFogD);
   gl_FragColor=vec4(c*f*uDim,1.0);
 }`;
+
+/* 마지막 문 한 장 — 탑뷰의 그 나무 문을 세워 본 모습: 세로 널판 · 양 끝 색동 띠 · 가운데 태극 · 쇠 띠 */
+function doorImage() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#3f3320'; x.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 512; i += 32) {                                   // 널판 · 나뭇결
+    x.fillStyle = i % 64 ? '#463923' : '#3a2e1c'; x.fillRect(i, 0, 31, 256);
+    x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(i + 31, 0, 1, 256);
+    for (let k = 0; k < 6; k++) { x.fillStyle = 'rgba(20,14,8,.25)'; x.fillRect(i + 4 + k * 4.5, 0, 1, 256); }
+  }
+  x.fillStyle = '#2c2419'; x.fillRect(0, 0, 512, 10); x.fillRect(0, 246, 512, 10);
+  const OB = ['#2f6fb5', '#e9e3d5', '#c2352c', '#15141b', '#e3b23c'];
+  for (const sx of [26, 474]) OB.forEach((col, i) => { x.fillStyle = col; x.fillRect(sx, 12 + i * 46.4, 12, 47); });   // 색동 띠
+  x.fillStyle = '#4a4a55'; x.fillRect(0, 70, 512, 9); x.fillRect(0, 180, 512, 9);                                      // 쇠 띠
+  const r = 34, cx = 256, cy = 128;                                     // 태극 — 문은 가로로 길게 늘어나므로 미리 좁혀 그림
+  x.save(); x.translate(cx, cy); x.scale(1 / 1.7, 1); x.translate(-cx, -cy);
+  x.beginPath(); x.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2); x.arc(cx, cy + r / 2, r / 2, Math.PI / 2, -Math.PI / 2, true); x.arc(cx, cy - r / 2, r / 2, Math.PI / 2, -Math.PI / 2);
+  x.fillStyle = '#c2352c'; x.fill();
+  x.beginPath(); x.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2); x.arc(cx, cy - r / 2, r / 2, -Math.PI / 2, Math.PI / 2, true); x.arc(cx, cy + r / 2, r / 2, -Math.PI / 2, Math.PI / 2);
+  x.fillStyle = '#2f6fb5'; x.fill();
+  x.restore();
+  x.strokeStyle = '#17121a'; x.lineWidth = 4; x.strokeRect(2, 2, 508, 252);
+  return c;
+}
 
 class Diorama3D {
   /* w : { room: 주인공 뺀 방 그림, hero: 주인공 그림(투명 바탕), heroAt: [x, y, w, h] 그 그림이 방 그림의 어디에 놓였나,
@@ -75,7 +104,7 @@ class Diorama3D {
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
     this.pr = pr; gl.useProgram(pr);
     this.at = ['aP', 'aN', 'aC', 'aUV', 'aE'].map(n => gl.getAttribLocation(pr, n));
-    this.un = {}; ['uVP', 'uRoom', 'uHero', 'uEye', 'uLamp', 'uFogD', 'uDim', 'uLit', 'uHeroA'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
+    this.un = {}; ['uVP', 'uRoom', 'uHero', 'uEye', 'uLamp', 'uFogD', 'uDim', 'uLit', 'uHeroA', 'uDoor'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
     const tex = (img, nearest) => {
       const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -84,7 +113,7 @@ class Diorama3D {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       return t;
     };
-    this.texRoom = tex(world.room, true); this.texHero = tex(world.hero, true);
+    this.texRoom = tex(world.room, true); this.texHero = tex(world.hero, true); this.texDoor = tex(doorImage(), false);
     this.buf = gl.createBuffer(); this.hbuf = gl.createBuffer();
     this.lastWallH = -1;
   }
@@ -132,6 +161,25 @@ class Diorama3D {
         if (!door('W', y, y1, gapY)) cell(0, y, TS, y1);
         if (!door('E', y, y1, gapY)) cell(W - TS, y, W, y1);
       }
+      if (this.world.final) {
+        // 마지막 문 — 동쪽 벽 안쪽 면 전체 (탑뷰의 그 나무 문: y 34 ‥ H−34)
+        const X = nx - 1 - .015, z0 = 34 / TS, z1 = (H - 34) / TS, top = wallH * .94;
+        quadUV(P(X, top, z0), P(X, top, z1), P(X, 0, z1), P(X, 0, z0), [0, 0], [1, 0], [1, 1], [0, 1], [1, 1, 1], 4);
+        const zc = nz / 2;                                                      // 가운데 틈 — 바깥(지상)의 빛
+        quadUV(P(X - .005, top * .97, zc - .012), P(X - .005, top * .97, zc + .012), P(X - .005, .02, zc + .012), P(X - .005, .02, zc - .012), [0, 0], [0, 0], [0, 0], [0, 0], [1, .93, .78], 5);
+        // 잠금장치 기둥 — 문 앞 (탑뷰의 lx = W − TS − 24)
+        const lx = (W - TS - 24) / TS, ph = Math.min(1.1, wallH * .45), dk = [.14, .17, .21];
+        const bx0 = lx - .25, bx1 = lx + .25, bz0 = zc - .25, bz1 = zc + .3;
+        quadUV(P(bx0, ph, bz0), P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx0, ph, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx0, ph, bz1), P(bx0, ph, bz0), P(bx0, 0, bz0), P(bx0, 0, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx1, 0, bz1), P(bx1, 0, bz0), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx0, ph, bz0), P(bx1, ph, bz0), P(bx1, 0, bz0), P(bx0, 0, bz0), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx1, ph, bz1), P(bx0, ph, bz1), P(bx0, 0, bz1), P(bx1, 0, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        if (ph > .3) {                                                          // 청록 불 — 열쇠가 맞았다는 표시
+          const y0 = ph - .3, y1 = ph - .18, zz0 = zc - .08, zz1 = zc + .08;
+          quadUV(P(bx0 - .006, y1, zz0), P(bx0 - .006, y1, zz1), P(bx0 - .006, y0, zz1), P(bx0 - .006, y0, zz0), [0, 0], [0, 0], [0, 0], [0, 0], [.49, .89, .78], 5);
+        }
+      }
     }
     return m;
   }
@@ -158,6 +206,7 @@ class Diorama3D {
     gl.uniform1f(un.uFogD, cam.fog || 0); gl.uniform1f(un.uDim, dim); gl.uniform1f(un.uLit, lit * smooth(k)); gl.uniform1f(un.uHeroA, heroA);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texRoom); gl.uniform1i(un.uRoom, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texHero); gl.uniform1i(un.uHero, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.texDoor); gl.uniform1i(un.uDoor, 2);
     const draw = (b, n) => { gl.bindBuffer(gl.ARRAY_BUFFER, b); const sz = [3, 3, 3, 2, 1]; let off = 0;
       this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 48, off * 4); } off += sz[i]; });
       gl.drawArrays(gl.TRIANGLES, 0, n); };
@@ -170,11 +219,14 @@ class Diorama3D {
     const { W, H, TS } = this.world, [hx, hy, hw, hh] = this.world.heroAt;
     const nx = W / TS, nz = H / TS, fov0 = .7, fov1 = 62 * Math.PI / 180;
     const topH = (nz / 2) / Math.tan(fov0 / 2);
-    const fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .25;           // 주인공이 선 자리
+    const D = { right: [1, 0, 0], left: [-1, 0, 0], up: [0, 0, -1], down: [0, 0, 1] }[this.world.dir] || [1, 0, 0];
+    let fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .3;               // 주인공이 선 자리
+    if (this.world.final && D[0] > 0) fx = Math.min(fx, (W - TS - 24) / TS - 2.1);   // 잠금장치 기둥 속으로 파고들지 않게 — 문 전체가 눈에 들어오는 자리
     const top = { eye: [nx / 2, topH, nz / 2], at: [nx / 2, 0, nz / 2], up: [0, 0, -1] };
-    const look = [lerp(fx, nx / 2, .75) - (fx > nx / 2 ? 0 : -nx * .3), .75, nz / 2];          // 방 가운데 너머 — 들어온 쪽
-    const end = { eye: [fx, 1.5, fz], at: look, up: [0, 1, 0] };
-    const mid = { eye: [lerp(nx / 2, fx, .7), topH * .38, lerp(nz / 2, fz, .7)], at: [lerp(nx / 2, fx, .5), 0, lerp(nz / 2, fz, .5)], up: norm(lerp3([0, 0, -1], norm(sub(look, end.eye)), .5)) };
+    const eyeE = [fx, 1.5, fz];
+    const end = { eye: eyeE, at: add(add(eyeE, mul(D, 4)), [0, -.35, 0]), up: [0, 1, 0] };
+    // 가운데 — 주인공 위에서 내려다보며, 화면 위쪽이 주인공이 보는 쪽이 되도록 돌아감 (앞으로 숙이듯 1인칭이 됨)
+    const mid = { eye: [lerp(nx / 2, fx, .8), topH * .36, lerp(nz / 2, fz, .8)], at: [fx + D[0] * .8, 0, fz + D[2] * .8], up: D };
     const e = smooth(k), a = 1 - e;
     const bz = (p, q, r) => [0, 1, 2].map(i => a * a * p[i] + 2 * a * e * q[i] + e * e * r[i]);
     const bob = [0, Math.sin(t * .05) * .012 * e, 0];                 // 숨 쉬듯

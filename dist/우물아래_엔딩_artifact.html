@@ -215,6 +215,24 @@ class EndSfx {
     o.connect(g).connect(this.master);
     o.start(t); o.stop(t + dur + .03);
   }
+  /* 치지직 — 오프닝 글리치와 같은 TV 잡음 (덩어리째 커졌다 작아지며 갈라지고 탁탁 튐) */
+  crackle(dur = .2, k = 1) {
+    if (!this.ac) return;
+    const c = this.ac, t = c.currentTime, sr = c.sampleRate;
+    const n = Math.floor(sr * (dur + .03)), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+    let amp = 1, seg = 0, hold = 1, held = 0;
+    for (let i = 0; i < n; i++) {
+      if (--seg <= 0) { seg = Math.floor(sr * (.004 + Math.random() * .024)); amp = Math.random() < .18 ? .08 : .45 + Math.random() * .55; hold = 1 + Math.floor(Math.random() * 6); }
+      if (i % hold === 0) held = Math.random() * 2 - 1;
+      let v = held * amp; if (Math.random() < .0016) v = Math.random() < .5 ? -1 : 1;
+      d[i] = v * Math.min(1, i / (sr * .004), (n - i) / (sr * .02));
+    }
+    const s = c.createBufferSource(); s.buffer = buf;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 3200; pk.Q.value = .8; pk.gain.value = 6;
+    const g = c.createGain(); g.gain.value = .3 * k;
+    s.connect(hp).connect(pk).connect(g).connect(this.master); s.start(t);
+  }
   beep()     { this.tone(988, .12, { vol: .15 }); }
   tick()     { this.tone(rand(2100, 2600), .016, { type: 'square', vol: .02, attack: .001 }); }
   rip()      { this.tone(160, 1.0, { type: 'sawtooth', vol: .22, slideTo: 28 }); }
@@ -949,16 +967,27 @@ const GLITCH_WORDS = ['SIGNAL LOST', 'DREAM DEPTH 4 → 0', 'ERR 0x07', 'REM ▓
      70‥300 : 카메라가 주인공의 눈으로 — 주인공 그림은 흩어지고, 지나온 방을 1인칭으로 돌아봄 (쉬익)
      300‥330: 멈칫 — 그리고 무너짐(crash) */
 const RISE_DUR = 330;
+/* 일어서는 동안의 글리치 — 무너지던 화면(붕괴)의 그 잡음이 사이사이 튐. [시작, 길이, 세기] */
+const RISE_GLITCH = [[0, 14, .9], [48, 7, .55], [92, 10, .7], [138, 6, .5], [176, 12, .8], [226, 8, .6], [262, 10, .75], [296, 34, .95]];
 const RiseState = {
-  enter(s) { s.riseK = 0; s.camK = 0; s.sfx.startNoise(); },
+  enter(s) { s.riseK = 0; s.camK = 0; s.rg = 0; s.rgMicro = 0; s.sfx.startNoise(); },
   update(s) {
     const t = s.t;
+    // 글리치 — 정해 둔 자리 + 가끔 한두 프레임
+    s.rgMicro = Math.max(0, s.rgMicro - 1);
+    if (!s.rgMicro && Math.random() < 1 / 45) { s.rgMicro = ri(1, 3); s.sfx.crackle(s.rgMicro / 60 + .03, .4); }
+    s.rg = 0;
+    for (const [a, d, k] of RISE_GLITCH) {
+      if (t === a) s.sfx.crackle(d / 60 + .05, .55 + k * .5);
+      if (t >= a && t < a + d) s.rg = k * (t > 296 ? .6 + (t - 296) / 34 * .4 : (Math.random() < .8 ? 1 : .3));
+    }
+    if (!s.rg && s.rgMicro) s.rg = .45;
     s.riseK = clamp01((t - 40) / 150);
     s.camK = clamp01((t - 70) / 230);
     if (t === 40) { s.sfx.tone(46, 3.2, { type: 'sawtooth', vol: .14, slideTo: 64, attack: .4 }); s.sfx.tone(92, 2.6, { type: 'triangle', vol: .06, slideTo: 130, attack: .3 }); }
     if (t === 190) s.sfx.tone(60, .5, { type: 'sine', vol: .2, slideTo: 38 });           // 다 일어선 벽이 쿵
     const sw = Math.sin(clamp01((t - 70) / 230) * Math.PI);
-    s.sfx.setNoise(t < 8 ? .2 : t < 40 ? .02 : .02 + sw * .1, 250 + s.camK * 1100);
+    s.sfx.setNoise(s.rg ? s.rg * .32 : .02 + sw * .08, s.rg ? 500 + s.rg * 3200 : 250 + s.camK * 1100);   // 붕괴의 그 지직거림
     if (t >= RISE_DUR) {
       const d = s.dio;
       s.source = () => d.render(1, d.camAt(1, s.frame + Math.random() * 40), { lit: 1, heroA: 0 });   // 무너지는 동안에도 그 눈 그대로
@@ -970,12 +999,15 @@ const RiseState = {
     const cm = d.camAt(s.camK, s.frame), img = d.render(s.riseK, cm, { heroA: cm.heroA });
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
     c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
-    // 처음 몇 프레임 — 무너지던 화면(endWarp)의 여진이 가라앉음
-    const tear = t < 45 ? (1 - t / 45) : (t > 296 && Math.random() < .35 ? .5 : 0);
-    if (tear > 0) {
-      for (let i = 0; i < 2 + tear * 8; i++) {
-        const y = ri(0, H - 1), h = ri(2, 4 + tear * 30), dx = (rand(-1, 1) * 60 * tear) | 0;
-        c.drawImage(c.canvas, 0, y, W, h, dx, y, W, h);
+    // 글리치 — 붕괴(crash)와 같은 효과: 320×180 으로 눌러 띠 밀림 · 블록 손상 · RGB 분리 · 노이즈
+    if (s.rg > 0) {
+      s.sx.imageSmoothingEnabled = true; s.sx.drawImage(img, 0, 0, LW, LH);
+      const out = s.glitch.apply(s.src, s.rg, s.frame), sh = s.rg * 9;
+      c.imageSmoothingEnabled = false;
+      c.drawImage(out, (rand(-1, 1) * sh) | 0, (rand(-1, 1) * sh * .6) | 0, W, H);
+      if (Math.random() < s.rg * .4) {                                   // 터져 나오는 시스템 문구
+        c.font = `${ri(12, 26)}px ${MONO}`; c.fillStyle = pick([PAL.teal, PAL.term, PAL.jeok, PAL.baek]); c.globalAlpha = rand(.5, .95);
+        c.fillText(pick(GLITCH_WORDS), ri(0, W - 260), ri(30, H - 20)); c.globalAlpha = 1;
       }
     }
   }

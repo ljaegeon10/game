@@ -4064,6 +4064,24 @@ class EndSfx {
     o.connect(g).connect(this.master);
     o.start(t); o.stop(t + dur + .03);
   }
+  /* 치지직 — 오프닝 글리치와 같은 TV 잡음 (덩어리째 커졌다 작아지며 갈라지고 탁탁 튐) */
+  crackle(dur = .2, k = 1) {
+    if (!this.ac) return;
+    const c = this.ac, t = c.currentTime, sr = c.sampleRate;
+    const n = Math.floor(sr * (dur + .03)), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+    let amp = 1, seg = 0, hold = 1, held = 0;
+    for (let i = 0; i < n; i++) {
+      if (--seg <= 0) { seg = Math.floor(sr * (.004 + Math.random() * .024)); amp = Math.random() < .18 ? .08 : .45 + Math.random() * .55; hold = 1 + Math.floor(Math.random() * 6); }
+      if (i % hold === 0) held = Math.random() * 2 - 1;
+      let v = held * amp; if (Math.random() < .0016) v = Math.random() < .5 ? -1 : 1;
+      d[i] = v * Math.min(1, i / (sr * .004), (n - i) / (sr * .02));
+    }
+    const s = c.createBufferSource(); s.buffer = buf;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+    const pk = c.createBiquadFilter(); pk.type = 'peaking'; pk.frequency.value = 3200; pk.Q.value = .8; pk.gain.value = 6;
+    const g = c.createGain(); g.gain.value = .3 * k;
+    s.connect(hp).connect(pk).connect(g).connect(this.master); s.start(t);
+  }
   beep()     { this.tone(988, .12, { vol: .15 }); }
   tick()     { this.tone(rand(2100, 2600), .016, { type: 'square', vol: .02, attack: .001 }); }
   rip()      { this.tone(160, 1.0, { type: 'sawtooth', vol: .22, slideTo: 28 }); }
@@ -4798,16 +4816,27 @@ const GLITCH_WORDS = ['SIGNAL LOST', 'DREAM DEPTH 4 → 0', 'ERR 0x07', 'REM ▓
      70‥300 : 카메라가 주인공의 눈으로 — 주인공 그림은 흩어지고, 지나온 방을 1인칭으로 돌아봄 (쉬익)
      300‥330: 멈칫 — 그리고 무너짐(crash) */
 const RISE_DUR = 330;
+/* 일어서는 동안의 글리치 — 무너지던 화면(붕괴)의 그 잡음이 사이사이 튐. [시작, 길이, 세기] */
+const RISE_GLITCH = [[0, 14, .9], [48, 7, .55], [92, 10, .7], [138, 6, .5], [176, 12, .8], [226, 8, .6], [262, 10, .75], [296, 34, .95]];
 const RiseState = {
-  enter(s) { s.riseK = 0; s.camK = 0; s.sfx.startNoise(); },
+  enter(s) { s.riseK = 0; s.camK = 0; s.rg = 0; s.rgMicro = 0; s.sfx.startNoise(); },
   update(s) {
     const t = s.t;
+    // 글리치 — 정해 둔 자리 + 가끔 한두 프레임
+    s.rgMicro = Math.max(0, s.rgMicro - 1);
+    if (!s.rgMicro && Math.random() < 1 / 45) { s.rgMicro = ri(1, 3); s.sfx.crackle(s.rgMicro / 60 + .03, .4); }
+    s.rg = 0;
+    for (const [a, d, k] of RISE_GLITCH) {
+      if (t === a) s.sfx.crackle(d / 60 + .05, .55 + k * .5);
+      if (t >= a && t < a + d) s.rg = k * (t > 296 ? .6 + (t - 296) / 34 * .4 : (Math.random() < .8 ? 1 : .3));
+    }
+    if (!s.rg && s.rgMicro) s.rg = .45;
     s.riseK = clamp01((t - 40) / 150);
     s.camK = clamp01((t - 70) / 230);
     if (t === 40) { s.sfx.tone(46, 3.2, { type: 'sawtooth', vol: .14, slideTo: 64, attack: .4 }); s.sfx.tone(92, 2.6, { type: 'triangle', vol: .06, slideTo: 130, attack: .3 }); }
     if (t === 190) s.sfx.tone(60, .5, { type: 'sine', vol: .2, slideTo: 38 });           // 다 일어선 벽이 쿵
     const sw = Math.sin(clamp01((t - 70) / 230) * Math.PI);
-    s.sfx.setNoise(t < 8 ? .2 : t < 40 ? .02 : .02 + sw * .1, 250 + s.camK * 1100);
+    s.sfx.setNoise(s.rg ? s.rg * .32 : .02 + sw * .08, s.rg ? 500 + s.rg * 3200 : 250 + s.camK * 1100);   // 붕괴의 그 지직거림
     if (t >= RISE_DUR) {
       const d = s.dio;
       s.source = () => d.render(1, d.camAt(1, s.frame + Math.random() * 40), { lit: 1, heroA: 0 });   // 무너지는 동안에도 그 눈 그대로
@@ -4819,12 +4848,15 @@ const RiseState = {
     const cm = d.camAt(s.camK, s.frame), img = d.render(s.riseK, cm, { heroA: cm.heroA });
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
     c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
-    // 처음 몇 프레임 — 무너지던 화면(endWarp)의 여진이 가라앉음
-    const tear = t < 45 ? (1 - t / 45) : (t > 296 && Math.random() < .35 ? .5 : 0);
-    if (tear > 0) {
-      for (let i = 0; i < 2 + tear * 8; i++) {
-        const y = ri(0, H - 1), h = ri(2, 4 + tear * 30), dx = (rand(-1, 1) * 60 * tear) | 0;
-        c.drawImage(c.canvas, 0, y, W, h, dx, y, W, h);
+    // 글리치 — 붕괴(crash)와 같은 효과: 320×180 으로 눌러 띠 밀림 · 블록 손상 · RGB 분리 · 노이즈
+    if (s.rg > 0) {
+      s.sx.imageSmoothingEnabled = true; s.sx.drawImage(img, 0, 0, LW, LH);
+      const out = s.glitch.apply(s.src, s.rg, s.frame), sh = s.rg * 9;
+      c.imageSmoothingEnabled = false;
+      c.drawImage(out, (rand(-1, 1) * sh) | 0, (rand(-1, 1) * sh * .6) | 0, W, H);
+      if (Math.random() < s.rg * .4) {                                   // 터져 나오는 시스템 문구
+        c.font = `${ri(12, 26)}px ${MONO}`; c.fillStyle = pick([PAL.teal, PAL.term, PAL.jeok, PAL.baek]); c.globalAlpha = rand(.5, .95);
+        c.fillText(pick(GLITCH_WORDS), ri(0, W - 260), ri(30, H - 20)); c.globalAlpha = 1;
       }
     }
   }
@@ -8791,6 +8823,8 @@ window.Opening3D = Opening3D;
      바닥   — 주인공을 뺀 방 그림을 판 하나에 (판은 두께가 있어 어둠 속에 떠 있는 모형처럼)
      벽     — 테두리 한 칸(TS) 두께. 윗면은 그 자리의 그림, 옆면은 돌 그림을 늘여 붙임. 문 자리는 비움
      주인공 — 바닥에 누운 그림 한 장(탑뷰 그대로). 카메라가 내려앉을수록 픽셀이 흩어져 사라짐 — 이제 내가 그 눈
+     문     — 마지막 방(final)이면 동쪽 벽 전체가 그 나무 문(색동 띠 · 태극, 가운데 틈으로 새는 빛),
+              그 앞에 잠금장치 기둥(청록 불). 1인칭은 주인공이 보던 쪽(world.dir)을 그대로 봄
 
    쓰는 곳 : ending.js (RiseState) — game.js 의 beginEnding 이 world() 로 방 정보를 넘깁니다
    ═══════════════════════════════════════════════════════════════ */
@@ -8825,11 +8859,13 @@ void main(){ vP=aP; vN=aN; vC=aC; vUV=aUV; vE=aE; gl_Position=uVP*vec4(aP,1.0); 
 const FS = `
 precision mediump float;
 varying vec3 vP; varying vec3 vN; varying vec3 vC; varying vec2 vUV; varying float vE;
-uniform sampler2D uRoom; uniform sampler2D uHero; uniform vec3 uEye; uniform vec3 uLamp; uniform float uFogD; uniform float uDim; uniform float uLit; uniform float uHeroA;
+uniform sampler2D uRoom; uniform sampler2D uHero; uniform vec3 uEye; uniform vec3 uLamp; uniform float uFogD; uniform float uDim; uniform float uLit; uniform float uHeroA; uniform sampler2D uDoor;
 float h2(vec2 p){ return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453); }
 void main(){
   vec3 c;
-  if(vE>2.5){ vec4 h=texture2D(uHero,vUV); if(h.a<.55 || h2(floor(vUV*vec2(24.0,22.0)))>uHeroA) discard; c=h.rgb; }   // 흩어짐 — 픽셀 덩어리째
+  if(vE>4.5){ gl_FragColor=vec4(vC*uDim,1.0); return; }                       // 빛 (잠금장치 불 · 문틈)
+  if(vE>3.5){ c=texture2D(uDoor,vUV).rgb; }
+  else if(vE>2.5){ vec4 h=texture2D(uHero,vUV); if(h.a<.55 || h2(floor(vUV*vec2(24.0,22.0)))>uHeroA) discard; c=h.rgb; }   // 흩어짐 — 픽셀 덩어리째
   else if(vE>1.5){ c=vC*(.75+.5*h2(floor(vP.xz*6.0)+floor(vP.y*6.0))); }
   else { c=texture2D(uRoom,vUV).rgb*vC*(1.0+.6*uLit); }       // 입체가 되면 조금 밝게 — 어둠 속 모형이 읽히게
   // 입체가 드러날수록 — 주인공 머리 위 한 점의 빛이 벽 옆면 · 바닥 가장자리를 비춤 (윗면 그림은 원래 밝기 그대로)
@@ -8839,6 +8875,31 @@ void main(){
   float f=exp(-length(vP-uEye)*uFogD);
   gl_FragColor=vec4(c*f*uDim,1.0);
 }`;
+
+/* 마지막 문 한 장 — 탑뷰의 그 나무 문을 세워 본 모습: 세로 널판 · 양 끝 색동 띠 · 가운데 태극 · 쇠 띠 */
+function doorImage() {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const x = c.getContext('2d');
+  x.fillStyle = '#3f3320'; x.fillRect(0, 0, 512, 256);
+  for (let i = 0; i < 512; i += 32) {                                   // 널판 · 나뭇결
+    x.fillStyle = i % 64 ? '#463923' : '#3a2e1c'; x.fillRect(i, 0, 31, 256);
+    x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(i + 31, 0, 1, 256);
+    for (let k = 0; k < 6; k++) { x.fillStyle = 'rgba(20,14,8,.25)'; x.fillRect(i + 4 + k * 4.5, 0, 1, 256); }
+  }
+  x.fillStyle = '#2c2419'; x.fillRect(0, 0, 512, 10); x.fillRect(0, 246, 512, 10);
+  const OB = ['#2f6fb5', '#e9e3d5', '#c2352c', '#15141b', '#e3b23c'];
+  for (const sx of [26, 474]) OB.forEach((col, i) => { x.fillStyle = col; x.fillRect(sx, 12 + i * 46.4, 12, 47); });   // 색동 띠
+  x.fillStyle = '#4a4a55'; x.fillRect(0, 70, 512, 9); x.fillRect(0, 180, 512, 9);                                      // 쇠 띠
+  const r = 34, cx = 256, cy = 128;                                     // 태극 — 문은 가로로 길게 늘어나므로 미리 좁혀 그림
+  x.save(); x.translate(cx, cy); x.scale(1 / 1.7, 1); x.translate(-cx, -cy);
+  x.beginPath(); x.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2); x.arc(cx, cy + r / 2, r / 2, Math.PI / 2, -Math.PI / 2, true); x.arc(cx, cy - r / 2, r / 2, Math.PI / 2, -Math.PI / 2);
+  x.fillStyle = '#c2352c'; x.fill();
+  x.beginPath(); x.arc(cx, cy, r, Math.PI / 2, -Math.PI / 2); x.arc(cx, cy - r / 2, r / 2, -Math.PI / 2, Math.PI / 2, true); x.arc(cx, cy + r / 2, r / 2, -Math.PI / 2, Math.PI / 2);
+  x.fillStyle = '#2f6fb5'; x.fill();
+  x.restore();
+  x.strokeStyle = '#17121a'; x.lineWidth = 4; x.strokeRect(2, 2, 508, 252);
+  return c;
+}
 
 class Diorama3D {
   /* w : { room: 주인공 뺀 방 그림, hero: 주인공 그림(투명 바탕), heroAt: [x, y, w, h] 그 그림이 방 그림의 어디에 놓였나,
@@ -8857,7 +8918,7 @@ class Diorama3D {
     if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
     this.pr = pr; gl.useProgram(pr);
     this.at = ['aP', 'aN', 'aC', 'aUV', 'aE'].map(n => gl.getAttribLocation(pr, n));
-    this.un = {}; ['uVP', 'uRoom', 'uHero', 'uEye', 'uLamp', 'uFogD', 'uDim', 'uLit', 'uHeroA'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
+    this.un = {}; ['uVP', 'uRoom', 'uHero', 'uEye', 'uLamp', 'uFogD', 'uDim', 'uLit', 'uHeroA', 'uDoor'].forEach(n => this.un[n] = gl.getUniformLocation(pr, n));
     const tex = (img, nearest) => {
       const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
@@ -8866,7 +8927,7 @@ class Diorama3D {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       return t;
     };
-    this.texRoom = tex(world.room, true); this.texHero = tex(world.hero, true);
+    this.texRoom = tex(world.room, true); this.texHero = tex(world.hero, true); this.texDoor = tex(doorImage(), false);
     this.buf = gl.createBuffer(); this.hbuf = gl.createBuffer();
     this.lastWallH = -1;
   }
@@ -8914,6 +8975,25 @@ class Diorama3D {
         if (!door('W', y, y1, gapY)) cell(0, y, TS, y1);
         if (!door('E', y, y1, gapY)) cell(W - TS, y, W, y1);
       }
+      if (this.world.final) {
+        // 마지막 문 — 동쪽 벽 안쪽 면 전체 (탑뷰의 그 나무 문: y 34 ‥ H−34)
+        const X = nx - 1 - .015, z0 = 34 / TS, z1 = (H - 34) / TS, top = wallH * .94;
+        quadUV(P(X, top, z0), P(X, top, z1), P(X, 0, z1), P(X, 0, z0), [0, 0], [1, 0], [1, 1], [0, 1], [1, 1, 1], 4);
+        const zc = nz / 2;                                                      // 가운데 틈 — 바깥(지상)의 빛
+        quadUV(P(X - .005, top * .97, zc - .012), P(X - .005, top * .97, zc + .012), P(X - .005, .02, zc + .012), P(X - .005, .02, zc - .012), [0, 0], [0, 0], [0, 0], [0, 0], [1, .93, .78], 5);
+        // 잠금장치 기둥 — 문 앞 (탑뷰의 lx = W − TS − 24)
+        const lx = (W - TS - 24) / TS, ph = Math.min(1.1, wallH * .45), dk = [.14, .17, .21];
+        const bx0 = lx - .25, bx1 = lx + .25, bz0 = zc - .25, bz1 = zc + .3;
+        quadUV(P(bx0, ph, bz0), P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx0, ph, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx0, ph, bz1), P(bx0, ph, bz0), P(bx0, 0, bz0), P(bx0, 0, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx1, 0, bz1), P(bx1, 0, bz0), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx0, ph, bz0), P(bx1, ph, bz0), P(bx1, 0, bz0), P(bx0, 0, bz0), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        quadUV(P(bx1, ph, bz1), P(bx0, ph, bz1), P(bx0, 0, bz1), P(bx1, 0, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
+        if (ph > .3) {                                                          // 청록 불 — 열쇠가 맞았다는 표시
+          const y0 = ph - .3, y1 = ph - .18, zz0 = zc - .08, zz1 = zc + .08;
+          quadUV(P(bx0 - .006, y1, zz0), P(bx0 - .006, y1, zz1), P(bx0 - .006, y0, zz1), P(bx0 - .006, y0, zz0), [0, 0], [0, 0], [0, 0], [0, 0], [.49, .89, .78], 5);
+        }
+      }
     }
     return m;
   }
@@ -8940,6 +9020,7 @@ class Diorama3D {
     gl.uniform1f(un.uFogD, cam.fog || 0); gl.uniform1f(un.uDim, dim); gl.uniform1f(un.uLit, lit * smooth(k)); gl.uniform1f(un.uHeroA, heroA);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texRoom); gl.uniform1i(un.uRoom, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texHero); gl.uniform1i(un.uHero, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.texDoor); gl.uniform1i(un.uDoor, 2);
     const draw = (b, n) => { gl.bindBuffer(gl.ARRAY_BUFFER, b); const sz = [3, 3, 3, 2, 1]; let off = 0;
       this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 48, off * 4); } off += sz[i]; });
       gl.drawArrays(gl.TRIANGLES, 0, n); };
@@ -8952,11 +9033,14 @@ class Diorama3D {
     const { W, H, TS } = this.world, [hx, hy, hw, hh] = this.world.heroAt;
     const nx = W / TS, nz = H / TS, fov0 = .7, fov1 = 62 * Math.PI / 180;
     const topH = (nz / 2) / Math.tan(fov0 / 2);
-    const fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .25;           // 주인공이 선 자리
+    const D = { right: [1, 0, 0], left: [-1, 0, 0], up: [0, 0, -1], down: [0, 0, 1] }[this.world.dir] || [1, 0, 0];
+    let fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .3;               // 주인공이 선 자리
+    if (this.world.final && D[0] > 0) fx = Math.min(fx, (W - TS - 24) / TS - 2.1);   // 잠금장치 기둥 속으로 파고들지 않게 — 문 전체가 눈에 들어오는 자리
     const top = { eye: [nx / 2, topH, nz / 2], at: [nx / 2, 0, nz / 2], up: [0, 0, -1] };
-    const look = [lerp(fx, nx / 2, .75) - (fx > nx / 2 ? 0 : -nx * .3), .75, nz / 2];          // 방 가운데 너머 — 들어온 쪽
-    const end = { eye: [fx, 1.5, fz], at: look, up: [0, 1, 0] };
-    const mid = { eye: [lerp(nx / 2, fx, .7), topH * .38, lerp(nz / 2, fz, .7)], at: [lerp(nx / 2, fx, .5), 0, lerp(nz / 2, fz, .5)], up: norm(lerp3([0, 0, -1], norm(sub(look, end.eye)), .5)) };
+    const eyeE = [fx, 1.5, fz];
+    const end = { eye: eyeE, at: add(add(eyeE, mul(D, 4)), [0, -.35, 0]), up: [0, 1, 0] };
+    // 가운데 — 주인공 위에서 내려다보며, 화면 위쪽이 주인공이 보는 쪽이 되도록 돌아감 (앞으로 숙이듯 1인칭이 됨)
+    const mid = { eye: [lerp(nx / 2, fx, .8), topH * .36, lerp(nz / 2, fz, .8)], at: [fx + D[0] * .8, 0, fz + D[2] * .8], up: D };
     const e = smooth(k), a = 1 - e;
     const bz = (p, q, r) => [0, 1, 2].map(i => a * a * p[i] + 2 * a * e * q[i] + e * e * r[i]);
     const bob = [0, Math.sin(t * .05) * .012 * e, 0];                 // 숨 쉬듯
@@ -17496,7 +17580,8 @@ function endingWorld() {
     const rc = document.createElement('canvas'); rc.width = cv.width; rc.height = cv.height; rc.getContext('2d').drawImage(cv, 0, 0);
     const whole = W === VW && H === VH;                       // 방 전체가 한 화면일 때만 테두리 벽을 세움
     return { room: rc, hero: hc, heroAt: [hx - cx, hy - cy, hw, hh], W: VW, H: VH, TS,
-             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole };
+             doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole,
+             dir: P.dir, final: whole && !!MAP[G.room].final };      // 1인칭은 주인공이 보던 쪽으로 · 마지막 문
   } catch (e) { return null; }
   finally { Object.assign(G, { endWarp: keep.warp, shake: keep.shake, flash: keep.flash, glare: keep.glare }); }
 }
