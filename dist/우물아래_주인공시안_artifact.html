@@ -311,7 +311,7 @@ function drawGrassTuft(g, x, y, s, col = '#33482c', t = 0) {
   g.lineCap = 'round';
   for (let i = 0; i < 5; i++) {
     const a = -Math.PI / 2 + (i - 2) * .32;
-    const sway = Math.sin(t * .0013 + x + i) * s * .12;
+    const sway = (forestWind(t / 16, x + y * .3) * .7 + Math.sin(t * .0013 + x + i) * .25) * s * .12;   // 나무와 같은 바람 + 잎마다 조금씩
     g.beginPath();
     g.moveTo(0 + x, y);
     g.quadraticCurveTo(x + Math.cos(a) * s * .4, y + Math.sin(a) * s * .6,
@@ -542,13 +542,28 @@ function treeSprite(s, seed) {
   else { const c = trunk.getContext('2d'); c.translate(tw / 2, th - 2); bark(c); }
   return (TREE_CACHE[key] = { canopy, trunk, cw, ch, tw, th });
 }
+/* 숲의 바람 — 왼쪽에서 오른쪽으로 숲을 쓸고 지나가는 물결(자리마다 박자가 조금씩 늦음) +
+   느린 흔들림 + 가끔 지나가는 돌풍. 0 근처를 오가며, 돌풍 때만 한쪽으로 크게 */
+function forestWind(t, x) {
+  const base = Math.sin(t * .021 - x * .018) * .55 + Math.sin(t * .047 - x * .031 + 1.7) * .2;
+  const gust = Math.pow(Math.max(0, Math.sin(t * .0055 - x * .006)), 6);           // 몇 초에 한 번, 숲을 가로질러
+  return base * (1 + gust * .8) + gust * 1.1;
+}
 function drawTree(g, x, y, s, t) {
   const T = treeSprite(s, Math.abs((x * 31 + y * 17) | 0));
   if (window.PixFX) PixFX.ellipse(g, x, y + s * .1, s * .55, s * .17, 'rgba(0,0,0,.38)');
   else { g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(x, y + s * .12, s * .55, s * .18, 0, 0, Math.PI * 2); g.fill(); }
-  const sway = Math.round(Math.sin(t * .011 + x * .07) * s * .025);                    // 잎만 한두 픽셀
   g.drawImage(T.trunk, Math.round(x - T.tw / 2), Math.round(y + s * .08 - T.th + 2));
-  g.drawImage(T.canopy, Math.round(x - T.cw / 2 + sway), Math.round(y - s * .62 - T.ch / 2));
+  // 잎 — 통째로 미끄러지지 않고, 줄기에 붙은 아래쪽은 그대로 · 위로 갈수록 더 휘어지게 (가로 띠마다 조금씩 밀어 그림).
+  // 휨은 정수 픽셀이라 도트가 번지지 않고, 위쪽 끝이 최대 2~3픽셀
+  const cx = Math.round(x - T.cw / 2), cy = Math.round(y - s * .62 - T.ch / 2);
+  const amp = s * .05 * forestWind(t / 16, x + y * .3), B = 3;          // t 는 G.t × 16 — 프레임으로 되돌려 씀
+  for (let by = 0; by < T.ch; by += B) {
+    const k = 1 - (by + B / 2) / T.ch;                       // 1 꼭대기 ‥ 0 아래
+    const dx = Math.round(amp * Math.pow(k, 1.6));
+    const h = Math.min(B, T.ch - by);
+    g.drawImage(T.canopy, 0, by, T.cw, h, cx + dx, cy + by, T.cw, h);
+  }
 }
 
 /* 장승 — 오방색 띠를 두른 마을 수호신 */
