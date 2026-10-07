@@ -9175,7 +9175,7 @@ class Diorama3D {
       const gapX = [W / 2 - 26, W / 2 + 26], gapY = [H / 2 - 26, H / 2 + 26];
       const door = (d, a0, a1, g) => doors.includes(d) && a1 > g[0] && a0 < g[1];
       const cell = (x0, y0, x1, y1) => {
-        const h = wallH * (.93 + .07 * Math.sin(x0 * .37 + y0 * .71));      // 돌 높이가 조금씩 다름
+        const h = wallH * (.93 + .07 * Math.sin(Math.abs(x0 + TS / 2 - W / 2) * .37 + Math.abs(y0 + TS / 2 - H / 2) * .71));   // 돌 높이가 조금씩 다름 — 방 가운데를 두고 좌우 · 위아래 대칭
         const a = this.px(x0, y0), b = this.px(x1, y1), t = [U(x0, y0), U(x1, y0), U(x1, y1), U(x0, y1)];
         const X0 = a[0], X1 = b[0], Z0 = a[2], Z1 = b[2];
         quadUV(P(X0, h, Z0), P(X1, h, Z0), P(X1, h, Z1), P(X0, h, Z1), t[0], t[1], t[2], t[3], [1, 1, 1], 0);       // 윗면 = 그 자리 그림
@@ -9203,7 +9203,7 @@ class Diorama3D {
         quadUV(P(X - .005, top * .97, zc - .012), P(X - .005, top * .97, zc + .012), P(X - .005, .02, zc + .012), P(X - .005, .02, zc - .012), [0, 0], [0, 0], [0, 0], [0, 0], [1, .93, .78], 5);
         // 잠금장치 기둥 — 문 앞 (탑뷰의 lx = W − TS − 24)
         const lx = (W - TS - 24) / TS, ph = Math.min(1.1, wallH * .45), dk = [.14, .17, .21];
-        const bx0 = lx - .25, bx1 = lx + .25, bz0 = zc - .25, bz1 = zc + .3;
+        const bx0 = lx - .25, bx1 = lx + .25, bz0 = zc - .27, bz1 = zc + .27;        // 문 가운데에 꼭 맞게
         quadUV(P(bx0, ph, bz0), P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx0, ph, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
         quadUV(P(bx0, ph, bz1), P(bx0, ph, bz0), P(bx0, 0, bz0), P(bx0, 0, bz1), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
         quadUV(P(bx1, ph, bz0), P(bx1, ph, bz1), P(bx1, 0, bz1), P(bx1, 0, bz0), [0, 0], [0, 0], [0, 0], [0, 0], dk, 2);
@@ -9236,7 +9236,7 @@ class Diorama3D {
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(this.pr);
     const fwd = norm(sub(cam.at, cam.eye));
     gl.uniformMatrix4fv(un.uVP, false, new Float32Array(mmul(persp(cam.fov || .7, this.w / this.h, .05, 120), look(cam.eye, fwd, cam.up))));
-    gl.uniform3fv(un.uEye, new Float32Array(cam.eye)); gl.uniform3fv(un.uLamp, new Float32Array([lerp(fx, wd.W / T / 2, .35), 3.2, fz]));
+    gl.uniform3fv(un.uEye, new Float32Array(cam.eye)); gl.uniform3fv(un.uLamp, new Float32Array([lerp(fx, wd.W / T / 2, .35), 3.2, wd.H / T / 2]));   // 빛도 방 가운데 줄 위 — 양옆이 같은 밝기
     gl.uniform1f(un.uFogD, cam.fog || 0); gl.uniform1f(un.uDim, dim); gl.uniform1f(un.uLit, lit * smooth(k)); gl.uniform1f(un.uHeroA, heroA);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.texRoom); gl.uniform1i(un.uRoom, 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.texHero); gl.uniform1i(un.uHero, 1);
@@ -9256,6 +9256,8 @@ class Diorama3D {
     const D = { right: [1, 0, 0], left: [-1, 0, 0], up: [0, 0, -1], down: [0, 0, 1] }[this.world.dir] || [1, 0, 0];
     let fx = (hx + hw / 2) / TS, fz = (hy + hh) / TS - .3;               // 주인공이 선 자리
     if (this.world.final && D[0] > 0) fx = Math.min(fx, (W - TS - 24) / TS - 2.1);   // 잠금장치 기둥 속으로 파고들지 않게 — 문 전체가 눈에 들어오는 자리
+    // 정면 대칭 — 보는 쪽과 직각인 축은 방 한가운데로 (문 · 태극 · 문틈 · 기둥이 화면 가운데, 양옆 벽이 똑같이)
+    if (D[0]) fz = nz / 2; else fx = nx / 2;
     const top = { eye: [nx / 2, topH, nz / 2], at: [nx / 2, 0, nz / 2], up: [0, 0, -1] };
     const eyeE = [fx, 1.5, fz];
     const end = { eye: eyeE, at: add(add(eyeE, mul(D, 4)), [0, -.35, 0]), up: [0, 1, 0] };
