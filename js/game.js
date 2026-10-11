@@ -954,9 +954,10 @@ function openDoc() {
   G.mode = 'doc';
   $('docoverlay').classList.remove('hidden');
   $('prompt').classList.add('hidden');
-  Sfx.chest();
+  Sfx.paper(true);                      // 서류철을 펼치는 종이 소리
 }
 function closeDoc() {
+  Sfx.paper(false);                     // 덮는 소리
   $('docoverlay').classList.add('hidden');
   G.mode = 'forest';
 }

@@ -985,56 +985,74 @@ body.topview #crt::after{                 /* 유리에 비친 방 불빛 — 왼
   /* 위아래를 어둡게 눌러 눈구멍에 박힌 것처럼 보이게 합니다 */
   box-shadow:inset 0 26px 34px -14px rgba(6,2,4,.95),
              inset 0 -22px 30px -14px rgba(6,2,4,.9);
+  /* 눈 둘레 — 어둠 속에서 겨우 드러나는 핏빛 그늘 */
+  filter:drop-shadow(0 0 22px rgba(70,8,10,.55));
 }
-#creepy.scare{ background:#0a0406; animation:crScare 1.5s steps(2) 1 both; }
+/* 하얗게 번쩍이지 않고 — 어둠이 한 번 붉게 끓었다가 더 깊이 가라앉습니다 (숲의 밤 · 관찰자의 어둠을 깨지 않게) */
+#creepy.scare{ background:#050203; animation:crScare 1.5s steps(2) 1 both; }
 @keyframes crScare{
-  0%  { background:#fff }
-  8%  { background:#050204 }
-  14% { background:#fff }
-  26% { background:#2a0a0c }
-  100%{ background:#0a0406 }
+  0%  { background:#2a0709 }
+  8%  { background:#000 }
+  14% { background:#1c0507 }
+  26% { background:#080203 }
+  100%{ background:#050203 }
 }
 #creepy.scare #cr-eye{ opacity:1; animation:crEye 1.5s cubic-bezier(.1,.9,.2,1) 1 both; }
 @keyframes crEye{
-  0%  { transform:scale(.12); opacity:1 }
-  22% { transform:scale(1.16); opacity:1 }
-  34% { transform:scale(1);    opacity:1 }
-  88% { transform:scale(1.04); opacity:1 }
+  0%  { transform:scale(.12); opacity:.6 }
+  22% { transform:scale(1.16); opacity:.95 }
+  34% { transform:scale(1);    opacity:.9 }
+  88% { transform:scale(1.04); opacity:.9 }
   100%{ transform:scale(1.4);  opacity:0 }
 }
 #creepy.scare #cr-body{ opacity:0; }
 .cr-sclera{
   position:absolute; inset:0; border-radius:52% 48% 50% 50%;
-  background:radial-gradient(circle at 42% 40%, #c7bdae 0 42%, #8f8271 62%, #362d22 100%);
-  /* 위아래를 눌러 눈구멍에 박힌 것처럼 (자식이 덮으므로 흰자 쪽에 겁니다) */
-  box-shadow:inset 0 0 34px rgba(50,10,8,.9),
-             inset 0 26px 36px -16px rgba(4,1,2,.95),
-             inset 0 -22px 32px -16px rgba(4,1,2,.9);
+  /* 흰자는 희지 않게 — 오래 젖은 듯 누렇게 탁하고, 가장자리로 갈수록 어둠에 잠김.
+     충혈은 고르게 찍힌 선이 아니라 가장자리 몇 군데에 번진 핏빛 얼룩 */
+  background:
+    radial-gradient(ellipse 30% 18% at 12% 46%, rgba(110,18,16,.55), transparent 70%),
+    radial-gradient(ellipse 22% 14% at 86% 38%, rgba(104,16,14,.5), transparent 70%),
+    radial-gradient(ellipse 18% 26% at 70% 84%, rgba(90,14,12,.45), transparent 70%),
+    radial-gradient(ellipse 16% 12% at 30% 16%, rgba(96,16,14,.4), transparent 70%),
+    radial-gradient(circle at 46% 44%, #463a30 0 28%, #30271f 50%, #18120e 72%, #050303 100%);
+  /* 위 눈꺼풀이 드리운 깊은 그늘 · 아래도 눌러 눈구멍에 박힌 것처럼 */
+  box-shadow:inset 0 0 40px rgba(40,6,6,.9),
+             inset 0 44px 46px -18px rgba(2,0,1,.97),
+             inset 0 -30px 38px -18px rgba(2,0,1,.92);
 }
-/* 실핏줄 — 흰자 가장자리에서만 보이도록 마스크를 씌웁니다 */
+/* 실핏줄 — 몇 가닥만, 가장자리에서 안쪽으로 가늘게 (간격 · 굵기 제각각) */
 .cr-sclera::after{
   content:''; position:absolute; inset:0; border-radius:inherit;
-  /* 주기가 다른 두 겹을 겹쳐 규칙적인 햇살 무늬로 보이지 않게 합니다 */
   background:
-    repeating-conic-gradient(from 11deg at 50% 50%,
-      rgba(168,40,32,0) 0 13deg, rgba(168,40,32,.26) 13.4deg 13.9deg,
-      rgba(168,40,32,0) 14.3deg 27deg),
-    repeating-conic-gradient(from 3deg at 50% 50%,
-      rgba(140,30,24,0) 0 31deg, rgba(140,30,24,.20) 31.4deg 32.1deg,
-      rgba(140,30,24,0) 32.6deg 45deg);
-  -webkit-mask:radial-gradient(circle, transparent 0 46%, #000 74%, transparent 95%);
-          mask:radial-gradient(circle, transparent 0 46%, #000 74%, transparent 95%);
+    linear-gradient(17deg,  transparent 48.6%, rgba(96,16,14,.32) 49.4% 50.2%, transparent 51%) 0 0 / 100% 100%,
+    linear-gradient(-64deg, transparent 49%,   rgba(90,14,12,.26) 49.6% 50.1%, transparent 50.7%) 0 0 / 100% 100%,
+    linear-gradient(101deg, transparent 49.2%, rgba(84,12,10,.24)  49.7% 50.1%, transparent 50.6%) 0 0 / 100% 100%,
+    linear-gradient(-151deg,transparent 48.9%, rgba(94,16,14,.3)  49.5% 50.3%, transparent 50.9%) 0 0 / 100% 100%;
+  -webkit-mask:radial-gradient(circle, transparent 0 50%, #000 70%, transparent 92%);
+          mask:radial-gradient(circle, transparent 0 50%, #000 70%, transparent 92%);
 }
 .cr-iris{
   position:absolute; left:50%; top:50%; width:104px; height:104px; margin:-52px 0 0 -52px;
   border-radius:50%;
-  background:radial-gradient(circle at 40% 36%, #7a2820 0 30%, #431009 62%, #120302 100%);
+  /* 홍채 — 거의 검은 핏빛. 가는 결(방사 무늬)이 촘촘하고 불규칙하게, 바깥 고리는 짙게, 위쪽은 눈꺼풀 그늘 */
+  background:
+    linear-gradient(180deg, rgba(0,0,0,.6), transparent 45%),
+    repeating-conic-gradient(from 0deg, rgba(0,0,0,.28) 0 2.1deg, rgba(90,24,18,.18) 2.6deg 3.3deg, rgba(0,0,0,0) 3.9deg 5.2deg),
+    repeating-conic-gradient(from 1.3deg, rgba(0,0,0,0) 0 6.7deg, rgba(120,36,26,.16) 7.1deg 7.6deg, rgba(0,0,0,0) 8deg 11.3deg),
+    radial-gradient(circle at 46% 42%, #3a0f0b 0 24%, #240806 54%, #0c0202 80%, #2c0b08 88%, #050101 96%);
+  box-shadow:0 0 0 2px rgba(0,0,0,.7), inset 0 0 14px rgba(0,0,0,.8);
 }
 .cr-pupil{
   position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px;
-  border-radius:50%; background:#050204;
-  box-shadow:0 0 0 3px rgba(0,0,0,.55);
+  border-radius:50%; background:#020001;
+  box-shadow:0 0 0 3px rgba(0,0,0,.65);
   animation:crPupil 1.5s steps(2) 1 both;
+}
+/* 젖은 빛 한 점 — 어둠 속에서 살아 있는 눈이라는 것만 (밝히지 않게 아주 희미하게) */
+.cr-pupil::after{
+  content:''; position:absolute; left:22%; top:18%; width:9px; height:6px; border-radius:50%;
+  background:rgba(210,190,170,.28); filter:blur(.6px);
 }
 @keyframes crPupil{
   0%{ transform:scale(1.6) } 24%{ transform:scale(.5) }
@@ -1598,6 +1616,42 @@ const Sfx = (() => {
       const g = c.createGain(); g.gain.value = .13 * k;
       src.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(g); g.connect(master);
       src.start(t);
+    },
+
+    /* 종이 — 오래된 서류철을 펼치는 소리: 손에 쥐는 바스락 → 접힌 종이가 "펄럭" 펴지는 낮은 소리 → 잔잔한 사각거림.
+       open=false 면 덮는 소리 (짧게 사각 → 탁) */
+    paper(open = true) {
+      const c = ctx(), t0 = c.currentTime, sr = c.sampleRate;
+      const crinkle = (at, dur, vol, lo, hi) => {                // 바스락 — 잘게 끊긴 잡음 조각들
+        const n = Math.floor(sr * dur), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+        let amp = 0, seg = 0;
+        for (let i = 0; i < n; i++) {
+          if (--seg <= 0) { seg = Math.floor(sr * (.003 + Math.random() * .014)); amp = Math.random() < .35 ? 0 : .25 + Math.random() * .75; }
+          d[i] = (Math.random() * 2 - 1) * amp * Math.min(1, i / (sr * .01), (n - i) / (sr * .03));
+        }
+        const s2 = c.createBufferSource(); s2.buffer = buf;
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lo;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = hi;
+        const g = c.createGain(); g.gain.value = vol;
+        s2.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s2.start(t0 + at);
+      };
+      const flap = (at, vol) => {                                 // 펄럭 — 종이가 공기를 미는 낮은 바람
+        const n = Math.floor(sr * .18), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) { const k = i / n; d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * k) * (1 - k * .5); }
+        const s2 = c.createBufferSource(); s2.buffer = buf;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = .7;
+        const g = c.createGain(); g.gain.value = vol;
+        s2.connect(bp); bp.connect(g); g.connect(master); s2.start(t0 + at);
+      };
+      if (open) {
+        crinkle(0, .16, .16, 1800, 7000);        // 쥐고
+        flap(.12, .32);                          // 펼치고
+        crinkle(.2, .22, .1, 2400, 9000);        // 사각
+        crinkle(.5, .14, .06, 3000, 9000);       // 손끝에 남는 잔 바스락
+      } else {
+        crinkle(0, .12, .12, 2000, 8000);
+        flap(.08, .22);
+      }
     },
 
     fall() {
@@ -13519,9 +13573,10 @@ function openDoc() {
   G.mode = 'doc';
   $('docoverlay').classList.remove('hidden');
   $('prompt').classList.add('hidden');
-  Sfx.chest();
+  Sfx.paper(true);                      // 서류철을 펼치는 종이 소리
 }
 function closeDoc() {
+  Sfx.paper(false);                     // 덮는 소리
   $('docoverlay').classList.add('hidden');
   G.mode = 'forest';
 }

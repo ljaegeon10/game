@@ -190,6 +190,42 @@ const Sfx = (() => {
       src.start(t);
     },
 
+    /* 종이 — 오래된 서류철을 펼치는 소리: 손에 쥐는 바스락 → 접힌 종이가 "펄럭" 펴지는 낮은 소리 → 잔잔한 사각거림.
+       open=false 면 덮는 소리 (짧게 사각 → 탁) */
+    paper(open = true) {
+      const c = ctx(), t0 = c.currentTime, sr = c.sampleRate;
+      const crinkle = (at, dur, vol, lo, hi) => {                // 바스락 — 잘게 끊긴 잡음 조각들
+        const n = Math.floor(sr * dur), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+        let amp = 0, seg = 0;
+        for (let i = 0; i < n; i++) {
+          if (--seg <= 0) { seg = Math.floor(sr * (.003 + Math.random() * .014)); amp = Math.random() < .35 ? 0 : .25 + Math.random() * .75; }
+          d[i] = (Math.random() * 2 - 1) * amp * Math.min(1, i / (sr * .01), (n - i) / (sr * .03));
+        }
+        const s2 = c.createBufferSource(); s2.buffer = buf;
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = lo;
+        const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = hi;
+        const g = c.createGain(); g.gain.value = vol;
+        s2.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master); s2.start(t0 + at);
+      };
+      const flap = (at, vol) => {                                 // 펄럭 — 종이가 공기를 미는 낮은 바람
+        const n = Math.floor(sr * .18), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) { const k = i / n; d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * k) * (1 - k * .5); }
+        const s2 = c.createBufferSource(); s2.buffer = buf;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = .7;
+        const g = c.createGain(); g.gain.value = vol;
+        s2.connect(bp); bp.connect(g); g.connect(master); s2.start(t0 + at);
+      };
+      if (open) {
+        crinkle(0, .16, .16, 1800, 7000);        // 쥐고
+        flap(.12, .32);                          // 펼치고
+        crinkle(.2, .22, .1, 2400, 9000);        // 사각
+        crinkle(.5, .14, .06, 3000, 9000);       // 손끝에 남는 잔 바스락
+      } else {
+        crinkle(0, .12, .12, 2000, 8000);
+        flap(.08, .22);
+      }
+    },
+
     fall() {
       const c = ctx(), t = c.currentTime;
       const o = c.createOscillator(), g = c.createGain();
