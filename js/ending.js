@@ -921,6 +921,7 @@ const RiseState = {
     const cm = d.camAt(s.camK, s.frame), img = d.render(s.riseK, cm, { heroA: cm.heroA });
     c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
     c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
+    if (window.PixFX) PixFX.bloom(c, img, 0, 0, W, H, .35 + s.riseK * .2);   // 문틈 빛 · 표시등이 번짐
     // 글리치 — 붕괴(crash)와 같은 효과: 320×180 으로 눌러 띠 밀림 · 블록 손상 · RGB 분리 · 노이즈
     if (s.rg > 0) {
       s.sx.imageSmoothingEnabled = true; s.sx.drawImage(img, 0, 0, LW, LH);
@@ -954,6 +955,7 @@ function drawLab3D(s, c, look, open, blur) {
   if (blur > .3) c.filter = `blur(${blur.toFixed(1)}px)`;
   c.drawImage(img, 0, 0, W, H);
   c.restore();
+  if (window.PixFX) PixFX.bloom(c, img, 0, 0, W, H, .4);                  // 형광등 빛 번짐
   if (open < 1) {                                          // 눈꺼풀 — 위아래에서 부드럽게
     const lid = (1 - open) * H * .52;
     for (const top of [true, false]) {
@@ -1291,8 +1293,8 @@ class EndingScene {
     if (!source) this.dungeon = new Dungeon();
     this.lab = new Lab();
     // 입체 — 마지막 방(diorama3d.js) · 실험실(labroom.js). 안 되면 예전 그림으로
-    try { const wd = world && window.Diorama3D && world(); if (wd) { this.dio = new Diorama3D(wd, W, H); if (!this.dio.ok) this.dio = null; } } catch (e) { this.dio = null; }
-    try { if (window.LabRoom) { this.lab3 = new LabRoom(); if (!this.lab3.ok) this.lab3 = null; } } catch (e) { this.lab3 = null; }
+    try { const wd = world && window.Diorama3D && world(); if (wd) { this.dio = new Diorama3D(wd, W * 2, H * 2); if (!this.dio.ok) this.dio = null; } } catch (e) { this.dio = null; }   // 2배로 그려 줄여 찍음 — 가장자리가 매끈
+    try { if (window.LabRoom) { this.lab3 = new LabRoom(); if (!this.lab3.ok) this.lab3 = null; else this.lab3.setScale(2); } } catch (e) { this.lab3 = null; }   // 2배 해상도
     this.glitch = new GlitchFX();
     this.ekg = new EKGMonitor(this.sfx);
     this.term = new Terminal(TRUTH_LINES, this.sfx);

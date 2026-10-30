@@ -4597,7 +4597,9 @@ function op3d() {
   try {
     if (!window.LabRoom || !window.Figure3D || !window.Opening3D) return null;
     const lab = new LabRoom(); if (!lab.ok) return null;
-    const fig = new Figure3D(960, 540); if (!fig.ok) return null;
+    const FW = cvHi ? cvHi.width : 960, FH = cvHi ? cvHi.height : 540;
+    const fig = new Figure3D(FW, FH); if (!fig.ok) return null;    // 방호복도 고해상도 화면 그대로 (늘려 찍으면 흐려졌음)
+    fig.k = FW / 960;
     const scene = new Opening3D(cvHi ? cvHi.width : 960, cvHi ? cvHi.height : 540); if (!scene.ok) return null;
     lab.setScale((cvHi ? cvHi.width : 960) / 960);
     OP3 = { lab, fig, scene, ceil: null };
@@ -4624,7 +4626,9 @@ function opLabImage(R, t, dim) {
 const OP_LIT = [[[-.3, 1.4, -1.8], [1.1, 1.12, 1.15]], [[.7, 1.2, -1.2], [.8, .8, .82]], [[0, -.3, .6], [.12, .12, .13]]];
 function drawOpLab3D(R, t, cr) {
   g.imageSmoothingEnabled = true;
-  g.drawImage(opLabImage(R, t, .9), 0, 0, W, H);
+  const lab = opLabImage(R, t, .9);
+  g.drawImage(lab, 0, 0, W, H);
+  if (window.PixFX) PixFX.bloom(g, lab, 0, 0, W, H, .42);                 // 형광등 빛이 번짐
   const red = cr > 0 ? [.9, .12, .1, cr * (.12 + .1 * Math.sin((t - OP.CR0) / 52 * Math.PI * 2))] : [0, 0, 0, 0];
   const env = c => ({ cam: { f: 450, px: 480, py: 250, roll: c }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red, lights: OP_LIT });
   // 가장자리에서 내려다보는 방호복 — 말을 걸 때마다 들여다봅니다
@@ -4651,12 +4655,15 @@ function drawOpWell3D(R, t, sink) {
   R.ceilUp = true;
   g.imageSmoothingEnabled = true;
   g.drawImage(img, 0, 0, W, H);
+  if (window.PixFX) PixFX.bloom(g, img, 0, 0, W, H, .55, { blur: 4 });   // 저 위 입구의 빛
 }
 /* 숲에서 눈을 뜸 — 땅에 누워 올려다본 나무 · 하늘, 가지 틈의 방호복 */
 function drawOpForest3D(R, t, rise) {
   const gt = t - OP.DARK;
   g.imageSmoothingEnabled = true;
-  g.drawImage(R.scene.renderForest(rise, t), 0, 0, W, H);
+  const wood = R.scene.renderForest(rise, t);
+  g.drawImage(wood, 0, 0, W, H);
+  if (window.PixFX) PixFX.bloom(g, wood, 0, 0, W, H, .5, { cut: 2.6, blur: 4 });   // 잎 사이로 새는 노을
   if (gt >= 58 && gt < 100) {                               // 노을을 등진 그림자 — 테두리만 빛남
     const k = ease01((gt - 58) / 14), e = rise * rise;
     const img = R.fig.render({ kind: 'suit', x: .55 + (1 - k) * .25, y: -1.45 - e * 1.5, z: 1.2, yaw: -.4, stride: 0, reach: .2, lean: .45 }, {
@@ -4847,6 +4854,7 @@ function opAdapt(R) {
   const k = R.dt > 26 ? Math.max(.7, k0 * .8) : R.dt < 17 && k0 < 1.8 ? Math.min(1.8, k0 * 1.12) : k0;
   if (k === k0) return;
   R.k = k; R.lab.setScale(k); R.scene.setSize(Math.round(960 * k), Math.round(540 * k));
+  const F = R.fig; F.w = F.canvas.width = Math.round(960 * k); F.h = F.canvas.height = Math.round(540 * k); F.k = k;   // 방호복도 같은 배율
 }
 function renderOpening() {
   const O = G.opening, t = O.t;

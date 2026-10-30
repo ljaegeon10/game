@@ -76,6 +76,15 @@ void main(){
   if(dot(n,V)<0.0) n=-n;
   float rough=vn(vP*9.0)*.5+vn(vP*27.0)*.3+vn(vP*3.0)*.2;
   c*=.72+.5*rough;
+  float isBark=smoothstep(.035,.05,vC.r-vC.b);     // 갈색(나무껍질)만 — 회색 돌은 그대로
+  c*=mix(.82+.36*vn(vP*58.0),1.0,isBark);         // 돌 — 잘게 팬 자국
+  if(isBark>0.0){                                   // 세로로 길게 갈라진 껍질 골 + 이끼 낀 아래쪽
+    float rid=vn(vec3(vP.x*34.0,vP.y*1.4,vP.z*34.0))*.65+vn(vec3(vP.x*80.0,vP.y*4.0,vP.z*80.0))*.35;
+    float groove=smoothstep(.35,.62,rid);
+    c=mix(c,c*(.45+.85*groove),isBark);
+    n=normalize(n+vec3(rid-.5,0.0,.5-rid)*.35*isBark);
+    c=mix(c,vec3(.07,.10,.05),isBark*clamp(1.0-vP.y*.35,0.0,1.0)*.5*vn(vP*6.0));
+  }
   vec3 L=uLP-vP; float d=length(L); L/=d;
   vec3 acc=mix(uAmbB,uAmbT,n.y*.5+.5);
   acc+=uLC*max(dot(n,L),0.0)/(1.0+d*d*.02);
@@ -138,7 +147,7 @@ function buildForest() {
     const segs = 12; let prev = [tx, -.5, tz];
     for (let i = 1; i <= segs; i++) {
       const k = i / segs, p = add(add([tx, -.5, tz], mul(lean, h * k)), [Math.sin(k * 5 + tx) * .25 * k, 0, Math.cos(k * 4 + tz) * .25 * k]);
-      m.cyl(prev, p, lerp(r0, r1, (i - 1) / segs), lerp(r0, r1, k), bark.map(v => v * (.9 + rnd() * .2)), 10);
+      m.cyl(prev, p, lerp(r0, r1, (i - 1) / segs), lerp(r0, r1, k), bark.map(v => v * (.9 + rnd() * .2)), 18);   // 둘레를 잘게 — 매끈한 원뿔로 안 보이게
       prev = p;
     }
     // 가지 — 위쪽에서 바깥 · 가운데로
@@ -146,7 +155,7 @@ function buildForest() {
       const k = .45 + b * .1 + rnd() * .05, base = add([tx, 0, tz], mul(lean, h * k)), ang = rnd() * TAU;
       const dir = norm([Math.cos(ang) + tx * .3, .9 + rnd() * .6, Math.sin(ang) + tz * .3]), L = 2 + rnd() * 2.5;
       const mid = add(base, mul(dir, L * .55)), end = add(add(base, mul(dir, L)), [0, -.3, 0]);
-      m.cyl(base, mid, r0 * (.35 - b * .04), r0 * .2, bark, 6); m.cyl(mid, end, r0 * .2, r0 * .07, bark, 5);
+      m.cyl(base, mid, r0 * (.35 - b * .04), r0 * .2, bark, 10); m.cyl(mid, end, r0 * .2, r0 * .07, bark, 8);
       clump(leaves, end, 1.1 + rnd() * .9, 40);
     }
     clump(leaves, add(top, [tx * .75, -1, tz * .75]), 2 + rnd() * 1, 70);        // 꼭대기 잎은 바깥으로 — 가운데 하늘이 트이게

@@ -104,5 +104,25 @@ function ellipse(g, cx, cy, rx, ry, col) {
   }
 }
 
-window.PixFX = { sprite, layerBegin, layerFlush, ellipse };
+/* 빛 번짐(블룸) — 3D 컷신용. 밝은 곳만 남겨(대비를 크게 올려 어두운 곳은 검게) 작게 줄여 흐린 뒤 'screen' 으로 얹습니다.
+   캔버스 filter 를 못 쓰는 브라우저(옛 사파리)에선 하지 않음 — 화면 전체가 하얗게 뜨는 걸 막으려고 */
+let bA = null, bB = null, bOK = null;
+function bloom(g, src, dx, dy, dw, dh, amt = .5, opt = {}) {
+  if (bOK === null) { try { const t = document.createElement('canvas').getContext('2d'); t.filter = 'blur(2px)'; bOK = t.filter === 'blur(2px)'; } catch (e) { bOK = false; } }
+  if (!bOK || amt <= 0) return;
+  const sw = Math.max(16, Math.round((src.width || dw) / 6)), sh = Math.max(9, Math.round((src.height || dh) / 6));
+  if (!bA) { bA = document.createElement('canvas'); bB = document.createElement('canvas'); }
+  for (const c of [bA, bB]) if (c.width !== sw || c.height !== sh) { c.width = sw; c.height = sh; }
+  const a = bA.getContext('2d'), b = bB.getContext('2d');
+  a.filter = `brightness(${opt.gain || 1.05}) contrast(${opt.cut || 3.2}) saturate(1.15)`;    // 밝은 곳만
+  a.clearRect(0, 0, sw, sh); a.drawImage(src, 0, 0, sw, sh); a.filter = 'none';
+  b.filter = `blur(${opt.blur || 3}px)`; b.clearRect(0, 0, sw, sh); b.drawImage(bA, 0, 0); b.filter = 'none';
+  g.save(); g.globalCompositeOperation = 'screen'; g.globalAlpha = amt; g.imageSmoothingEnabled = true;
+  g.drawImage(bB, dx, dy, dw, dh);
+  g.globalAlpha = amt * .5; b.filter = `blur(${(opt.blur || 3) * 2.5}px)`; b.drawImage(bA, 0, 0); b.filter = 'none';   // 넓게 한 겹 더
+  g.drawImage(bB, dx, dy, dw, dh);
+  g.restore();
+}
+
+window.PixFX = { sprite, layerBegin, layerFlush, ellipse, bloom };
 })();

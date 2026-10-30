@@ -449,7 +449,12 @@ class Figure3D {
     this.guard = up(gp);
   }
   /* cam : { f, px, py } — 초점 거리 · 주점(화면 픽셀) */
-  proj(cam) { return camProj(cam, this.w, this.h); }
+  /* k : 카메라 값(f · px · py · 흔들림)을 적어 둔 기준 해상도(960 폭) 대비 배율 — 고해상도로 그려도 구도는 그대로 */
+  proj(cam) {
+    const k = this.k || 1;
+    if (k !== 1) cam = { ...cam, f: cam.f * k, px: cam.px * k, py: cam.py * k, shx: (cam.shx || 0) * k, shy: (cam.shy || 0) * k };
+    return camProj(cam, this.w, this.h);
+  }
   draw(set, key, m) {
     const gl = this.gl, p = set[key]; if (!p) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, p.b);
