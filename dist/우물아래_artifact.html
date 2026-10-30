@@ -17957,7 +17957,8 @@ function beginEnding() {
     // 메인 루프는 엔딩 동안 화면을 그리지 않으므로, 씬이 원할 때 한 장씩 그려 넘깁니다
     source: () => { render(); return cv; },
     audio: () => Sfx.context(),
-    onReturn: () => beginEscape()        // 눈을 뜬 그 자리에서 1인칭으로 — 제4막 탈출
+    // 공개판은 1부까지 — 눈을 뜬 뒤 SPACE 를 누르면 엔드 카드. 2부(1인칭 탈출)는 숨겨 두고 개발자 화면에서만
+    onReturn: () => PART2_OPEN ? beginEscape() : showEndCard()
   });
   endingScene.start();
 }
@@ -17984,6 +17985,13 @@ function endingWorld() {
              dir: P.dir, final: whole && !!MAP[G.room].final };      // 1인칭은 주인공이 보던 쪽으로 · 마지막 문
   } catch (e) { return null; }
   finally { Object.assign(G, { endWarp: keep.warp, shake: keep.shake, flash: keep.flash, glare: keep.glare }); }
+}
+
+/* 공개 범위 — 축제 공개판은 1부 「깨어남」까지. true 로 바꾸면 엔딩 뒤 그대로 2부(탈출)로 이어집니다 */
+const PART2_OPEN = false;
+function showEndCard() {
+  $('endcard').querySelector('.e-sub').textContent = '2145 / 05 / 20 · 실험체 07 · 의식 회복 확인 — 세션 141 종료';
+  $('endcard').classList.add('on');
 }
 
 /* ═══════════ 제4막 (시제품) — 연구소 탈출, 1인칭 ═══════════════
