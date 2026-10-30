@@ -47,6 +47,11 @@ document.body.style.outline = 'none';
 const reclaimFocus = () => { try { window.focus(); document.body.focus({ preventScroll: true }); } catch (e) {} };
 addEventListener('pointerdown', reclaimFocus, { capture: true });
 addEventListener('load', reclaimFocus);
+/* 아이패드 · 휴대폰에서 길게 누르거나 끌 때 뜨는 선택 · 복사 메뉴, 이미지 끌어가기, 오른쪽 클릭 메뉴를 막습니다
+   (CSS 의 user-select · touch-callout 만으로는 iPadOS Safari 가 가끔 선택 영역을 띄워서 이벤트에서도 한 번 더) */
+const notField = e => !(e.target && e.target.closest && e.target.closest('input, textarea'));
+['contextmenu', 'selectstart', 'dragstart'].forEach(n => addEventListener(n, e => { if (notField(e)) e.preventDefault(); }, { capture: true }));
+addEventListener('gesturestart', e => e.preventDefault());           // 두 손가락 확대로 화면이 흐려지며 커지는 것도
 
 const key = {};
 const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };

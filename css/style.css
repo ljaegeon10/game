@@ -45,7 +45,18 @@ html,body{
   font-family:var(--font-ui);
   overflow:hidden;
   -webkit-font-smoothing:antialiased;
+  /* 아이패드 · 휴대폰 — 누를 때 회색으로 뿌옇게 덮이는 하이라이트, 글자 · 화면이 선택되며 뜨는 돋보기 · "복사" 메뉴,
+     길게 눌렀을 때의 "이미지 저장 · 복사" 메뉴, 두 번 톡 확대를 모두 막습니다 (게임 화면이라 고를 글자가 없음) */
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  -webkit-user-select:none; user-select:none;
+  touch-action:manipulation;
 }
+/* 게임 화면(캔버스)은 손가락 움직임을 전부 게임이 받도록 — 끌어도 화면이 밀리거나 확대되지 않게 */
+canvas, #stage, #ending{ touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+img{ -webkit-user-drag:none; }
+/* 입력칸(개발자 화면의 체크박스)만은 예외 */
+input, textarea{ -webkit-user-select:auto; user-select:auto; }
 
 #frame{
   height:100%;
