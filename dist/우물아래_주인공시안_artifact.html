@@ -1240,6 +1240,43 @@ function pushOutOfProps(props, o, r) {
   }
   return hit;
 }
+/* 몹이 장애물을 돌아가게 — 가려던 쪽(mx, my : 이번 프레임에 움직이려던 만큼)으로 장애물을 정면으로 밀고 있으면
+   그 모서리를 따라 옆으로 빠져나갑니다. 예전엔 침대 뒤에 선 주인공 쪽으로 곧장 밀기만 해서 침대에 붙어 멈춰 있었음.
+   돌아갈 쪽은 정해지면 한동안 유지(좌우로 떨지 않게) · 벽에 막히면 반대쪽으로. 움직였으면 true */
+function propSlide(props, o, r, mx, my, lo, hi) {
+  const ml = Math.hypot(mx, my);
+  if (o.slideT > 0) o.slideT--;
+  if (ml < .02) return false;
+  let hit = null, hd = r + 1.5;
+  for (const p of props) {
+    const cx = Math.max(p.x0, Math.min(p.x1, o.x)), cy = Math.max(p.y0, Math.min(p.y1, o.y));
+    const d = Math.hypot(o.x - cx, o.y - cy);
+    if (d < hd && d > .001) { hd = d; hit = { p, nx: (o.x - cx) / d, ny: (o.y - cy) / d }; }
+  }
+  if (!hit) return false;
+  const ux = mx / ml, uy = my / ml;
+  if (-(ux * hit.nx + uy * hit.ny) < .3) return false;          // 장애물 쪽으로 미는 게 아니면 그냥 미끄러짐으로 충분
+  const tx = -hit.ny, ty = hit.nx, p = hit.p;
+  if (!(o.slideT > 0) || o.slideP !== p) {                     // 돌아갈 쪽 새로 정하기 — 가려던 쪽에 가까운 쪽, 애매하면 모서리가 가까운 쪽
+    const dt = tx * ux + ty * uy;
+    if (Math.abs(dt) > .2) o.slideS = dt > 0 ? 1 : -1;
+    else {
+      const plus = tx > .5 ? p.x1 - o.x : tx < -.5 ? o.x - p.x0 : ty > .5 ? p.y1 - o.y : o.y - p.y0;
+      const minus = tx > .5 ? o.x - p.x0 : tx < -.5 ? p.x1 - o.x : ty > .5 ? o.y - p.y0 : p.y1 - o.y;
+      o.slideS = plus <= minus ? 1 : -1;
+    }
+    o.slideP = p;
+  }
+  o.slideT = 24;
+  let nx = o.x + tx * o.slideS * ml, ny = o.y + ty * o.slideS * ml;
+  if (nx < lo[0] || nx > hi[0] || ny < lo[1] || ny > hi[1]) {   // 벽에 막힘 — 반대쪽으로 돌아감
+    o.slideS = -o.slideS;
+    nx = o.x + tx * o.slideS * ml; ny = o.y + ty * o.slideS * ml;
+  }
+  o.x = Math.max(lo[0], Math.min(hi[0], nx)); o.y = Math.max(lo[1], Math.min(hi[1], ny));
+  pushOutOfProps(props, o, r);
+  return true;
+}
 /* 총알 — 발자리에 위로 솟은 높이(최대 12)만큼 더한 칸에 들어가면 막힘 */
 function propBlocksShot(props, x, y) {
   for (const p of props) if (x > p.x0 && x < p.x1 && y > p.y0 - Math.min(12, p.tall) && y < p.y1) return true;

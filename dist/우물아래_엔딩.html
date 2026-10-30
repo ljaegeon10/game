@@ -5221,7 +5221,7 @@ const WakeState = {
       if (t === 380) {
         s.wk = 'roam'; s.wt = 0;
         s.cam = { ...CAM_STAND };
-        WakeState.ask(s, 'roam', '걷기 · 둘러보기 · 문을 찾는다', true, s.touch ? '왼쪽 끌기 · 오른쪽 끌기' : 'WASD · 마우스로 둘러보기');
+        WakeState.ask(s, 'roam', '걷기 · 둘러보기 · 문을 찾는다', true, s.touch ? '왼쪽 끌기 · 오른쪽 끌기' : 'WASD · 마우스로 둘러보기 (클릭하면 마우스 고정 · ESC 해제)');
         s.gait = 0; s.walkV = 0; s.gaitAmp = 0; s.swayPrev = 0;
       }
     }
@@ -5267,8 +5267,9 @@ const WakeState = {
     if (H.has('ArrowLeft')) turn -= 1;
     if (H.has('ArrowRight')) turn += 1;
     fw += -s.stick[1]; st += s.stick[0];                // 터치 — 왼쪽 끌기
-    // 마우스 — 누르지 않고 움직이기만 해도 둘러봄 (잠금 중이면 끝없이). 잠기지 않았으면 화면 끝에 대고 있으면 천천히 돎
-    if (!s.locked && s.mouseIn && s.mx != null) { const ex = s.mx / W; if (ex < .04) turn -= .55 * (1 - ex / .04); else if (ex > .96) turn += .55 * ((ex - .96) / .04); }
+    // 마우스 — 누르지 않고 움직이기만 해도 둘러봄 (한 번 누르면 잠겨 끝없이 돌릴 수 있음).
+    // 예전엔 잠기지 않았을 때 커서가 화면 끝 4% 안에 머물면 저절로 계속 돌았는데, 돌아다닐 땐 커서가 숨겨져 있어서
+    // 끝에 닿은 줄 모르고 "갑자기 한쪽으로 빙빙 도는" 것처럼 느껴졌음 — 그 자동 회전은 뺐습니다 (끝에 닿으면 ← → 키나 클릭해 잠금)
     c.yaw += turn * .032 + s.lookDX * .0032; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 + tilt));
     s.lookDX = 0; s.lookDY = 0;
     // 걷기 — 속도는 천천히 붙고 천천히 풀림. 한 걸음 0.75m, 발이 닿을 때 가라앉고 디딘 발 쪽으로 살짝 실림
@@ -6564,7 +6565,7 @@ class EscapeScene {
     };
     this.held = new Set();                               // 누르고 있는 걷기 키 · 손가락
     this.touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'onLock', 'onLeave'].forEach(k => this[k] = this[k].bind(this));
+    ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'onLock', 'onLeave', 'onBlur'].forEach(k => this[k] = this[k].bind(this));
     this.running = false;
   }
   /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
@@ -6594,6 +6595,7 @@ class EscapeScene {
     this.canvas.addEventListener('pointermove', this.onMove);
     this.canvas.addEventListener('pointerleave', this.onLeave);
     document.addEventListener('pointerlockchange', this.onLock);
+    addEventListener('blur', this.onBlur); document.addEventListener('visibilitychange', this.onBlur);
     this.locked = false; this.mouseIn = false;
     this.canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
     this.canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
@@ -6615,6 +6617,7 @@ class EscapeScene {
     this.canvas.style.imageRendering = '';
     this.canvas.removeEventListener('pointerleave', this.onLeave);
     document.removeEventListener('pointerlockchange', this.onLock);
+    removeEventListener('blur', this.onBlur); document.removeEventListener('visibilitychange', this.onBlur);
     this.unlock();
     if (this.subEl) { this.subEl.remove(); if (this.subMap) this.subMap.clear(); }
   }
@@ -6818,7 +6821,12 @@ class EscapeScene {
       this.lookDX += x - this.drag[0]; this.lookDY += y - this.drag[1]; this.drag = [x, y];
     }
   }
-  onLock() { this.locked = document.pointerLockElement === this.canvas; }
+  onLock() {
+    this.locked = document.pointerLockElement === this.canvas;
+    this.lookDX = 0; this.lookDY = 0; this.mouseIn = false;    // 잠기거나 풀리는 순간의 튀는 값은 버림 (첫 움직임부터 다시)
+    this.held.clear();                                          // 잠금 안내가 뜨며 놓친 키 — 눌린 채로 남아 계속 돌거나 걷지 않게
+  }
+  onBlur() { this.held.clear(); this.lookDX = 0; this.lookDY = 0; this.mouseIn = false; }   // 창을 벗어나면 누르던 키를 놓은 걸로
   onLeave() { if (!this.locked) this.mouseIn = false; }
   unlock() { if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock(); }
   onDown(e) {

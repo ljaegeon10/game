@@ -1388,6 +1388,7 @@ function update() {
     f.bob += .12;
     f.x += f.kx; f.y += f.ky;               // 넉백
     f.kx *= .78; f.ky *= .78;
+    const fx0 = f.x, fy0 = f.y;              // 여기서부터 움직인 만큼이 이번 프레임에 가려던 길 (넉백 빼고)
     const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1;
     // 몸이 향하는 쪽 — 돌진 중에는 튀어나간 방향으로 굳습니다
     f.face = f.dash > 0 ? (f.dvx < 0 ? -1 : 1) : (dx < 0 ? -1 : 1);
@@ -1436,9 +1437,12 @@ function update() {
     } else {
       f.x += dx / d * f.sp; f.y += dy / d * f.sp;
     }
+    const fmx = f.x - fx0, fmy = f.y - fy0;  // 벽 · 장애물에 막히기 전, 가려던 만큼
     f.x = Math.max(TS + f.r, Math.min(W - TS - f.r, f.x));
     f.y = Math.max(TS + f.r, Math.min(H - TS - f.r, f.y));
     if (G.props.length && pushOutOfProps(G.props, f, f.r) && f.dash > 0) f.dash = Math.min(f.dash, 2);   // 돌진하다 부딪히면 멈칫
+    if (G.props.length && !(f.dash > 0) && !f.warp)           // 침대 · 기둥에 막히면 모서리를 따라 돌아감
+      propSlide(G.props, f, f.r, fmx, fmy, [TS + f.r, TS + f.r], [W - TS - f.r, H - TS - f.r]);
     // 점멸 중(사라진 상태)에는 부딪히지 않습니다
     if (!f.warp && d < f.r + P.r - 2) hurt(1);
   });
