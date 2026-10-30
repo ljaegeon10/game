@@ -69,6 +69,7 @@ addEventListener('keydown', e => {
   }
   if (k === ' ') onConfirm();
   if (k === 'r' && G.mode === 'dead') retry();
+  if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startGame(true);
     if (k === '2') openDiffSelect();
@@ -507,7 +508,7 @@ document.querySelectorAll('.modebtn').forEach(b =>
 document.querySelectorAll('.diffbtn').forEach(b =>
   b.addEventListener('click', () => startGame(false, b.dataset.diff)));
 $('retrybtn').addEventListener('click', retry);
-$('againbtn').addEventListener('click', () => location.reload());
+$('againbtn').addEventListener('click', () => restartFromEnd());
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
 function loadForest(opening) {
@@ -5367,6 +5368,16 @@ function endingWorld() {
 
 /* 공개 범위 — 축제 공개판은 1부 「깨어남」까지. true 로 바꾸면 엔딩 뒤 그대로 2부(탈출)로 이어집니다 */
 const PART2_OPEN = false;
+/* 엔드 카드의 "처음부터 다시" — 페이지를 새로 고치지 않고 타이틀로.
+   (예전엔 location.reload() 였는데, 아티팩트처럼 다른 페이지 안에 들어간 화면에선 새로 고침이 막혀 아무 일도 안 일어났음) */
+function restartFromEnd() {
+  if (endingScene) { if (endingScene.running) endingScene.stop(); endingScene = null; }
+  if (escapeScene) { if (escapeScene.running) escapeScene.stop(); escapeScene = null; }
+  escFull(false);
+  $('endcard').classList.remove('on');
+  $('ending').classList.add('hidden');
+  resetRun();
+}
 function showEndCard() {
   $('endcard').querySelector('.e-sub').textContent = '2145 / 05 / 20 · 실험체 07 · 의식 회복 확인 — 세션 141 종료';
   $('endcard').classList.add('on');
