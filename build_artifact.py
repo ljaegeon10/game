@@ -9,21 +9,24 @@ dist/우물아래.html 과 내용은 같지만, Artifact 는 <head>/<body> 골�
 <title> 과 <style> 을 파일 맨 위에 두는 형태로 내보냅니다.
 
 결과: dist/우물아래_artifact.html, dist/우물아래_엔딩_artifact.html,
-      dist/우물아래_주인공시안_artifact.html
+      dist/우물아래_주인공시안_artifact.html,
+      dist/우물아래_축제_artifact.html — 동아리 축제판 (타임어택 참가 등록 · 기록 모으기 · 실시간 순위판,
+      js/festival.js). 기록이 아티팩트 데이터베이스에 모이므로 db 권한을 선언해 따로 게시합니다.
 """
 import re, pathlib
 
 ROOT = pathlib.Path(__file__).parent
 DIST = ROOT / "dist"
 
-# (build.py 결과, 게시용 결과, 갤러리에 보일 이름)
+# (build.py 결과, 게시용 결과, 갤러리에 보일 이름, 축제판인지)
 PAGES = [
-    ("우물아래.html",      "우물아래_artifact.html",      "우물 아래"),
-    ("우물아래_엔딩.html", "우물아래_엔딩_artifact.html", "우물 아래 깨어남"),
-    ("우물아래_주인공시안.html", "우물아래_주인공시안_artifact.html", "주인공 시안"),
+    ("우물아래.html",      "우물아래_축제_artifact.html", "우물 아래 축제판", True),
+    ("우물아래.html",      "우물아래_artifact.html",      "우물 아래", False),
+    ("우물아래_엔딩.html", "우물아래_엔딩_artifact.html", "우물 아래 깨어남", False),
+    ("우물아래_주인공시안.html", "우물아래_주인공시안_artifact.html", "주인공 시안", False),
 ]
 
-for src_name, out_name, title in PAGES:
+for src_name, out_name, title, festival in PAGES:
     src, out = DIST / src_name, DIST / out_name
     if not src.exists():
         raise SystemExit("먼저 python3 build.py 를 실행하세요.")
@@ -34,6 +37,7 @@ for src_name, out_name, title in PAGES:
     body = re.search(r"<body>(.*?)</body>", html, re.S).group(1)
     styles = re.findall(r"<style>.*?</style>", head, re.S)
 
-    parts = [f"<title>{title}</title>"] + styles + [body.strip()]
+    flag = ["<script>window.WB_FESTIVAL = true;</script>"] if festival else []   # festival.js 가 켜짐
+    parts = [f"<title>{title}</title>"] + styles + flag + [body.strip()]
     out.write_text("\n".join(parts) + "\n", encoding="utf-8")
     print(f"✔  {out}  ({out.stat().st_size/1024:.0f} KB)")

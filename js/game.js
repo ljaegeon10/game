@@ -58,6 +58,7 @@ const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDow
 let mouse = { x: 0, y: 0, down: false };
 
 addEventListener('keydown', e => {
+  if (!notField(e)) return;                         // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   if (e.repeat) return;
   key[e.key] = true;
@@ -71,7 +72,7 @@ addEventListener('keydown', e => {
   if (k === 'r' && G.mode === 'dead') retry();
   if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
-    if (k === '1') startGame(true);
+    if (k === '1') startTimeAttack();
     if (k === '2') openDiffSelect();
     if (k === 'escape' || k === 'backspace') closeModeSelect();
   }
@@ -386,6 +387,14 @@ function closeModeSelect() {
   G.mode = 'title';
 }
 
+/* 타임어택 — 축제판이면 먼저 이름 · 연락처를 받고 시작 (기록이 순위판에 모입니다, festival.js) */
+function startTimeAttack() {
+  if (!(window.Festival && Festival.on)) { startGame(true); return; }
+  $('modesel').classList.add('hidden');
+  G.mode = 'entry';
+  Festival.ask(() => startGame(true), () => { $('modesel').classList.remove('hidden'); G.mode = 'modesel'; });
+}
+
 /* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
    (타임어택은 기록 경쟁이라 언제나 '보통'으로 바로 시작합니다.) */
 function openDiffSelect() {
@@ -419,7 +428,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
   updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
-  if (G.timeAttack) startRun();
+  if (G.timeAttack) { startRun(); if (window.Festival) Festival.begin(); }   // 축제판 — 순위판에 "지금 도전 중"
   else { RUN.running = false; RUN.elapsed = 0; }
   loadForest(true);       // 일반 모드는 1인칭 오프닝부터 (타임어택은 loadForest 가 건너뜀)
 }
@@ -473,6 +482,7 @@ function respawn() {
 function resetRun() {
   Sfx.ring(0);
   stopRun();
+  if (window.Festival) Festival.end();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
@@ -504,7 +514,7 @@ $('msback').addEventListener('click', closeModeSelect);
 $('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>
   b.addEventListener('click', () =>
-    b.dataset.mode === 'time' ? startGame(true) : openDiffSelect()));
+    b.dataset.mode === 'time' ? startTimeAttack() : openDiffSelect()));
 document.querySelectorAll('.diffbtn').forEach(b =>
   b.addEventListener('click', () => startGame(false, b.dataset.diff)));
 $('retrybtn').addEventListener('click', retry);
@@ -1120,6 +1130,7 @@ function hurt(n) {
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
     stopRun();                       // 기록은 저장하지 않습니다
+    if (G.timeAttack && window.Festival) Festival.end();
     $('deadtime').textContent = fmtTime(RUN.elapsed);
     // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
     $('dead').classList.toggle('casual', !G.timeAttack);
@@ -5326,6 +5337,13 @@ function beginEnding() {
     $('cleartime').textContent = fmtTime(ms);
     $('recordtag').classList.toggle('hidden', !(prevBest === undefined || ms < prevBest));
     fillList($('records'), list.slice(0, 3), ms);   // 엔드 카드에는 상위 3개만
+    if (window.Festival && Festival.on && Festival.player) {      // 축제판 — 순위판에 올리고 등수를 알려 줌
+      const fr = $('fest-result');
+      fr.textContent = '순위판에 기록을 올리는 중…'; fr.classList.remove('hidden');
+      Festival.finish(ms).then(rank => {
+        fr.textContent = rank ? `${Festival.player.name} 님, 순위판 ${rank}위!` : '기록을 이 기기에 저장했어요 — 연결되면 순위판에 올라가요';
+      });
+    }
   }
 
   $('prompt').classList.add('hidden');
