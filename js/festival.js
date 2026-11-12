@@ -6,10 +6,12 @@
    기록은 아티팩트의 공유 데이터베이스(claude.use("db"))에 모입니다 —
    같은 아티팩트를 다른 화면(모니터 · 태블릿)에서 열고 "실시간 순위판"을 누르면 바로바로 갱신.
 
-     runs/<id>   한 판의 기록 { name, contact(숫자만), ms, at }
-     live/now    지금 도전 중인 사람 { state:'play'|'idle', name, startedAt, ms? }
+     runs/<id>       한 판의 기록 { name, tail(연락처 뒷자리 4개), ms, at } — 링크로 들어온 누구나 읽음
+     contacts/<id>   그 판의 연락처 { name, contact(숫자만) } — 아티팩트 주인 · 편집자만 읽고 씀
+                     (게시할 때 db 규칙 { path: "contacts", read: "admin", write: "admin" })
+     live/now        지금 도전 중인 사람 { state:'play'|'idle', name, startedAt, ms? }
 
-   연락처는 상품 연락용 — 순위판에는 뒷자리 4개만, 전체 번호는 "관리" 화면에서만 보입니다.
+   연락처는 상품 연락용 — 순위판에는 뒷자리 4개만, 전체 번호는 "관리" 화면에서만(주인 계정으로 열었을 때) 보입니다.
    인터넷이 잠깐 끊겨도 기록을 잃지 않도록 먼저 이 기기에 줄 세워 두고(localStorage), 보내지면 지웁니다.
 
    쓰는 곳 : game.js (타임어택 시작 · 사망 · 클리어 · 타이틀의 순위판 버튼)
@@ -50,15 +52,23 @@ function saveQ(q) { try { localStorage.setItem(QKEY, JSON.stringify(q)); } catch
 let memQ = null;            // localStorage 를 못 쓰는 창에선 메모리에만
 const getQ = () => memQ || (memQ = loadQ());
 let flushing = false;
+/* 한 판 = 공개 기록(runs) + 연락처(contacts) 두 장. 예전 형식({ id, data })도 받아 줌 */
+const norm = it => it.data ? { id: it.id,
+  run: { name: it.data.name, tail: digits(it.data.contact).slice(-4), ms: it.data.ms, at: it.data.at },
+  contact: { name: it.data.name, contact: digits(it.data.contact) } } : it;
+const putQ = it => { memQ = getQ().map(x => x.id === it.id ? it : x); saveQ(memQ); };
+const dropQ = id => { memQ = getQ().filter(x => x.id !== id); saveQ(memQ); };
 async function flush() {
   if (flushing) return;
   const d = await db(); if (!d) return;
   flushing = true;
   try {
-    for (const item of getQ().slice()) {
-      try { await d.collection('runs').doc(item.id).set(item.data); }
-      catch (e) { break; }                                          // 끊겼으면 다음에 다시
-      memQ = getQ().filter(x => x.id !== item.id); saveQ(memQ);
+    for (const raw of getQ().slice()) {
+      const it = norm(raw);
+      try { if (!it.runDone) { await d.collection('runs').doc(it.id).set(it.run); it.runDone = true; } }
+      catch (e) { putQ(it); break; }                                 // 끊겼으면 다음에 다시
+      try { await d.collection('contacts').doc(it.id).set(it.contact); dropQ(it.id); }
+      catch (e) { it.tries = (it.tries || 0) + 1; if (it.tries >= 5) dropQ(it.id); else putQ(it); }   // 다섯 번까지
     }
   } finally { flushing = false; }
   status();
@@ -127,32 +137,35 @@ function end() {                         // 죽음 · 포기 · 타이틀로
 async function finish(ms) {
   if (!ON || !player) return null;
   playing = false;
-  const item = { id: rid(), data: { name: player.name, contact: player.contact, ms: Math.round(ms), at: Date.now() } };
+  const tail = player.contact.slice(-4), at = Date.now();
+  const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at }, contact: { name: player.name, contact: player.contact } };
   memQ = getQ().concat(item); saveQ(memQ);
   setLive({ state: 'idle', name: player.name, ms: Math.round(ms) });
   await flush();
   try {
     const d = await db(); if (!d) return null;
     const snap = await d.collection('runs').orderBy('ms', 'asc').limit(1000).get();
-    return rankOf(bestPerPerson(snap.docs.map(x => x.data())), player.contact);
+    return rankOf(bestPerPerson(snap.docs.map(x => x.data())), player.name, tail);
   } catch (e) { return null; }
 }
 
-/* 같은 사람(연락처)이 여러 번 했으면 가장 빠른 기록만 */
+/* 같은 사람(이름 + 연락처 뒷자리)이 여러 번 했으면 가장 빠른 기록만 */
+const tailOf = r => String(r.tail || digits(r.contact).slice(-4));
+const who = (name, tail) => String(name || '') + '|' + tail;
 function bestPerPerson(runs) {
   const best = new Map();
   for (const r of runs) {
     if (!r || typeof r.ms !== 'number') continue;
-    const k = digits(r.contact) || ('n:' + r.name);
+    const k = who(r.name, tailOf(r));
     const b = best.get(k);
     if (!b || r.ms < b.ms || (r.ms === b.ms && r.at < b.at)) best.set(k, r);
   }
   return [...best.values()].sort((a, b) => a.ms - b.ms || a.at - b.at);   // 같은 기록이면 먼저 세운 사람이 앞
 }
-function rankOf(list, contact) { const i = list.findIndex(r => digits(r.contact) === contact); return i < 0 ? null : i + 1; }
+function rankOf(list, name, tail) { const i = list.findIndex(r => who(r.name, tailOf(r)) === who(name, tail)); return i < 0 ? null : i + 1; }
 
 /* ── 실시간 순위판 (창 전체) ── */
-let board = null, unsub = [], tick = 0, runs = [], live = null, admin = false;
+let board = null, unsub = [], tick = 0, runs = [], live = null, admin = false, contacts = {}, unsubC = null;
 function buildBoard() {
   const b = mk('div'); b.id = 'fest-board'; b.className = 'hidden';
   b.innerHTML = `
@@ -178,6 +191,7 @@ function buildBoard() {
   $('fb-adminbtn').addEventListener('click', () => {
     if (!admin && !confirm('연락처가 화면에 그대로 보입니다. 관리 화면을 열까요?')) return;
     admin = !admin; $('fb-admin').classList.toggle('hidden', !admin); $('fb-adminbtn').textContent = admin ? '관리 닫기' : '관리';
+    watchContacts(admin);
     render();
   });
   $('fb-csv').addEventListener('click', saveCsv);
@@ -197,11 +211,21 @@ async function openBoard() {
   unsub.push(d.doc('live/now').onSnapshot(s => { live = s.exists ? s.data() : null; renderLive(); }, fail));
   tick = setInterval(renderLive, 250);
 }
+/* 연락처 — 관리 화면을 열었을 때만 읽음 (주인 · 편집자 계정이 아니면 아무것도 안 옴) */
+async function watchContacts(on) {
+  if (unsubC) { try { unsubC(); } catch (e) {} unsubC = null; }
+  contacts = {};
+  if (!on) return;
+  const d = await db(); if (!d || !admin) return;
+  unsubC = d.collection('contacts').limit(1000).onSnapshot(s => {
+    contacts = {}; s.docs.forEach(x => { contacts[x.id] = x.data(); }); if (admin) renderAdmin();
+  }, () => {});
+}
 function closeBoard() {
   if (!board) return;
   board.classList.add('hidden');
   unsub.forEach(u => { try { u(); } catch (e) {} }); unsub = []; clearInterval(tick);
-  admin = false; $('fb-admin').classList.add('hidden'); $('fb-adminbtn').textContent = '관리';
+  admin = false; watchContacts(false); $('fb-admin').classList.add('hidden'); $('fb-adminbtn').textContent = '관리';
 }
 function renderLive() {
   const el = $('fb-live'); if (!el) return;
@@ -221,7 +245,7 @@ function render() {
   list.slice(0, 10).forEach((r, i) => {
     const li = mk('li', i < 3 ? 'top top' + (i + 1) : '');
     li.append(mk('span', 'fb-rank', String(i + 1)), mk('span', 'fb-name', String(r.name || '')),
-              mk('span', 'fb-tail', masked(digits(r.contact))), mk('span', 'fb-time', fmt(r.ms)));
+              mk('span', 'fb-tail', masked(tailOf(r))), mk('span', 'fb-time', fmt(r.ms)));
     ol.appendChild(li);
   });
   $('fb-empty').classList.toggle('hidden', list.length > 0);
@@ -236,18 +260,20 @@ function renderAdmin() {
     const del = mk('button', 'fb-del', '삭제');
     del.addEventListener('click', () => {
       if (!confirm(`${r.name} · ${fmt(r.ms)} 기록을 지울까요? 되돌릴 수 없어요.`)) return;
-      db().then(d => d.doc('runs/' + r.id).delete()).catch(() => alert('지우지 못했어요. 잠시 뒤에 다시 해 주세요.'));
+      db().then(d => Promise.all([d.doc('runs/' + r.id).delete(), d.doc('contacts/' + r.id).delete()]))
+          .catch(() => alert('지우지 못했어요. 잠시 뒤에 다시 해 주세요.'));
     });
     const td = t => mk('td', null, t);
     const tdel = mk('td'); tdel.appendChild(del);
-    tr.append(td(String(i + 1)), td(String(r.name || '')), td(phone(digits(r.contact))), td(fmt(r.ms)), td(new Date(r.at || 0).toLocaleString('ko-KR')), tdel);
+    tr.append(td(String(i + 1)), td(String(r.name || '')), td(contactOf(r)), td(fmt(r.ms)), td(new Date(r.at || 0).toLocaleString('ko-KR')), tdel);
     tb.appendChild(tr);
   });
 }
+const contactOf = r => contacts[r.id] ? phone(digits(contacts[r.id].contact)) : '(볼 수 없음) ···' + tailOf(r);
 async function saveCsv() {
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
   const rows = [['순위(사람별 최고)', '이름', '연락처', '기록', '기록(ms)', '시각']];
-  bestPerPerson(runs).forEach((r, i) => rows.push([i + 1, r.name, phone(digits(r.contact)), fmt(r.ms), r.ms, new Date(r.at || 0).toLocaleString('ko-KR')]));
+  bestPerPerson(runs).forEach((r, i) => rows.push([i + 1, r.name, contactOf(r), fmt(r.ms), r.ms, new Date(r.at || 0).toLocaleString('ko-KR')]));
   const text = '﻿' + rows.map(r => r.map(esc).join(',')).join('\n');
   const dl = await cap('downloads');
   if (!dl) return alert('이 화면에서는 파일 저장을 쓸 수 없어요.');
