@@ -12851,6 +12851,10 @@ window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, originalSta
    연락처는 상품 연락용 — 순위판에는 뒷자리 4개만, 전체 번호는 "관리" 화면에서만(주인 계정으로 열었을 때) 보입니다.
    인터넷이 잠깐 끊겨도 기록을 잃지 않도록 먼저 이 기기에 줄 세워 두고(localStorage), 보내지면 지웁니다.
 
+   GitHub Pages 판(docs/) — 아티팩트 밖이라 데이터베이스가 없으므로, docs/festival-config.js 의 WB_SERVER
+   (구글 앱스 스크립트 웹 앱 주소, server/apps_script.gs) 로 기록을 보내고 순위판도 거기서 받아 옵니다.
+   그쪽은 로그인 없이 누구나 기록을 남기고, 연락처는 주인의 구글 시트에만 쌓입니다 (순위판은 PIN 을 걸 수 있음).
+
    쓰는 곳 : game.js (타임어택 시작 · 사망 · 클리어 · 타이틀의 순위판 버튼)
    ═══════════════════════════════════════════════════════════════ */
 (() => {
@@ -12870,9 +12874,26 @@ const db = () => cap('db');
 /* 이 화면에서 기록을 남길 수 있는지 — 데이터베이스에 쓰는 건 아티팩트 주인 · 편집자 · (팀 요금제의) 같은 조직 사람뿐.
    로그인 안 한 방문자는 데이터베이스가 아예 없고(읽기도 못 함), 다른 계정은 읽기만 됩니다 (플랫폼 규칙이라 바꿀 수 없음).
    true · false, 플랫폼이 알려 주지 않으면 null(그땐 써 보고 막히면 그만) */
+/* ── 외부 기록 서버 (GitHub Pages 판) ── */
+const SERVER = String(window.WB_SERVER || '').trim();
+const HTTP = !!SERVER;
+const INSIDE = !!window.claude;                   // 아티팩트 안에서 열렸는지
+async function post(body) {
+  const r = await fetch(SERVER, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!j || !j.ok) { const e = new Error((j && j.error) || 'server'); e.code = j && j.error; throw e; }
+  return j;
+}
+async function fetchBoard(pin) {
+  const r = await fetch(SERVER + '?' + new URLSearchParams({ op: 'board', pin: pin || '' }), { redirect: 'follow' });
+  return r.json();
+}
+const ranks = {};                                  // 서버가 돌려준 등수 (기록 id → 등수)
+
 let canWriteP = null;
 function canWrite() {
   if (!canWriteP) canWriteP = (async () => {
+    if (HTTP) return true;                          // 외부 서버 — 누구나
     if (!(await db())) return false;
     try { const u = await cap('user'); const v = u ? await u.can('data.write') : null; return v === false ? false : v === true ? true : null; }
     catch (e) { return null; }
@@ -12909,6 +12930,17 @@ const putQ = it => { memQ = getQ().map(x => x.id === it.id ? it : x); saveQ(memQ
 const dropQ = id => { memQ = getQ().filter(x => x.id !== id); saveQ(memQ); };
 async function flush() {
   if (flushing) return;
+  if (HTTP) {
+    flushing = true;
+    try {
+      for (const raw of getQ().slice()) {
+        const it = norm(raw);
+        try { const j = await post({ op: 'run', id: it.id, run: it.run, contact: it.contact }); ranks[it.id] = j.rank || null; dropQ(it.id); }
+        catch (e) { if (e.code === 'invalid') dropQ(it.id); else break; }   // 서버가 거절한 기록은 버리고, 끊긴 거면 다음에 다시
+      }
+    } finally { flushing = false; }
+    status(); return;
+  }
   const d = await db(); if (!d) return;
   flushing = true;
   try {
@@ -12925,6 +12957,7 @@ async function flush() {
 const pending = () => getQ().length;
 
 async function setLive(body) {
+  if (HTTP) { post({ op: 'live', body }).catch(() => {}); return; }
   const d = await db(); if (!d) return;
   d.doc('live/now').set({ ...body, at: Date.now() }).catch(() => {});
 }
@@ -12934,7 +12967,7 @@ function buildEntry() {
   const box = mk('div'); box.id = 'fest-entry'; box.className = 'hidden';
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
-    <p id="fe-nowrite" class="hidden">이 화면은 로그인하지 않아서 <b>기록이 순위판에 남지 않아요.</b><br>순위에 오르려면 부스 노트북에서 도전해 주세요.</p>
+    <p id="fe-nowrite" class="hidden"></p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
     <label class="fe-agree"><input type="checkbox" id="fe-agree"> 상품 연락용으로만 쓰고, 축제가 끝나면 지워요. 동의합니다</label>
@@ -12953,6 +12986,8 @@ function ask(onGo, onBack) {
   setTimeout(() => $('fe-name').focus(), 30);
   canWrite().then(ok => {                                  // 기록을 못 남기는 화면 — 등록 칸 대신 안내 + "기록 없이 도전"
     const no = ok === false;
+    $('fe-nowrite').innerHTML = INSIDE ? '이 화면은 로그인하지 않아서 <b>기록이 순위판에 남지 않아요.</b><br>순위에 오르려면 부스 노트북에서 도전해 주세요.'
+                                       : '아직 기록 서버가 연결되지 않아서 <b>기록이 순위판에 남지 않아요.</b>';
     box.classList.toggle('nowrite', no);
     ['fe-nowrite', 'fe-skip'].forEach(id => $(id).classList.toggle('hidden', !no));
   });
@@ -13002,6 +13037,7 @@ async function record(ms, res) {
   memQ = getQ().concat(item); saveQ(memQ);
   setLive({ state: 'idle', name: player.name, ms: Math.round(ms), ...res });
   await flush();
+  if (HTTP) return ranks[item.id] || null;
   try {
     const d = await db(); if (!d) return null;
     const snap = await d.collection('runs').orderBy('ms', 'asc').limit(1000).get();
@@ -13037,7 +13073,7 @@ function bestPerPerson(runs) {
 function rankOf(list, name, tail) { const i = list.findIndex(r => who(r.name, tailOf(r)) === who(name, tail)); return i < 0 ? null : i + 1; }
 
 /* ── 실시간 순위판 (창 전체) ── */
-let board = null, unsub = [], tick = 0, runs = [], live = null, admin = false, contacts = {}, unsubC = null;
+let board = null, unsub = [], tick = 0, poll = 0, runs = [], live = null, admin = false, contacts = {}, unsubC = null;
 function buildBoard() {
   const b = mk('div'); b.id = 'fest-board'; b.className = 'hidden';
   b.innerHTML = `
@@ -13068,13 +13104,16 @@ function buildBoard() {
     render();
   });
   $('fb-csv').addEventListener('click', saveCsv);
+  if (HTTP) $('fb-adminbtn').classList.add('hidden');              // 외부 서버 판 — 연락처는 구글 시트에서 봄
   return b;
 }
 async function openBoard() {
   if (!board) board = buildBoard();
   board.classList.remove('hidden');
-  if (unsub.length) return;                                          // 이미 열려 있음
+  if (unsub.length || poll) return;                                  // 이미 열려 있음
   $('fb-net').textContent = '순위판에 연결하는 중…';
+  if (HTTP) { pollBoard(); poll = setInterval(pollBoard, 4000); tick = setInterval(renderLive, 250); return; }
+  if (!INSIDE) { $('fb-net').textContent = '기록 서버가 아직 연결되지 않았어요'; return; }
   const d = await db();
   if (board.classList.contains('hidden')) return;                     // 기다리는 사이 닫힘
   if (!d) { $('fb-net').textContent = '순위판은 claude.ai 에 로그인해야 볼 수 있어요'; return; }
@@ -13083,6 +13122,26 @@ async function openBoard() {
   unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); render(); }, fail));
   unsub.push(d.doc('live/now').onSnapshot(s => { live = s.exists ? s.data() : null; renderLive(); }, fail));
   tick = setInterval(renderLive, 250);
+}
+/* 외부 서버 판 — 4초마다 받아 옴. 순위판 PIN 이 걸려 있으면 한 번 묻고 이 탭에 기억 */
+const PKEY = 'wellbelow.board.pin';
+const getPin = () => { try { return sessionStorage.getItem(PKEY) || ''; } catch (e) { return ''; } };
+const setPin = v => { try { sessionStorage.setItem(PKEY, v); } catch (e) {} };
+async function pollBoard() {
+  try {
+    const j = await fetchBoard(getPin());
+    if (!j || !j.ok) {
+      if (j && j.error === 'pin') {
+        clearInterval(poll); poll = 0;
+        const v = prompt(getPin() ? 'PIN 이 맞지 않아요. 순위판 PIN 을 다시 입력해 주세요' : '순위판 PIN 을 입력해 주세요');
+        if (v) { setPin(v.trim()); openBoard(); } else $('fb-net').textContent = '순위판은 PIN 을 입력해야 볼 수 있어요';
+        return;
+      }
+      throw new Error('server');
+    }
+    runs = Array.isArray(j.runs) ? j.runs : []; live = j.live || null;
+    $('fb-net').textContent = ''; render(); renderLive();
+  } catch (e) { $('fb-net').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 시도해요'; }
 }
 /* 연락처 — 관리 화면을 열었을 때만 읽음 (주인 · 편집자 계정이 아니면 아무것도 안 옴) */
 async function watchContacts(on) {
@@ -13097,7 +13156,7 @@ async function watchContacts(on) {
 function closeBoard() {
   if (!board) return;
   board.classList.add('hidden');
-  unsub.forEach(u => { try { u(); } catch (e) {} }); unsub = []; clearInterval(tick);
+  unsub.forEach(u => { try { u(); } catch (e) {} }); unsub = []; clearInterval(tick); clearInterval(poll); poll = 0;
   admin = false; watchContacts(false); $('fb-admin').classList.add('hidden'); $('fb-adminbtn').textContent = '관리';
 }
 function renderLive() {
