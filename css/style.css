@@ -1190,3 +1190,8 @@ body.escfull #endcv{
 .fb-foot button, .fb-admin button{ margin:0; padding:6px 12px; font-size:12px; color:rgba(241,236,224,.7); background:rgba(15,14,20,.7); border:1px solid rgba(241,236,224,.25); box-shadow:none; }
 .fb-foot button:hover, .fb-admin button:hover{ color:var(--baek); border-color:rgba(241,236,224,.6); }
 .fb-del{ color:var(--danger) !important; }
+/* 기록을 못 남기는 화면(로그인 안 함 · 읽기만 되는 계정) — 등록 칸 대신 안내와 "기록 없이 도전" */
+#fe-nowrite{ margin:0; padding:8px 10px; font-size:8.5px; line-height:1.6; text-align:center; color:rgba(241,236,224,.75); border:1px dashed rgba(227,178,60,.5); }
+#fe-nowrite b{ color:var(--hwang); font-weight:400; }
+#fe-nowrite.hidden, #fe-skip.hidden, #fest-entry.nowrite .fe-row, #fest-entry.nowrite .fe-agree, #fest-entry.nowrite #fe-err, #fest-entry.nowrite #fe-go{ display:none; }
+#fe-skip{ margin:0; padding:8px 0; font-size:11px; letter-spacing:.12em; color:var(--baek); background:rgba(15,14,20,.5); border:1px solid rgba(241,236,224,.35); box-shadow:none; }

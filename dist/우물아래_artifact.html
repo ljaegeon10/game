@@ -1207,6 +1207,11 @@ body.escfull #endcv{
 .fb-foot button, .fb-admin button{ margin:0; padding:6px 12px; font-size:12px; color:rgba(241,236,224,.7); background:rgba(15,14,20,.7); border:1px solid rgba(241,236,224,.25); box-shadow:none; }
 .fb-foot button:hover, .fb-admin button:hover{ color:var(--baek); border-color:rgba(241,236,224,.6); }
 .fb-del{ color:var(--danger) !important; }
+/* 기록을 못 남기는 화면(로그인 안 함 · 읽기만 되는 계정) — 등록 칸 대신 안내와 "기록 없이 도전" */
+#fe-nowrite{ margin:0; padding:8px 10px; font-size:8.5px; line-height:1.6; text-align:center; color:rgba(241,236,224,.75); border:1px dashed rgba(227,178,60,.5); }
+#fe-nowrite b{ color:var(--hwang); font-weight:400; }
+#fe-nowrite.hidden, #fe-skip.hidden, #fest-entry.nowrite .fe-row, #fest-entry.nowrite .fe-agree, #fest-entry.nowrite #fe-err, #fest-entry.nowrite #fe-go{ display:none; }
+#fe-skip{ margin:0; padding:8px 0; font-size:11px; letter-spacing:.12em; color:var(--baek); background:rgba(15,14,20,.5); border:1px solid rgba(241,236,224,.35); box-shadow:none; }
 
 </style>
 <div id="frame">
@@ -12862,6 +12867,18 @@ function cap(name) {
   return caps[name];
 }
 const db = () => cap('db');
+/* 이 화면에서 기록을 남길 수 있는지 — 데이터베이스에 쓰는 건 아티팩트 주인 · 편집자 · (팀 요금제의) 같은 조직 사람뿐.
+   로그인 안 한 방문자는 데이터베이스가 아예 없고(읽기도 못 함), 다른 계정은 읽기만 됩니다 (플랫폼 규칙이라 바꿀 수 없음).
+   true · false, 플랫폼이 알려 주지 않으면 null(그땐 써 보고 막히면 그만) */
+let canWriteP = null;
+function canWrite() {
+  if (!canWriteP) canWriteP = (async () => {
+    if (!(await db())) return false;
+    try { const u = await cap('user'); const v = u ? await u.can('data.write') : null; return v === false ? false : v === true ? true : null; }
+    catch (e) { return null; }
+  })();
+  return canWriteP;
+}
 const QKEY = 'wellbelow.fest.queue';
 const $ = id => document.getElementById(id);
 const digits = s => String(s || '').replace(/\D/g, '');
@@ -12917,11 +12934,13 @@ function buildEntry() {
   const box = mk('div'); box.id = 'fest-entry'; box.className = 'hidden';
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
+    <p id="fe-nowrite" class="hidden">이 화면은 로그인하지 않아서 <b>기록이 순위판에 남지 않아요.</b><br>순위에 오르려면 부스 노트북에서 도전해 주세요.</p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
     <label class="fe-agree"><input type="checkbox" id="fe-agree"> 상품 연락용으로만 쓰고, 축제가 끝나면 지워요. 동의합니다</label>
     <p id="fe-err" aria-live="polite"></p>
     <button id="fe-go" class="fe-go">도전 시작</button>
+    <button id="fe-skip" class="hidden">기록 없이 그냥 도전</button>
     <button id="fe-back">← 뒤로</button>`;
   return box;
 }
@@ -12930,8 +12949,13 @@ function ask(onGo, onBack) {
   const box = $('fest-entry'); if (!box) { onGo(); return; }
   entryCb = { onGo, onBack };
   $('fe-name').value = ''; $('fe-contact').value = ''; $('fe-agree').checked = false; $('fe-err').textContent = '';
-  box.classList.remove('hidden');
+  box.classList.remove('hidden'); box.classList.remove('nowrite');
   setTimeout(() => $('fe-name').focus(), 30);
+  canWrite().then(ok => {                                  // 기록을 못 남기는 화면 — 등록 칸 대신 안내 + "기록 없이 도전"
+    const no = ok === false;
+    box.classList.toggle('nowrite', no);
+    ['fe-nowrite', 'fe-skip'].forEach(id => $(id).classList.toggle('hidden', !no));
+  });
 }
 function closeEntry() { const b = $('fest-entry'); if (b) b.classList.add('hidden'); }
 function submitEntry() {
@@ -12946,6 +12970,7 @@ function submitEntry() {
 }
 function wireEntry() {
   $('fe-go').addEventListener('click', submitEntry);
+  $('fe-skip').addEventListener('click', () => { player = null; closeEntry(); const cb = entryCb; entryCb = null; if (cb) cb.onGo(null); });
   $('fe-back').addEventListener('click', () => { closeEntry(); const cb = entryCb; entryCb = null; if (cb) cb.onBack(); });
   $('fe-contact').addEventListener('input', e => { const d = digits(e.target.value).slice(0, 11); e.target.value = phone(d); });
   $('fest-entry').addEventListener('keydown', e => {
@@ -12957,6 +12982,7 @@ function wireEntry() {
 /* ── 게임에서 부르는 곳 ── */
 function begin() {                       // 타임어택 시작
   if (!ON || !player) return;
+  canWrite().then(ok => { if (ok === false) playing = false; });
   playing = true;
   setLive({ state: 'play', name: player.name, startedAt: Date.now() });
 }
@@ -12969,6 +12995,7 @@ function end() {                         // 죽음 · 포기 · 타이틀로
    클리어(finish) · 죽음(fail, 어디까지 갔는지와 함께) 둘 다 남깁니다 — 참가한 사람은 모두 순위판에 */
 async function record(ms, res) {
   if (!ON || !player) return null;
+  if ((await canWrite()) === false) { playing = false; return null; }   // 남길 수 없는 화면 — 줄 세우지도 않음
   playing = false;
   const tail = player.contact.slice(-4), at = Date.now();
   const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at, ...res }, contact: { name: player.name, contact: player.contact } };
@@ -13050,7 +13077,7 @@ async function openBoard() {
   $('fb-net').textContent = '순위판에 연결하는 중…';
   const d = await db();
   if (board.classList.contains('hidden')) return;                     // 기다리는 사이 닫힘
-  if (!d) { $('fb-net').textContent = '순위판을 불러올 수 없어요 — 이 링크를 claude.ai 에 로그인한 화면에서 열어 주세요'; return; }
+  if (!d) { $('fb-net').textContent = '순위판은 claude.ai 에 로그인해야 볼 수 있어요'; return; }
   $('fb-net').textContent = '';
   const fail = e => { $('fb-net').textContent = '순위판 연결 끊김 — 새로고침해 주세요'; console.warn('board', e && e.code); };
   unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); render(); }, fail));
