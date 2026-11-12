@@ -3,7 +3,7 @@
    festival.js — 동아리 축제판 : 타임어택 참가 등록 · 기록 모으기 · 실시간 순위판
 
    축제판(window.WB_FESTIVAL = true 로 빌드한 아티팩트)에서만 켜집니다.
-   기록은 아티팩트의 공유 데이터베이스(window.claude.db)에 모입니다 —
+   기록은 아티팩트의 공유 데이터베이스(claude.use("db"))에 모입니다 —
    같은 아티팩트를 다른 화면(모니터 · 태블릿)에서 열고 "실시간 순위판"을 누르면 바로바로 갱신.
 
      runs/<id>   한 판의 기록 { name, contact(숫자만), ms, at }
@@ -16,7 +16,18 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const ON = !!window.WB_FESTIVAL;
-const db = () => (window.claude && window.claude.db) || null;
+/* 데이터베이스 · 파일 저장 꺼내기 — 지금 런타임은 `await claude.use("db")` (없으면 null).
+   예전 런타임(window.claude.db 가 바로 있던 때)도 그대로 받아 줌 */
+const caps = {};
+function cap(name) {
+  if (!caps[name]) {
+    const c = window.claude;
+    caps[name] = c && typeof c.use === 'function' ? c.use(name).then(x => x || null, () => null)
+               : Promise.resolve((c && c[name]) || null);
+  }
+  return caps[name];
+}
+const db = () => cap('db');
 const QKEY = 'wellbelow.fest.queue';
 const $ = id => document.getElementById(id);
 const digits = s => String(s || '').replace(/\D/g, '');
@@ -40,7 +51,8 @@ let memQ = null;            // localStorage 를 못 쓰는 창에선 메모리�
 const getQ = () => memQ || (memQ = loadQ());
 let flushing = false;
 async function flush() {
-  const d = db(); if (!d || flushing) return;
+  if (flushing) return;
+  const d = await db(); if (!d) return;
   flushing = true;
   try {
     for (const item of getQ().slice()) {
@@ -53,8 +65,8 @@ async function flush() {
 }
 const pending = () => getQ().length;
 
-function setLive(body) {
-  const d = db(); if (!d) return;
+async function setLive(body) {
+  const d = await db(); if (!d) return;
   d.doc('live/now').set({ ...body, at: Date.now() }).catch(() => {});
 }
 
@@ -120,7 +132,8 @@ async function finish(ms) {
   setLive({ state: 'idle', name: player.name, ms: Math.round(ms) });
   await flush();
   try {
-    const snap = await db().collection('runs').orderBy('ms', 'asc').limit(1000).get();
+    const d = await db(); if (!d) return null;
+    const snap = await d.collection('runs').orderBy('ms', 'asc').limit(1000).get();
     return rankOf(bestPerPerson(snap.docs.map(x => x.data())), player.contact);
   } catch (e) { return null; }
 }
@@ -170,11 +183,15 @@ function buildBoard() {
   $('fb-csv').addEventListener('click', saveCsv);
   return b;
 }
-function openBoard() {
+async function openBoard() {
   if (!board) board = buildBoard();
   board.classList.remove('hidden');
-  const d = db();
-  if (!d) { $('fb-net').textContent = '순위판을 불러올 수 없어요'; return; }
+  if (unsub.length) return;                                          // 이미 열려 있음
+  $('fb-net').textContent = '순위판에 연결하는 중…';
+  const d = await db();
+  if (board.classList.contains('hidden')) return;                     // 기다리는 사이 닫힘
+  if (!d) { $('fb-net').textContent = '순위판을 불러올 수 없어요 — 이 링크를 claude.ai 에 로그인한 화면에서 열어 주세요'; return; }
+  $('fb-net').textContent = '';
   const fail = e => { $('fb-net').textContent = '순위판 연결 끊김 — 새로고침해 주세요'; console.warn('board', e && e.code); };
   unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); render(); }, fail));
   unsub.push(d.doc('live/now').onSnapshot(s => { live = s.exists ? s.data() : null; renderLive(); }, fail));
@@ -219,7 +236,7 @@ function renderAdmin() {
     const del = mk('button', 'fb-del', '삭제');
     del.addEventListener('click', () => {
       if (!confirm(`${r.name} · ${fmt(r.ms)} 기록을 지울까요? 되돌릴 수 없어요.`)) return;
-      db().doc('runs/' + r.id).delete().catch(() => alert('지우지 못했어요. 잠시 뒤에 다시 해 주세요.'));
+      db().then(d => d.doc('runs/' + r.id).delete()).catch(() => alert('지우지 못했어요. 잠시 뒤에 다시 해 주세요.'));
     });
     const td = t => mk('td', null, t);
     const tdel = mk('td'); tdel.appendChild(del);
@@ -232,7 +249,7 @@ async function saveCsv() {
   const rows = [['순위(사람별 최고)', '이름', '연락처', '기록', '기록(ms)', '시각']];
   bestPerPerson(runs).forEach((r, i) => rows.push([i + 1, r.name, phone(digits(r.contact)), fmt(r.ms), r.ms, new Date(r.at || 0).toLocaleString('ko-KR')]));
   const text = '﻿' + rows.map(r => r.map(esc).join(',')).join('\n');
-  const dl = window.claude && window.claude.downloads;
+  const dl = await cap('downloads');
   if (!dl) return alert('이 화면에서는 파일 저장을 쓸 수 없어요.');
   try { await dl.save({ filename: '우물아래_타임어택_기록.csv', data: text }); }
   catch (e) {
