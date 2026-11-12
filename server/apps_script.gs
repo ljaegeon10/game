@@ -82,7 +82,7 @@ function saveRun_(b) {
   const ids = runs.getLastRow() > 1 ? runs.getRange(2, 1, runs.getLastRow() - 1, 1).getValues().map(x => String(x[0])) : [];
   if (ids.indexOf(id) < 0) {
     const now = new Date();
-    runs.appendRow([id, now, name, tail, clear ? '클리어' : '실패', clear ? '클리어' : stage, clear ? 9999 : score, ms, fmt_(ms)]);
+    runs.appendRow([id, now, name, "'" + tail, clear ? '클리어' : '실패', clear ? '클리어' : stage, clear ? 9999 : score, ms, fmt_(ms)]);
     contacts.appendRow([id, now, name, "'" + contact]);     // ' — 앞자리 0 이 숫자로 사라지지 않게
   }
   const list = best_(readRuns_());
