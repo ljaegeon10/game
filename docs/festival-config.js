@@ -2,4 +2,4 @@
 window.WB_FESTIVAL = true;
 /* 구글 앱스 스크립트 웹 앱 주소 (https://script.google.com/macros/s/…/exec) — server/README.md 참고.
    비워 두면 기록 없이 게임만 됩니다 */
-window.WB_SERVER = '';
+window.WB_SERVER = 'https://script.google.com/macros/s/AKfycbwQdCX9iyHszdqpFgeEvK66RMR04hAKRSHF3xlHPj6d4rroROR-cIm8lCBMrLil73o/exec';
