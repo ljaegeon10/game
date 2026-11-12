@@ -95,7 +95,7 @@ const BALANCE = {
    원본으로 되돌린 뒤 고른 난이도의 값을 얹습니다. 게임 코드 곳곳은
    BALANCE.xxx 를 그때그때 읽으므로, 이 한 곳만 바꾸면 전부 따라옵니다.
 
-   타임어택은 기록 경쟁이라 난이도를 고르지 않고 언제나 '보통'입니다. */
+   타임어택은 기록 경쟁이라 난이도를 고르지 않고 언제나 DIFF.ta (던전은 '보통', 보스만 쉬움과 보통 사이)입니다. */
 const BALANCE_BASE = Object.freeze({ ...BALANCE });
 
 const DIFF = {
@@ -164,6 +164,21 @@ const DIFF = {
       abomHp: 116, abomSpeed: 0.72,
       abomCdMul: .66, abomWindMul: .82, abomShotMul: 1.26, abomSpiralMul: .68,
       abomGapAdd: -.06
+    }
+  },
+
+  /* 타임어택 — 고르는 화면엔 없고, 타임어택이면 언제나 이것.
+     던전의 몹 · 체력칸 · 무적 시간은 '보통' 그대로(기록 경쟁이니까), 보스(눈 · 심연)만 쉬움과 보통의 딱 중간.
+     축제에서 처음 하는 사람도 몇 번이면 깰 수 있게 — 원형 포자는 페이즈2 · 3도 한 겹(발수는 보통 그대로). */
+  ta: {
+    id: 'ta', name: '타임어택', tag: '', desc: '',
+    over: {
+      bossHp: 64, bossSpeed: 0.60,
+      bossCdMul: 1.03, bossWindMul: 1.12, bossShotMul: .98, bossSpiralMul: 1.14,
+      bossRingAdd: 3, bossRingWaves1: 1, bossRingWaves: 1,
+      abomHp: 71, abomSpeed: 0.50,
+      abomCdMul: 1.03, abomWindMul: 1.12, abomShotMul: .98, abomSpiralMul: 1.14,
+      abomGapAdd: .12
     }
   }
 };

@@ -125,7 +125,7 @@ const down = (...ks) => ks.some(k => key[k]);
 const G = {
   mode: 'title',        // title | modesel | diffsel | forest | play | talk | note | doc | fall | landing | wakeup | boss-intro | morph | creepy | ending | dead
   timeAttack: true,     // true = 타임어택 모드 · false = 일반 모드
-  diff: 'normal',       // 일반 모드에서 고른 난이도 (타임어택은 언제나 보통)
+  diff: 'normal',       // 일반 모드에서 고른 난이도 (타임어택은 언제나 'ta' — 보스만 쉬움과 보통 사이)
   diffName: '보통',
   room: null,           // 현재 방 id (숲이면 null)
   inForest: true,
@@ -411,7 +411,7 @@ function startTimeAttack() {
 }
 
 /* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
-   (타임어택은 기록 경쟁이라 언제나 '보통'으로 바로 시작합니다.) */
+   (타임어택은 고르지 않고 바로 시작 — 던전은 '보통', 보스만 쉬움과 보통 사이) */
 function openDiffSelect() {
   Sfx.unlock();
   $('modesel').classList.add('hidden');
@@ -430,7 +430,7 @@ function closeDiffSelect() {
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
-  const d = applyDifficulty(G.timeAttack ? 'normal' : diffId);
+  const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
   if (G.konami && !G.timeAttack) { BALANCE.playerHp += 1; BALANCE.abomPlayerMax += 1; }   // 이스터에그 ③
   G.diff = d.id; G.diffName = d.name;
   P.max = BALANCE.playerHp; P.hp = P.max; P.inv = 0; P.slow = 0;
