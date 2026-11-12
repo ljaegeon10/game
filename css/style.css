@@ -1171,6 +1171,14 @@ body.escfull #endcv{
 .fb-list li.top3 .fb-rank{ color:#d08a52; }
 .fb-empty{ margin-top:30px; font-size:clamp(14px, 2vw, 24px); color:rgba(241,236,224,.45); }
 .fb-empty.hidden{ display:none; }
+.fb-rule{ margin:clamp(6px, 1.4vh, 14px) 0 0; font-size:clamp(11px, 1.3vw, 15px); color:rgba(241,236,224,.35); letter-spacing:.06em; }
+.fb-list li.fail .fb-name{ color:rgba(241,236,224,.72); }
+.fb-list li.fail .fb-time, .fb-list li.top1.fail .fb-time{ color:rgba(241,236,224,.5); font-size:.62em; letter-spacing:.02em; }
+.fb-live.dead{ color:var(--baek); border:2px solid rgba(224,72,60,.7); background:rgba(224,72,60,.08); }
+.fb-live.dead .fb-clock{ color:var(--danger); }
+#fest-dead{ margin:8px 0 0; font-size:11px; color:var(--hwang); }
+#fest-dead.hidden, #fest-next.hidden, #dead.fest .d-sub{ display:none; }
+#fest-next{ margin-left:8px; background:rgba(15,14,20,.6); color:rgba(241,236,224,.8); box-shadow:none; border:1px solid rgba(241,236,224,.3); }
 .fb-admin{ width:min(1000px, 100%); margin-top:28px; padding:14px; border:1px solid rgba(224,72,60,.5); background:rgba(0,0,0,.35); font-size:13px; }
 .fb-admin.hidden{ display:none; }
 .fb-admin-bar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; color:var(--danger); }

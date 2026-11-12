@@ -6,7 +6,8 @@
    기록은 아티팩트의 공유 데이터베이스(claude.use("db"))에 모입니다 —
    같은 아티팩트를 다른 화면(모니터 · 태블릿)에서 열고 "실시간 순위판"을 누르면 바로바로 갱신.
 
-     runs/<id>       한 판의 기록 { name, tail(연락처 뒷자리 4개), ms, at } — 링크로 들어온 누구나 읽음
+     runs/<id>       한 판의 기록 { name, tail(연락처 뒷자리 4개), ms, at, clear, score, stage } — 링크로 들어온 누구나 읽음
+                     clear:false 는 죽은 판 — ms 는 버틴 시간, score · stage 는 어디까지 갔는지 (game.js 의 runProgress)
      contacts/<id>   그 판의 연락처 { name, contact(숫자만) } — 아티팩트 주인 · 편집자만 읽고 씀
                      (게시할 때 db 규칙 { path: "contacts", read: "admin", write: "admin" })
      live/now        지금 도전 중인 사람 { state:'play'|'idle', name, startedAt, ms? }
@@ -133,14 +134,15 @@ function end() {                         // 죽음 · 포기 · 타이틀로
   playing = false;
   setLive({ state: 'idle', name: player ? player.name : '' });
 }
-/* 클리어 — 기록을 줄 세우고 보냄. 순위판에서의 등수를 돌려줌(못 구하면 null) */
-async function finish(ms) {
+/* 한 판 끝 — 기록을 줄 세우고 보냄. 순위판에서의 등수를 돌려줌(못 구하면 null)
+   클리어(finish) · 죽음(fail, 어디까지 갔는지와 함께) 둘 다 남깁니다 — 참가한 사람은 모두 순위판에 */
+async function record(ms, res) {
   if (!ON || !player) return null;
   playing = false;
   const tail = player.contact.slice(-4), at = Date.now();
-  const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at }, contact: { name: player.name, contact: player.contact } };
+  const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at, ...res }, contact: { name: player.name, contact: player.contact } };
   memQ = getQ().concat(item); saveQ(memQ);
-  setLive({ state: 'idle', name: player.name, ms: Math.round(ms) });
+  setLive({ state: 'idle', name: player.name, ms: Math.round(ms), ...res });
   await flush();
   try {
     const d = await db(); if (!d) return null;
@@ -148,19 +150,31 @@ async function finish(ms) {
     return rankOf(bestPerPerson(snap.docs.map(x => x.data())), player.name, tail);
   } catch (e) { return null; }
 }
+const finish = ms => record(ms, { clear: true, score: 9999, stage: '클리어' });
+const fail = (ms, pr) => playing ? record(ms, { clear: false, score: pr.score | 0, stage: String(pr.stage || '') }) : Promise.resolve(null);
 
-/* 같은 사람(이름 + 연락처 뒷자리)이 여러 번 했으면 가장 빠른 기록만 */
+/* 순서 — 클리어한 사람이 위(빠른 순), 그 아래 못 깬 사람(멀리 간 순, 같으면 오래 버틴 순). 다 같으면 먼저 세운 사람이 앞.
+   같은 사람(이름 + 연락처 뒷자리)이 여러 번 했으면 가장 좋은 기록만 */
 const tailOf = r => String(r.tail || digits(r.contact).slice(-4));
 const who = (name, tail) => String(name || '') + '|' + tail;
+const isClear = r => r.clear !== false;
+function better(a, b) {
+  if (isClear(a) !== isClear(b)) return isClear(a);
+  if (isClear(a)) { if (a.ms !== b.ms) return a.ms < b.ms; }
+  else {
+    if ((a.score || 0) !== (b.score || 0)) return (a.score || 0) > (b.score || 0);
+    if (a.ms !== b.ms) return a.ms > b.ms;
+  }
+  return (a.at || 0) < (b.at || 0);
+}
 function bestPerPerson(runs) {
   const best = new Map();
   for (const r of runs) {
     if (!r || typeof r.ms !== 'number') continue;
-    const k = who(r.name, tailOf(r));
-    const b = best.get(k);
-    if (!b || r.ms < b.ms || (r.ms === b.ms && r.at < b.at)) best.set(k, r);
+    const k = who(r.name, tailOf(r)), b = best.get(k);
+    if (!b || better(r, b)) best.set(k, r);
   }
-  return [...best.values()].sort((a, b) => a.ms - b.ms || a.at - b.at);   // 같은 기록이면 먼저 세운 사람이 앞
+  return [...best.values()].sort((a, b) => better(a, b) ? -1 : better(b, a) ? 1 : 0);
 }
 function rankOf(list, name, tail) { const i = list.findIndex(r => who(r.name, tailOf(r)) === who(name, tail)); return i < 0 ? null : i + 1; }
 
@@ -177,9 +191,10 @@ function buildBoard() {
     <div class="fb-live" id="fb-live"></div>
     <ol class="fb-list" id="fb-list"></ol>
     <p class="fb-empty" id="fb-empty">아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!</p>
+    <p class="fb-rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래</p>
     <div class="fb-admin hidden" id="fb-admin">
       <div class="fb-admin-bar"><b>관리 — 전체 기록 (연락처 포함)</b><button id="fb-csv">CSV 저장</button></div>
-      <table><thead><tr><th>#</th><th>이름</th><th>연락처</th><th>기록</th><th>시각</th><th></th></tr></thead><tbody id="fb-rows"></tbody></table>
+      <table><thead><tr><th>#</th><th>이름</th><th>연락처</th><th>결과</th><th>시간</th><th>시각</th><th></th></tr></thead><tbody id="fb-rows"></tbody></table>
     </div>
     <div class="fb-foot">
       <span id="fb-net"></span>
@@ -234,6 +249,9 @@ function renderLive() {
     el.className = 'fb-live on';
     el.textContent = '';
     el.append(mk('span', 'fb-dot'), mk('span', null, '지금 도전 중 '), mk('b', null, String(live.name || '')), mk('span', 'fb-clock', fmt(Date.now() - live.startedAt)));
+  } else if (fresh && live.ms && live.clear === false) {
+    el.className = 'fb-live dead'; el.textContent = '';
+    el.append(mk('span', null, '방금 도전 끝 '), mk('b', null, String(live.name || '')), mk('span', 'fb-clock', `${live.stage || ''}까지`));
   } else if (fresh && live.ms) {
     el.className = 'fb-live done'; el.textContent = '';
     el.append(mk('span', null, '방금 클리어 '), mk('b', null, String(live.name || '')), mk('span', 'fb-clock', fmt(live.ms)));
@@ -243,19 +261,20 @@ function render() {
   const list = bestPerPerson(runs), ol = $('fb-list');
   ol.textContent = '';
   list.slice(0, 10).forEach((r, i) => {
-    const li = mk('li', i < 3 ? 'top top' + (i + 1) : '');
+    const li = mk('li', (i < 3 ? 'top top' + (i + 1) : '') + (isClear(r) ? '' : ' fail'));
+    const res = isClear(r) ? mk('span', 'fb-time', fmt(r.ms)) : mk('span', 'fb-time fb-stage', String(r.stage || '도전'));
     li.append(mk('span', 'fb-rank', String(i + 1)), mk('span', 'fb-name', String(r.name || '')),
-              mk('span', 'fb-tail', masked(tailOf(r))), mk('span', 'fb-time', fmt(r.ms)));
+              mk('span', 'fb-tail', masked(tailOf(r))), res);
     ol.appendChild(li);
   });
   $('fb-empty').classList.toggle('hidden', list.length > 0);
-  $('fb-stat').textContent = `참가 ${list.length}명 · 클리어 ${runs.length}회`;
+  $('fb-stat').textContent = `참가 ${list.length}명 · 클리어 ${list.filter(isClear).length}명 · 도전 ${runs.length}판`;
   status();
   if (admin) renderAdmin();
 }
 function renderAdmin() {
   const tb = $('fb-rows'); tb.textContent = '';
-  runs.slice().sort((a, b) => a.ms - b.ms || a.at - b.at).forEach((r, i) => {
+  runs.slice().sort((a, b) => better(a, b) ? -1 : better(b, a) ? 1 : 0).forEach((r, i) => {
     const tr = mk('tr');
     const del = mk('button', 'fb-del', '삭제');
     del.addEventListener('click', () => {
@@ -265,15 +284,15 @@ function renderAdmin() {
     });
     const td = t => mk('td', null, t);
     const tdel = mk('td'); tdel.appendChild(del);
-    tr.append(td(String(i + 1)), td(String(r.name || '')), td(contactOf(r)), td(fmt(r.ms)), td(new Date(r.at || 0).toLocaleString('ko-KR')), tdel);
+    tr.append(td(String(i + 1)), td(String(r.name || '')), td(contactOf(r)), td(isClear(r) ? '클리어' : String(r.stage || '')), td(fmt(r.ms)), td(new Date(r.at || 0).toLocaleString('ko-KR')), tdel);
     tb.appendChild(tr);
   });
 }
 const contactOf = r => contacts[r.id] ? phone(digits(contacts[r.id].contact)) : '(볼 수 없음) ···' + tailOf(r);
 async function saveCsv() {
   const esc = v => `"${String(v).replace(/"/g, '""')}"`;
-  const rows = [['순위(사람별 최고)', '이름', '연락처', '기록', '기록(ms)', '시각']];
-  bestPerPerson(runs).forEach((r, i) => rows.push([i + 1, r.name, contactOf(r), fmt(r.ms), r.ms, new Date(r.at || 0).toLocaleString('ko-KR')]));
+  const rows = [['순위(사람별 최고)', '이름', '연락처', '결과', '시간', '시간(ms)', '시각']];
+  bestPerPerson(runs).forEach((r, i) => rows.push([i + 1, r.name, contactOf(r), isClear(r) ? '클리어' : r.stage, fmt(r.ms), r.ms, new Date(r.at || 0).toLocaleString('ko-KR')]));
   const text = '﻿' + rows.map(r => r.map(esc).join(',')).join('\n');
   const dl = await cap('downloads');
   if (!dl) return alert('이 화면에서는 파일 저장을 쓸 수 없어요.');
@@ -307,5 +326,5 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, ask, begin, end, finish, openBoard, closeBoard, get player() { return player; } };
+window.Festival = { on: ON, ask, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();

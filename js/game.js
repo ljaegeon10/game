@@ -70,6 +70,7 @@ addEventListener('keydown', e => {
   }
   if (k === ' ') onConfirm();
   if (k === 'r' && G.mode === 'dead') retry();
+  if (k === 'n' && G.mode === 'dead' && !$('fest-next').classList.contains('hidden')) nextPlayer();
   if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startTimeAttack();
@@ -387,6 +388,20 @@ function closeModeSelect() {
   G.mode = 'title';
 }
 
+/* 어디까지 갔는지 — 축제판에서 죽은 판을 순위판에 남길 때 (클리어 못 한 사람끼리는 멀리 간 순)
+   숲 0 · 던전은 밟은 방 수와 관문 열쇠 · 보스 1 · 2단계(눈) · 3단계(심연) */
+function runProgress() {
+  const B = G.boss;
+  if (G.bossDead) return { score: 2000, stage: '마지막 방' };
+  if (B || G.morphed || G.room === 'boss') {
+    const ph = (B && B.kind === 'abom') || G.morphed ? 3 : (B && B.phase) || 1;
+    return { score: 1000 + ph * 100, stage: `보스 ${ph}단계` };
+  }
+  if (G.inForest || !G.room) return { score: 0, stage: '숲' };
+  const n = G.visited ? G.visited.size : 0;
+  return { score: 10 + n * 10 + G.doorKeys * 5, stage: G.doorKeys ? `던전 ${n}곳 · 관문 열쇠 ${G.doorKeys}` : `던전 ${n}곳` };
+}
+
 /* 타임어택 — 축제판이면 먼저 이름 · 연락처를 받고 시작 (기록이 순위판에 모입니다, festival.js) */
 function startTimeAttack() {
   if (!(window.Festival && Festival.on)) { startGame(true); return; }
@@ -435,7 +450,8 @@ function startGame(timeAttack = true, diffId = 'normal') {
 
 /* 사망 처리 — 모드에 따라 갈립니다 */
 function retry() {
-  if (G.timeAttack) resetRun();
+  if (G.timeAttack && window.Festival && Festival.on && Festival.player) { resetRun(); startGame(true); }   // 축제판 — 등록한 그 사람 그대로 바로 다시
+  else if (G.timeAttack) resetRun();
   else if (abomCheckpoint()) respawnAbom();
   else respawn();
 }
@@ -518,6 +534,9 @@ document.querySelectorAll('.modebtn').forEach(b =>
 document.querySelectorAll('.diffbtn').forEach(b =>
   b.addEventListener('click', () => startGame(false, b.dataset.diff)));
 $('retrybtn').addEventListener('click', retry);
+/* 축제판 — 죽은 뒤 다음 사람에게 넘김 (타이틀로, 다음 사람은 새로 등록) */
+function nextPlayer() { if (window.Festival) Festival.clearPlayer(); resetRun(); }
+$('fest-next').addEventListener('click', nextPlayer);
 $('againbtn').addEventListener('click', () => restartFromEnd());
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
@@ -1129,12 +1148,21 @@ function hurt(n) {
   if (hs) { hs.classList.add('hit'); setTimeout(() => hs.classList.remove('hit'), 320); }
   if (P.hp <= 0) {
     P.hp = 0; P.dead = true; G.mode = 'dead';
-    stopRun();                       // 기록은 저장하지 않습니다
-    if (G.timeAttack && window.Festival) Festival.end();
+    stopRun();                       // 기록은 저장하지 않습니다 (축제판은 "어디까지 갔는지"로 순위판에 남김)
+    const fest = G.timeAttack && window.Festival && Festival.on && Festival.player;
+    $('fest-dead').classList.toggle('hidden', !fest); $('fest-next').classList.toggle('hidden', !fest);
+    $('dead').classList.toggle('fest', !!fest);              // "기록이 남지 않습니다" 대신 순위판 줄
+    if (fest) {
+      const pr = runProgress(), fd = $('fest-dead');
+      fd.textContent = `순위판에 「${pr.stage}」까지로 올리는 중…`;
+      Festival.fail(RUN.elapsed, pr).then(rank => {
+        fd.textContent = rank ? `${Festival.player.name} 님 — 「${pr.stage}」까지, 순위판 ${rank}위` : `「${pr.stage}」까지 — 이 기기에 저장했어요 (연결되면 순위판에)`;
+      });
+    }
     $('deadtime').textContent = fmtTime(RUN.elapsed);
     // 일반 모드에서는 시간을 재지 않으니 기록 문구도 보여 주지 않습니다
     $('dead').classList.toggle('casual', !G.timeAttack);
-    $('retrybtn').textContent = G.timeAttack ? '처음부터 다시 (R)' : abomCheckpoint() ? '심연부터 다시 (R)' : '이어서 다시 (R)';
+    $('retrybtn').textContent = fest ? '같은 사람으로 다시 (R)' : G.timeAttack ? '처음부터 다시 (R)' : abomCheckpoint() ? '심연부터 다시 (R)' : '이어서 다시 (R)';
     $('dead').classList.remove('hidden');
     Sfx.flatline(true);
     Sfx.dungeonBgmDuck(true); Sfx.bossBgmDuck(true);   // 플랫라인 비프가 묻히지 않도록 브금을 낮춥니다
