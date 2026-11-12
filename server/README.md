@@ -7,6 +7,10 @@ GitHub Pages 에 올린 축제판(`docs/`)이 기록을 보내는 곳입니다.
 1. [sheets.new](https://sheets.new) 로 새 스프레드시트를 만들고 이름을 `우물아래 축제 기록` 정도로 바꿉니다.
 2. 메뉴 **확장 프로그램 → Apps Script** 를 누릅니다.
 
+> **아이패드 · 휴대폰** — 구글 시트 *앱*에는 Apps Script 메뉴가 없습니다. Safari 에서 [script.google.com](https://script.google.com) 을 열고
+> **새 프로젝트** 를 만든 뒤 아래 2 · 3 단계를 그대로 하면 됩니다 (코드 맨 위 `SHEET_ID` 에 시트 주소의 id 가 들어 있어야 함).
+> 화면이 좁아 메뉴가 안 보이면 Safari 주소창의 `가가`(aA) → **데스크톱 웹사이트 요청**.
+
 ## 2. 코드 붙여 넣기
 1. 열린 편집기의 `Code.gs` 내용을 전부 지우고, 이 폴더의 `apps_script.gs` 내용을 통째로 붙여 넣은 뒤 💾 저장.
 2. (선택) 순위판에 PIN 을 걸고 싶으면 맨 위 `const BOARD_PIN = '';` 의 따옴표 안에 숫자를 넣습니다. 예: `'2580'`

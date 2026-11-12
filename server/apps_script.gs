@@ -12,6 +12,11 @@
 /* 순위판 PIN — 비워 두면 링크만 있으면 누구나 순위판을 봄. 숫자를 넣으면 그 PIN 을 알아야 봄 */
 const BOARD_PIN = '';
 
+/* 기록이 쌓일 구글 시트 — 주소 …/spreadsheets/d/<여기>/edit 의 <여기>.
+   시트에서 '확장 프로그램 → Apps Script' 로 열었으면 비워 둬도 되고,
+   script.google.com 에서 따로 만든 프로젝트(아이패드 등)면 꼭 넣어야 합니다 */
+const SHEET_ID = '1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE';
+
 const RUNS = '기록', CONTACTS = '연락처';
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
@@ -21,7 +26,7 @@ function setup() {
   sheet_(RUNS, RUN_HEAD); sheet_(CONTACTS, CONTACT_HEAD);
 }
 function sheet_(name, head) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
   if (!sh) sh = ss.insertSheet(name);
   if (sh.getLastRow() === 0) { sh.appendRow(head); sh.setFrozenRows(1); }
