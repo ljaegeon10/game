@@ -5315,9 +5315,10 @@ function renderOpening() {
 /* 길게 눌러 건너뛰기 — 오른쪽 아래, 누르는 동안 고리가 차오름 */
 function drawSkipRing(k, show, full) {
   if (show <= 0 && k <= 0) return;
-  const a = Math.min(1, show / 30, 1) * .85, x = W - 22, y = H - 20;
+  // 컷신은 16:9 그림을 키워 좌우가 잘리므로 — 고리는 키우지 않은 진짜 화면 모서리에 (VW × SH)
+  const a = Math.min(1, show / 30, 1) * .85, x = VW - 22, y = SH - 20;
   g.save();
-  baseXf();
+  g.setTransform(SR, 0, 0, SR, 0, 0);
   g.globalAlpha = a; g.lineCap = 'round';
   g.strokeStyle = 'rgba(232,238,246,.25)'; g.lineWidth = 2;
   g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.stroke();
