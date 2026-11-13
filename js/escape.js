@@ -761,11 +761,24 @@ function tickReload(s) {
   let acc = 0, i = 0;
   while (i < RSEQ.length - 1 && el >= acc + RSEQ[i][2]) { acc += RSEQ[i][2]; i++; }
   if (i !== G.step) { G.step = i; reloadEvent(s, RSEQ[i][3]); }
-  if (--G.reload === 0) { G.ammo = MAG; G.step = -1; G.dy = 12; s.sfx.reload(); }
+  G.q = i + clamp01((el - acc) / RSEQ[i][2]);                    // 장전 순서의 어디쯤 (0‥12) — 3D 총(gun3d.js)의 움직임
+  if (--G.reload === 0) { G.ammo = MAG; G.step = -1; G.q = -1; G.dy = s.gun3on ? 3 : 12; s.sfx.reload(); }
 }
 /* 장전 중의 순간들 — 탄창이 떨어지고, 탄피가 튀고, 톱니 빛이 흘러갑니다 */
 function reloadEvent(s, ev) {
   const G = s.gun, gx = G.x, gy = G.y, A = PA ? PA.AT : null;
+  if (s.gun3on) {                                               // 3D 총 — 탄창 · 탄피는 모델이 직접 움직임 (픽셀 낱장 · 불티 없음)
+    switch (ev) {
+      case 'press': s.sfx.press(); break;
+      case 'release': s.sfx.magOut(); break;
+      case 'bring': case 'grab': s.sfx.tink(); break;
+      case 'seat': s.sfx.seat(); G.kick = -3; break;
+      case 'pull': s.sfx.rack(); break;
+      case 'eject': if (s.gunP) s.gunView().eject(s.gunP); break;
+      case 'snap': s.sfx.snap(); G.kick = 2; break;
+    }
+    return;
+  }
   switch (ev) {
     case 'cant': G.dy = 16; break;
     case 'press': s.sfx.press(); break;
@@ -840,6 +853,7 @@ function fireAt(s, bx, by) {
   if (G.ammo <= 0) { s.sfx.empty(); startReload(s); return; }
   G.ammo--; G.recoil = 1; G.flash = 4;
   G.tracer = { x: bx, y: by, t: 4 };
+  if (s.gun3on && s.gunP) s.gunView().eject(s.gunP);             // 탄피
   s.sfx.shot();
   if (G.ammo === 0) startReload(s);
   if (s.view === 'back') {                                         // 뒤의 그를 쏘면 — 잠깐 비틀거립니다
@@ -1376,6 +1390,18 @@ function drawViewGun(s, b) {
   for (const p of s.bits) { b.globalAlpha = Math.min(1, p.life / 8); b.fillStyle = p.c; b.fillRect(Math.round(p.x), Math.round(p.y), 1, 1); }
   b.globalAlpha = 1;
   if (!G || s.view !== 'fwd') return;
+  // 실사 복도에선 총 · 손도 3D (js/gun3d.js) — 여기선 자리만 정하고, 그리는 건 draw() 에서 복도 바로 위에
+  const GV = s.mode3d && s.gunView ? s.gunView() : null;
+  s.gun3on = !!GV;
+  if (GV) {
+    const tb = theme(s.z), pulse = .82 + .22 * Math.max(0, Math.cos(s.z * .785));          // 형광등 밑을 지날 때마다 밝아짐
+    s.gunO = { t: s.frame, ax: clamp01(s.mx / W) * 2 - 1, ay: clamp01(s.my / H) * 2 - 1, recoil: G.recoil, dy: G.dy, kick: G.kick, bob: s.bob,
+               cant: G.side, q: G.reload > 0 && G.step >= 0 ? G.q : -1 };
+    s.gunP = s.gunO.P = GV.pose(s.gunO);
+    s.gunEnv = { key: mixC([.72, .77, .86], [.8, .72, .5], tb).map(v => v * pulse), amb: mixC([.17, .2, .25], [.24, .21, .13], tb),
+                 flash: G.flash / 4, red: Math.min(1, (s.danger || 0) + s.flash) };
+    return;
+  }
   const ax = (s.mx / SC - LW / 2) * .08, ay = (s.my / SC - LH / 2) * .05;
   const bx = AIM_DX + (GUN_DX - AIM_DX) * G.side, by = AIM_DY + (GUN_DY - AIM_DY) * G.side;
   G.x = Math.round(bx + ax + G.recoil * 3); G.y = Math.round(by + ay + G.recoil * 4 + G.dy + G.kick + Math.sin(s.bob * 2) * 1.2);
@@ -1765,13 +1791,20 @@ function drawHud(s, c) {
   c.restore();
 }
 
-/* 화면 결 — 가장자리 어둡게 + 옅은 주사선 */
+/* 화면 결 — 가장자리 어둡게 (늘) */
 function bakeOverlay() {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
   const g = c.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, W * .62);
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.6)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
+  return cv;
+}
+/* 옅은 주사선 (디지털 화면 결) — 백룸에서만. 실험실 방 · 실험실 복도는 맨눈으로 보는 현실이라 깨끗하게,
+   벽지가 누렇게 번져 갈수록(theme) 화면이 '화면'처럼 보이기 시작합니다 */
+function bakeScan() {
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
   c.fillStyle = 'rgba(0,0,0,.12)';
   for (let y = 0; y < H; y += 3) c.fillRect(0, y, W, 1);
   return cv;
@@ -1787,7 +1820,7 @@ class EscapeScene {
     this.b = this.buf.getContext('2d');
     this.sfx = new EscSfx(audio);
     this.onDone = onDone || (() => {});
-    this.overlay = bakeOverlay();
+    this.overlay = bakeOverlay(); this.scan = bakeScan();
     this.states = { wake: WakeState, door: DoorState, stay: StayState, open: OpenState, run: RunState, caught: CaughtState, free: FreeState };
     this.lab = null;                                     // 깨어남의 입체 실험실 (labroom.js) — 처음 쓸 때 만듦
     this.figQ = []; this.layers = [];                    // 실사 3D 인물 (figure3d.js) — 픽셀 겹 사이에 끼워 넣음
@@ -1796,6 +1829,10 @@ class EscapeScene {
       return this._c3;
     };
     this.realT = 0; this._n3 = 0;
+    this.gunView = () => {                                // 손에 든 총 — 3D (없으면 픽셀 시트)
+      if (this._gv === undefined) { try { this._gv = window.GunView3D ? new GunView3D(W, H) : null; if (this._gv && !this._gv.ok) this._gv = null; } catch (e) { this._gv = null; } }
+      return this._gv;
+    };
     this.fig3d = () => {
       if (this._f3 === undefined) { try { this._f3 = window.Figure3D ? new Figure3D(W, H) : null; if (this._f3 && !this._f3.ok) this._f3 = null; } catch (e) { this._f3 = null; } }
       return this._f3;
@@ -1955,7 +1992,7 @@ class EscapeScene {
     } else if (this.realT > 0 && this.drawReality(c)) {
       // 현실이 끼어듭니다 — 침대 위, 들여다보는 방호복 (drawReality 가 다 그림)
     } else {
-      this.figQ = []; this.mode3d = false;
+      this.figQ = []; this.mode3d = false; this.gunO = null;
       this.state.draw(this, this.b);
       c.imageSmoothingEnabled = false;
       if (this.mode3d) {                                      // 실사 복도 → 위에 픽셀 겹
@@ -1966,7 +2003,9 @@ class EscapeScene {
         if (++this._n3 % 60 === 0) { if (this._dt3 > 24) C3.setScale(C3.k * .8); else if (this._dt3 < 15 && C3.k < this.k) C3.setScale(Math.min(this.k, C3.k * 1.12)); }
         if (this._n3 === 1 && C3.k !== this.k) C3.setScale(this.k);
         const img = C3.render(this.view3d);
-        c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H); c.imageSmoothingEnabled = false;
+        c.imageSmoothingEnabled = true; c.drawImage(img, 0, 0, W, H);
+        if (this.gunO && this.gun) this.drawGun3D(c, C3.k);
+        c.imageSmoothingEnabled = false;
         c.drawImage(this.buf, 0, 0, W, H);
         this.figQ = [];
       }
@@ -1982,10 +2021,37 @@ class EscapeScene {
       if (!this.mode3d) c.drawImage(this.buf, 0, 0, W, H);
     }
     c.drawImage(this.overlay, 0, 0);
+    const scanK = this.stateName === 'wake' ? 0 : theme(this.z || 0);      // 주사선은 백룸에서만
+    if (scanK > .02) { c.globalAlpha = scanK; c.drawImage(this.scan, 0, 0); c.globalAlpha = 1; }
     drawHud(this, c);
     if (this.subEl) syncSubs(this); else drawText(this, c);
     drawChoice(this, c);
     drawPrompt(this, c);
+  }
+
+  /* 손에 든 3D 총 — 복도 바로 위에. 총구 섬광 · 총알 궤적도 여기서 (화면 해상도 그대로) */
+  drawGun3D(c, k) {
+    const GV = this.gunView(), G = this.gun, P = this.gunP;
+    GV.setScale(k);
+    const img = GV.render(this.gunO, this.gunEnv);
+    if (!img) return;
+    c.drawImage(img, 0, 0, W, H);
+    const [mx, my] = P.muzzle;
+    if (G.tracer) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      c.strokeStyle = `rgba(255,236,190,${G.tracer.t / 4 * .8})`; c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(mx, my); c.lineTo(G.tracer.x * SC, G.tracer.y * SC); c.stroke(); c.restore();
+    }
+    if (G.flash > 0) {
+      c.save(); c.globalCompositeOperation = 'lighter';
+      const r = 26 + G.flash * 16, g = c.createRadialGradient(mx, my, 0, mx, my, r);
+      g.addColorStop(0, 'rgba(255,244,214,.95)'); g.addColorStop(.35, 'rgba(255,196,110,.6)'); g.addColorStop(1, 'rgba(255,140,40,0)');
+      c.fillStyle = g; c.fillRect(mx - r, my - r, r * 2, r * 2);
+      c.translate(mx, my); c.rotate(this.frame * 1.7);                                   // 별 모양 불꽃
+      c.fillStyle = 'rgba(255,226,170,.75)';
+      for (let i = 0; i < 4; i++) { c.rotate(Math.PI / 2 + .3 * i); c.beginPath(); c.moveTo(0, -3); c.lineTo(r * (.9 + .25 * (i % 2)), 0); c.lineTo(0, 3); c.fill(); }
+      c.restore();
+    }
   }
 
   /* ── 입력 ── */

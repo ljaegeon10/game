@@ -479,7 +479,8 @@ function camProj(cam, W, H, far = 80) {
 }
 class Figure3D {
   /* shared : { canvas, gl } 를 주면 그 화면에 같이 그립니다 (복도 3D 와 깊이를 나눠 씀) */
-  constructor(w = 960, h = 540, shared = null) {
+  /* opts.bodies === false : 사람 메시 없이 셰이더만 (손에 든 총 — gun3d.js 가 제 메시를 올려 씀) */
+  constructor(w = 960, h = 540, shared = null, opts = {}) {
     this.w = w; this.h = h;
     this.canvas = shared ? shared.canvas : document.createElement('canvas');
     if (!shared) { this.canvas.width = w; this.canvas.height = h; }
@@ -503,6 +504,8 @@ class Figure3D {
     gl.uniform1i(this.un.uTex, 0);
     const up = parts => { const o = {}; for (const k in parts) { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(parts[k].v), gl.STATIC_DRAW); o[k] = { b, n: parts[k].v.length / 12 }; } return o; };
+    this.upload = up;
+    if (opts.bodies === false) return;
     const sp = buildSuit(), gp = buildGuard();
     bakeAO(sp, suitRest, SUIT_CAPS);
     bakeAO(gp, k => k === 'gun' ? null : suitRest(k), SUIT_CAPS.map(([a, b, r]) => [a, b, r * .82]));
@@ -584,5 +587,5 @@ class Figure3D {
 }
 
 window.Figure3D = Figure3D;
-window.Fig3DUtil = { camProj, M4 };
+window.Fig3DUtil = { camProj, M4, MAT, surf, tube, curve };
 })();
