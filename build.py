@@ -76,7 +76,7 @@ if not cfg.exists():
         "window.WB_SERVER = '';\n"
         "/* 순위판 설정을 고치는 구글 시트 탭 주소 — 순위판의 ✏️ 수정 버튼 */\n"
         "window.WB_SHEET = '';\n"
-        "/* 개발자 최고 기록 — 순위와 따로 순위판 위에 (예: { name: '장도우', ms: 103757 }) */\n"
+        "/* 개발자 최고 기록 — 순위와 따로 순위판 위에 (예: { name: '장도우', tail: '0862', ms: 98788 } — tail 이 맞는 판은 순위에서 빠짐) */\n"
         "window.WB_DEV = null;\n", encoding="utf-8")
 print(f"✔  {DOCS / 'index.html'}  ({(DOCS / 'index.html').stat().st_size/1024:.0f} KB)  — GitHub Pages")
 # 실시간 순위판 (따로 띄우는 화면) — 같은 festival-config.js 의 서버에서 순위를 받아 옴

@@ -187,7 +187,7 @@ const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주�
 let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
 let prizes = ['', '', ''];
 /* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
-if (window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', ms: 103757 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
+if (window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 98788 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
 let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
 function parseDev(v) {
   const t = String(v || '').trim(), m = t.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
@@ -211,9 +211,11 @@ function better(a, b) {
   else { if ((a.score || 0) !== (b.score || 0)) return (a.score || 0) > (b.score || 0); if (a.ms !== b.ms) return a.ms > b.ms; }
   return (a.at || 0) < (b.at || 0);
 }
+/* 개발자 본인의 판(WB_DEV 의 이름 + 뒷자리)은 순위 · 참가 수에서 뺌 — 개발자 기록은 위에 따로 */
+const isDev = r => { const d = window.WB_DEV; return !!(d && d.tail && String(r.name || '') === String(d.name || '') && String(r.tail || '').padStart(4, '0') === String(d.tail)); };
 function best(runs) {
   const m = new Map();
-  for (const r of runs) { if (!r || typeof r.ms !== 'number') continue; const k = r.name + '|' + r.tail, b = m.get(k); if (!b || better(r, b)) m.set(k, r); }
+  for (const r of runs) { if (!r || typeof r.ms !== 'number' || isDev(r)) continue; const k = r.name + '|' + r.tail, b = m.get(k); if (!b || better(r, b)) m.set(k, r); }
   return [...m.values()].sort((a, b) => better(a, b) ? -1 : better(b, a) ? 1 : 0);
 }
 
@@ -300,7 +302,7 @@ async function poll() {
     const j = await r.json();
     if (!j.ok && j.error === 'pin') { askPin(!!store.get()); return; }
     if (!j.ok) throw new Error('server');
-    runs = Array.isArray(j.runs) ? j.runs : []; live = j.live || null; lastOk = Date.now();
+    runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null; lastOk = Date.now();   // 개발자 판은 순위 · 최근 기록 · 수에서 빠짐
     if (j.settings) applySettings(j.settings);
     render(); renderLive();
     net(true, '실시간 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
