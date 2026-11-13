@@ -108,7 +108,8 @@ aside{ min-height:0; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 2
 footer{ position:fixed; right:12px; bottom:10px; display:flex; align-items:center; gap:10px; font-size:12px; color:rgba(241,236,224,.35); }
 footer i{ width:8px; height:8px; border-radius:50%; background:var(--glow); display:inline-block; }
 footer.off i{ background:var(--danger); }
-footer button{ font:inherit; color:inherit; background:none; border:1px solid rgba(241,236,224,.2); padding:3px 8px; cursor:pointer; }
+footer button, footer a{ font:inherit; color:inherit; background:none; border:1px solid rgba(241,236,224,.2); padding:3px 8px; cursor:pointer; text-decoration:none; }
+footer a:hover, footer button:hover{ color:var(--baek); border-color:rgba(241,236,224,.6); }
 
 /* PIN · 설정 안내 */
 .gate{ position:fixed; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; background:rgba(10,9,16,.92); }
@@ -159,7 +160,7 @@ footer button{ font:inherit; color:inherit; background:none; border:1px solid rg
   </aside>
 </div>
 <div id="notice" hidden><span id="noticeText"></span></div>
-<footer id="net"><i></i><span id="netText">연결 중…</span><button id="fs" title="전체 화면 (F)">⛶</button></footer>
+<footer id="net"><i></i><span id="netText">연결 중…</span><a id="edit" target="_blank" rel="noopener" hidden title="순위판 글 · 상품 · 공지 고치기 (구글 시트)">✏️ 수정</a><button id="fs" title="전체 화면 (F)">⛶</button></footer>
 <div class="gate" id="gate" hidden>
   <form id="pinForm">
     <div id="gateMsg">순위판 PIN 을 입력해 주세요</div>
@@ -290,6 +291,8 @@ const fs = () => { if (document.fullscreenElement) document.exitFullscreen(); el
 $('fs').addEventListener('click', fs);
 addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && $('gate').hidden) fs(); });
 
+/* ✏️ 수정 — 구글 시트의 '순위판 설정' 탭을 새 탭으로 (festival-config.js 의 WB_SHEET) */
+if (window.WB_SHEET) { $('edit').href = window.WB_SHEET; $('edit').hidden = false; }
 render(); renderLive();
 if (!SERVER) { net(false, '기록 서버 주소가 없어요 (festival-config.js 의 WB_SERVER)'); return; }
 poll(); setInterval(poll, 3000);

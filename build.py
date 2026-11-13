@@ -71,7 +71,9 @@ if not cfg.exists():
         "window.WB_FESTIVAL = true;\n"
         "/* 구글 앱스 스크립트 웹 앱 주소 (https://script.google.com/macros/s/…/exec) — server/README.md 참고.\n"
         "   비워 두면 기록 없이 게임만 됩니다 */\n"
-        "window.WB_SERVER = '';\n", encoding="utf-8")
+        "window.WB_SERVER = '';\n"
+        "/* 순위판 설정을 고치는 구글 시트 탭 주소 — 순위판의 ✏️ 수정 버튼 */\n"
+        "window.WB_SHEET = '';\n", encoding="utf-8")
 print(f"✔  {DOCS / 'index.html'}  ({(DOCS / 'index.html').stat().st_size/1024:.0f} KB)  — GitHub Pages")
 # 실시간 순위판 (따로 띄우는 화면) — 같은 festival-config.js 의 서버에서 순위를 받아 옴
 import shutil
