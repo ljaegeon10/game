@@ -1725,7 +1725,7 @@ function drawHud(s, c) {
   const dg = s.danger || 0;
   c.font = `15px ${MONO}`; c.textBaseline = 'middle';
   c.fillStyle = dg > .3 ? `rgba(255,90,80,${.7 + .3 * Math.sin(s.frame * .4)})` : 'rgba(230,241,255,.6)';
-  c.fillText(`뒤  ${Math.max(0, s.dist).toFixed(1)}m`, 26, 30);          // 위 왼쪽 — 아래는 자막 자리
+  c.fillText(`뒤  ${Math.max(0, s.dist).toFixed(1)}m`, 26 + cropX(s), 30);          // 위 왼쪽 — 아래는 자막 자리
   // 처음 한 번씩 조작 알림
   const next = s.obs.find(o => !o.done);
   const hint = (() => {
@@ -1774,12 +1774,12 @@ function drawHud(s, c) {
     c.moveTo(x, y - 16); c.lineTo(x, y - 6); c.moveTo(x, y + 6); c.lineTo(x, y + 16); c.stroke();
     // 탄
     c.textAlign = 'right'; c.font = `15px ${MONO}`;
-    if (s.gun.reload > 0) { c.fillStyle = '#e3b23c'; c.fillText('재장전…', W - 26, 30); }
+    if (s.gun.reload > 0) { c.fillStyle = '#e3b23c'; c.fillText('재장전…', W - 26 - cropX(s), 30); }
     else {
-      for (let i = 0; i < MAG; i++) { c.fillStyle = i < s.gun.ammo ? '#e9e3d5' : 'rgba(233,227,213,.18)'; c.fillRect(W - 30 - i * 9, 22, 5, 16); }
+      for (let i = 0; i < MAG; i++) { c.fillStyle = i < s.gun.ammo ? '#e9e3d5' : 'rgba(233,227,213,.18)'; c.fillRect(W - 30 - cropX(s) - i * 9, 22, 5, 16); }
     }
     c.fillStyle = 'rgba(230,241,255,.5)'; c.font = `12px ${MONO}`;
-    c.fillText(`처치 ${s.kills || 0}`, W - 26, 52);
+    c.fillText(`처치 ${s.kills || 0}`, W - 26 - cropX(s), 52);
     // 처음 줍는 순간 알림
     if (s.gunHint && s.z < ZONE0 + 18) {
       c.textAlign = 'center'; c.font = `16px ${MONO}`;
@@ -1791,6 +1791,12 @@ function drawHud(s, c) {
   c.restore();
 }
 
+/* 창이 16:9 보다 세로로 길면(16:10) 캔버스를 키워 좌우가 조금 잘려 나감 — 그만큼(캔버스 좌표) HUD 를 안쪽으로 */
+function cropX(s) {
+  const r = s.canvas.getBoundingClientRect(), vw = window.innerWidth;
+  if (!r.width || r.width <= vw + 1 || !document.body.classList.contains('escfull')) return 0;
+  return Math.max(0, (r.width - vw) / 2) * W / r.width;
+}
 /* 화면 결 — 가장자리 어둡게 (늘) */
 function bakeOverlay() {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;

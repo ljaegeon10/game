@@ -8,6 +8,12 @@ const VW = 576, VH = 324, TS = 32;   // 화면 (16:9)
 /* 지금 방의 크기. 보통은 화면과 같고, 보스방(심층)만 더 넓습니다 — rooms.js 의 size.
    방이 화면보다 넓으면 카메라(CAM)가 주인공을 따라 움직입니다. */
 let W = VW, H = VH;
+/* 화면 비율 맞춤 — 창이 16:9 ~ 16:10 이면 화면(캔버스) 세로를 SH 로 늘려 꽉 채웁니다 (fit).
+   방은 그대로 576×324 — 위아래로 OY 만큼 늘어난 띠에는 방 바닥 · 벽을 거울처럼 이어 그리고,
+   컷신(1인칭 · 추락 등)은 16:9 그림을 살짝 키워 좌우만 조금 잘라 꽉 채웁니다 (baseXf) */
+let SH = VH, OY = 0;
+let BK = 1, BX = 0, BY = 0;                       // 지금 그리는 장의 기본 변환 (배율 · 밀기) — SR 과 함께
+const baseXf = () => g.setTransform(SR * BK, 0, 0, SR * BK, SR * BX, SR * BY);
 const CAM = { x: 0, y: 0 };
 let cv = document.getElementById('game');
 let g  = cv.getContext('2d');
@@ -29,29 +35,23 @@ const OPP  = { N: 'S', S: 'N', W: 'E', E: 'W' };
 const viewW = () => Math.round((window.visualViewport && visualViewport.width) || window.innerWidth);
 const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
-  // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
-  // PC 의 시작 화면(body.tfill)도 창을 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
-  const fill = document.body.classList.contains('tfill');
-  // 시작 화면은 창 비율을 따라 16:9 ~ 16:10 사이로 세로를 늘립니다 (16:10 노트북 · 모니터에서도 검은 띠 없이)
-  const sh = fill ? Math.round(Math.max(VH, Math.min(VW * 10 / 16, VW * viewH() / viewW()))) : VH;
-  stage.style.height = sh === VH ? '' : sh + 'px';
-  if (fill && window.TitleScreen && TitleScreen.resize) TitleScreen.resize(1920 * sh / VW);
-  const n = document.body.classList.contains('touch') || fill
-    ? Math.max(.4, Math.min(viewW() / VW, viewH() / sh))          // 테두리 없이 화면 끝까지
-    : Math.max(1, Math.min(
-    Math.floor((window.innerWidth  - 40) / VW),
-    Math.floor((window.innerHeight - 90) / VH)
-  ));
+  // 창을 꽉 채웁니다 — 정수배가 아니어도 (테두리 없이 화면 끝까지).
+  // 세로는 창 비율을 따라 16:9(324) ~ 16:10(360) 사이로 늘리고, 그보다 더 길쭉한 창만 남는 쪽이 검은 띠
+  const sh = Math.round(Math.max(VH, Math.min(VW * 10 / 16, VW * viewH() / viewW())));
+  if (sh !== SH) {
+    SH = sh; OY = (SH - VH) / 2;
+    stage.style.height = SH + 'px';
+    cvMain.height = SH; cvMain.style.height = SH + 'px'; gMain.imageSmoothingEnabled = false;
+    if (cvHi) { cvHi.height = SH * HI_R; cvHi.style.height = SH + 'px'; }
+  }
+  if (window.TitleScreen && TitleScreen.resize) TitleScreen.resize(1920 * SH / VW);
+  const n = Math.max(.4, Math.min(viewW() / VW, viewH() / SH));
   stage.style.setProperty('--scale', `scale(${n})`);
   stage.style.transform = `scale(${n})`;
-  stage.style.margin = `${(n - 1) * sh / 2}px ${(n - 1) * VW / 2}px`;
+  stage.style.margin = `${(n - 1) * SH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
-/* 시작 화면이 보이는 동안 body.tfill — 창 가득 (16:9, 남는 쪽은 검은 띠) */
-{ const tEl0 = document.getElementById('title'), syncFill = () => { const on = !tEl0.classList.contains('hidden');
-    if (document.body.classList.contains('tfill') !== on) { document.body.classList.toggle('tfill', on); fit(); } };
-  new MutationObserver(syncFill).observe(tEl0, { attributes: true, attributeFilter: ['class'] });
-  document.body.classList.toggle('tfill', !tEl0.classList.contains('hidden')); }
+document.body.classList.add('tfill');               // 늘 창 가득 — 브라운관 테두리 · 아래 안내 줄 없이 (css)
 if (window.visualViewport) visualViewport.addEventListener('resize', fit);   // 주소창이 접히거나 펴질 때
 addEventListener('orientationchange', () => setTimeout(fit, 250));
 addEventListener('fullscreenchange', () => setTimeout(fit, 60));
@@ -138,7 +138,7 @@ const skipHeld = () => !!(key[' '] || key.Enter || key.Escape || ptrHeld);
 cv.addEventListener('mousemove', e => {
   const r = cv.getBoundingClientRect();
   mouse.x = (e.clientX - r.left) / r.width * VW;     // 화면 좌표 — 쏠 때 카메라만큼 더합니다
-  mouse.y = (e.clientY - r.top)  / r.height * VH;
+  mouse.y = (e.clientY - r.top)  / r.height * SH - OY;   // 늘어난 띠만큼 빼서 방 화면 좌표로
 });
 cv.addEventListener('mousedown', e => { e.preventDefault(); if (performance.now() - TOUCH.last < 800) return; mouse.down = true; Sfx.unlock(); });
 
@@ -203,7 +203,7 @@ function fsTip() {
 /* 손가락 → 게임 화면 좌표 (카메라를 더하면 방 좌표) */
 function touchPos(e) {
   const r = cv.getBoundingClientRect();
-  return { sx: (e.clientX - r.left) / r.width * VW, sy: (e.clientY - r.top) / r.height * VH };
+  return { sx: (e.clientX - r.left) / r.width * VW, sy: (e.clientY - r.top) / r.height * SH - OY };
 }
 /* 손가락 근처의 쏠 것 — 적 · 보스 · 항아리 중 가장 가까운 것 (손가락은 굵으니 넉넉하게) */
 function touchPick(wx, wy, pad) {
@@ -2427,38 +2427,57 @@ function useHiRes() {
   if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
   if (!cvHi) {
     cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
-    cvHi.width = VW * HI_R; cvHi.height = VH * HI_R;
-    Object.assign(cvHi.style, { position: 'absolute', left: '0', top: '0', width: VW + 'px', height: VH + 'px', zIndex: 2, imageRendering: 'auto', pointerEvents: 'none' });
+    cvHi.width = VW * HI_R; cvHi.height = SH * HI_R;
+    Object.assign(cvHi.style, { position: 'absolute', left: '0', top: '0', width: VW + 'px', height: SH + 'px', zIndex: 2, imageRendering: 'auto', pointerEvents: 'none' });
     cvMain.parentNode.insertBefore(cvHi, cvMain.nextSibling);
     gHi = cvHi.getContext('2d');
   }
   cvHi.style.display = 'block';
   return true;
 }
+const isCine = () => G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
 function render() {
   const hi = useHiRes();
-  if (hi) { cv = cvHi; g = gHi; SR = HI_R; g.setTransform(SR, 0, 0, SR, 0, 0); g.imageSmoothingEnabled = true; }
+  if (hi) { cv = cvHi; g = gHi; SR = HI_R; g.imageSmoothingEnabled = true; }
+  // 바탕을 먼저 검게 (늘어난 띠까지)
+  g.setTransform(SR, 0, 0, SR, 0, 0); g.fillStyle = '#040408'; g.fillRect(0, 0, VW, SH);
+  // 컷신 — 16:9 그림을 세로에 맞춰 키움(좌우만 조금 잘림) · 방 — 위아래로 OY 만큼 내려 가운데에
+  if (isCine()) { BK = SH / VH; BX = (VW - VW * BK) / 2; BY = 0; } else { BK = 1; BX = 0; BY = OY; }
+  baseXf();
   renderFrame();
+  BK = 1; BX = 0; BY = 0;
+  g.setTransform(SR, 0, 0, SR, 0, 0);
   if (hi) { cv = cvMain; g = gMain; SR = 1; }
+}
+/* 방 위아래로 늘어난 띠 — 바닥 그림의 가장자리를 거울처럼 이어 붙임 (방 좌표, 카메라 밀기 안에서) */
+function drawFloorBands() {
+  if (!OY || !G.floor) return;
+  const fh = G.floor.height, fw = G.floor.width, b = Math.ceil(OY) + 1;
+  g.save(); g.scale(1, -1); g.drawImage(G.floor, 0, 0, fw, b, 0, 0, fw, b); g.restore();
+  g.save(); g.translate(0, 2 * H); g.scale(1, -1); g.drawImage(G.floor, 0, fh - b, fw, b, 0, H - b, fw, b); g.restore();
+  g.fillStyle = 'rgba(4,4,8,.55)'; g.fillRect(-20, -b - 2, W + 40, b + 2); g.fillRect(-20, H, W + 40, b + 2);   // 띠는 조금 어둡게 — 방 안이 먼저 보이게
 }
 function renderFrame() {
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.translate(-camX(), -camY());                 // 방 안의 것은 카메라만큼 밀어서
-  g.fillStyle = '#040408'; g.fillRect(-20, -20, W + 40, H + 40);
+  g.fillStyle = '#040408'; g.fillRect(-20, -20 - OY, W + 40, H + 40 + 2 * OY);
   // 추락·착지·1인칭 중에는 지상/던전 화면이 뒤로 비쳐 보이면 안 됩니다
   const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
   if (!cine) {
-    if (G.floor) g.drawImage(G.floor, 0, 0);
+    if (G.floor) { g.drawImage(G.floor, 0, 0); drawFloorBands(); }
     if (G.inForest) renderForest(); else renderDungeon();
   }
   if (G.mode === 'morph') renderMorph();         // 변신 컷신의 암막 · 입자도 방 안의 자리에
   g.restore();
 
   // 여기부터는 화면 위에 얹는 것들 — 방 크기 대신 화면 크기로 그립니다
-  const roomW = W, roomH = H;
-  W = VW; H = VH;
+  // (방일 땐 늘어난 화면 전체 VW × SH 로 — 지도 · 섬광이 진짜 화면 끝에. 컷신은 16:9 그대로 키운 채)
+  const roomW = W, roomH = H, cineS = isCine();
+  W = VW; H = cineS ? VH : SH;
+  if (!cineS) { BY = 0; baseXf(); }
   renderScreen();
+  if (!cineS) { BY = OY; baseXf(); }
   W = roomW; H = roomH;
 }
 function renderScreen() {
@@ -2506,7 +2525,7 @@ function renderScreen() {
    밀고, 세질수록 띠가 찢어지고 색이 갈라집니다. k : 0‥1 */
 let _warpCv = null;
 function warpScreen(k) {
-  if (!_warpCv) { _warpCv = document.createElement('canvas'); _warpCv.width = W; _warpCv.height = H; }
+  if (!_warpCv || _warpCv.height !== cv.height) { _warpCv = document.createElement('canvas'); _warpCv.width = cv.width; _warpCv.height = cv.height; }
   const w = _warpCv.getContext('2d');
   w.clearRect(0, 0, W, H); w.drawImage(cv, 0, 0);
   g.save();
@@ -2794,8 +2813,8 @@ function renderDungeon() {
   }
 
   // 어둠 — 주인공 주변만 밝다 (화면 기준으로 — 가장자리 어둠이 화면 가장자리에 오도록)
-  g.save(); g.translate(camX(), camY());
-  drawNightOverlay(g, VW, VH, P.x - camX(), P.y - camY(), .40 + G.depth * .022, 150);
+  g.save(); g.translate(camX(), camY() - OY);                      // 늘어난 띠까지 어둡게
+  drawNightOverlay(g, VW, SH, P.x - camX(), P.y - camY() + OY, .40 + G.depth * .022, 150);
   g.restore();
 }
 
@@ -3285,7 +3304,7 @@ function drawBoss() {
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
-  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH - 18;   // 화면 아래 가운데
+  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 18;   // 화면 아래 가운데 (늘어난 띠까지 내려서)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
@@ -4393,7 +4412,7 @@ function drawAbom() {
   }
 
   // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH - 18;   // 화면 아래 가운데
+  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 18;   // 화면 아래 가운데 (늘어난 띠까지 내려서)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
@@ -5247,7 +5266,7 @@ function renderOpening() {
     // 첫 깜빡임 사이로 천장 격자가 하늘 위에 비칩니다 — 무엇인지는 엔딩에서
     if (ghost) drawOpCeiling(.38, -.08);
     }
-    g.setTransform(SR, 0, 0, SR, 0, 0);
+    baseXf();
     blurFrame((1 - o) * 5 + e * 6);
     if (rise > .8) { g.fillStyle = `rgba(0,0,0,${(rise - .8) * 5})`; g.fillRect(0, 0, W, H); }
   }
@@ -5298,7 +5317,7 @@ function drawSkipRing(k, show, full) {
   if (show <= 0 && k <= 0) return;
   const a = Math.min(1, show / 30, 1) * .85, x = W - 22, y = H - 20;
   g.save();
-  g.setTransform(SR, 0, 0, SR, 0, 0);
+  baseXf();
   g.globalAlpha = a; g.lineCap = 'round';
   g.strokeStyle = 'rgba(232,238,246,.25)'; g.lineWidth = 2;
   g.beginPath(); g.arc(x, y, 7, 0, Math.PI * 2); g.stroke();
@@ -5636,7 +5655,7 @@ function endingWorld() {
     try { drawPlayer(); } finally { g = gk; P.inv = inv; }
     G.hideHero = true;
     try { render(); } finally { G.hideHero = false; }
-    const rc = document.createElement('canvas'); rc.width = cv.width; rc.height = cv.height; rc.getContext('2d').drawImage(cv, 0, 0);
+    const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; rc.getContext('2d').drawImage(cv, 0, OY, VW, VH, 0, 0, VW, VH);   // 늘어난 띠는 빼고 방만
     const whole = W === VW && H === VH;                       // 방 전체가 한 화면일 때만 테두리 벽을 세움
     return { room: rc, hero: hc, heroAt: [hx - cx, hy - cy, hw, hh], W: VW, H: VH, TS,
              doors: whole ? Object.keys(G.doors) : ['N', 'S', 'E', 'W'], walls: whole,

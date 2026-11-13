@@ -1209,6 +1209,13 @@ const ExitState = {
   }
 };
 
+/* 화면이 16:10 이면 캔버스(16:9)를 키워 좌우가 조금 잘려 나감 — 그만큼(캔버스 좌표) 가장자리 글자를 안쪽으로 */
+function cropX(s) {
+  const cv = s.canvas || (s.ctx && s.ctx.canvas); if (!cv) return 0;
+  const r = cv.getBoundingClientRect(), p = cv.parentElement && cv.parentElement.getBoundingClientRect();
+  if (!r.width || !p || r.width <= p.width + 1) return 0;
+  return (r.width - p.width) / 2 * W / r.width;
+}
 function drawVitalsHud(s, c) {
   const a = s.hudA;
   if (a <= 0) return;
@@ -1218,20 +1225,21 @@ function drawVitalsHud(s, c) {
   c.textBaseline = 'top';
   c.font = `13px ${MONO}`;
   c.fillStyle = 'rgba(230,241,255,.5)';
-  c.fillText('VITAL MONITOR · CELL 07 · 2145.05.20', 32, 26);
+  const cx = cropX(s);
+  c.fillText('VITAL MONITOR · CELL 07 · 2145.05.20', 32 + cx, 26);
   c.textAlign = 'right';
-  c.fillText('HR', W - 32, 26);
+  c.fillText('HR', W - 32 - cx, 26);
   c.font = `44px ${MONO}`;
   c.fillStyle = PAL.term;
-  c.fillText(e.bpm ? String(e.bpm) : '--', W - 32, 44);
+  c.fillText(e.bpm ? String(e.bpm) : '--', W - 32 - cx, 44);
   c.font = `13px ${MONO}`;
   c.fillStyle = 'rgba(230,241,255,.5)';
-  c.fillText('bpm', W - 32, 94);
+  c.fillText('bpm', W - 32 - cx, 94);
   if (e.pulse > 0) {
     c.globalAlpha = a * e.pulse;
     c.fillStyle = PAL.term;
     c.font = `20px ${MONO}`;
-    c.fillText('♥', W - 110, 54);
+    c.fillText('♥', W - 110 - cx, 54);
   }
   c.restore();
 }
@@ -1389,7 +1397,7 @@ class EndingScene {
     // 주사선 · 가장자리 그늘 — 3D 실험실(탈출과 같은 화면)에선 걷어 냄
     if (!(this.lab3 && /^(reveal|truth|standby|exit)$/.test(this.stateName))) c.drawImage(this.overlay, 0, 0);
     if (this.skipShow > 0) {                                     // 길게 눌러 건너뛰기 — 오른쪽 아래 고리
-      const x = W - 36, y = H - 32, k = Math.min(1, this.skipT / 60);
+      const x = W - 36 - cropX(this), y = H - 32, k = Math.min(1, this.skipT / 60);
       c.save(); c.globalAlpha = Math.min(1, this.skipShow / 30) * .85; c.lineCap = 'round'; c.lineWidth = 3;
       c.strokeStyle = 'rgba(232,238,246,.25)'; c.beginPath(); c.arc(x, y, 11, 0, Math.PI * 2); c.stroke();
       if (k > 0) { c.strokeStyle = '#e8eef6'; c.beginPath(); c.arc(x, y, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * k); c.stroke(); }

@@ -794,11 +794,12 @@ button:active{ transform:translateY(3px); box-shadow:0 0 0 #8a6a18; }
 .d-sub b{ color:#fff0ed; }
 
 /* ═══════════════ 엔딩 ═══════════════════════════════════ */
-#ending{ position:absolute; inset:0; z-index:70; }
+#ending{ position:absolute; inset:0; z-index:70; overflow:hidden; }
 
 /* 연출은 전부 이 캔버스 한 장에서 — js/ending.js */
 #endcv{
-  position:absolute; inset:0; width:100%; height:100%;
+  /* 무대가 16:10 까지 늘어나도 16:9 그림을 세로에 맞춰 키워 꽉 채움 (좌우만 조금 잘림) */
+  position:absolute; top:0; left:50%; height:100%; width:auto; aspect-ratio:16 / 9; transform:translateX(-50%);
   display:block; background:#000;
   image-rendering:pixelated;
 }
@@ -1106,10 +1107,11 @@ body.topview #crt::after{                 /* 유리에 비친 방 불빛 — 왼
 /* ── 탈출(제4막) — 창 전체로 ───────────────────────────────
    #ending 을 잠깐 무대(#stage) 밖으로 꺼내 창을 꽉 채우고, 화면은 16:9 로 가운데에. */
 body.escfull #ending{ position:fixed; inset:0; z-index:1000; background:#000; }
-body.escfull #endcv{
-  inset:auto; width:min(100vw, 177.78vh); height:min(56.25vw, 100vh);
-  left:calc(50vw - min(50vw, 88.89vh)); top:calc(50vh - min(28.125vw, 50vh));
+body.escfull #endcv{                   /* 창을 꽉 채움 — 16:10 창이면 좌우를 조금 잘라 냄 (cover) */
+  inset:auto; transform:none; aspect-ratio:auto; width:max(100vw, 177.78vh); height:max(56.25vw, 100vh);
+  left:calc(50vw - max(50vw, 88.89vh)); top:calc(50vh - max(28.125vw, 50vh));
 }
+body.escfull #ending{ overflow:hidden; }
 
 /* ── 축제판 (festival.js) — 타임어택 참가 등록 · 실시간 순위판 ─────────────
    축제판으로 빌드했을 때만 생깁니다. 등록 칸은 모드 선택 자리에 같은 결로,
@@ -1276,3 +1278,4 @@ body.tfill, html:has(body.tfill){ background:#000; }
 body.tfill #stage{ box-shadow:none; border-radius:0; transition:none; }
 body.tfill #hint{ display:none; }
 body.tfill #frame{ gap:0; }
+body.tfill.topview #crt{ border-radius:0; }
