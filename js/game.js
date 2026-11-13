@@ -30,16 +30,21 @@ const viewW = () => Math.round((window.visualViewport && visualViewport.width) |
 const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
-  // PC 의 시작 화면(body.tfill)도 창을 16:9 로 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
-  const n = document.body.classList.contains('touch') || document.body.classList.contains('tfill')
-    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 테두리 없이 화면 끝까지
+  // PC 의 시작 화면(body.tfill)도 창을 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
+  const fill = document.body.classList.contains('tfill');
+  // 시작 화면은 창 비율을 따라 16:9 ~ 16:10 사이로 세로를 늘립니다 (16:10 노트북 · 모니터에서도 검은 띠 없이)
+  const sh = fill ? Math.round(Math.max(VH, Math.min(VW * 10 / 16, VW * viewH() / viewW()))) : VH;
+  stage.style.height = sh === VH ? '' : sh + 'px';
+  if (fill && window.TitleScreen && TitleScreen.resize) TitleScreen.resize(1920 * sh / VW);
+  const n = document.body.classList.contains('touch') || fill
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / sh))          // 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
   ));
   stage.style.setProperty('--scale', `scale(${n})`);
   stage.style.transform = `scale(${n})`;
-  stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
+  stage.style.margin = `${(n - 1) * sh / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
 /* 시작 화면이 보이는 동안 body.tfill — 창 가득 (16:9, 남는 쪽은 검은 띠) */

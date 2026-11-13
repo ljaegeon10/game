@@ -12,7 +12,7 @@
 (() => {
 const cv = document.getElementById('titlecv'), title = document.getElementById('title');
 if (!cv || !title) return;
-const W = cv.width, H = cv.height, K = W / 576, c = cv.getContext('2d');
+let W = cv.width, H = cv.height, K = W / 576; const c = cv.getContext('2d');
 const rnd = (() => { let s = 20450520; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
 
 /* ── 벽 — 한 번만 ── */
@@ -58,8 +58,9 @@ function bakeFigure() {
   try { F = new Figure3D(W, H); } catch (e) { return null; }
   if (!F.ok) return null;
   F.k = W / 960;
+  const ex = (H / W * 960 - 540) / 2;                     // 16:10 처럼 세로가 더 길면 — 인물을 그만큼 아래로 (가운데 맞춤)
   const img = F.render({ kind: 'suit', x: -.02, y: -1.47, z: 1.06, yaw: .62, stride: 0, reach: 0, lean: .2, alpha: 1 }, {
-    cam: { f: 560, px: 262, py: 272 }, sky: [.022, .04, .05], gnd: [.006, .01, .012], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+    cam: { f: 560, px: 262, py: 272 + ex }, sky: [.022, .04, .05], gnd: [.006, .01, .012], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
     lights: [[[1.5, .75, -1.75], [.3, 1.5, 1.65]],        // 제목 쪽 뒤에서 — 윤곽을 따라 흐르는 청록
              [[1.1, .2, -.55], [.03, .16, .18]],          // 앞을 아주 옅게
              [[-.9, 1.6, -1.6], [.07, .1, .13]],          // 반대편 위 — 어깨선만
@@ -118,5 +119,12 @@ new MutationObserver(sync).observe(title, { attributes: true, attributeFilter: [
 document.addEventListener('visibilitychange', sync);
 addEventListener('load', sync);
 sync();
-window.TitleScreen = { redraw: sync };
+/* 화면 비율이 바뀌면(16:9 ↔ 16:10) — 캔버스 크기를 맞추고 벽 · 인물을 다시 굽습니다 (game.js 의 fit) */
+function resize(h) {
+  h = Math.round(h); if (h === H) return;
+  cv.height = H = h; W = cv.width; K = W / 576; wall = null; fig = null;
+  for (const d of dust) d.y = rnd() * H;
+  sync();
+}
+window.TitleScreen = { redraw: sync, resize };
 })();

@@ -8867,7 +8867,7 @@ window.Gun3DParts = { buildGun, buildHands };
 (() => {
 const cv = document.getElementById('titlecv'), title = document.getElementById('title');
 if (!cv || !title) return;
-const W = cv.width, H = cv.height, K = W / 576, c = cv.getContext('2d');
+let W = cv.width, H = cv.height, K = W / 576; const c = cv.getContext('2d');
 const rnd = (() => { let s = 20450520; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
 
 /* ── 벽 — 한 번만 ── */
@@ -8913,8 +8913,9 @@ function bakeFigure() {
   try { F = new Figure3D(W, H); } catch (e) { return null; }
   if (!F.ok) return null;
   F.k = W / 960;
+  const ex = (H / W * 960 - 540) / 2;                     // 16:10 처럼 세로가 더 길면 — 인물을 그만큼 아래로 (가운데 맞춤)
   const img = F.render({ kind: 'suit', x: -.02, y: -1.47, z: 1.06, yaw: .62, stride: 0, reach: 0, lean: .2, alpha: 1 }, {
-    cam: { f: 560, px: 262, py: 272 }, sky: [.022, .04, .05], gnd: [.006, .01, .012], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+    cam: { f: 560, px: 262, py: 272 + ex }, sky: [.022, .04, .05], gnd: [.006, .01, .012], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
     lights: [[[1.5, .75, -1.75], [.3, 1.5, 1.65]],        // 제목 쪽 뒤에서 — 윤곽을 따라 흐르는 청록
              [[1.1, .2, -.55], [.03, .16, .18]],          // 앞을 아주 옅게
              [[-.9, 1.6, -1.6], [.07, .1, .13]],          // 반대편 위 — 어깨선만
@@ -8973,7 +8974,14 @@ new MutationObserver(sync).observe(title, { attributes: true, attributeFilter: [
 document.addEventListener('visibilitychange', sync);
 addEventListener('load', sync);
 sync();
-window.TitleScreen = { redraw: sync };
+/* 화면 비율이 바뀌면(16:9 ↔ 16:10) — 캔버스 크기를 맞추고 벽 · 인물을 다시 굽습니다 (game.js 의 fit) */
+function resize(h) {
+  h = Math.round(h); if (h === H) return;
+  cv.height = H = h; W = cv.width; K = W / 576; wall = null; fig = null;
+  for (const d of dust) d.y = rnd() * H;
+  sync();
+}
+window.TitleScreen = { redraw: sync, resize };
 })();
 
 </script>
@@ -13976,16 +13984,21 @@ const viewW = () => Math.round((window.visualViewport && visualViewport.width) |
 const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
-  // PC 의 시작 화면(body.tfill)도 창을 16:9 로 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
-  const n = document.body.classList.contains('touch') || document.body.classList.contains('tfill')
-    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 테두리 없이 화면 끝까지
+  // PC 의 시작 화면(body.tfill)도 창을 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
+  const fill = document.body.classList.contains('tfill');
+  // 시작 화면은 창 비율을 따라 16:9 ~ 16:10 사이로 세로를 늘립니다 (16:10 노트북 · 모니터에서도 검은 띠 없이)
+  const sh = fill ? Math.round(Math.max(VH, Math.min(VW * 10 / 16, VW * viewH() / viewW()))) : VH;
+  stage.style.height = sh === VH ? '' : sh + 'px';
+  if (fill && window.TitleScreen && TitleScreen.resize) TitleScreen.resize(1920 * sh / VW);
+  const n = document.body.classList.contains('touch') || fill
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / sh))          // 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
   ));
   stage.style.setProperty('--scale', `scale(${n})`);
   stage.style.transform = `scale(${n})`;
-  stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
+  stage.style.margin = `${(n - 1) * sh / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
 /* 시작 화면이 보이는 동안 body.tfill — 창 가득 (16:9, 남는 쪽은 검은 띠) */
