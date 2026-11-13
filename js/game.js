@@ -1088,7 +1088,7 @@ function interact() {
     return;
   }
   if (nearChest()) {
-    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 없다.', w: false }]); return; }
+    if (G.keys < 1) { say([{ t: '잠겼네. 열쇠가 있어야겠다.', w: false }]); return; }
     G.keys--; G.chest.open = true; stateOf(G.room).chestOpen = true;
     updateHud(); Sfx.chest(); G.shake = 8;
     const heal = G.chest.heal || 0;
@@ -1097,7 +1097,7 @@ function interact() {
         for (let i = 0; i < heal; i++)
           G.pickups.push({ k: 'heart', x: G.chest.x + (i - (heal - 1) / 2) * 22,
                            y: G.chest.y - 22, bob: i });
-        say([{ t: '상자 안쪽에서 온기가 새어 나온다. 조금 낫는 기분이다.', w: false }]);
+        say([{ t: '상자 안이 따뜻하네. 좀 살 것 같다.', w: false }]);
       }
     };
     if (G.chest.note) openNote(NOTES[G.chest.note], done);
@@ -1109,20 +1109,20 @@ function interact() {
     /* 관문 열쇠는 소모되지 않습니다 — 두 개를 모았다면 언제 눌러도 열립니다 */
     const blocked = gateBlocker();
     if (blocked === 'keys') {
-      say([{ t: '잠금장치 두 개가 나란히 걸려 있다. 꽂을 게 없다.', w: false }]);
+      say([{ t: '자물쇠가 두 개네. 지금은 꽂을 열쇠가 없어.', w: false }]);
     } else if (blocked === 'explore') {
-      say([{ t: '열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**', w: true }]);
+      say([{ t: '열쇠는 둘 다 꽂았는데 안 돌아가네. **아직 안 가 본 길이 있나 봐.**', w: true }]);
     } else {
       G.gateOpen = true;
       buildDoors(G.room); updateHud();
       Sfx.door(); G.shake = 10;
-      say([{ t: '잠금장치가 풀린다. 안쪽 길이 열렸다.', w: false }]);
+      say([{ t: '됐다, 풀렸어. 안쪽 길이 열렸다.', w: false }]);
     }
     return;
   }
   if (nearFinalLock()) {
     if (!G.finalKey) {
-      say([{ t: '잠겨 있다. 아직 열쇠가 없다.', w: false }]); return;
+      say([{ t: '잠겼어. 아직 열쇠가 없는데.', w: false }]); return;
     }
     updateHud();
     if (G.timeAttack) beginEnding();         // 타임어택은 곧장 엔딩
@@ -1677,7 +1677,7 @@ function update() {
     if (Math.hypot(P.x - G.floorKey.x, P.y - G.floorKey.y) < 20) {
       G.floorKey = null; stateOf(G.room).keyTaken = true;
       G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-      say([{ t: '오방색 매듭이 달린 낡은 열쇠. …왜 이렇게 익숙하지.', w: true }]);
+      say([{ t: '오방색 매듭이 달린 낡은 열쇠네. …근데 왜 이렇게 낯이 익지.', w: true }]);
     }
   }
   G.pickups = G.pickups.filter(p => {
@@ -1711,7 +1711,7 @@ function onRoomCleared() {
     say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-    say([{ t: '흩어진 자리에 열쇠가 남아 있다.', w: false }]);
+    say([{ t: '어, 사라진 자리에 열쇠가 떨어져 있네.', w: false }]);
   }
 }
 
@@ -5704,7 +5704,7 @@ function tickDoze() {
   if (t >= DOZE.END) {
     G.doze = null;
     G.mode = 'play';
-    say([{ t: '…방금, 누가 말했지?', w: true }]);
+    say([{ t: '…방금 누가 말한 거야?', w: true }]);
   }
 }
 function renderDoze() {

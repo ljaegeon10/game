@@ -1298,7 +1298,7 @@ html:has(body.touch), body.touch{ background:#000; }
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794536127"></script>
+<script src="festival-config.js?v=1794536266"></script>
 
 <div id="frame">
   <div id="stage">
@@ -10344,20 +10344,20 @@ function genGuards() {
 
 /* 지나가며 들려오는 목소리 · 혼잣말 — [z, 대사, 누구] */
 const RUN_LINES = [
-  [8,   '달려야 돼.', 'me'],
+  [8,   '뛰어. 일단 뛰어!', 'me'],
   [60,  '어디 가요, 07.', 'doc'],
   [136, '잡았어요. 진정제 준비.', 'cold'],             // ── 여기서부터 사실은 이미 붙잡혀 침대 위
-  [156, '…바닥이 왜 이렇게 물렁하지?', 'me'],
+  [156, '…바닥이 왜 이렇게 물렁거려?', 'me'],
   [180, '거긴 출구가 아니에요.', 'doc'],
   [208, '용량 올려.', 'cold'],
   [230, '쉬이… 괜찮아요. 꿈에선 마음껏 달려도 돼요.', 'doc'],
-  [262, '…벽지가 왜 누렇지?', 'me'],
+  [262, '…벽이 언제 이렇게 누래졌지?', 'me'],
   [GUN_Z - 6, '…총?', 'me'],
-  [ZONE0 + 4, '경비원 같은데…', 'me'],
+  [ZONE0 + 4, '저거… 경비원이야?', 'me'],
   [ZONE0 + 40, '쏘지 말아요. 그 사람들도 꿈이에요.', 'doc'],
-  [ZONE1 + 56, '…이 복도, 원래 이렇게 길었나?', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
+  [ZONE1 + 56, '…이 복도가 원래 이렇게 길었나?', 'me'],   // 빈 총 대사가 충분히 읽힌 뒤
   [520, '돌아와요. 아직 안 끝났어요.', 'doc'],
-  [560, '…빛인 것 같은데.', 'me']
+  [560, '…저기, 빛이다!', 'me']
 ];
 
 /* 현실이 끼어드는 순간 — [z, 프레임, 몇 번째].  실험실이 백룸으로 바뀌기 시작할 즈음,
@@ -10396,12 +10396,12 @@ const camLerp = (a, b, k) => ({ x: lerp(a.x, b.x, k), y: lerp(a.y, b.y, k), z: l
 /* 돌아다니며 다가가면 — 던전에서 본 것이 무엇이었는지 */
 const STRIDE = .75;                                     // 한 걸음 (m)
 const ROAM_SPOTS = [
-  { at: [-2.75, 6.55], r: 1.9, lines: [['골격 모형… 던전에 굴러다니던 해골이 이거였나?', 'me']] },
-  { at: [-3.16, 6.95], r: 1.7, lines: [['잠금장치에 초록 불이 켜져 있는 것 같은데.', 'me'], ['열쇠가… 키카드였던 거야?', 'me']] },
-  { at: [.4, .2], r: 2.0, lines: [['피험자 07… 141번째 세션, 깨어난 건 0번.', 'me'], ['…이제 1번이네.', 'me']] },
-  { at: [3.6, .2], r: 1.8, lines: [['빨간 배양액… 링거랑 같은 색 같은데.', 'me']] },
-  { at: [3.4, 6.6], r: 1.7, lines: [['선이 일자로 쭉… 여기선 내가 이미 죽은 건가.', 'me']] },
-  { at: [.15, 6.6], r: 1.8, lines: [['빈 의자에… 커피가 아직 식는 중인 것 같은데.', 'me']] }
+  { at: [-2.75, 6.55], r: 1.9, lines: [['해골 모형이네… 던전에 굴러다니던 뼈가 이거였어?', 'me']] },
+  { at: [-3.16, 6.95], r: 1.7, lines: [['문 잠금장치에 초록 불이 들어와 있네.', 'me'], ['열쇠가… 키카드였던 거야?', 'me']] },
+  { at: [.4, .2], r: 2.0, lines: [['피험자 07… 세션 141번에, 깨어난 횟수 0번.', 'me'], ['…이제 1번이네.', 'me']] },
+  { at: [3.6, .2], r: 1.8, lines: [['빨간 배양액… 내 링거랑 똑같은 색이잖아.', 'me']] },
+  { at: [3.4, 6.6], r: 1.7, lines: [['선이 그냥 일자네… 여기선 내가 죽은 걸로 나오는 거야?', 'me']] },
+  { at: [.15, 6.6], r: 1.8, lines: [['의자는 비었는데… 커피가 아직 따뜻해.', 'me']] }
 ];
 const DOOR_AT = [-3.85, 6.9];
 
@@ -10438,7 +10438,7 @@ const WakeState = {
 
     if (s.wk === 'ceil') {
       if (t === 100) s.say('…천장?', 'me', 150);
-      if (t === 260) s.say('격자 조명…? 우물 입구가 아닌 것 같은데.', 'me', 190);
+      if (t === 260) s.say('형광등…? 여기, 우물이 아니잖아.', 'me', 190);
       if (t === 470) s.sfx.chime();
       if (t === 500) s.say('07번 피험자, 의식 회복. 담당 연구원은 관찰실로 복귀 바랍니다.', 'pa', 300, 1.6);
       if (t === 720) WakeState.ask(s, 'sit', '몸을 일으킨다');
@@ -10448,8 +10448,8 @@ const WakeState = {
       // 커피 대사 동안 고개를 돌려 관찰창 쪽을 봤다가 다시 무릎으로
       s.glance = t < 250 ? 0 : t < 330 ? ease((t - 250) / 80) : t < 520 ? 1 : t < 600 ? 1 - ease((t - 520) / 80) : 0;
       if (t === 120) s.say('…아무도 없어?', 'me', 150);
-      if (t === 300) s.say('관찰창 너머에… 커피에서 아직 김이 나는 것 같은데.', 'me', 200);
-      if (t === 470) s.say('방금까지 누가 있었던 건가…', 'me', 170);
+      if (t === 300) s.say('저 창문 너머에… 커피에서 아직 김이 나네.', 'me', 200);
+      if (t === 470) s.say('방금까지 누가 있었다는 건데…', 'me', 170);
       if (t === 640) { s.wk = 'wires'; s.wt = 0; WakeState.ask(s, 'wire', '전극을 뗀다  (4)'); }
     }
     else if (s.wk === 'wires') {
@@ -10457,13 +10457,13 @@ const WakeState = {
       const pulled = s.wirePull.filter(v => v > 0).length;
       if (pulled !== 4 - s.wires) {
         s.wires = 4 - pulled;
-        if (s.wires === 3) s.say('…선이 네 가닥이나 붙어 있는 것 같은데.', 'me', 140);
+        if (s.wires === 3) s.say('…몸에 선이 네 개나 붙어 있네.', 'me', 140);
         if (s.wires === 0) { s.sfx.flat(true); s.flash = .3; s.wt = 0; }
         else WakeState.ask(s, 'wire', `전극을 뗀다  (${s.wires})`);
       }
       if (s.wires === 0) {
         if (t === 40) s.say('빨강, 파랑, 노랑, 흰색.', 'me', 150);
-        if (t === 200) s.say('던전을 물들이던 색… 이 선 색깔이었던 거야?', 'me', 210);
+        if (t === 200) s.say('던전에서 계속 보던 색인데… 이 선 색깔이었어?', 'me', 210);
         if (t === 300) s.sfx.chime();
         if (t === 330) s.say('07번 생체 신호 소실. 관찰실, 확인 바랍니다.', 'pa', 240, 1.6);
         if (t === 420) { s.wk = 'iv'; s.wt = 0; WakeState.ask(s, 'iv', '링거를 뽑는다'); }
@@ -10472,7 +10472,7 @@ const WakeState = {
     else if (s.wk === 'iv') {
       if (s.ivOut) {
         s.ivT++;
-        if (s.wt === 30) s.say('빨간 방울… 던전에서 본 피가 이거였나?', 'me', 200);
+        if (s.wt === 30) s.say('빨간 방울… 던전에서 본 피가 이거였구나.', 'me', 200);
         if (s.wt === 240) WakeState.ask(s, 'stand', '일어선다');
       }
     }
@@ -10481,7 +10481,7 @@ const WakeState = {
       s.dizzy = t < 220 ? Math.sin(Math.min(1, t / 40) * HP) * (1 - Math.max(0, t - 140) / 80) : 0;
       if (t === 30) s.sfx.flat(false);
       if (t === 80) s.say('다리가… 내 다리 같지가 않아.', 'me', 150);
-      if (t === 240) s.say('141번이나 누워만 있었으니까… 그래서 그런가.', 'me', 180);
+      if (t === 240) s.say('141번을 누워만 있었으니… 그럴 만도 하지.', 'me', 180);
       if (t === 380) {
         s.wk = 'roam'; s.wt = 0;
         s.cam = { ...CAM_STAND };
@@ -10502,7 +10502,7 @@ const WakeState = {
       if (s.held.has('KeyW') || s.held.has('ArrowUp') || s.held.has('ptr') || s.held.has('touch')) {
         if (s.fade < .5) { s.z = Math.min(START_Z, s.z + .034); s.bob += .09; if (s.frame % 24 === 0) s.sfx.step(.1); if (s.prompt) s.prompt = null; }
       } else s.bob += .01;
-      const H_LINES = [[WAKE_HALL0 + 3, '…발소리가 들리는 것 같은데. 아직은 멀어.', 'me'], [-8, '복도 끝에 초록 불이 보이는 것 같은데.', 'me']];
+      const H_LINES = [[WAKE_HALL0 + 3, '…발소리다. 아직은 멀어.', 'me'], [-8, '복도 끝에 초록 불이 보여.', 'me']];
       H_LINES.forEach(([at, txt, who], i) => {
         if (s.z >= at && !(s.saidW & (1 << (8 + i)))) { s.saidW |= 1 << (8 + i); s.say(txt, who, 170); if (i === 0) s.sfx.chase(.05); }
       });
@@ -10569,7 +10569,7 @@ const WakeState = {
     if (s.busyT > 0) s.busyT--;
     s.roamT++;
     if (s.roamT === 900) { s.sfx.chime(); s.say('관찰실 응답 없음. 보안 요원, B동 3층으로.', 'pa', 260, 1.6); }
-    if (s.roamT === 2400) s.say('…문인가? 왼쪽 끝에 초록 불이 켜져 있는 것 같은데.', 'me', 200);
+    if (s.roamT === 2400) s.say('…저거 문 아냐? 왼쪽 끝에 초록 불 켜진 데.', 'me', 200);
     // 문 앞 — 열기
     const dd = Math.hypot(c.x - DOOR_AT[0], c.z - DOOR_AT[1]);
     if (dd < 1.45 && (!s.prompt || s.prompt.key === 'roam')) WakeState.ask(s, 'door', '문을 연다', false, s.touch ? '톡' : 'SPACE');
@@ -10640,8 +10640,8 @@ const DoorState = {
   },
   update(s) {
     const t = s.t, w = s.fromWake;                       // 깨어남에서 걸어왔으면 눈은 이미 떠 있습니다
-    if (!w && t === 50) s.say('…몸이 움직이는 것 같은데.', 'me', 150);
-    if (t === (w ? 20 : 200)) s.say('비상구가 반쯤 열려 있어. 바깥에서 바람이 들어오는 것 같은데.', 'me', 190);
+    if (!w && t === 50) s.say('…어, 몸이 움직여.', 'me', 150);
+    if (t === (w ? 20 : 200)) s.say('비상구가 반쯤 열려 있어. 바람이 들어오는데.', 'me', 190);
     if (t === (w ? 220 : 380)) s.say('…나가 볼까?', 'me', 9999);
     if (t === (w ? 260 : 420)) s.choose(['탈출한다', '안 한다'], i => s.go(i === 0 ? 'open' : 'stay'));
     s.bob += .012;
@@ -10678,9 +10678,9 @@ const OpenState = {
   update(s) {
     const t = s.t;
     s.doorOpen = Math.min(1, s.doorOpen + .022);
-    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보 같은데.', 'me', 80); }
+    if (t === 24) { s.alarm = 1; s.lights = 1; s.sfx.alarm(true); s.sfx.humVol(1); s.sfx.bgm(true); s.shake = 6; s.say('…경보다!', 'me', 80); }
     if (t === 76) { s.view = 'back'; s.sfx.chase(.18); s.shake = 4; }      // 휙 돌아봅니다
-    if (t === 82) s.say('노란 방호복… 얼굴이 있어야 할 데가 새까만 것 같은데.', 'me', 110);
+    if (t === 82) s.say('노란 방호복… 얼굴이 있어야 할 데가 새까매.', 'me', 110);
     if (t === 150) { s.view = 'fwd'; s.shake = 3; }
     s.chaseX = 0;
     if (t >= 160) s.go('run');
@@ -10728,7 +10728,7 @@ const RunState = {
       if (!passes(s, o) && s.immune <= 0) {
         o.hit = true; s.stumble = 60; s.immune = 40; s.shake = 12; s.flash = .7;
         s.sfx.hit();
-        if (s.dist < 6) s.say(['넘어지면 끝이야…!', '…가까워.', '숨소리가 바로 뒤에서 들리는 것 같은데…'][(Math.random() * 3) | 0], 'me', 80);
+        if (s.dist < 6) s.say(['넘어지면 끝이야…!', '…너무 가까워!', '숨소리가 바로 뒤야…!'][(Math.random() * 3) | 0], 'me', 80);
       }
     }
     updateGun(s);
@@ -10843,7 +10843,7 @@ function updateGun(s) {
     G.side += ((G.reload > 0 && G.step >= 0 ? 1 : 0) - G.side) * .25;   // 조준 자리 ↔ 장전 자리
     tickReload(s);
     // 구간을 지나면 — 빈 총을 버립니다
-    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 빈 총인 것 같은데, 버리자.', 'me', 240, 5); s.sfx.empty(); }
+    if (s.z >= ZONE1 + 8) { s.gun = null; s.gunDone = true; s.say('…철컥. 다 썼네. 버리자.', 'me', 240, 5); s.sfx.empty(); }
   }
   // 경비원
   for (const g of s.guards) {
@@ -10865,7 +10865,7 @@ function updateGun(s) {
         const dodged = Math.abs(s.x - g.lockX) > .4 || slideK(s) > .35;
         if (!dodged && s.immune <= 0) {
           s.stumble = 24; s.immune = 70; s.shake = 10; s.flash = .7; s.sfx.hit();   // 맞아도 잠깐 휘청 · 한동안 무적
-          if (!s.shotOnce) { s.shotOnce = true; s.say('맞았다— 빨간 선 뜨면 비켜야 하나 봐.', 'me', 120); }
+          if (!s.shotOnce) { s.shotOnce = true; s.say('윽, 맞았다— 빨간 선 뜨면 피해야 돼!', 'me', 120); }
         }
       }
     }
@@ -12460,9 +12460,9 @@ const NOTES = {
 /* ── 지상 (숲) ──────────────────────────────────────────── */
 /* 오프닝 — 숲에서 막 눈을 떠 누운 채로 하는 생각 */
 const OPENING_LINES = [
-  { t: '…언제 잠들었지.', w: true },
-  { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
-  { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false }
+  { t: '…어, 나 언제 잠들었지.', w: true },
+  { t: '벌써 해가 지네. 숲 안쪽은 꽤 어둡다.', w: false },
+  { t: '이 길 끝에 오래된 우물이 있다고 했는데.', w: false }
 ];
 /* 탑뷰로 바뀐 뒤 처음 손에 쥐어지는 조작 안내 */
 const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
@@ -12470,8 +12470,8 @@ const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
 const FOREST = {
   kind: 'forest', date: '2145 / 05 / 01',
   intro: [
-    { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
-    { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false },
+    { t: '벌써 해가 지네. 숲 안쪽은 꽤 어둡다.', w: false },
+    { t: '이 길 끝에 오래된 우물이 있다고 했는데.', w: false },
     { t: '이동 — W A S D', sys: true }
   ]
 };
@@ -12489,7 +12489,7 @@ const MAP = {
   start: {
     gx: 0, gy: 1, depth: 1, name: '우물 아래',
     intro: [
-      { t: '…차갑다. 올라가려던 사다리는 이미 무너져 있다.', w: false },
+      { t: '아, 차가워… 사다리도 부서졌네. 올라가긴 글렀다.', w: false },
       { t: '공격 — 방향키 / 마우스', sys: true }
     ],
     enemies: [{ t: 'shroom', x: 408, y: 100 }],
@@ -12498,14 +12498,14 @@ const MAP = {
 
   fork: {
     gx: 1, gy: 1, depth: 1, name: '갈림길',
-    intro: [{ t: '길이 셋으로 갈린다. 어느 쪽이든 안쪽으로 이어지는 것 같다.', w: false }],
+    intro: [{ t: '길이 세 갈래네. 어디로 가든 안쪽으로 이어지나 봐.', w: false }],
     enemies: [{ t: 'shroom', x: 156, y: 90 }, { t: 'shroom', x: 420, y: 230 }],
     pots: [{ x: 288, y: 70 }, { x: 288, y: 250 }]
   },
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
-    intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
+    intro: [{ t: '어, 벽에 적힌 날짜가 바뀌었어. **방금 지나온 데 맞는데.**', w: true }],
     enemies: [
       { t: 'shroom', x: 132, y: 100 }, { t: 'charger', x: 444, y: 100 },
       { t: 'shroom', x: 288, y: 240 }, { t: 'spitter', x: 456, y: 220 }
@@ -12516,7 +12516,7 @@ const MAP = {
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
-    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
+    intro: [{ t: '여긴 뼈가 왜 이렇게 많아… 저 구석에 상자가 있다.', w: false }],
     enemies: [
       { t: 'shroom', x: 144, y: 120 }, { t: 'sporer', x: 432, y: 210 },
       { t: 'shroom', x: 432, y: 100 }
@@ -12528,7 +12528,7 @@ const MAP = {
 
   mid: {
     gx: 2, gy: 1, depth: 3, name: '중앙',
-    intro: [{ t: '세 갈래가 여기서 다시 만난다. 결국 같은 곳으로 돌아온 셈이다.', w: true }],
+    intro: [{ t: '세 길이 여기서 다시 만나네. 결국 제자리로 돌아온 거잖아.', w: true }],
     enemies: [
       { t: 'spitter', x: 144, y: 90 }, { t: 'blinker', x: 432, y: 240 },
       { t: 'shroom', x: 288, y: 90 }
@@ -12539,7 +12539,7 @@ const MAP = {
 
   ne: {
     gx: 2, gy: 0, depth: 3, name: '북동 통로',
-    intro: [{ t: '천장에서 뿌리가 내려와 있다. 여긴 더 오래 방치된 것 같다.', w: false }],
+    intro: [{ t: '천장에서 뿌리가 내려왔네. 여긴 훨씬 오래 버려져 있었나 봐.', w: false }],
     enemies: [
       { t: 'shroom', x: 144, y: 100 }, { t: 'splitter', x: 432, y: 100 },
       { t: 'shroom', x: 288, y: 230 }
@@ -12552,7 +12552,7 @@ const MAP = {
 
   se: {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
-    intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
+    intro: [{ t: '낙서에 적힌 날짜가… **며칠씩 건너뛰는데?**', w: true }],
     enemies: [
       { t: 'sporer', x: 144, y: 100 }, { t: 'charger', x: 432, y: 110 },
       { t: 'shroom', x: 156, y: 240 }, { t: 'spitter', x: 444, y: 235 }
@@ -12565,7 +12565,7 @@ const MAP = {
 
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
-    intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
+    intro: [{ t: '엄청 큰 자물쇠가 두 개나 걸려 있다.', w: false }],
     enemies: [{ t: 'splitter', x: 180, y: 100 }, { t: 'blinker', x: 396, y: 220 }],
     pots: [{ x: 108, y: 90 }, { x: 480, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
@@ -12576,8 +12576,8 @@ const MAP = {
     gx: 4, gy: 1, depth: 5, name: '심층', boss: true,
     size: [768, 432],                // 보스방만 화면(576×324)보다 넓습니다 — 카메라가 따라갑니다
     intro: [
-      { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
-      { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
+      { t: '벽이 온통 5 / 20 이라는 글씨야. 뭐야, 이게.', w: true },
+      { t: '**…뭔가 나를 보고 있어.**', w: true }
     ],
     pots: [{ x: 96, y: 82 }, { x: 672, y: 82 }, { x: 96, y: 350 }, { x: 672, y: 350 }]
   },
@@ -12585,8 +12585,8 @@ const MAP = {
   exit: {
     gx: 5, gy: 1, depth: 5, name: '탈출구', final: true, needBoss: true,
     intro: [
-      { t: '지상으로 통하는 문. 우물의 파이프가 위로 뻗어 있다.', w: false },
-      { t: '마지막 잠금장치. 이걸 열면, 끝나는 걸까.', w: true }
+      { t: '위로 올라가는 문이다. 우물 파이프도 저 위로 이어져 있고.', w: false },
+      { t: '이게 마지막 자물쇠네. 이것만 열면… 끝나는 건가.', w: true }
     ]
   }
 };
@@ -12613,13 +12613,13 @@ const DATES = [
 
 /* ── 나레이션 ───────────────────────────────────────────── */
 const FALL_LINES = [
-  { t: '우물 안은… 생각보다 훨씬 깊다. 바닥이 안 보인다.', w: false },
-  { t: '난간 돌을 짚고 몸을 숙인 순간, 손바닥 밑 이끼가 밀렸다.', w: false },
-  { t: '중심이 앞으로 쏠린다. 붙잡을 게 없다.', w: true }
+  { t: '우와… 생각보다 훨씬 깊네. 바닥이 안 보여.', w: false },
+  { t: '조금만 더 숙여 보면— 어, 이끼가 미끄러—', w: false },
+  { t: '어어, 잠깐. 잡을 데가 없어!', w: true }
 ];
 
 const GLITCH_LINES = [
-  { t: '피가 튀지 않았다. 잠깐… **숫자 같은 게 흩어졌다.**', w: true }
+  { t: '피가 안 튀네. 잠깐… **방금 숫자가 흩어진 거야?**', w: true }
 ];
 
 /* 페이즈3 변신 컷신 위로 흐르는 관측 로그.
@@ -12651,16 +12651,16 @@ const MORPH_SYS = [
 ];
 
 const BOSS_DEAD_LINES = [
-  { t: '저건 눈이었나. 아니면 **나를 들여다보던 화면이었나.**', w: true },
-  { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
+  { t: '저게 눈이었을까. 아니면… **나를 들여다보던 화면이었을까.**', w: true },
+  { t: '…손에 열쇠가 있네. 마지막 열쇠다.', w: false }
 ];
 
 /* 세 줄로 나눠, 한 줄마다 화면이 한 단계씩 더 무너지게 합니다 (fx — game.js LINE_FX) */
 const ENDING_LINES = [
   { t: '열쇠를 꽂는다. 딸깍.', w: false, fx: 'click' },
-  { t: '…방이 **일그러진다.**', w: true, fx: 'warp1' },
+  { t: '…어, 방이 **일그러지는데.**', w: true, fx: 'warp1' },
   { t: '아니.', w: true, fx: 'still' },
-  { t: '**화면이** 일그러진다.', w: true, fx: 'warp2' }
+  { t: '**화면이** 일그러지는 거야.', w: true, fx: 'warp2' }
 ];
 
 /* ── 이스터에그 ② : 숲 맨 위, 나무 사이의 좁은 틈 ──────────
@@ -12671,9 +12671,9 @@ const ENDING_LINES = [
 const CREEPY_SCRIPT = [
   { kind: 'dark',   d:  900 },
   { kind: 'line',   t: '돌아가.',                        d: 1250 },
-  { kind: 'line',   t: '여긴 네가 올 수 있는 곳이 아니야.', d: 1500 },
+  { kind: 'line',   t: '여긴 네가 올 데가 아니야.', d: 1500 },
   { kind: 'glitch', d:  520 },
-  { kind: 'line',   t: '이 숲은 만들어진 거야.',           d: 1350 },
+  { kind: 'line',   t: '이 숲, 전부 만든 거야.',           d: 1350 },
   { kind: 'line',   t: '우물도.',                        d:  950 },
   { kind: 'line',   t: '네가 본 전부 다.',                d: 1400 },
   { kind: 'glitch', d:  620 },
@@ -14902,7 +14902,7 @@ function interact() {
     return;
   }
   if (nearChest()) {
-    if (G.keys < 1) { say([{ t: '잠겨 있다. 열쇠가 없다.', w: false }]); return; }
+    if (G.keys < 1) { say([{ t: '잠겼네. 열쇠가 있어야겠다.', w: false }]); return; }
     G.keys--; G.chest.open = true; stateOf(G.room).chestOpen = true;
     updateHud(); Sfx.chest(); G.shake = 8;
     const heal = G.chest.heal || 0;
@@ -14911,7 +14911,7 @@ function interact() {
         for (let i = 0; i < heal; i++)
           G.pickups.push({ k: 'heart', x: G.chest.x + (i - (heal - 1) / 2) * 22,
                            y: G.chest.y - 22, bob: i });
-        say([{ t: '상자 안쪽에서 온기가 새어 나온다. 조금 낫는 기분이다.', w: false }]);
+        say([{ t: '상자 안이 따뜻하네. 좀 살 것 같다.', w: false }]);
       }
     };
     if (G.chest.note) openNote(NOTES[G.chest.note], done);
@@ -14923,20 +14923,20 @@ function interact() {
     /* 관문 열쇠는 소모되지 않습니다 — 두 개를 모았다면 언제 눌러도 열립니다 */
     const blocked = gateBlocker();
     if (blocked === 'keys') {
-      say([{ t: '잠금장치 두 개가 나란히 걸려 있다. 꽂을 게 없다.', w: false }]);
+      say([{ t: '자물쇠가 두 개네. 지금은 꽂을 열쇠가 없어.', w: false }]);
     } else if (blocked === 'explore') {
-      say([{ t: '열쇠는 둘 다 꽂혔는데 잠금장치가 돌지 않는다. **아직 밟지 않은 길이 있다.**', w: true }]);
+      say([{ t: '열쇠는 둘 다 꽂았는데 안 돌아가네. **아직 안 가 본 길이 있나 봐.**', w: true }]);
     } else {
       G.gateOpen = true;
       buildDoors(G.room); updateHud();
       Sfx.door(); G.shake = 10;
-      say([{ t: '잠금장치가 풀린다. 안쪽 길이 열렸다.', w: false }]);
+      say([{ t: '됐다, 풀렸어. 안쪽 길이 열렸다.', w: false }]);
     }
     return;
   }
   if (nearFinalLock()) {
     if (!G.finalKey) {
-      say([{ t: '잠겨 있다. 아직 열쇠가 없다.', w: false }]); return;
+      say([{ t: '잠겼어. 아직 열쇠가 없는데.', w: false }]); return;
     }
     updateHud();
     if (G.timeAttack) beginEnding();         // 타임어택은 곧장 엔딩
@@ -15491,7 +15491,7 @@ function update() {
     if (Math.hypot(P.x - G.floorKey.x, P.y - G.floorKey.y) < 20) {
       G.floorKey = null; stateOf(G.room).keyTaken = true;
       G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-      say([{ t: '오방색 매듭이 달린 낡은 열쇠. …왜 이렇게 익숙하지.', w: true }]);
+      say([{ t: '오방색 매듭이 달린 낡은 열쇠네. …근데 왜 이렇게 낯이 익지.', w: true }]);
     }
   }
   G.pickups = G.pickups.filter(p => {
@@ -15525,7 +15525,7 @@ function onRoomCleared() {
     say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
-    say([{ t: '흩어진 자리에 열쇠가 남아 있다.', w: false }]);
+    say([{ t: '어, 사라진 자리에 열쇠가 떨어져 있네.', w: false }]);
   }
 }
 
@@ -19518,7 +19518,7 @@ function tickDoze() {
   if (t >= DOZE.END) {
     G.doze = null;
     G.mode = 'play';
-    say([{ t: '…방금, 누가 말했지?', w: true }]);
+    say([{ t: '…방금 누가 말한 거야?', w: true }]);
   }
 }
 function renderDoze() {

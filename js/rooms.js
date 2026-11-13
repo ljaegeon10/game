@@ -221,9 +221,9 @@ const NOTES = {
 /* ── 지상 (숲) ──────────────────────────────────────────── */
 /* 오프닝 — 숲에서 막 눈을 떠 누운 채로 하는 생각 */
 const OPENING_LINES = [
-  { t: '…언제 잠들었지.', w: true },
-  { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
-  { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false }
+  { t: '…어, 나 언제 잠들었지.', w: true },
+  { t: '벌써 해가 지네. 숲 안쪽은 꽤 어둡다.', w: false },
+  { t: '이 길 끝에 오래된 우물이 있다고 했는데.', w: false }
 ];
 /* 탑뷰로 바뀐 뒤 처음 손에 쥐어지는 조작 안내 */
 const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
@@ -231,8 +231,8 @@ const FOREST_HINT = [{ t: '이동 — W A S D', sys: true }];
 const FOREST = {
   kind: 'forest', date: '2145 / 05 / 01',
   intro: [
-    { t: '해가 기울었다. 숲 안쪽은 벌써 어둡다.', w: false },
-    { t: '길 끝에 오래된 우물이 하나 있다고 들었다.', w: false },
+    { t: '벌써 해가 지네. 숲 안쪽은 꽤 어둡다.', w: false },
+    { t: '이 길 끝에 오래된 우물이 있다고 했는데.', w: false },
     { t: '이동 — W A S D', sys: true }
   ]
 };
@@ -250,7 +250,7 @@ const MAP = {
   start: {
     gx: 0, gy: 1, depth: 1, name: '우물 아래',
     intro: [
-      { t: '…차갑다. 올라가려던 사다리는 이미 무너져 있다.', w: false },
+      { t: '아, 차가워… 사다리도 부서졌네. 올라가긴 글렀다.', w: false },
       { t: '공격 — 방향키 / 마우스', sys: true }
     ],
     enemies: [{ t: 'shroom', x: 408, y: 100 }],
@@ -259,14 +259,14 @@ const MAP = {
 
   fork: {
     gx: 1, gy: 1, depth: 1, name: '갈림길',
-    intro: [{ t: '길이 셋으로 갈린다. 어느 쪽이든 안쪽으로 이어지는 것 같다.', w: false }],
+    intro: [{ t: '길이 세 갈래네. 어디로 가든 안쪽으로 이어지나 봐.', w: false }],
     enemies: [{ t: 'shroom', x: 156, y: 90 }, { t: 'shroom', x: 420, y: 230 }],
     pots: [{ x: 288, y: 70 }, { x: 288, y: 250 }]
   },
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
-    intro: [{ t: '벽의 날짜가 바뀌어 있다. **분명 방금 지나온 곳인데.**', w: true }],
+    intro: [{ t: '어, 벽에 적힌 날짜가 바뀌었어. **방금 지나온 데 맞는데.**', w: true }],
     enemies: [
       { t: 'shroom', x: 132, y: 100 }, { t: 'charger', x: 444, y: 100 },
       { t: 'shroom', x: 288, y: 240 }, { t: 'spitter', x: 456, y: 220 }
@@ -277,7 +277,7 @@ const MAP = {
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
-    intro: [{ t: '바닥에 뼈가 유난히 많다. 구석에는 상자 하나.', w: false }],
+    intro: [{ t: '여긴 뼈가 왜 이렇게 많아… 저 구석에 상자가 있다.', w: false }],
     enemies: [
       { t: 'shroom', x: 144, y: 120 }, { t: 'sporer', x: 432, y: 210 },
       { t: 'shroom', x: 432, y: 100 }
@@ -289,7 +289,7 @@ const MAP = {
 
   mid: {
     gx: 2, gy: 1, depth: 3, name: '중앙',
-    intro: [{ t: '세 갈래가 여기서 다시 만난다. 결국 같은 곳으로 돌아온 셈이다.', w: true }],
+    intro: [{ t: '세 길이 여기서 다시 만나네. 결국 제자리로 돌아온 거잖아.', w: true }],
     enemies: [
       { t: 'spitter', x: 144, y: 90 }, { t: 'blinker', x: 432, y: 240 },
       { t: 'shroom', x: 288, y: 90 }
@@ -300,7 +300,7 @@ const MAP = {
 
   ne: {
     gx: 2, gy: 0, depth: 3, name: '북동 통로',
-    intro: [{ t: '천장에서 뿌리가 내려와 있다. 여긴 더 오래 방치된 것 같다.', w: false }],
+    intro: [{ t: '천장에서 뿌리가 내려왔네. 여긴 훨씬 오래 버려져 있었나 봐.', w: false }],
     enemies: [
       { t: 'shroom', x: 144, y: 100 }, { t: 'splitter', x: 432, y: 100 },
       { t: 'shroom', x: 288, y: 230 }
@@ -313,7 +313,7 @@ const MAP = {
 
   se: {
     gx: 2, gy: 2, depth: 4, name: '남동 통로',
-    intro: [{ t: '벽 낙서의 날짜가 **며칠씩 건너뛴다.**', w: true }],
+    intro: [{ t: '낙서에 적힌 날짜가… **며칠씩 건너뛰는데?**', w: true }],
     enemies: [
       { t: 'sporer', x: 144, y: 100 }, { t: 'charger', x: 432, y: 110 },
       { t: 'shroom', x: 156, y: 240 }, { t: 'spitter', x: 444, y: 235 }
@@ -326,7 +326,7 @@ const MAP = {
 
   gate: {
     gx: 3, gy: 1, depth: 4, name: '관문', needKeys: 2,
-    intro: [{ t: '거대한 잠금장치가 둘. 나란히 잠겨 있다.', w: false }],
+    intro: [{ t: '엄청 큰 자물쇠가 두 개나 걸려 있다.', w: false }],
     enemies: [{ t: 'splitter', x: 180, y: 100 }, { t: 'blinker', x: 396, y: 220 }],
     pots: [{ x: 108, y: 90 }, { x: 480, y: 250 }],
     clear: 'key',                             // 전멸 → 상자 열쇠
@@ -337,8 +337,8 @@ const MAP = {
     gx: 4, gy: 1, depth: 5, name: '심층', boss: true,
     size: [768, 432],                // 보스방만 화면(576×324)보다 넓습니다 — 카메라가 따라갑니다
     intro: [
-      { t: '벽 전체가 5 / 20 이라는 글씨로 뒤덮여 있다.', w: true },
-      { t: '**…무언가가 이쪽을 보고 있다.**', w: true }
+      { t: '벽이 온통 5 / 20 이라는 글씨야. 뭐야, 이게.', w: true },
+      { t: '**…뭔가 나를 보고 있어.**', w: true }
     ],
     pots: [{ x: 96, y: 82 }, { x: 672, y: 82 }, { x: 96, y: 350 }, { x: 672, y: 350 }]
   },
@@ -346,8 +346,8 @@ const MAP = {
   exit: {
     gx: 5, gy: 1, depth: 5, name: '탈출구', final: true, needBoss: true,
     intro: [
-      { t: '지상으로 통하는 문. 우물의 파이프가 위로 뻗어 있다.', w: false },
-      { t: '마지막 잠금장치. 이걸 열면, 끝나는 걸까.', w: true }
+      { t: '위로 올라가는 문이다. 우물 파이프도 저 위로 이어져 있고.', w: false },
+      { t: '이게 마지막 자물쇠네. 이것만 열면… 끝나는 건가.', w: true }
     ]
   }
 };
@@ -374,13 +374,13 @@ const DATES = [
 
 /* ── 나레이션 ───────────────────────────────────────────── */
 const FALL_LINES = [
-  { t: '우물 안은… 생각보다 훨씬 깊다. 바닥이 안 보인다.', w: false },
-  { t: '난간 돌을 짚고 몸을 숙인 순간, 손바닥 밑 이끼가 밀렸다.', w: false },
-  { t: '중심이 앞으로 쏠린다. 붙잡을 게 없다.', w: true }
+  { t: '우와… 생각보다 훨씬 깊네. 바닥이 안 보여.', w: false },
+  { t: '조금만 더 숙여 보면— 어, 이끼가 미끄러—', w: false },
+  { t: '어어, 잠깐. 잡을 데가 없어!', w: true }
 ];
 
 const GLITCH_LINES = [
-  { t: '피가 튀지 않았다. 잠깐… **숫자 같은 게 흩어졌다.**', w: true }
+  { t: '피가 안 튀네. 잠깐… **방금 숫자가 흩어진 거야?**', w: true }
 ];
 
 /* 페이즈3 변신 컷신 위로 흐르는 관측 로그.
@@ -412,16 +412,16 @@ const MORPH_SYS = [
 ];
 
 const BOSS_DEAD_LINES = [
-  { t: '저건 눈이었나. 아니면 **나를 들여다보던 화면이었나.**', w: true },
-  { t: '손에 마지막 열쇠가 쥐어져 있다.', w: false }
+  { t: '저게 눈이었을까. 아니면… **나를 들여다보던 화면이었을까.**', w: true },
+  { t: '…손에 열쇠가 있네. 마지막 열쇠다.', w: false }
 ];
 
 /* 세 줄로 나눠, 한 줄마다 화면이 한 단계씩 더 무너지게 합니다 (fx — game.js LINE_FX) */
 const ENDING_LINES = [
   { t: '열쇠를 꽂는다. 딸깍.', w: false, fx: 'click' },
-  { t: '…방이 **일그러진다.**', w: true, fx: 'warp1' },
+  { t: '…어, 방이 **일그러지는데.**', w: true, fx: 'warp1' },
   { t: '아니.', w: true, fx: 'still' },
-  { t: '**화면이** 일그러진다.', w: true, fx: 'warp2' }
+  { t: '**화면이** 일그러지는 거야.', w: true, fx: 'warp2' }
 ];
 
 /* ── 이스터에그 ② : 숲 맨 위, 나무 사이의 좁은 틈 ──────────
@@ -432,9 +432,9 @@ const ENDING_LINES = [
 const CREEPY_SCRIPT = [
   { kind: 'dark',   d:  900 },
   { kind: 'line',   t: '돌아가.',                        d: 1250 },
-  { kind: 'line',   t: '여긴 네가 올 수 있는 곳이 아니야.', d: 1500 },
+  { kind: 'line',   t: '여긴 네가 올 데가 아니야.', d: 1500 },
   { kind: 'glitch', d:  520 },
-  { kind: 'line',   t: '이 숲은 만들어진 거야.',           d: 1350 },
+  { kind: 'line',   t: '이 숲, 전부 만든 거야.',           d: 1350 },
   { kind: 'line',   t: '우물도.',                        d:  950 },
   { kind: 'line',   t: '네가 본 전부 다.',                d: 1400 },
   { kind: 'glitch', d:  620 },
