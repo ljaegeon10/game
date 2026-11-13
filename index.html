@@ -136,43 +136,54 @@
 
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
-      <!-- 위에서 내려다본 우물 — 검은 물 위로 심전도 한 줄이 뛰고, 뛸 때마다 물결이 번집니다.
-           무엇의 심박인지는 엔딩에서 알게 됩니다. -->
-      <div class="t-well" aria-hidden="true">
-        <svg viewBox="0 0 200 200">
-          <defs>
-            <radialGradient id="tw-water" cx="50%" cy="50%" r="60%">
-              <stop offset="0" stop-color="#0e1b1c"/>
-              <stop offset="1" stop-color="#020304"/>
-            </radialGradient>
-            <radialGradient id="tw-shade" cx="50%" cy="50%" r="50%">
-              <stop offset=".72" stop-color="#000" stop-opacity="0"/>
-              <stop offset="1" stop-color="#000" stop-opacity=".75"/>
-            </radialGradient>
-            <clipPath id="tw-clip"><circle cx="100" cy="100" r="56"/></clipPath>
-          </defs>
-          <circle cx="100" cy="100" r="84" fill="#1c1a22"/>
-          <circle class="tw-stones" cx="100" cy="100" r="72"/>
-          <circle cx="100" cy="100" r="83" fill="none" stroke="#4b4657" stroke-width="1.5"/>
-          <circle cx="100" cy="100" r="61" fill="#030305"/>
-          <circle cx="100" cy="100" r="56" fill="url(#tw-water)"/>
-          <g clip-path="url(#tw-clip)">
-            <circle class="tw-ripple" cx="100" cy="100" r="4"/>
-            <circle class="tw-ripple r2" cx="100" cy="100" r="4"/>
-            <polyline class="tw-ekg glow" points="36,100 64,100 70,94 76,100 88,100 93,108 100,68 107,108 112,100 124,100 130,94 136,100 164,100"/>
-            <polyline class="tw-ekg" points="36,100 64,100 70,94 76,100 88,100 93,108 100,68 107,108 112,100 124,100 130,94 136,100 164,100"/>
-            <circle cx="100" cy="100" r="56" fill="url(#tw-shade)"/>
+      <!-- 시작 화면 (js/titlescreen.js) — 왼쪽엔 어둠 속의 방호복(3D), 오른쪽 위엔 빛나는 제목, 오른쪽 아래엔 메뉴.
+           배경 · 인물 · 먼지는 캔버스에, 테두리 선은 #t-frame 에 -->
+      <canvas id="titlecv" width="1728" height="972" aria-hidden="true"></canvas>
+      <div id="t-frame" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+      <!-- 제목 — 네모 획으로 짠 글자 (로고를 세 번 누르면 개발자 모드) -->
+      <h1 aria-label="우물 아래">
+        <svg viewBox="-8 -8 300 96" aria-hidden="true">
+          <g class="tl-glow"><use href="#t-logo-g"/></g>
+          <g id="t-logo-g" fill="none" stroke-width="9" stroke-linejoin="miter" stroke-linecap="butt">
+            <!-- 우 -->
+            <path d="M8,4.5 H42 L45.5,8 V28 L42,31.5 H8 L4.5,28 V8 Z"/>
+            <path d="M-4,48.5 H54"/><path d="M25,48.5 V80"/>
+            <!-- 물 -->
+            <g transform="translate(68,0)">
+              <path d="M4.5,4.5 H45.5 V22.5 H4.5 Z"/>
+              <path d="M-4,35 H54"/><path d="M25,35 V44"/>
+              <path d="M0,52.5 H45.5 V64 H4.5 V75.5 H50" stroke-width="7"/>
+            </g>
+            <!-- 아 -->
+            <g transform="translate(152,0)">
+              <path d="M8,14.5 H26 L29.5,18 V62 L26,65.5 H8 L4.5,62 V18 Z"/>
+              <path d="M44.5,0 V80"/><path d="M44.5,38 H58"/>
+            </g>
+            <!-- 래 -->
+            <g transform="translate(224,0)">
+              <path d="M0,10.5 H25.5 V40 H4.5 V69.5 H30" stroke-width="8"/>
+              <path d="M40.5,0 V80"/><path d="M56.5,0 V80"/><path d="M40.5,38 H56.5" stroke-width="7"/>
+            </g>
           </g>
+          <path class="tl-cut" d="M-8,58 H300"/>
         </svg>
-      </div>
-      <h1>THE WELL BELOW</h1>
+        <small>THE WELL BELOW</small>
+      </h1>
       <!-- 이스터에그 ③ : 코나미 코드를 넣으면 관측 로그가 한 줄씩 찍힙니다 -->
       <p id="t-log" aria-live="polite"></p>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
       </div>
-      <button id="startbtn"><span>시작하기</span></button>
+      <!-- 메뉴 — ↑↓ 로 고르고 SPACE · ENTER, 또는 그냥 누르기 -->
+      <nav id="startbtn" aria-label="메뉴">
+        <span class="tm-tag">SESSION 141 · SUBJECT 07</span>
+        <button class="tm-item sel" data-act="start"><b>게임 시작</b><em>일반 모드</em></button>
+        <button class="tm-item" data-act="time"><b>타임어택</b><em>기록 경쟁</em></button>
+        <button class="tm-item hidden" data-act="board"><b>순위판</b><em>실시간</em></button>
+        <button class="tm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
+      </nav>
+      <span id="t-ver" aria-hidden="true">DITC · v1.4</span>
 
       <!-- 시작하기를 누르면 나오는 모드 선택 -->
       <div id="modesel" class="hidden">
@@ -293,6 +304,7 @@
 <script src="js/labroom.js"></script>
 <script src="js/figure3d.js"></script>
 <script src="js/gun3d.js"></script>
+<script src="js/titlescreen.js"></script>
 <script src="js/corridor3d.js"></script>
 <script src="js/opening3d.js"></script>
 <script src="js/diorama3d.js"></script>

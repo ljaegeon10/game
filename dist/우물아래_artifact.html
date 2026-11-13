@@ -559,83 +559,86 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
    모드·난이도를 고르는 동안엔 우물이 작아지며 위로 비켜섭니다. */
 #title{
   position:absolute; inset:0; z-index:60;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(125,227,200,.05), transparent 34%),
-    #06070a;
+  background:#04070a;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:0; text-align:center;
-  padding-bottom:44px; box-sizing:border-box;   /* 제목 덩어리를 위로 — 아래 제작진 줄과 넉넉히 띄웁니다 */
+  gap:0; text-align:center; overflow:hidden;
+  padding-bottom:20px; box-sizing:border-box;
 }
-.t-well{
-  width:124px; height:124px; margin-bottom:14px;
-  transition:width .35s ease, height .35s ease, margin .35s ease;
-}
-.t-well svg{ width:100%; height:100%; display:block; overflow:visible; }
-.tw-stones{ fill:none; stroke:#34303d; stroke-width:21; stroke-dasharray:21.82 3.32; stroke-dashoffset:23.75; }   /* 돌 18개로 딱 나눠 좌우 대칭 */
-.tw-ekg{
-  fill:none; stroke:#7de3c8; stroke-width:1.4; stroke-linejoin:round; stroke-linecap:round;
-  stroke-dasharray:150 300; stroke-dashoffset:150;
-  animation:twSweep 2.6s linear infinite;
-}
-.tw-ekg.glow{ stroke-width:5; opacity:.18; }
-@keyframes twSweep{ from{ stroke-dashoffset:150; } to{ stroke-dashoffset:-300; } }
-.tw-ripple{
-  fill:none; stroke:#7de3c8; stroke-width:.8; opacity:0;
-  animation:twRipple 2.6s ease-out infinite; animation-delay:.9s;
-  transform-origin:100px 100px;
-}
-.tw-ripple.r2{ animation-delay:1.25s; }
-@keyframes twRipple{
-  0%  { transform:scale(1);  opacity:.45; }
-  100%{ transform:scale(14); opacity:0; }
-}
+/* 시작 화면 — 왼쪽의 방호복 · 오른쪽 위의 제목 · 오른쪽 아래의 메뉴 (그림은 js/titlescreen.js) */
+#titlecv{ position:absolute; inset:0; width:100%; height:100%; image-rendering:auto; transition:opacity .35s ease, filter .35s ease; }
+#title > :where(:not(#titlecv):not(#t-frame)){ position:relative; z-index:2; }
+/* 테두리 — 가는 청록 선과 모서리 꺾쇠 */
+#t-frame{ position:absolute; inset:7px; border:1px solid rgba(110,214,232,.14); pointer-events:none; z-index:1; }
+#t-frame i{ position:absolute; width:16px; height:16px; border:0 solid rgba(110,214,232,.6); }
+#t-frame .tl{ left:-1px; top:-1px; border-left-width:1px; border-top-width:1px; }
+#t-frame .tr{ right:-1px; top:-1px; border-right-width:1px; border-top-width:1px; }
+#t-frame .bl{ left:-1px; bottom:-1px; border-left-width:1px; border-bottom-width:1px; }
+#t-frame .br{ right:-1px; bottom:-1px; border-right-width:1px; border-bottom-width:1px; }
+#t-frame::before{ content:''; position:absolute; left:14%; right:52%; top:-1px; height:1px; background:rgba(110,214,232,.45); }
+#t-frame::after{ content:''; position:absolute; right:-1px; top:46%; bottom:34%; width:1px; background:rgba(110,214,232,.45); }
+
+/* 제목 — 네모 획 글자가 형광등처럼 빛남 */
 #title h1{
-  margin:0; font-family:'WellDisplay','Playfair Display',Georgia,serif;
-  font-weight:900; font-size:34px; line-height:1;
-  letter-spacing:.06em; text-indent:.06em;
-  color:#ece6d8;
-  text-shadow:0 0 18px rgba(125,227,200,.18), 0 2px 0 rgba(0,0,0,.8);
-  transition:font-size .35s ease;
+  position:absolute !important; right:22px; top:20px; margin:0; width:292px; line-height:0;
+  cursor:default; user-select:none; transform-origin:100% 0;
+  transition:transform .35s ease, opacity .35s ease;
 }
-/* 이스터에그 ③ — 코나미 코드 : 우물 물이 붉게 물들고, 심전도가 튑니다 */
+#title h1 svg{ display:block; width:100%; height:auto; overflow:visible; }
+#t-logo-g{ stroke:#eef7ff; }
+.tl-glow{ stroke:#58d8ff; opacity:.75; filter:blur(5px); animation:tlFlick 5.2s steps(1) infinite; }
+.tl-cut{ stroke:#04070a; stroke-width:1.2; fill:none; opacity:.9; }
+@keyframes tlFlick{ 0%,100%{ opacity:.75; } 46%{ opacity:.75; } 47%{ opacity:.35; } 48.5%{ opacity:.8; } 50%{ opacity:.45; } 51%{ opacity:.75; } 83%{ opacity:.6; } 84%{ opacity:.75; } }
+#title h1 small{
+  display:block; margin-top:9px; padding-top:6px; text-align:right; line-height:1;
+  font-family:var(--font-ui); font-size:8px; font-weight:400; letter-spacing:.62em; color:rgba(110,214,232,.8);
+  border-top:1px solid rgba(110,214,232,.3);
+}
+/* 메뉴 — 왼쪽에 세로 줄이 선 틀, 고른 줄엔 청록 막대 */
+#startbtn{
+  position:absolute !important; right:22px; bottom:30px; width:150px; margin:0; padding:9px 0 9px 9px;
+  display:flex; flex-direction:column; align-items:stretch; gap:3px; text-align:left;
+  border-left:1px solid rgba(110,214,232,.55);
+  background:linear-gradient(90deg, rgba(10,22,28,.55), rgba(10,22,28,0));
+}
+#startbtn::before, #startbtn::after{ content:''; position:absolute; left:-1px; width:22px; height:1px; background:rgba(110,214,232,.55); }
+#startbtn::before{ top:0; } #startbtn::after{ bottom:0; }
+.tm-tag{ position:absolute; left:6px; top:-9px; font-size:5px; letter-spacing:.18em; color:rgba(110,214,232,.55); }
+.tm-item{
+  position:relative; margin:0; padding:6px 8px 6px 12px; display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-family:inherit; font-size:11px; font-weight:400; letter-spacing:.08em; text-align:left;
+  color:rgba(150,214,226,.62); background:none; border:none; box-shadow:none;
+  border-bottom:1px solid rgba(110,214,232,.1); cursor:pointer; transition:color .12s, background .12s, padding .12s;
+}
+.tm-item b{ font-weight:400; }
+.tm-item em{ font-style:normal; font-size:7px; letter-spacing:.1em; color:rgba(150,214,226,.3); }
+.tm-item::before{ content:''; position:absolute; left:0; top:4px; bottom:4px; width:3px; background:#6ee0f2; opacity:0; box-shadow:0 0 8px rgba(110,224,242,.9); transition:opacity .12s; }
+.tm-item.sel{ color:#f2fbff; padding-left:15px; background:linear-gradient(90deg, rgba(110,224,242,.16), rgba(110,224,242,0) 85%); }
+.tm-item.sel::before{ opacity:1; }
+.tm-item.sel em{ color:rgba(150,214,226,.6); }
+.tm-item:hover, .tm-item:active{ transform:none; box-shadow:none; background:linear-gradient(90deg, rgba(110,224,242,.16), rgba(110,224,242,0) 85%); }
+.tm-item:focus-visible{ outline:1px solid rgba(110,224,242,.6); outline-offset:1px; }
+#t-ver{ position:absolute !important; right:14px; bottom:11px; font-size:6px; letter-spacing:.2em; color:rgba(150,214,226,.28); }
+
+/* 이스터에그 ③ — 코나미 코드 : 제목이 붉게 물듭니다 */
 #t-log{
-  position:absolute; left:0; right:0; bottom:26px; margin:0;
+  position:absolute !important; left:0; right:0; bottom:22px; margin:0;
   font-size:8px; letter-spacing:.08em; color:#ff8a7a; min-height:10px;
   text-shadow:0 0 8px rgba(255,90,70,.4);
 }
-#title.konami .tw-ekg{ stroke:#ff5a4a; animation-duration:.7s; }
-#title.konami .tw-ripple{ stroke:#ff5a4a; animation-duration:.7s; }
-#title.konami .t-well svg{ filter:drop-shadow(0 0 10px rgba(255,70,60,.55)); }
+#title.konami .tl-glow{ stroke:#ff4a3c; animation-duration:.9s; }
+#title.konami #t-logo-g{ stroke:#ffe9e4; }
+#title.konami h1 small{ color:#ff8a7a; border-color:rgba(255,90,70,.4); }
 
-/* 최고 기록 표가 붙으면 우물을 조금 줄여, 시작하기와 제작진 줄 사이 자리를 지킵니다 */
-#title:has(#besttimes:not(.hidden)) .t-well{ width:76px; height:76px; margin-bottom:8px; }
-#title:has(#besttimes:not(.hidden)) h1{ font-size:28px; }
-#title:has(#besttimes:not(.hidden)) #startbtn{ margin-top:18px; }
-#title.picking .t-well{ width:64px; height:64px; margin-bottom:8px; }
-#title.picking h1{ font-size:22px; }
-
-/* ── 시작 : 상자 없이 글자 한 줄 ─────────────────────────── */
-#startbtn{
-  position:relative; margin-top:30px;
-  font-family:inherit; font-size:11px; font-weight:400;
-  letter-spacing:.5em; text-indent:.5em;
-  color:rgba(236,230,216,.78); background:none;
-  border:none; box-shadow:none;
-  padding:8px 18px; cursor:pointer;
-  animation:startBreath 2.6s ease-in-out infinite;
-}
-#startbtn::before{ content:'▸ '; color:#7de3c8; letter-spacing:.2em; }
-#startbtn:hover, #startbtn:focus-visible{ color:#fff; animation:none; background:none; }
-#startbtn:focus-visible{ outline:1px solid rgba(125,227,200,.6); outline-offset:2px; }
-#startbtn:active{ transform:translateY(1px); box-shadow:none; }
-@keyframes startBreath{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
-@media (prefers-reduced-motion: reduce){
-  #startbtn, .tw-ekg, .tw-ripple{ animation:none; }
-  .tw-ekg{ stroke-dashoffset:0; stroke-dasharray:none; }
-}
+/* 모드 · 난이도 · 참가 등록을 고르는 동안 — 제목은 작게 물러나고 인물은 어둠 속으로 */
+#title.picking h1{ transform:scale(.5); opacity:.85; }
+#title.picking #titlecv{ opacity:.4; filter:blur(1.5px); }
+#title.picking #t-ver, #title.picking .tm-tag{ display:none; }
+/* 최고 기록 — 왼쪽 아래, 인물의 어둠 위에 */
+#title #besttimes{ position:absolute !important; left:18px; bottom:28px; margin:0; align-items:flex-start; background:rgba(6,12,16,.55); border-color:rgba(110,214,232,.22); }
+#fest-boardbtn{ display:none !important; }          /* 순위판은 메뉴 안으로 */
+@media (prefers-reduced-motion: reduce){ .tl-glow{ animation:none; } }
 
 /* ── 개발자 모드 ─────────────────────────────────────────── */
-#title h1{ cursor:default; user-select:none; }
 #devpanel{
   margin-top:12px;
   display:flex; flex-direction:column; align-items:center; gap:6px;
@@ -676,6 +679,9 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   text-align:center;
 }
 #credits span{ display:block; margin-top:3px; font-size:7px; color:rgba(241,236,224,.26); }
+/* 시작 화면에선 왼쪽 아래 한 줄로 */
+#title #credits{ left:16px; right:auto; bottom:11px; text-align:left; font-size:6px; letter-spacing:.14em; color:rgba(150,214,226,.3); }
+#title #credits span{ display:inline; margin:0 0 0 10px; font-size:6px; color:rgba(150,214,226,.2); }
 
 /* ── 모드 선택 ────────────────────────────────────────────
    시작하기를 누르면 타이틀 로고는 그대로 두고, 기록·시작 버튼 자리에
@@ -1404,43 +1410,54 @@ html:has(body.touch), body.touch{ background:#000; }
 
     <!-- ── 타이틀 ─────────────────────────────────────────── -->
     <div id="title">
-      <!-- 위에서 내려다본 우물 — 검은 물 위로 심전도 한 줄이 뛰고, 뛸 때마다 물결이 번집니다.
-           무엇의 심박인지는 엔딩에서 알게 됩니다. -->
-      <div class="t-well" aria-hidden="true">
-        <svg viewBox="0 0 200 200">
-          <defs>
-            <radialGradient id="tw-water" cx="50%" cy="50%" r="60%">
-              <stop offset="0" stop-color="#0e1b1c"/>
-              <stop offset="1" stop-color="#020304"/>
-            </radialGradient>
-            <radialGradient id="tw-shade" cx="50%" cy="50%" r="50%">
-              <stop offset=".72" stop-color="#000" stop-opacity="0"/>
-              <stop offset="1" stop-color="#000" stop-opacity=".75"/>
-            </radialGradient>
-            <clipPath id="tw-clip"><circle cx="100" cy="100" r="56"/></clipPath>
-          </defs>
-          <circle cx="100" cy="100" r="84" fill="#1c1a22"/>
-          <circle class="tw-stones" cx="100" cy="100" r="72"/>
-          <circle cx="100" cy="100" r="83" fill="none" stroke="#4b4657" stroke-width="1.5"/>
-          <circle cx="100" cy="100" r="61" fill="#030305"/>
-          <circle cx="100" cy="100" r="56" fill="url(#tw-water)"/>
-          <g clip-path="url(#tw-clip)">
-            <circle class="tw-ripple" cx="100" cy="100" r="4"/>
-            <circle class="tw-ripple r2" cx="100" cy="100" r="4"/>
-            <polyline class="tw-ekg glow" points="36,100 64,100 70,94 76,100 88,100 93,108 100,68 107,108 112,100 124,100 130,94 136,100 164,100"/>
-            <polyline class="tw-ekg" points="36,100 64,100 70,94 76,100 88,100 93,108 100,68 107,108 112,100 124,100 130,94 136,100 164,100"/>
-            <circle cx="100" cy="100" r="56" fill="url(#tw-shade)"/>
+      <!-- 시작 화면 (js/titlescreen.js) — 왼쪽엔 어둠 속의 방호복(3D), 오른쪽 위엔 빛나는 제목, 오른쪽 아래엔 메뉴.
+           배경 · 인물 · 먼지는 캔버스에, 테두리 선은 #t-frame 에 -->
+      <canvas id="titlecv" width="1728" height="972" aria-hidden="true"></canvas>
+      <div id="t-frame" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
+      <!-- 제목 — 네모 획으로 짠 글자 (로고를 세 번 누르면 개발자 모드) -->
+      <h1 aria-label="우물 아래">
+        <svg viewBox="-8 -8 300 96" aria-hidden="true">
+          <g class="tl-glow"><use href="#t-logo-g"/></g>
+          <g id="t-logo-g" fill="none" stroke-width="9" stroke-linejoin="miter" stroke-linecap="butt">
+            <!-- 우 -->
+            <path d="M8,4.5 H42 L45.5,8 V28 L42,31.5 H8 L4.5,28 V8 Z"/>
+            <path d="M-4,48.5 H54"/><path d="M25,48.5 V80"/>
+            <!-- 물 -->
+            <g transform="translate(68,0)">
+              <path d="M4.5,4.5 H45.5 V22.5 H4.5 Z"/>
+              <path d="M-4,35 H54"/><path d="M25,35 V44"/>
+              <path d="M0,52.5 H45.5 V64 H4.5 V75.5 H50" stroke-width="7"/>
+            </g>
+            <!-- 아 -->
+            <g transform="translate(152,0)">
+              <path d="M8,14.5 H26 L29.5,18 V62 L26,65.5 H8 L4.5,62 V18 Z"/>
+              <path d="M44.5,0 V80"/><path d="M44.5,38 H58"/>
+            </g>
+            <!-- 래 -->
+            <g transform="translate(224,0)">
+              <path d="M0,10.5 H25.5 V40 H4.5 V69.5 H30" stroke-width="8"/>
+              <path d="M40.5,0 V80"/><path d="M56.5,0 V80"/><path d="M40.5,38 H56.5" stroke-width="7"/>
+            </g>
           </g>
+          <path class="tl-cut" d="M-8,58 H300"/>
         </svg>
-      </div>
-      <h1>THE WELL BELOW</h1>
+        <small>THE WELL BELOW</small>
+      </h1>
       <!-- 이스터에그 ③ : 코나미 코드를 넣으면 관측 로그가 한 줄씩 찍힙니다 -->
       <p id="t-log" aria-live="polite"></p>
       <div id="besttimes" class="hidden">
         <span class="bt-label">최고 기록</span>
         <ol id="bestlist"></ol>
       </div>
-      <button id="startbtn"><span>시작하기</span></button>
+      <!-- 메뉴 — ↑↓ 로 고르고 SPACE · ENTER, 또는 그냥 누르기 -->
+      <nav id="startbtn" aria-label="메뉴">
+        <span class="tm-tag">SESSION 141 · SUBJECT 07</span>
+        <button class="tm-item sel" data-act="start"><b>게임 시작</b><em>일반 모드</em></button>
+        <button class="tm-item" data-act="time"><b>타임어택</b><em>기록 경쟁</em></button>
+        <button class="tm-item hidden" data-act="board"><b>순위판</b><em>실시간</em></button>
+        <button class="tm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
+      </nav>
+      <span id="t-ver" aria-hidden="true">DITC · v1.4</span>
 
       <!-- 시작하기를 누르면 나오는 모드 선택 -->
       <div id="modesel" class="hidden">
@@ -8832,6 +8849,131 @@ window.Gun3DParts = { buildGun, buildHands };
 <script>
 'use strict';
 /* ═══════════════════════════════════════════════════════════════
+   titlescreen.js — 시작 화면의 그림 (#titlecv)
+
+   어두운 실험실 벽 앞, 왼쪽에 방호복 하나가 서서 제목의 빛을 받고 있습니다.
+     · 벽 — 세로 패널 이음 · 배관 · 볼트를 2D 로 한 번 그려 둠
+     · 방호복 — figure3d.js 의 3D 모델을 한 번만 찍어 그림으로 가져오고(WebGL 문맥은 바로 내려놓음),
+       그 뒤로는 숨 쉬듯 살짝 오르내리게만 움직임. WebGL 이 없으면 벽과 빛만.
+     · 제목 쪽에서 번지는 청록 빛(깜빡임) · 떠다니는 먼지 · 가장자리 어둠
+   시작 화면이 보일 때만 돕니다.
+   ═══════════════════════════════════════════════════════════════ */
+(() => {
+const cv = document.getElementById('titlecv'), title = document.getElementById('title');
+if (!cv || !title) return;
+const W = cv.width, H = cv.height, K = W / 576, c = cv.getContext('2d');
+const rnd = (() => { let s = 20450520; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); })();
+
+/* ── 벽 — 한 번만 ── */
+function bakeWall() {
+  const b = document.createElement('canvas'); b.width = W; b.height = H;
+  const x = b.getContext('2d');
+  const g = x.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#05090c'); g.addColorStop(.55, '#0a1216'); g.addColorStop(1, '#060a0d');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  // 세로 패널 — 폭이 제각각, 이음마다 어두운 홈과 밝은 모서리
+  let px = -20 * K;
+  while (px < W) {
+    const w = (60 + rnd() * 70) * K;
+    x.fillStyle = `rgba(${14 + rnd() * 10 | 0},${24 + rnd() * 12 | 0},${30 + rnd() * 12 | 0},${.35 + rnd() * .3})`;
+    x.fillRect(px, 0, w, H);
+    x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(px, 0, 2 * K, H);
+    x.fillStyle = 'rgba(120,170,185,.07)'; x.fillRect(px + 2 * K, 0, K, H);
+    if (rnd() < .6) for (let y = 14 * K; y < H; y += (26 + rnd() * 10) * K) {                       // 볼트
+      x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.arc(px + 8 * K, y, 1.7 * K, 0, 7); x.fill();
+      x.fillStyle = 'rgba(140,190,205,.12)'; x.beginPath(); x.arc(px + 7.6 * K, y - .4 * K, .8 * K, 0, 7); x.fill();
+    }
+    if (rnd() < .35) { const y = (40 + rnd() * 200) * K; x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(px + 4 * K, y, w - 6 * K, 1.5 * K); }
+    px += w;
+  }
+  // 가로 배관 둘 · 걸레받이
+  for (const [y, r] of [[58, 5], [71, 2.5]]) {
+    const pg = x.createLinearGradient(0, (y - r) * K, 0, (y + r) * K);
+    pg.addColorStop(0, 'rgba(70,100,112,.5)'); pg.addColorStop(.4, 'rgba(22,36,42,.9)'); pg.addColorStop(1, 'rgba(0,0,0,.9)');
+    x.fillStyle = pg; x.fillRect(0, (y - r) * K, W, r * 2 * K);
+    for (let bx = 40 * K; bx < W; bx += 150 * K) { x.fillStyle = 'rgba(8,14,17,.95)'; x.fillRect(bx, (y - r - 1.5) * K, 7 * K, (r * 2 + 3) * K); }
+  }
+  x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(0, H - 34 * K, W, 34 * K);
+  x.fillStyle = 'rgba(110,214,232,.06)'; x.fillRect(0, H - 34 * K, W, K);
+  // 얼룩 · 잡티
+  for (let i = 0; i < 5000; i++) { x.fillStyle = rnd() < .5 ? 'rgba(0,0,0,.14)' : 'rgba(150,200,215,.035)'; x.fillRect(rnd() * W, rnd() * H, (1 + rnd() * 2) * K * .5, (1 + rnd() * 5) * K * .5); }
+  return b;
+}
+
+/* ── 방호복 — 3D 로 한 번 찍어 옴 ── */
+function bakeFigure() {
+  if (!window.Figure3D) return null;
+  let F;
+  try { F = new Figure3D(W, H); } catch (e) { return null; }
+  if (!F.ok) return null;
+  F.k = W / 960;
+  const img = F.render({ kind: 'suit', x: -.02, y: -1.47, z: 1.06, yaw: .62, stride: 0, reach: 0, lean: .2, alpha: 1 }, {
+    cam: { f: 560, px: 262, py: 272 }, sky: [.022, .04, .05], gnd: [.006, .01, .012], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0],
+    lights: [[[1.5, .75, -1.75], [.3, 1.5, 1.65]],        // 제목 쪽 뒤에서 — 윤곽을 따라 흐르는 청록
+             [[1.1, .2, -.55], [.03, .16, .18]],          // 앞을 아주 옅게
+             [[-.9, 1.6, -1.6], [.07, .1, .13]],          // 반대편 위 — 어깨선만
+             [[.35, -.5, -.6], [.0, .05, .05]]] });
+  const o = document.createElement('canvas'); o.width = W; o.height = H;
+  o.getContext('2d').drawImage(img, 0, 0);
+  try { const ext = F.gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); } catch (e) {}
+  return o;
+}
+
+let wall = null, fig = null, raf = 0, t = 0;
+const dust = Array.from({ length: 70 }, () => ({ x: rnd() * W, y: rnd() * H, r: (.5 + rnd() * 1.3) * K * .5, v: .08 + rnd() * .25, p: rnd() * 6.28, a: .15 + rnd() * .5 }));
+function draw() {
+  t++;
+  const fl = .86 + .14 * Math.sin(t * .013) - (t % 311 > 300 ? .35 * rnd() : 0);       // 제목 빛의 숨 · 가끔 깜빡
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+  c.drawImage(wall, 0, 0);
+  // 제목 쪽에서 벽으로 번지는 빛
+  c.globalCompositeOperation = 'lighter';
+  let g = c.createRadialGradient(W * .74, H * .26, 0, W * .74, H * .26, W * .52);
+  g.addColorStop(0, `rgba(60,170,200,${.22 * fl})`); g.addColorStop(.45, `rgba(30,110,130,${.09 * fl})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.globalCompositeOperation = 'source-over';
+  if (fig) {                                                                           // 숨 — 살짝 오르내림
+    const by = Math.sin(t * .018) * 2.2 * K;
+    c.globalAlpha = .9 + .1 * fl;
+    c.drawImage(fig, 0, by);
+    c.globalAlpha = 1;
+  }
+  // 먼지 — 빛 쪽에서 더 잘 보임
+  c.globalCompositeOperation = 'lighter';
+  for (const d of dust) {
+    d.y -= d.v * K * .5; d.x += Math.sin(t * .01 + d.p) * .15 * K; if (d.y < -4) { d.y = H + 4; d.x = rnd() * W; }
+    const near = Math.max(0, 1 - Math.hypot(d.x - W * .7, d.y - H * .35) / (W * .6));
+    c.fillStyle = `rgba(140,225,240,${d.a * (.12 + near * .5) * fl})`;
+    c.beginPath(); c.arc(d.x, d.y, d.r, 0, 7); c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+  // 아래에서 올라오는 안개 · 가장자리 어둠
+  g = c.createLinearGradient(0, H * .62, 0, H);
+  g.addColorStop(0, 'rgba(4,8,10,0)'); g.addColorStop(1, 'rgba(4,8,10,.88)');
+  c.fillStyle = g; c.fillRect(0, H * .62, W, H * .38);
+  g = c.createRadialGradient(W * .52, H * .45, H * .3, W * .52, H * .45, W * .72);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+}
+function loop() {
+  raf = 0;
+  if (title.classList.contains('hidden') || document.hidden) return;          // 안 보이면 쉼 — sync() 가 다시 깨움
+  if (!wall) { wall = bakeWall(); fig = bakeFigure(); }
+  if (!(t & 1) || t < 3) draw(); else t++;                                     // 한 장 건너 한 장 (30fps)
+  raf = requestAnimationFrame(loop);
+}
+const sync = () => { if (!raf && !title.classList.contains('hidden') && !document.hidden) raf = requestAnimationFrame(loop); };
+new MutationObserver(sync).observe(title, { attributes: true, attributeFilter: ['class'] });
+document.addEventListener('visibilitychange', sync);
+addEventListener('load', sync);
+sync();
+window.TitleScreen = { redraw: sync };
+})();
+
+</script>
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
    corridor3d.js — 탈출 복도, 실사 3D (WebGL)
 
    비상구에서 바깥 문까지 640m 복도를 화면 해상도로 그립니다. 픽셀 복도(escape.js)와
@@ -13884,6 +14026,11 @@ addEventListener('keydown', e => {
   if (k === 'r' && G.mode === 'dead') retry();
   if (k === 'n' && G.mode === 'dead' && !$('fest-next').classList.contains('hidden')) nextPlayer();
   if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
+  if (G.mode === 'title' && $('devpanel').classList.contains('hidden')) {       // 시작 화면 메뉴
+    if (k === 'arrowup' || k === 'w') menuMove(-1);
+    if (k === 'arrowdown' || k === 's') menuMove(1);
+    if (k === 'enter') menuGo();
+  }
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startTimeAttack();
     if (k === '2') openDiffSelect();
@@ -14313,7 +14460,7 @@ function nextLine() { talk.q.shift(); showLine(); }
 /* ═══════════ 확인 키 ═══════════════════════════════════ */
 function onConfirm() {
   Sfx.unlock();
-  if (G.mode === 'title')  { openModeSelect(); return; }
+  if (G.mode === 'title')  { menuGo(); return; }
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
   if (G.mode === 'diffsel') return;            // 난이도도 마찬가지
   if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
@@ -14327,6 +14474,25 @@ function onConfirm() {
 /* ═══════════ 시작 / 초기화 ════════════════════════════ */
 
 /* 시작하기 → 모드 선택. 로고는 그대로 두고 아래쪽만 바뀝니다. */
+/* ── 시작 화면의 메뉴 — ↑↓(W · S) 로 고르고 SPACE · ENTER, 또는 그냥 누르기 ── */
+const menuItems = () => [...document.querySelectorAll('#startbtn .tm-item:not(.hidden)')];
+function menuMove(d) {
+  const it = menuItems(), i = Math.max(0, it.findIndex(b => b.classList.contains('sel')));
+  it.forEach(b => b.classList.remove('sel'));
+  it[(i + d + it.length) % it.length].classList.add('sel'); Sfx.unlock();
+}
+function menuGo(act) {
+  act = act || (menuItems().find(b => b.classList.contains('sel')) || {}).dataset?.act || 'start';
+  Sfx.unlock();
+  if (act === 'start') { openModeSelect(); openDiffSelect(); }          // 일반 모드 — 바로 난이도
+  else if (act === 'time') { openModeSelect(); startTimeAttack(); }
+  else if (act === 'board') { if (window.Festival) Festival.openBoard(); }
+  else if (act === 'full') {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { try { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+}
 function openModeSelect() {
   Sfx.unlock();
   $('startbtn').classList.add('hidden');
@@ -14362,7 +14528,7 @@ function startTimeAttack() {
   if (!(window.Festival && Festival.on)) { startGame(true); return; }
   $('modesel').classList.add('hidden');
   G.mode = 'entry';
-  Festival.ask(() => startGame(true), () => { $('modesel').classList.remove('hidden'); G.mode = 'modesel'; });
+  Festival.ask(() => startGame(true), () => closeModeSelect());
 }
 
 /* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
@@ -14373,10 +14539,9 @@ function openDiffSelect() {
   $('diffsel').classList.remove('hidden');
   G.mode = 'diffsel';
 }
-function closeDiffSelect() {
+function closeDiffSelect() {                    // 메뉴에서 바로 들어왔으니 뒤로도 시작 화면으로
   $('diffsel').classList.add('hidden');
-  $('modesel').classList.remove('hidden');
-  G.mode = 'modesel';
+  closeModeSelect();
 }
 
 /* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
@@ -14482,7 +14647,11 @@ function resetRun() {
   G.mode = 'title';
 }
 
-$('startbtn').addEventListener('click', openModeSelect);
+document.querySelectorAll('#startbtn .tm-item').forEach(b => {
+  b.addEventListener('click', () => { menuItems().forEach(x => x.classList.remove('sel')); b.classList.add('sel'); menuGo(b.dataset.act); });
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { menuItems().forEach(x => x.classList.remove('sel')); b.classList.add('sel'); } });
+});
+if (window.Festival && Festival.on) document.querySelector('#startbtn [data-act="board"]').classList.remove('hidden');
 $('msback').addEventListener('click', closeModeSelect);
 $('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>

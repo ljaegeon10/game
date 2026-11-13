@@ -86,6 +86,11 @@ addEventListener('keydown', e => {
   if (k === 'r' && G.mode === 'dead') retry();
   if (k === 'n' && G.mode === 'dead' && !$('fest-next').classList.contains('hidden')) nextPlayer();
   if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
+  if (G.mode === 'title' && $('devpanel').classList.contains('hidden')) {       // 시작 화면 메뉴
+    if (k === 'arrowup' || k === 'w') menuMove(-1);
+    if (k === 'arrowdown' || k === 's') menuMove(1);
+    if (k === 'enter') menuGo();
+  }
   if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startTimeAttack();
     if (k === '2') openDiffSelect();
@@ -515,7 +520,7 @@ function nextLine() { talk.q.shift(); showLine(); }
 /* ═══════════ 확인 키 ═══════════════════════════════════ */
 function onConfirm() {
   Sfx.unlock();
-  if (G.mode === 'title')  { openModeSelect(); return; }
+  if (G.mode === 'title')  { menuGo(); return; }
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
   if (G.mode === 'diffsel') return;            // 난이도도 마찬가지
   if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
@@ -529,6 +534,25 @@ function onConfirm() {
 /* ═══════════ 시작 / 초기화 ════════════════════════════ */
 
 /* 시작하기 → 모드 선택. 로고는 그대로 두고 아래쪽만 바뀝니다. */
+/* ── 시작 화면의 메뉴 — ↑↓(W · S) 로 고르고 SPACE · ENTER, 또는 그냥 누르기 ── */
+const menuItems = () => [...document.querySelectorAll('#startbtn .tm-item:not(.hidden)')];
+function menuMove(d) {
+  const it = menuItems(), i = Math.max(0, it.findIndex(b => b.classList.contains('sel')));
+  it.forEach(b => b.classList.remove('sel'));
+  it[(i + d + it.length) % it.length].classList.add('sel'); Sfx.unlock();
+}
+function menuGo(act) {
+  act = act || (menuItems().find(b => b.classList.contains('sel')) || {}).dataset?.act || 'start';
+  Sfx.unlock();
+  if (act === 'start') { openModeSelect(); openDiffSelect(); }          // 일반 모드 — 바로 난이도
+  else if (act === 'time') { openModeSelect(); startTimeAttack(); }
+  else if (act === 'board') { if (window.Festival) Festival.openBoard(); }
+  else if (act === 'full') {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { try { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+}
 function openModeSelect() {
   Sfx.unlock();
   $('startbtn').classList.add('hidden');
@@ -564,7 +588,7 @@ function startTimeAttack() {
   if (!(window.Festival && Festival.on)) { startGame(true); return; }
   $('modesel').classList.add('hidden');
   G.mode = 'entry';
-  Festival.ask(() => startGame(true), () => { $('modesel').classList.remove('hidden'); G.mode = 'modesel'; });
+  Festival.ask(() => startGame(true), () => closeModeSelect());
 }
 
 /* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
@@ -575,10 +599,9 @@ function openDiffSelect() {
   $('diffsel').classList.remove('hidden');
   G.mode = 'diffsel';
 }
-function closeDiffSelect() {
+function closeDiffSelect() {                    // 메뉴에서 바로 들어왔으니 뒤로도 시작 화면으로
   $('diffsel').classList.add('hidden');
-  $('modesel').classList.remove('hidden');
-  G.mode = 'modesel';
+  closeModeSelect();
 }
 
 /* timeAttack = true  : 시계가 돌고 기록이 남습니다. 죽으면 처음부터.
@@ -684,7 +707,11 @@ function resetRun() {
   G.mode = 'title';
 }
 
-$('startbtn').addEventListener('click', openModeSelect);
+document.querySelectorAll('#startbtn .tm-item').forEach(b => {
+  b.addEventListener('click', () => { menuItems().forEach(x => x.classList.remove('sel')); b.classList.add('sel'); menuGo(b.dataset.act); });
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { menuItems().forEach(x => x.classList.remove('sel')); b.classList.add('sel'); } });
+});
+if (window.Festival && Festival.on) document.querySelector('#startbtn [data-act="board"]').classList.remove('hidden');
 $('msback').addEventListener('click', closeModeSelect);
 $('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>
