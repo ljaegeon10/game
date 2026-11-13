@@ -1285,7 +1285,7 @@ body.tfill.topview #crt{ border-radius:0; }
    본편(숲 · 던전 · 보스) 동안만 (body.topview — game.js), 오프닝 · 엔딩 · 탈출 · 시작 화면엔 없음 */
 #obang-frame{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; --ob:5px; --seg:24px; }   /* 브라운관 그늘(#crt) 위로 — 또렷하게 */
 body.topview #obang-frame{ display:block; }
-#obang-frame i{ position:absolute; display:block; }
+#obang-frame i{ position:absolute; display:block; filter:brightness(.42) saturate(.8); }   /* 어둡게 가라앉힘 — 화면보다 튀지 않게 */
 #obang-frame .t, #obang-frame .b{ left:0; right:0; height:var(--ob);
   background:repeating-linear-gradient(90deg, var(--cheong) 0 var(--seg), var(--baek) 0 calc(var(--seg) * 2), var(--jeok) 0 calc(var(--seg) * 3),
                                               var(--heuk) 0 calc(var(--seg) * 4), var(--hwang) 0 calc(var(--seg) * 5)); }
