@@ -1300,6 +1300,11 @@ html:has(body.touch), body.touch{ background:#000; }
 #tfstip.out{ opacity:0; }
 /* 참가 등록 칸이 열려 있으면 아래 제작진 글은 숨김 (← 뒤로 와 겹치지 않게) */
 #title:has(#fest-entry:not(.hidden)) #credits{ display:none; }
+/* PC 시작 화면 — 브라운관 테두리 · 아래 안내 줄 없이 창을 16:9 로 꽉 채움 (game.js 의 fit) */
+body.tfill, html:has(body.tfill){ background:#000; }
+body.tfill #stage{ box-shadow:none; border-radius:0; transition:none; }
+body.tfill #hint{ display:none; }
+body.tfill #frame{ gap:0; }
 
 </style>
 </head>
@@ -1427,7 +1432,7 @@ html:has(body.touch), body.touch{ background:#000; }
     <div id="title">
       <!-- 시작 화면 (js/titlescreen.js) — 왼쪽엔 어둠 속의 방호복(3D), 오른쪽 위엔 빛나는 제목, 오른쪽 아래엔 메뉴.
            배경 · 인물 · 먼지는 캔버스에, 테두리 선은 #t-frame 에 -->
-      <canvas id="titlecv" width="1728" height="972" aria-hidden="true"></canvas>
+      <canvas id="titlecv" width="1920" height="1080" aria-hidden="true"></canvas>
       <div id="t-frame" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
       <!-- 제목 — 네모 획으로 짠 글자 (로고를 세 번 누르면 개발자 모드) -->
       <h1 aria-label="우물 아래">
@@ -13985,8 +13990,9 @@ const viewW = () => Math.round((window.visualViewport && visualViewport.width) |
 const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
-  const n = document.body.classList.contains('touch')
-    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 휴대폰은 테두리 없이 화면 끝까지
+  // PC 의 시작 화면(body.tfill)도 창을 16:9 로 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
+  const n = document.body.classList.contains('touch') || document.body.classList.contains('tfill')
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
@@ -13996,6 +14002,11 @@ function fit() {
   stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
+/* 시작 화면이 보이는 동안 body.tfill — 창 가득 (16:9, 남는 쪽은 검은 띠) */
+{ const tEl0 = document.getElementById('title'), syncFill = () => { const on = !tEl0.classList.contains('hidden');
+    if (document.body.classList.contains('tfill') !== on) { document.body.classList.toggle('tfill', on); fit(); } };
+  new MutationObserver(syncFill).observe(tEl0, { attributes: true, attributeFilter: ['class'] });
+  document.body.classList.toggle('tfill', !tEl0.classList.contains('hidden')); }
 if (window.visualViewport) visualViewport.addEventListener('resize', fit);   // 주소창이 접히거나 펴질 때
 addEventListener('orientationchange', () => setTimeout(fit, 250));
 addEventListener('fullscreenchange', () => setTimeout(fit, 60));

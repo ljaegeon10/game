@@ -1271,3 +1271,8 @@ html:has(body.touch), body.touch{ background:#000; }
 #tfstip.out{ opacity:0; }
 /* 참가 등록 칸이 열려 있으면 아래 제작진 글은 숨김 (← 뒤로 와 겹치지 않게) */
 #title:has(#fest-entry:not(.hidden)) #credits{ display:none; }
+/* PC 시작 화면 — 브라운관 테두리 · 아래 안내 줄 없이 창을 16:9 로 꽉 채움 (game.js 의 fit) */
+body.tfill, html:has(body.tfill){ background:#000; }
+body.tfill #stage{ box-shadow:none; border-radius:0; transition:none; }
+body.tfill #hint{ display:none; }
+body.tfill #frame{ gap:0; }

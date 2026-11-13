@@ -30,8 +30,9 @@ const viewW = () => Math.round((window.visualViewport && visualViewport.width) |
 const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
-  const n = document.body.classList.contains('touch')
-    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 휴대폰은 테두리 없이 화면 끝까지
+  // PC 의 시작 화면(body.tfill)도 창을 16:9 로 꽉 채웁니다 — 게임에 들어가면 다시 정수배(픽셀이 또렷하게)
+  const n = document.body.classList.contains('touch') || document.body.classList.contains('tfill')
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
@@ -41,6 +42,11 @@ function fit() {
   stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
+/* 시작 화면이 보이는 동안 body.tfill — 창 가득 (16:9, 남는 쪽은 검은 띠) */
+{ const tEl0 = document.getElementById('title'), syncFill = () => { const on = !tEl0.classList.contains('hidden');
+    if (document.body.classList.contains('tfill') !== on) { document.body.classList.toggle('tfill', on); fit(); } };
+  new MutationObserver(syncFill).observe(tEl0, { attributes: true, attributeFilter: ['class'] });
+  document.body.classList.toggle('tfill', !tEl0.classList.contains('hidden')); }
 if (window.visualViewport) visualViewport.addEventListener('resize', fit);   // 주소창이 접히거나 펴질 때
 addEventListener('orientationchange', () => setTimeout(fit, 250));
 addEventListener('fullscreenchange', () => setTimeout(fit, 60));
