@@ -8014,10 +8014,16 @@ function tube(m, rows, cols, prof, fold, col, code, aoK = 4) {
 /* 날카로운 주름 — 넓은 둔덕 사이로 좁게 꺾여 들어가는 골 */
 const crease = x => .6 - Math.pow(Math.abs(Math.sin(x)), .35) * 1.2;
 /* 표의 값 사이를 부드럽게 — tab : [[u, ...값]] */
+/* (예전엔 칸마다 따로 부드럽게 이어서 값이 바뀌는 자리마다 멈칫 — 몸통 · 후드에 가로 줄이 졌음.
+    이제 앞뒤 칸의 기울기를 이어받는 곡선(Hermite)이라 윤곽이 매끈하게 흐릅니다) */
 const curve = (tab, u) => {
   let i = 0; while (i < tab.length - 2 && u > tab[i + 1][0]) i++;
-  const a = tab[i], b = tab[i + 1], k = clamp01((u - a[0]) / (b[0] - a[0])), e = k * k * (3 - 2 * k);
-  return a.map((v, n) => lerp(v, b[n], e));
+  const a = tab[i], b = tab[i + 1], p = tab[i - 1] || a, n = tab[i + 2] || b;
+  const h = b[0] - a[0], k = clamp01((u - a[0]) / h), k2 = k * k, k3 = k2 * k;
+  return a.map((v, j) => {
+    const m0 = (b[j] - p[j]) / ((b[0] - p[0]) || 1) * h, m1 = (n[j] - a[j]) / ((n[0] - a[0]) || 1) * h;
+    return (2 * k3 - 3 * k2 + 1) * v + (k3 - 2 * k2 + k) * m0 + (-2 * k3 + 3 * k2) * b[j] + (k3 - k2) * m1;
+  });
 };
 /* 타원 고리 (보호면 고무 테두리 같은) — 가운데 c, 반지름 ax · ay (xy 평면), 굵기 r */
 function ring(m, c, ax, ay, r, col, code, tilt = 0) {
@@ -8042,19 +8048,37 @@ function buildSuit() {
       return .032 * crease(th * 3.5 + u * 5 + Math.sin(th * 3) * 1.5) * Math.sin(u * PI) + .016 * crease(th * 2 - u * 2 + 1.3)
            - .03 * belt + .02 * Math.exp(-Math.pow((u - .38) / .05, 2)) + .02 * Math.exp(-Math.pow((u - .22) / .05, 2));
     }, C.suit, MAT.suit);
-  torso.ellipsoid([0, -.1, .005], [.16, 0, 0], [0, .08, 0], [0, 0, .11], C.suitD, 16, 10, { m: MAT.suit });
+  torso.ellipsoid([0, -.1, .005], [.165, 0, 0], [0, .09, 0], [0, 0, .118], mul(C.suit, .9), 18, 12, { m: MAT.suit });
   // 어깨 — 부푼 원단
-  for (const sx of [-1, 1]) torso.ellipsoid([sx * .195, .44, 0], [.105, 0, 0], [0, .09, 0], [0, 0, .105], C.suit, 16, 12, { m: MAT.suit });
+  for (const sx of [-1, 1]) torso.ellipsoid([sx * .2, .425, 0], [.092, 0, 0], [0, .085, 0], [0, 0, .1], C.suit, 16, 12, { m: MAT.suit });
   // 후드 — 어깨까지 덮어 흘러내리는 두건, 머리 둘레는 둥글게, 정수리는 살짝 뾰족
-  const HT = [[0, .38, .205, .178], [.12, .46, .185, .17], [.25, .55, .158, .155], [.38, .63, .162, .152], [.55, .73, .158, .15],
-              [.72, .82, .135, .142], [.86, .88, .095, .1], [.95, .915, .045, .05], [1, .925, .004, .004]];
+  // (어깨 위로는 망토처럼 넓게 덮고, 목에서 한 번 잘록 — 공처럼 따로 놀던 어깨를 자락이 감쌉니다)
+  const HT = [[0, .355, .268, .188], [.07, .41, .272, .184], [.15, .47, .225, .17], [.24, .535, .152, .146], [.34, .6, .158, .156],
+              [.5, .7, .172, .166], [.66, .79, .16, .158], [.8, .86, .126, .13], [.9, .9, .08, .085], [.97, .925, .03, .032], [1, .93, .004, .004]];
   tube(torso, 46, 56, u => { const [, y, a, b] = curve(HT, u); return { y, a, b, z: .012 }; },
-    (u, th) => .016 * crease(th * 2.5 + u * 2) * Math.sin(u * PI) + .04 * Math.exp(-Math.pow((u - .2) / .08, 2)) * crease(th * 4.5 + Math.sin(th * 2) * 2)
-             + .008 * Math.sin(th * 3 - u * 5)
-             - .012 * Math.exp(-Math.pow((u - .25) / .04, 2)), C.suit, MAT.suit);
+    (u, th) => .014 * crease(th * 2.5 + u * 2) * Math.sin(u * PI) + .034 * Math.exp(-Math.pow((u - .24) / .07, 2)) * crease(th * 4.5 + Math.sin(th * 2) * 2)
+             + .008 * Math.sin(th * 3 - u * 5) + .02 * Math.exp(-Math.pow(u / .1, 2)) * Math.sin(th * 7 + 1.3)      // 자락 끝은 물결
+             - .014 * Math.exp(-Math.pow((u - .24) / .035, 2)), C.suit, MAT.suit);
   // 보호면 — 후드 앞으로 살짝 튀어나온 새까만 유리, 둘레 고무 테두리 (얼굴은 보이지 않음)
-  torso.ellipsoid([0, .725, .1], [.1, 0, 0], [0, .122, 0], [0, 0, .118], hex('#07090c'), 28, 20, { m: MAT.visor });
-  ring(torso, [0, .725, .166], .09, .109, .013, C.gasket, MAT.gloss(.35), .008);
+  torso.ellipsoid([0, .728, .104], [.112, 0, 0], [0, .122, 0], [0, 0, .122], hex('#07090c'), 28, 20, { m: MAT.visor });
+  ring(torso, [0, .728, .172], .1, .109, .014, C.gasket, MAT.gloss(.35), .012);
+  // 턱 양옆의 정화통 — 짧은 원통 · 앞의 구멍 난 덮개
+  for (const sx of [-1, 1]) {
+    const o = [sx * .078, .612, .128], ax = norm([sx * .62, -.38, .68]);
+    torso.lathe(o, ax, [[.026, 0], [.03, .006], [.037, .012], [.037, .046], [.032, .052], [.02, .054, hex('#14171c')], [0, .054, hex('#14171c')]], hex('#3d4652'), 18, { m: MAT.gloss(.5) });
+    torso.torus(add(o, mul(ax, .03)), ax, .037, .004, hex('#59636f'), 18, 6, { m: MAT.gloss(.7) });
+  }
+  // 등의 송풍기(공기 정화 장치) — 둥근 상자 · 어깨끈 · 후드 뒤로 올라가는 주름 호스
+  torso.rbox(-.105, .105, .1, .35, -.225, -.135, hex('#2c333f'), .03, { m: MAT.gloss(.3) });
+  torso.rbox(-.07, .07, .14, .2, -.232, -.22, hex('#1a1e26'), .008, { m: MAT.gloss(.2) });
+  torso.rbox(.04, .08, .29, .32, -.231, -.22, hex('#3fb7a0'), .004, { m: MAT.glow });
+  for (const sx of [-1, 1]) {
+    const st = []; for (let i = 0; i <= 10; i++) { const a = lerp(-.25, PI * .62, i / 10); st.push([sx * .125, .33 + Math.sin(a) * .13, -.03 - Math.cos(a) * .135 * (a > PI / 2 ? 1.12 : 1)]); }
+    torso.tube(st, .012, C.black, 6, { m: MAT.gloss(.25) });
+  }
+  { const hz = []; for (let i = 0; i <= 14; i++) { const u = i / 14; hz.push([.06 - u * .03, lerp(.34, .63, u), -.2 - Math.sin(u * PI) * .05 + u * .045]); }
+    torso.tube(hz, .017, hex('#20252e'), 8, { m: MAT.gloss(.3) });
+    for (let i = 1; i < 14; i += 1) torso.torus(hz[i], norm(sub(hz[i + 1], hz[i - 1])), .0175, .004, hex('#343b47'), 10, 5, { m: MAT.gloss(.3) }); }
   // 앞 지퍼 덮개 — 목에서 가랑이까지 (테이프 붙인 이음선)
   const zip = []; for (let i = 0; i <= 16; i++) { const u = i / 16, [, y, , b] = curve(TT, lerp(.94, .05, u)); zip.push([0, y, b + .012]); }
   torso.tube(zip, .009, C.suitD, 6, { m: MAT.suit });
@@ -8131,37 +8155,66 @@ function buildGuard() {
   const P = {};
   const torso = new Mesh();
   // 제복 윗옷 — 허리에서 어깨, 잔주름
-  const TT = [[0, -.1, .15, .11], [.2, 0, .168, .118], [.35, .07, .165, .115], [.6, .25, .19, .125], [.82, .4, .2, .125], [.93, .46, .17, .115], [1, .5, .07, .065]];
-  tube(torso, 26, 32, u => { const [, y, a, b] = curve(TT, u); return { y, a, b }; },
-    (u, th) => .012 * Math.sin(th * 6 + u * 9) * Math.sin(u * PI) + .006 * Math.sin(u * 30 + th), C.uni, MAT.cloth, 9);
-  torso.ellipsoid([0, -.08, 0], [.15, 0, 0], [0, .08, 0], [0, 0, .11], C.pants, 14, 8, { m: MAT.cloth });
+  // (젓가락 같던 몸을 손봄 — 가슴 · 어깨가 넓고 허리에서 들어가는 체형, 어깨는 공 대신 몸통에서 이어지는 둥근 어깨)
+  const TT = [[0, -.1, .158, .118], [.16, -.01, .176, .128], [.3, .06, .172, .124], [.5, .2, .196, .134], [.7, .33, .216, .142],
+              [.84, .41, .222, .136], [.93, .465, .185, .118], [1, .5, .08, .07]];
+  tube(torso, 40, 44, u => { const [, y, a, b] = curve(TT, u); return { y, a, b, z: .006 * Math.sin(u * PI) }; },
+    (u, th) => .012 * Math.sin(th * 6 + u * 9) * Math.sin(u * PI) + .006 * Math.sin(u * 30 + th)
+             + .03 * Math.exp(-Math.pow((u - .36) / .06, 2)) * Math.pow(Math.sin(th * 5 + 1), 2) * .5, C.uni, MAT.cloth, 9);   // 벨트 위로 살짝 부푼 자락
+  torso.ellipsoid([0, -.085, 0], [.16, 0, 0], [0, .09, 0], [0, 0, .12], C.pants, 16, 10, { m: MAT.cloth });
   for (const sx of [-1, 1]) {
-    torso.ellipsoid([sx * .18, .44, 0], [.085, 0, 0], [0, .06, 0], [0, 0, .085], C.uniL, 14, 8, { m: MAT.cloth });       // 어깨 덧댐
-    torso.rbox(sx * .17 - .05, sx * .17 + .05, .47, .49, -.04, .04, C.uniL, .008, { m: MAT.cloth });                       // 견장
+    torso.ellipsoid([sx * .2, .425, 0], [.078, 0, 0], [0, .07, 0], [0, 0, .088], C.uni, 16, 10, { m: MAT.cloth });         // 어깨
+    torso.rbox(sx * .165 - .055, sx * .165 + .055, .476, .49, -.035, .035, C.uniL, .006, { m: MAT.cloth });                // 견장
+    torso.sphere([sx * .125, .492, 0], .007, C.metal, 8, { m: MAT.gloss(.8) });
   }
+  // 왼쪽 어깨의 무전기 — 꼬인 줄이 허리로
+  torso.rbox(-.2, -.15, .36, .45, .1, .135, hex('#15181e'), .008, { m: MAT.gloss(.35) });
+  torso.cyl([-.16, .45, .12], [-.16, .5, .12], .005, .004, hex('#0c0d10'), 6, true, { m: MAT.gloss(.3) });
+  { const w = []; for (let i = 0; i <= 60; i++) { const u = i / 60, t = u * TAU * 9; w.push([-.185 - Math.sin(u * PI) * .02 + Math.cos(t) * .008, lerp(.36, .08, u), .12 + Math.sin(u * PI) * .02 + Math.sin(t) * .008]); }
+    torso.tube(w, .003, hex('#0c0d10'), 4, { m: MAT.gloss(.3) }); }
   // 깃 · 앞섶 단추 · 가슴 주머니 · 출입증
-  tube(torso, 3, 24, u => ({ y: lerp(.5, .56, u), a: lerp(.075, .065, u), b: lerp(.072, .062, u), z: .005 }), null, C.uni, MAT.cloth);
-  for (let i = 0; i < 5; i++) torso.sphere([0, .38 - i * .085, .128 - Math.abs(i - 2) * .003], .008, C.metal, 8, { m: MAT.gloss(.8) });
-  for (const sx of [-1, 1]) torso.rbox(sx * .09 - .045, sx * .09 + .045, .25, .33, .118, .132, C.uni, .01, { m: MAT.cloth });
-  torso.rbox(.05, .135, .27, .33, .133, .138, hex('#e2e6e9'), .004, { m: MAT.gloss(.5) });
-  torso.quad([.052, .328, .1385], [.133, .328, .1385], [.133, .272, .1385], [.052, .272, .1385], [1, 1, 1], { m: MAT.gloss(.5), uv: UV.card });
-  // 벨트 · 버클 · 권총집
-  tube(torso, 2, 32, u => ({ y: lerp(.075, .03, u), a: .172, b: .122 }), null, C.black, MAT.gloss(.4));
-  torso.rbox(-.03, .03, .033, .072, .118, .13, C.metal, .005, { m: MAT.gloss(.85) });
-  torso.rbox(.15, .21, -.08, .07, -.02, .07, C.black, .015, { m: MAT.gloss(.35) });
+  tube(torso, 4, 28, u => ({ y: lerp(.495, .565, u), a: lerp(.082, .07, u), b: lerp(.078, .068, u), z: .004 }), null, C.uni, MAT.cloth);
+  for (const sx of [-1, 1]) torso.quad([sx * .012, .5, .086], [sx * .075, .525, .06], [sx * .06, .465, .1], [sx * .012, .45, .126], C.uniL, { m: MAT.cloth });   // 깃 날개
+  const frontZ = y => { const [, , , b] = curve(TT, clamp01((y + .1) / .6)); return b + .01; };
+  torso.rbox(-.016, .016, .08, .46, .128, .142, mul(C.uni, .9), .005, { m: MAT.cloth });                                    // 앞섶
+  for (let i = 0; i < 5; i++) torso.sphere([0, .42 - i * .08, frontZ(.42 - i * .08) + .004], .008, C.metal, 8, { m: MAT.gloss(.8) });
+  for (const sx of [-1, 1]) {                                                                                              // 가슴 주머니 · 덮개 · 단추
+    torso.rbox(sx * .1 - .048, sx * .1 + .048, .25, .335, .124, .141, C.uni, .01, { m: MAT.cloth });
+    torso.rbox(sx * .1 - .05, sx * .1 + .05, .31, .34, .128, .146, C.uniL, .006, { m: MAT.cloth });
+    torso.sphere([sx * .1, .318, .148], .006, C.metal, 8, { m: MAT.gloss(.8) });
+  }
+  torso.rbox(.06, .145, .255, .312, .142, .147, hex('#e2e6e9'), .004, { m: MAT.gloss(.5) });
+  torso.quad([.062, .31, .1475], [.143, .31, .1475], [.143, .257, .1475], [.062, .257, .1475], [1, 1, 1], { m: MAT.gloss(.5), uv: UV.card });
+  // 벨트 · 버클 · 권총집 · 탄창 주머니 · 수갑 주머니
+  tube(torso, 2, 36, u => ({ y: lerp(.08, .03, u), a: .184, b: .134 }), null, C.black, MAT.gloss(.4));
+  torso.rbox(-.032, .032, .033, .077, .128, .142, C.metal, .005, { m: MAT.gloss(.85) });
+  torso.rbox(.16, .225, -.1, .075, -.03, .07, C.black, .015, { m: MAT.gloss(.35) });
+  torso.rbox(.17, .215, .04, .1, -.02, .03, hex('#0b0c0f'), .008, { m: MAT.gloss(.5) });                                    // 권총 손잡이 끝
+  for (const x of [-.13, -.08]) torso.rbox(x - .02, x + .02, -.02, .08, .11, .15, hex('#101216'), .008, { m: MAT.gloss(.3) });
+  torso.rbox(-.06, .06, -.005, .075, -.155, -.125, hex('#101216'), .01, { m: MAT.gloss(.3) });
   // 목 · 머리(피부) · 귀 · 코 · 턱
-  torso.lathe([0, .52, .005], [0, 1, 0], [[.052, 0], [.05, .1]], C.skin, 16, { m: MAT.skin });
-  torso.ellipsoid([0, .7, .01], [.085, 0, 0], [0, .11, 0], [0, 0, .1], C.skin, 22, 16, { m: MAT.skin });
-  torso.ellipsoid([0, .64, .04], [.07, 0, 0], [0, .05, 0], [0, 0, .07], C.skin, 16, 10, { m: MAT.skin });
-  torso.ellipsoid([0, .69, .108], [.014, 0, 0], [0, .025, 0], [0, 0, .016], C.skin, 10, 8, { m: MAT.skin });
-  for (const sx of [-1, 1]) torso.ellipsoid([sx * .085, .695, -.005], [.012, 0, 0], [0, .026, 0], [0, 0, .018], C.skin, 8, 6, { m: MAT.skin });
-  torso.ellipsoid([0, .618, .075], [.03, 0, 0], [0, .006, 0], [0, 0, .01], hex('#7a5448'), 10, 4, { m: MAT.skin });
+  // (머리는 덩어리 둘을 겹친 것 대신 턱 → 정수리로 이어지는 한 장의 곡면 — 턱이 주둥이처럼 튀어나오지 않게)
+  torso.lathe([0, .5, 0], [0, 1, 0], [[.06, 0], [.054, .03], [.052, .11]], C.skin, 18, { m: MAT.skin });
+  const HD = [[0, .588, .012, .012, .058], [.07, .596, .04, .036, .044], [.18, .618, .06, .064, .026], [.32, .65, .071, .083, .016],
+              [.48, .69, .079, .094, .01], [.64, .73, .083, .099, .006], [.8, .775, .078, .094, .002], [.92, .81, .055, .068, 0], [1, .825, .004, .004, 0]];
+  tube(torso, 34, 40, u => { const [, y, a, b, z] = curve(HD, u); return { y, a, b, z }; },
+    (u, th) => -.05 * Math.exp(-Math.pow((u - .42) / .09, 2)) * Math.pow(Math.max(0, Math.sin(th)), 6)                      // 눈두덩 아래로 살짝 꺼짐
+             + .04 * Math.exp(-Math.pow((u - .3) / .1, 2)) * Math.pow(Math.max(0, Math.cos(th * 2)) * Math.max(0, Math.sin(th)), 2), C.skin, MAT.skin, 2);   // 광대
+  torso.ellipsoid([0, .668, .104], [.013, 0, 0], [0, .026, 0], [0, 0, .02], C.skin, 12, 8, { m: MAT.skin });                // 코
+  torso.ellipsoid([0, .652, .108], [.017, 0, 0], [0, .009, 0], [0, 0, .012], mul(C.skin, .94), 10, 6, { m: MAT.skin });
+  for (const sx of [-1, 1]) {                                                                                              // 귀
+    torso.ellipsoid([sx * .083, .69, -.004], [.008, 0, 0], [0, .027, 0], [0, 0, .017], C.skin, 10, 8, { m: MAT.skin });
+    torso.ellipsoid([sx * .087, .69, 0], [.004, 0, 0], [0, .016, 0], [0, 0, .009], mul(C.skin, .7), 8, 6, { m: MAT.skin });
+  }
+  torso.rbox(-.024, .024, .627, .632, .096, .101, hex('#6a443c'), .002, { m: MAT.skin });                                   // 굳게 다문 입
   // 모자 아래로 보이는 짧은 머리 · 구레나룻
-  torso.ellipsoid([0, .735, -.012], [.09, 0, 0], [0, .06, 0], [0, 0, .1], hex('#2a2018'), 18, 10, { m: MAT.cloth });
-  for (const sx of [-1, 1]) torso.ellipsoid([sx * .082, .71, .02], [.01, 0, 0], [0, .03, 0], [0, 0, .02], hex('#2a2018'), 8, 6, { m: MAT.cloth });
+  torso.ellipsoid([0, .735, -.016], [.088, 0, 0], [0, .062, 0], [0, 0, .1], hex('#2a2018'), 18, 10, { m: MAT.cloth });
+  for (const sx of [-1, 1]) torso.ellipsoid([sx * .08, .712, .022], [.008, 0, 0], [0, .028, 0], [0, 0, .016], hex('#2a2018'), 8, 6, { m: MAT.cloth });
   // 바이저 — 눈높이를 감싸는 띠 (색은 매 프레임)
-  surf(torso, 2, 24, (u, v) => { const th = lerp(-1.25, 1.25, v), y = lerp(.725, .69, u), r = .093;
-    return [[Math.sin(th) * r, y, .012 + Math.cos(th) * r * 1.06], [1, 1, 1]]; }, MAT.band);
+  surf(torso, 3, 28, (u, v) => { const th = lerp(-1.3, 1.3, v), y = lerp(.73, .69, u), r = .092 + .004 * Math.sin(u * PI);
+    return [[Math.sin(th) * r, y, .008 + Math.cos(th) * r * 1.14], [1, 1, 1]]; }, MAT.band);
+  for (const yy of [.732, .688]) { const fr = []; for (let i = 0; i <= 20; i++) { const th = lerp(-1.42, 1.42, i / 20); fr.push([Math.sin(th) * .093, yy, .008 + Math.cos(th) * .093 * 1.14]); }
+    torso.tube(fr, .0045, hex('#12151a'), 5, { m: MAT.gloss(.5) }); }                                                       // 바이저 테
   // 모자 — 둥근 정수리 · 띠 · 챙
   torso.lathe([0, .74, .0], [0, 1, 0], [[.098, 0], [.098, .03], [.094, .07], [.07, .1], [.03, .112], [0, .114]], C.cap, 24, { m: MAT.cloth });
   tube(torso, 1, 24, u => ({ y: lerp(.745, .77, u), a: .1, b: .1 }), null, hex('#0f1218'), MAT.gloss(.3));
@@ -8170,16 +8223,19 @@ function buildGuard() {
   P.torso = torso;
   for (const side of [-1, 1]) {
     const ua = new Mesh();
-    tube(ua, 16, 22, u => ({ y: -u * .3, a: lerp(.062, .052, u), b: lerp(.06, .05, u) }),
-      (u, th) => .012 * Math.sin(th * 3 + u * 14) + .008 * Math.sin(u * 30), C.uni, MAT.cloth, 9);
-    if (side < 0) surf(ua, 3, 28, (u, v) => { const th = v * TAU, y = lerp(-.06, -.12, u);
-      return [[Math.cos(th) * .066, y, Math.sin(th) * .064], (Math.floor(v * 14 + u * 2) % 2) ? C.black : C.yel]; }, MAT.cloth);
-    ua.ellipsoid([0, -.3, 0], [.054, 0, 0], [0, .05, 0], [0, 0, .054], C.uni, 12, 8, { m: MAT.cloth });
+    const UA = [[0, 0, .07, .072], [.25, -.075, .072, .074], [.6, -.18, .064, .066], [1, -.3, .056, .056]];
+    tube(ua, 24, 28, u => { const [, y, a, b] = curve(UA, u); return { y, a, b }; },
+      (u, th) => .012 * Math.sin(th * 3 + u * 14) + .008 * Math.sin(u * 30) + .03 * Math.pow(Math.sin(u * 22), 2) * u * u, C.uni, MAT.cloth, 9);
+    if (side < 0) surf(ua, 3, 28, (u, v) => { const th = v * TAU, y = lerp(-.07, -.13, u);
+      return [[Math.cos(th) * .077, y, Math.sin(th) * .079], (Math.floor(v * 14 + u * 2) % 2) ? C.black : C.yel]; }, MAT.cloth);
+    ua.ellipsoid([0, -.3, 0], [.057, 0, 0], [0, .052, 0], [0, 0, .058], C.uni, 12, 8, { m: MAT.cloth });
     P['ua' + side] = ua;
     const fa = new Mesh();
-    tube(fa, 14, 22, u => ({ y: -u * .25, a: lerp(.052, .044, u), b: lerp(.05, .042, u) }),
-      (u, th) => .01 * Math.sin(th * 4 + u * 12), C.uni, MAT.cloth, 9);
-    fa.lathe([0, -.235, 0], [0, -1, 0], [[.046, 0], [.046, .02]], C.uniL, 16, { m: MAT.cloth });
+    const FA = [[0, 0, .056, .056], [.3, -.07, .058, .056], [.75, -.19, .046, .044], [1, -.25, .042, .04]];
+    tube(fa, 20, 26, u => { const [, y, a, b] = curve(FA, u); return { y, a, b }; },
+      (u, th) => .01 * Math.sin(th * 4 + u * 12) + .025 * Math.pow(Math.sin(u * 18 + 1), 2) * (1 - u) * (1 - u), C.uni, MAT.cloth, 9);
+    fa.lathe([0, -.228, 0], [0, -1, 0], [[.046, 0], [.047, .006], [.047, .026], [.044, .03]], C.uniL, 18, { m: MAT.cloth });
+    fa.sphere([0, -.243, .047], .005, C.metal, 6, { m: MAT.gloss(.8) });
     P['fa' + side] = fa;
     for (const open of [0, 1]) {
       const h = new Mesh(), o = { m: MAT.gloss(.35) }, g = C.black;     // 전술 장갑
@@ -8193,15 +8249,20 @@ function buildGuard() {
   }
   for (const side of [-1, 1]) {
     const th = new Mesh();
-    tube(th, 16, 22, u => ({ y: -u * .46, a: lerp(.085, .068, u), b: lerp(.082, .066, u) }),
-      (u, t) => .012 * Math.sin(t * 3 + u * 10) + .006 * Math.sin(u * 26), C.pants, MAT.cloth, 9);
+    const TH = [[0, 0, .098, .1], [.2, -.09, .1, .104], [.6, -.28, .086, .09], [1, -.46, .072, .076]];
+    tube(th, 26, 28, u => { const [, y, a, b] = curve(TH, u); return { y, a, b }; },
+      (u, t) => .012 * Math.sin(t * 3 + u * 10) + .006 * Math.sin(u * 26) + .02 * Math.pow(Math.sin(u * 16 + t), 2) * u * u, C.pants, MAT.cloth, 9);
+    th.rbox(side * .085 - .012, side * .085 + .03 * side + .012, -.24, -.12, -.045, .045, mul(C.pants, 1.25), .01, { m: MAT.cloth });   // 옆 주머니
+    th.ellipsoid([0, -.455, .012], [.07, 0, 0], [0, .06, 0], [0, 0, .078], C.pants, 12, 8, { m: MAT.cloth });               // 무릎
     P['th' + side] = th;
     const sh = new Mesh();
-    tube(sh, 14, 22, u => ({ y: -u * .24, a: lerp(.068, .06, u), b: lerp(.066, .058, u) }),
-      (u, t) => .012 * Math.sin(t * 2 + u * 9) + .02 * Math.pow(Math.sin(u * 9), 2) * u, C.pants, MAT.cloth, 9);
-    sh.lathe([0, -.22, 0], [0, -1, 0], [[.062, 0], [.064, .02], [.06, .17], [.058, .19]], C.boot, 18, { m: MAT.gloss(.6) });
-    sh.ellipsoid([0, -.385, .04], [.058, 0, 0], [0, .04, 0], [0, 0, .115], C.boot, 16, 8, { m: MAT.gloss(.6) });
-    sh.rbox(-.06, .06, -.432, -.405, -.07, .16, hex('#08090b'), .012, { m: MAT.gloss(.15) });
+    const SH = [[0, 0, .072, .076, 0], [.3, -.07, .074, .08, -.008], [.7, -.17, .066, .068, -.004], [1, -.24, .07, .07, 0]];
+    tube(sh, 20, 28, u => { const [, y, a, b, z] = curve(SH, u); return { y, a, b, z }; },
+      (u, t) => .012 * Math.sin(t * 2 + u * 9) + .03 * Math.pow(Math.sin(u * 9), 2) * u, C.pants, MAT.cloth, 9);             // 군화 위로 접혀 부푼 바짓단
+    sh.lathe([0, -.2, 0], [0, -1, 0], [[.064, 0], [.067, .02], [.063, .1], [.066, .19], [.06, .21]], C.boot, 20, { m: MAT.gloss(.6) });
+    sh.ellipsoid([0, -.385, .045], [.062, 0, 0], [0, .044, 0], [0, 0, .122], C.boot, 18, 10, { m: MAT.gloss(.6) });
+    for (let i = 0; i < 5; i++) sh.rbox(-.03, .03, -.235 - i * .03, -.229 - i * .03, .056, .066, hex('#2b2e35'), .002, { m: MAT.gloss(.3) });   // 끈
+    sh.rbox(-.066, .066, -.44, -.41, -.078, .172, hex('#08090b'), .012, { m: MAT.gloss(.15) });
     P['sh' + side] = sh;
   }
   // 권총 — 오른손에 (손목 원점, 총구는 손가락 방향)
