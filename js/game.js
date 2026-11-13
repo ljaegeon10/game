@@ -2891,7 +2891,7 @@ function drawFinalLock() {
 
 /* ── 미니맵 ────────────────────────────────────────── */
 function drawMinimap() {
-  const cell = 9, gap = 2, ox = W - 8, oy = H - 8;
+  const cell = 9, gap = 2, ox = W - 12, oy = H - 12;   // 테두리 오방색 띠(5px) 안쪽으로
   const ids = Object.keys(MAP);
   const maxX = Math.max(...ids.map(i => MAP[i].gx));
   const maxY = Math.max(...ids.map(i => MAP[i].gy));
@@ -6073,7 +6073,7 @@ function loop(now) {
   if (G.mode !== 'ending') render();
   if (RUN.running) updateTimer();
   // 브라운관은 탑뷰 본편에서만 (css body.topview)
-  const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel'].includes(G.mode);
+  const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
   if (top !== _topview) { _topview = top; document.body.classList.toggle('topview', top); }
 }
 

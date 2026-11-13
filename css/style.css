@@ -1279,3 +1279,22 @@ body.tfill #stage{ box-shadow:none; border-radius:0; transition:none; }
 body.tfill #hint{ display:none; }
 body.tfill #frame{ gap:0; }
 body.tfill.topview #crt{ border-radius:0; }
+
+/* ── 1부 탑뷰 — 화면 테두리에 오방색(청 · 백 · 적 · 흑 · 황) 띠 ──────────────
+   단청처럼 다섯 색이 마디마디 이어지며 화면을 한 바퀴 두릅니다. 안쪽엔 가는 검은 선으로 게임 화면과 나눔.
+   본편(숲 · 던전 · 보스) 동안만 (body.topview — game.js), 오프닝 · 엔딩 · 탈출 · 시작 화면엔 없음 */
+#obang-frame{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; --ob:5px; --seg:24px; }   /* 브라운관 그늘(#crt) 위로 — 또렷하게 */
+body.topview #obang-frame{ display:block; }
+#obang-frame i{ position:absolute; display:block; }
+#obang-frame .t, #obang-frame .b{ left:0; right:0; height:var(--ob);
+  background:repeating-linear-gradient(90deg, var(--cheong) 0 var(--seg), var(--baek) 0 calc(var(--seg) * 2), var(--jeok) 0 calc(var(--seg) * 3),
+                                              var(--heuk) 0 calc(var(--seg) * 4), var(--hwang) 0 calc(var(--seg) * 5)); }
+#obang-frame .l, #obang-frame .r{ top:0; bottom:0; width:var(--ob);
+  background:repeating-linear-gradient(180deg, var(--cheong) 0 var(--seg), var(--baek) 0 calc(var(--seg) * 2), var(--jeok) 0 calc(var(--seg) * 3),
+                                               var(--heuk) 0 calc(var(--seg) * 4), var(--hwang) 0 calc(var(--seg) * 5)); }
+#obang-frame .t{ top:0; box-shadow:0 1px 0 rgba(0,0,0,.85); }
+#obang-frame .b{ bottom:0; box-shadow:0 -1px 0 rgba(0,0,0,.85); background-position:calc(var(--seg) * -2) 0; }   /* 아래 · 오른쪽은 마디를 엇갈려 */
+#obang-frame .l{ left:0; box-shadow:1px 0 0 rgba(0,0,0,.85); }
+#obang-frame .r{ right:0; box-shadow:-1px 0 0 rgba(0,0,0,.85); background-position:0 calc(var(--seg) * -2); }
+/* 띠 안쪽으로 HUD · 미니맵을 조금 들임 */
+body.topview #hud{ padding:11px 13px; }
