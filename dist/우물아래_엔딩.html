@@ -1241,7 +1241,7 @@ const StandbyState = {
     if ('letterSpacing' in c) c.letterSpacing = '5px';
     c.textAlign = 'center'; c.textBaseline = 'alphabetic';
     c.fillStyle = PAL.cold;
-    c.fillText('PRESS SPACE TO RETURN', W / 2, H - 16);
+    c.fillText(document.body.classList.contains('touch') ? 'TAP TO RETURN' : 'PRESS SPACE TO RETURN', W / 2, H - 16);   // 휴대폰은 톡
     c.restore();
   },
   input(s, key) { if (key === 'space' && s.promptA > .5) s.go('exit'); }
@@ -1393,7 +1393,12 @@ class EndingScene {
     this.onKey = this.onKey.bind(this);
     // 길게 눌러 건너뛰기 — SPACE · Enter 나 화면을 약 1초 누르고 있으면 마지막(SPACE 대기)으로
     this.onKeyUp = e => { if (e.code === 'Space' || e.code === 'Enter') this.holdK = false; };
-    this.onPtr = e => { this.holdP = e.type === 'pointerdown'; };
+    this.onPtr = e => {
+      this.holdP = e.type === 'pointerdown';
+      // 휴대폰 — 마지막(SPACE 대기)에선 화면을 톡 하면 SPACE 와 같음
+      if (e.type === 'pointerdown') this.tapT = performance.now();
+      else if (e.type === 'pointerup' && performance.now() - (this.tapT || 0) < 400 && this.stateName === 'standby' && this.state.input) this.state.input(this, 'space');
+    };
     this.running = false;
   }
   start() {

@@ -1195,3 +1195,35 @@ body.escfull #endcv{
 #fe-nowrite b{ color:var(--hwang); font-weight:400; }
 #fe-nowrite.hidden, #fe-skip.hidden, #fest-entry.nowrite .fe-row, #fest-entry.nowrite .fe-agree, #fest-entry.nowrite #fe-err, #fest-entry.nowrite #fe-go{ display:none; }
 #fe-skip{ margin:0; padding:8px 0; font-size:11px; letter-spacing:.12em; color:var(--baek); background:rgba(15,14,20,.5); border:1px solid rgba(241,236,224,.35); box-shadow:none; }
+
+/* ── 휴대폰 · 태블릿 (game.js 의 TOUCH) — 손가락이 닿으면 body.touch ──────────────
+   조이스틱은 왼쪽 빈 곳을 누른 자리에 생기고, 조사 버튼은 오른쪽 아래. 둘 다 걷고 싸울 때만 (body.tplay) */
+body.touch{ touch-action:none; overscroll-behavior:none; }
+#tjoy{
+  position:fixed; z-index:50; width:116px; height:116px; margin:-58px 0 0 -58px; border-radius:50%;
+  border:2px solid rgba(241,236,224,.35); background:radial-gradient(circle, rgba(241,236,224,.08), rgba(241,236,224,.02) 70%);
+  pointer-events:none; opacity:0; transition:opacity .12s;
+}
+#tjoy.on{ opacity:1; }
+#tjoy i{
+  position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%;
+  background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35);
+}
+#tbtn{
+  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:max(28vh, env(safe-area-inset-bottom));   /* 미니맵(오른쪽 아래)을 가리지 않게 조금 위로 */
+  width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
+  background:rgba(15,14,20,.55); border:2px solid rgba(125,227,200,.6); color:var(--glow);
+  font-size:15px; letter-spacing:.06em; touch-action:none; -webkit-user-select:none; user-select:none;
+}
+#tbtn:active{ background:rgba(125,227,200,.25); }
+#tbtn b{ font-weight:400; }
+body.touch.tplay #tbtn{ display:flex; }
+#trot{ display:none; }
+@media (orientation: portrait){
+  body.touch #trot{
+    display:block; position:fixed; z-index:60; left:0; right:0; top:max(10px, env(safe-area-inset-top)); text-align:center;
+    font-size:13px; color:var(--hwang); letter-spacing:.04em; pointer-events:none;
+  }
+}
+body.touch #hint{ display:none; }          /* 아래 안내 줄이 자리를 차지해 게임 화면 위아래가 잘리지 않게 */
+body.touch #frame{ gap:0; }
