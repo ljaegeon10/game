@@ -13,6 +13,7 @@ CSS·JS·이미지가 전부 한 파일에 들어가므로 인터넷/서버 없�
       docs/index.html          GitHub Pages 축제판 — 본편에 docs/festival-config.js 를 붙인 것.
                                기록은 config 의 WB_SERVER(구글 앱스 스크립트, server/) 로 보냅니다.
                                config 는 처음 한 번만 만들고 덮어쓰지 않습니다 (GitHub 웹에서 주소만 고치면 됨).
+      docs/board.html          실시간 순위판 (web/board.html 그대로 + 글꼴) — 부스 옆 모니터 · TV 용
 """
 import re, pathlib
 
@@ -72,3 +73,10 @@ if not cfg.exists():
         "   비워 두면 기록 없이 게임만 됩니다 */\n"
         "window.WB_SERVER = '';\n", encoding="utf-8")
 print(f"✔  {DOCS / 'index.html'}  ({(DOCS / 'index.html').stat().st_size/1024:.0f} KB)  — GitHub Pages")
+# 실시간 순위판 (따로 띄우는 화면) — 같은 festival-config.js 의 서버에서 순위를 받아 옴
+import shutil
+shutil.copyfile(ROOT / "web" / "board.html", DOCS / "board.html")
+shutil.copyfile(ROOT / "web" / "qrcode.js", DOCS / "qrcode.js")              # QR 생성 (MIT) — CDN 없이
+(DOCS / "fonts").mkdir(exist_ok=True)
+shutil.copyfile(ROOT / "assets" / "fonts" / "DungGeunMo.woff2", DOCS / "fonts" / "DungGeunMo.woff2")
+print(f"✔  {DOCS / 'board.html'}  — 실시간 순위판")

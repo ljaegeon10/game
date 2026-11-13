@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우물 아래 — 실시간 순위판</title>
+<!-- 실시간 순위판 (GitHub Pages: docs/board.html)
+     부스 옆 모니터 · TV 에 띄워 두는 화면. 게임(docs/index.html)과 같은 festival-config.js 의 WB_SERVER
+     (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
+     F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10). -->
+<script src="festival-config.js"></script>
+<script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
+<style>
+@font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
+:root{
+  --cheong:#2f6fb5; --baek:#f1ece0; --jeok:#c2352c; --heuk:#15141b; --hwang:#e3b23c;
+  --ink:#0a0910; --glow:#7de3c8; --danger:#e0483c;
+  --dim:rgba(241,236,224,.45); --line:rgba(241,236,224,.1);
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{
+  background:radial-gradient(ellipse at 50% -10%, #3a0f18 0%, #120b12 45%, #0a0910 100%);
+  color:var(--baek); font-family:'DungGeunMo','Galmuri11','Neo둥근모',monospace;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+/* 오방색 띠 */
+.obang{ display:flex; height:6px; }
+.obang i{ flex:1; }
+.obang i:nth-child(1){ background:var(--cheong); } .obang i:nth-child(2){ background:var(--baek); }
+.obang i:nth-child(3){ background:var(--jeok); } .obang i:nth-child(4){ background:#2a232b; } .obang i:nth-child(5){ background:var(--hwang); }
+
+.wrap{ height:calc(100% - 6px); display:grid; grid-template-columns:minmax(0, 1.55fr) minmax(0, 1fr); grid-template-rows:auto minmax(0, 1fr); gap:clamp(16px, 2.6vw, 44px);
+  padding:clamp(14px, 3vh, 40px) clamp(16px, 3vw, 56px) clamp(14px, 2.6vh, 34px); }
+header{ grid-column:1 / -1; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
+.club{ display:inline-block; padding:6px 14px 5px; background:var(--jeok); font-size:clamp(12px, 1.3vw, 18px); letter-spacing:.2em; }
+h1{ margin:clamp(6px, 1.2vh, 14px) 0 0; font-weight:400; font-size:clamp(34px, min(5.6vw, 9vh), 96px); line-height:1;
+  text-shadow:0 0 30px rgba(194,53,44,.65), 0 4px 0 rgba(0,0,0,.7); }
+h1 small{ margin-left:.5em; font-size:.36em; letter-spacing:.36em; color:var(--jeok); text-shadow:none; vertical-align:middle; }
+.stats{ display:flex; gap:clamp(10px, 1.6vw, 28px); text-align:right; }
+.stat b{ display:block; font-size:clamp(24px, min(3.4vw, 5.4vh), 58px); font-weight:400; color:var(--hwang); line-height:1; font-variant-numeric:tabular-nums; }
+.stat span{ font-size:clamp(11px, 1vw, 15px); color:var(--dim); letter-spacing:.1em; }
+
+/* 왼쪽 — 순위 */
+.rank{ min-height:0; display:flex; flex-direction:column; }
+.rank-head{ display:grid; grid-template-columns:var(--cols); gap:var(--gap); padding:0 18px 8px; font-size:clamp(11px, 1vw, 15px); color:var(--dim); letter-spacing:.14em; border-bottom:2px solid rgba(241,236,224,.2); }
+.rank{ --cols:clamp(40px, 5vw, 86px) 1fr clamp(60px, 7vw, 110px) clamp(110px, 13vw, 210px); --gap:clamp(8px, 1.2vw, 18px); }
+ol{ list-style:none; margin:0; padding:0; flex:1; min-height:0; display:flex; flex-direction:column; }
+li{ flex:1; max-height:12vh; display:grid; grid-template-columns:var(--cols); gap:var(--gap); align-items:center; padding:0 18px;
+  font-size:clamp(16px, min(2.2vw, 3.6vh), 38px); border-bottom:1px solid var(--line); transition:background .6s; }
+li .no{ text-align:center; color:var(--dim); }
+li .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+li .tl{ font-size:.55em; color:rgba(241,236,224,.32); letter-spacing:.08em; }
+li .tm{ text-align:right; font-variant-numeric:tabular-nums; color:var(--glow); }
+li.fail .nm{ color:rgba(241,236,224,.72); }
+li.fail .tm{ color:rgba(241,236,224,.5); font-size:.62em; }
+li.p1{ font-size:clamp(20px, min(2.8vw, 4.6vh), 48px); background:linear-gradient(90deg, rgba(227,178,60,.24), rgba(227,178,60,0)); }
+li.p1 .no, li.p1 .tm{ color:var(--hwang); }
+li.p1 .no::before{ content:'👑'; display:block; font-size:.5em; line-height:1; }
+li.p2 .no{ color:#d8dce6; } li.p3 .no{ color:#d08a52; }
+li.p2, li.p3{ font-size:clamp(18px, min(2.5vw, 4vh), 42px); }
+li.new{ animation:pop 1.2s ease-out 1, glow 2.4s ease-in-out 3; }
+@keyframes pop{ from{ transform:translateX(-24px); opacity:0; } to{ transform:none; opacity:1; } }
+@keyframes glow{ 50%{ background:rgba(125,227,200,.16); } }
+li.empty{ justify-content:center; display:flex; color:var(--dim); font-size:clamp(14px, 1.8vw, 26px); border:none; }
+.rule{ margin:10px 0 0; font-size:clamp(11px, 1vw, 15px); color:rgba(241,236,224,.3); }
+
+/* 오른쪽 — 지금 도전 중 · 최근 · 참가 QR */
+aside{ min-height:0; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 26px); }
+.card{ border:2px solid rgba(241,236,224,.16); padding:clamp(12px, 2vh, 22px) clamp(14px, 1.6vw, 24px); background:rgba(10,9,16,.4); }
+.card h2{ margin:0 0 clamp(6px, 1.2vh, 14px); font-weight:400; font-size:clamp(11px, 1vw, 15px); letter-spacing:.3em; color:var(--dim); }
+.live{ min-height:clamp(90px, 16vh, 190px); display:flex; flex-direction:column; justify-content:center; }
+.live .who{ font-size:clamp(22px, min(3vw, 5vh), 52px); line-height:1.1; }
+.live .clock{ margin-top:6px; font-size:clamp(28px, min(4vw, 6.6vh), 70px); color:var(--glow); font-variant-numeric:tabular-nums; line-height:1; }
+.live .sub{ margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--dim); }
+.live.play{ border-color:var(--glow); background:rgba(125,227,200,.07); }
+.live.play h2::before{ content:''; display:inline-block; width:.7em; height:.7em; margin-right:.6em; border-radius:50%; background:var(--danger); animation:blink 1s steps(2) infinite; vertical-align:-.05em; }
+.live.done{ border-color:var(--hwang); background:rgba(227,178,60,.08); }
+.live.done .clock{ color:var(--hwang); }
+.live.dead{ border-color:rgba(224,72,60,.6); background:rgba(224,72,60,.07); }
+.live.dead .clock{ color:var(--danger); font-size:clamp(20px, min(2.6vw, 4.4vh), 46px); }
+.live.idle .who{ color:var(--dim); font-size:clamp(16px, 1.8vw, 28px); }
+@keyframes blink{ 50%{ opacity:.15; } }
+.recent{ flex:1; min-height:0; overflow:hidden; }
+.recent ul{ list-style:none; margin:0; padding:0; }
+.recent li{ all:unset; display:flex; justify-content:space-between; gap:12px; padding:clamp(4px, .8vh, 9px) 0; border-bottom:1px solid var(--line); font-size:clamp(13px, min(1.4vw, 2.4vh), 22px); }
+.recent li b{ font-weight:400; color:var(--baek); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recent li span{ flex:none; color:var(--dim); font-variant-numeric:tabular-nums; }
+.recent li.c span{ color:var(--hwang); }
+.join{ display:flex; align-items:center; gap:clamp(12px, 1.4vw, 22px); }
+#qr{ flex:none; padding:8px; background:#fff; line-height:0; }
+#qr img, #qr canvas{ width:clamp(84px, min(9vw, 15vh), 160px) !important; height:auto !important; image-rendering:pixelated; }
+.join p{ margin:0; font-size:clamp(14px, 1.5vw, 24px); line-height:1.5; }
+.join small{ display:block; margin-top:4px; font-size:clamp(10px, .9vw, 13px); color:var(--dim); word-break:break-all; }
+
+footer{ position:fixed; right:12px; bottom:10px; display:flex; align-items:center; gap:10px; font-size:12px; color:rgba(241,236,224,.35); }
+footer i{ width:8px; height:8px; border-radius:50%; background:var(--glow); display:inline-block; }
+footer.off i{ background:var(--danger); }
+footer button{ font:inherit; color:inherit; background:none; border:1px solid rgba(241,236,224,.2); padding:3px 8px; cursor:pointer; }
+
+/* PIN · 설정 안내 */
+.gate{ position:fixed; inset:0; z-index:5; display:flex; align-items:center; justify-content:center; background:rgba(10,9,16,.92); }
+.gate[hidden]{ display:none; }
+.gate form{ display:flex; flex-direction:column; gap:12px; align-items:center; text-align:center; font-size:18px; }
+.gate input{ font:inherit; font-size:28px; width:200px; text-align:center; letter-spacing:.3em; padding:8px; color:var(--baek); background:#15141b; border:2px solid rgba(241,236,224,.3); outline:none; }
+.gate button{ font:inherit; font-size:18px; padding:8px 26px; color:var(--ink); background:var(--hwang); border:none; cursor:pointer; }
+.gate .err{ color:var(--danger); min-height:1.2em; font-size:15px; }
+
+/* 세로 화면 · 좁은 화면 — 한 줄로 */
+@media (max-aspect-ratio: 1/1), (max-width: 760px){
+  body{ overflow:auto; }
+  .wrap{ grid-template-columns:1fr; height:auto; }
+  header{ flex-direction:column; align-items:flex-start; }
+  .stats{ text-align:left; }
+  li{ min-height:44px; max-height:none; }
+}
+</style>
+</head>
+<body>
+<div class="obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+<div class="wrap">
+  <header>
+    <div>
+      <span class="club">DITC 동아리 축제 부스</span>
+      <h1>우물 아래<small>타임어택 순위</small></h1>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sPeople">0</b><span>참가</span></div>
+      <div class="stat"><b id="sClear">0</b><span>클리어</span></div>
+      <div class="stat"><b id="sRuns">0</b><span>도전</span></div>
+    </div>
+  </header>
+
+  <section class="rank" aria-label="순위">
+    <div class="rank-head"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
+    <ol id="list"></ol>
+    <p class="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
+  </section>
+
+  <aside>
+    <div class="card live idle" id="live"><h2>지금</h2><div class="who">도전자를 기다리는 중…</div></div>
+    <div class="card recent"><h2>방금 들어온 기록</h2><ul id="recent"></ul></div>
+    <div class="card join">
+      <div id="qr"></div>
+      <p>찍고 바로 도전!<br>타임어택 TOP 3 상품 증정<small id="gameUrl"></small></p>
+    </div>
+  </aside>
+</div>
+<footer id="net"><i></i><span id="netText">연결 중…</span><button id="fs" title="전체 화면 (F)">⛶</button></footer>
+<div class="gate" id="gate" hidden>
+  <form id="pinForm">
+    <div id="gateMsg">순위판 PIN 을 입력해 주세요</div>
+    <input id="pin" inputmode="numeric" autocomplete="off">
+    <div class="err" id="pinErr"></div>
+    <button>보기</button>
+  </form>
+</div>
+<script>
+'use strict';
+(() => {
+const SERVER = String(window.WB_SERVER || '').trim();
+const TOP = Math.max(3, Math.min(30, +new URLSearchParams(location.search).get('top') || 10));
+const PKEY = 'wellbelow.board.pin';
+const $ = id => document.getElementById(id);
+const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+const fmt = ms => { const t = Math.max(0, ms | 0), m = Math.floor(t / 60000), s = Math.floor(t % 60000 / 1000), c = Math.floor(t % 1000 / 10);
+  return `${m}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`; };
+const store = { get: () => { try { return localStorage.getItem(PKEY) || ''; } catch (e) { return ''; } },
+                set: v => { try { localStorage.setItem(PKEY, v); } catch (e) {} } };
+
+/* 순서 — 게임(js/festival.js) · 서버(server/apps_script.gs)와 같음 */
+const isClear = r => r.clear !== false;
+function better(a, b) {
+  if (isClear(a) !== isClear(b)) return isClear(a);
+  if (isClear(a)) { if (a.ms !== b.ms) return a.ms < b.ms; }
+  else { if ((a.score || 0) !== (b.score || 0)) return (a.score || 0) > (b.score || 0); if (a.ms !== b.ms) return a.ms > b.ms; }
+  return (a.at || 0) < (b.at || 0);
+}
+function best(runs) {
+  const m = new Map();
+  for (const r of runs) { if (!r || typeof r.ms !== 'number') continue; const k = r.name + '|' + r.tail, b = m.get(k); if (!b || better(r, b)) m.set(k, r); }
+  return [...m.values()].sort((a, b) => better(a, b) ? -1 : better(b, a) ? 1 : 0);
+}
+
+/* 참가 QR — 이 페이지와 같은 곳의 게임 */
+const gameUrl = new URL('./', location.href).href;
+$('gameUrl').textContent = gameUrl.replace(/^https?:\/\//, '');
+try { const q = qrcode(0, 'M'); q.addData(gameUrl); q.make(); $('qr').innerHTML = q.createImgTag(6, 0, '게임 주소 QR'); }
+catch (e) { $('qr').hidden = true; }
+
+let runs = [], live = null, seen = null, busy = false, lastOk = 0;
+function render() {
+  const list = best(runs), ol = $('list');
+  ol.textContent = '';
+  const fresh = seen ? new Set(runs.filter(r => !seen.has(r.id)).map(r => r.id)) : new Set();
+  seen = new Set(runs.map(r => r.id));
+  list.slice(0, TOP).forEach((r, i) => {
+    const li = mk('li', (i < 3 ? 'p' + (i + 1) : '') + (isClear(r) ? '' : ' fail') + (fresh.has(r.id) ? ' new' : ''));
+    li.append(mk('span', 'no', String(i + 1)), mk('span', 'nm', String(r.name || '')), mk('span', 'tl', r.tail ? '···' + r.tail : ''),
+              mk('span', 'tm', isClear(r) ? fmt(r.ms) : String(r.stage || '도전')));
+    ol.appendChild(li);
+  });
+  if (!list.length) ol.appendChild(mk('li', 'empty', '아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!'));
+  $('sPeople').textContent = list.length;
+  $('sClear').textContent = list.filter(isClear).length;
+  $('sRuns').textContent = runs.length;
+  const ul = $('recent'); ul.textContent = '';
+  runs.slice().sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 8).forEach(r => {
+    const li = mk('li', isClear(r) ? 'c' : '');
+    li.append(mk('b', null, String(r.name || '')), mk('span', null, isClear(r) ? '클리어 ' + fmt(r.ms) : (r.stage || '') + '까지'));
+    ul.appendChild(li);
+  });
+  if (!runs.length) ul.appendChild(mk('li', null, '—'));
+}
+function renderLive() {
+  const el = $('live'), fresh = live && Date.now() - (live.at || 0) < 40 * 60000;
+  el.textContent = '';
+  const h = mk('h2', null, '지금');
+  if (fresh && live.state === 'play' && live.startedAt) {
+    el.className = 'card live play'; h.textContent = '지금 도전 중';
+    el.append(h, mk('div', 'who', String(live.name || '')), mk('div', 'clock', fmt(Date.now() - live.startedAt)));
+  } else if (fresh && live.ms && live.clear === false) {
+    el.className = 'card live dead'; h.textContent = '방금 도전 끝';
+    el.append(h, mk('div', 'who', String(live.name || '')), mk('div', 'clock', `${live.stage || ''}까지`), mk('div', 'sub', '버틴 시간 ' + fmt(live.ms)));
+  } else if (fresh && live.ms) {
+    el.className = 'card live done'; h.textContent = '방금 클리어!';
+    el.append(h, mk('div', 'who', String(live.name || '')), mk('div', 'clock', fmt(live.ms)));
+  } else {
+    el.className = 'card live idle';
+    el.append(h, mk('div', 'who', '도전자를 기다리는 중…'));
+  }
+}
+function net(ok, text) { $('net').classList.toggle('off', !ok); $('netText').textContent = text; }
+
+async function poll() {
+  if (busy || !$('gate').hidden) return;
+  busy = true;
+  try {
+    const r = await fetch(SERVER + '?' + new URLSearchParams({ op: 'board', pin: store.get() }), { redirect: 'follow', cache: 'no-store' });
+    const j = await r.json();
+    if (!j.ok && j.error === 'pin') { askPin(!!store.get()); return; }
+    if (!j.ok) throw new Error('server');
+    runs = Array.isArray(j.runs) ? j.runs : []; live = j.live || null; lastOk = Date.now();
+    render(); renderLive();
+    net(true, '실시간 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  } catch (e) {
+    net(false, lastOk ? '연결이 끊겼어요 — 다시 시도하는 중' : '기록 서버에 연결하지 못했어요');
+  } finally { busy = false; }
+}
+function askPin(wrong) {
+  $('gate').hidden = false; $('pinErr').textContent = wrong ? 'PIN 이 맞지 않아요' : '';
+  $('pin').value = ''; setTimeout(() => $('pin').focus(), 30);
+}
+$('pinForm').addEventListener('submit', e => {
+  e.preventDefault(); store.set($('pin').value.trim()); $('gate').hidden = true; poll();
+});
+
+/* 전체 화면 — F 또는 ⛶ */
+const fs = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); };
+$('fs').addEventListener('click', fs);
+addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && $('gate').hidden) fs(); });
+
+render(); renderLive();
+if (!SERVER) { net(false, '기록 서버 주소가 없어요 (festival-config.js 의 WB_SERVER)'); return; }
+poll(); setInterval(poll, 3000);
+setInterval(() => { if (live && live.state === 'play') renderLive(); }, 100);   // 도전 중 시계는 매끄럽게
+})();
+</script>
+</body>
+</html>
