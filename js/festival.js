@@ -23,6 +23,8 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const ON = !!window.WB_FESTIVAL;
+/* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', ms: 103757 };
 /* 데이터베이스 · 파일 저장 꺼내기 — 지금 런타임은 `await claude.use("db")` (없으면 null).
    예전 런타임(window.claude.db 가 바로 있던 때)도 그대로 받아 줌 */
 const caps = {};
@@ -131,6 +133,7 @@ function buildEntry() {
   const box = mk('div'); box.id = 'fest-entry'; box.className = 'hidden';
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
+    <p class="fe-dev hidden" id="fe-dev"></p>
     <p id="fe-nowrite" class="hidden"></p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
@@ -142,8 +145,23 @@ function buildEntry() {
   return box;
 }
 let entryCb = null;
+/* 개발자 최고 기록 — festival-config.js 의 WB_DEV ({ name, ms }). 순위와 따로 화면에만 */
+const devRec = () => { const d = window.WB_DEV; return d && d.ms > 0 ? { name: String(d.name || '개발자'), ms: +d.ms } : null; };
+function showDev() {
+  const d = devRec();
+  ['fe-dev', 'fb-dev'].forEach(id => { const el = $(id); if (el) el.classList.toggle('hidden', !d); });
+  if (!d) return;
+  const fe = $('fe-dev'); if (fe) { fe.textContent = ''; fe.append(mk('span', 'fe-devtag', '개발자 기록'), mk('b', null, d.name), mk('span', 'fe-devtm', fmt(d.ms)), mk('span', null, ' — 깨 보세요!')); }
+  const fb = $('fb-dev');
+  if (fb) {
+    const n = bestPerPerson(runs).filter(r => isClear(r) && r.ms < d.ms).length;
+    fb.textContent = ''; fb.append(mk('span', 'fe-devtag', '개발자 기록'), mk('b', null, d.name), mk('span', 'fe-devtm', fmt(d.ms)),
+                                   mk('span', 'fb-devsub', n ? `순위 밖 · ${n}명이 깼어요!` : '순위 밖 · 이 기록을 깨 보세요!'));
+  }
+}
 function ask(onGo, onBack) {
   const box = $('fest-entry'); if (!box) { onGo(); return; }
+  showDev();
   entryCb = { onGo, onBack };
   $('fe-name').value = ''; $('fe-contact').value = ''; $('fe-agree').checked = false; $('fe-err').textContent = '';
   box.classList.remove('hidden'); box.classList.remove('nowrite');
@@ -246,6 +264,7 @@ function buildBoard() {
       <h2>우물 아래 <small>타임어택 순위</small></h2>
       <div class="fb-stat" id="fb-stat"></div>
     </div>
+    <div class="fb-dev hidden" id="fb-dev"></div>
     <div class="fb-live" id="fb-live"></div>
     <ol class="fb-list" id="fb-list"></ol>
     <p class="fb-empty" id="fb-empty">아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!</p>
@@ -350,6 +369,7 @@ function render() {
   });
   $('fb-empty').classList.toggle('hidden', list.length > 0);
   $('fb-stat').textContent = `참가 ${list.length}명 · 클리어 ${list.filter(isClear).length}명 · 도전 ${runs.length}판`;
+  showDev();
   status();
   if (admin) renderAdmin();
 }

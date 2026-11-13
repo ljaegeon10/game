@@ -187,6 +187,7 @@ const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주�
 let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
 let prizes = ['', '', ''];
 /* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
+if (window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', ms: 103757 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
 let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
 function parseDev(v) {
   const t = String(v || '').trim(), m = t.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);

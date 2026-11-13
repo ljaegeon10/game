@@ -553,6 +553,8 @@ function startGame(timeAttack = true, diffId = 'normal') {
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
+  { const d = window.WB_DEV, dp = $('devpace'), on = G.timeAttack && d && d.ms > 0;      // 개발자 기록 — 축제판 시계 밑에
+    dp.classList.toggle('hidden', !on); dp.classList.remove('over'); if (on) dp.textContent = `DEV ${d.name || ''} ${fmtTime(d.ms)}`; }
   updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
@@ -854,7 +856,12 @@ function hash(s) {
   return h >>> 0;
 }
 
-function updateTimer() { $('timertext').textContent = fmtTime(runTime()); }
+function updateTimer() {
+  const t = runTime();
+  $('timertext').textContent = fmtTime(t);
+  const d = window.WB_DEV, dp = $('devpace');                // 축제판 — 시계 밑에 개발자 기록 (넘기면 빨갛게)
+  if (dp && d && d.ms > 0) dp.classList.toggle('over', t > d.ms);
+}
 
 /* ═══════════ 날짜 HUD ═════════════════════════════════ */
 function setDate(i) {

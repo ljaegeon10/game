@@ -9,7 +9,7 @@
      (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
      F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10).
      글 · 상품 · 공지 · 등수 · PIN 은 구글 시트의 '순위판 설정' 탭에서 고치면 몇 초 뒤 그대로 바뀝니다. -->
-<script src="festival-config.js"></script>
+<script src="festival-config.js?v=1794531441"></script>
 <script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
@@ -187,6 +187,7 @@ const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주�
 let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
 let prizes = ['', '', ''];
 /* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
+if (window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', ms: 103757 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
 let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
 function parseDev(v) {
   const t = String(v || '').trim(), m = t.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);

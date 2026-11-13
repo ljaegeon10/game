@@ -61,7 +61,9 @@ for src, out in PAGES:
 DOCS = ROOT / "docs"
 DOCS.mkdir(exist_ok=True)
 game = (OUT_DIR / "우물아래.html").read_text(encoding="utf-8")
-web = game.replace("<body>", '<body>\n<script src="festival-config.js"></script>', 1)
+import time
+VER = str(int(time.time()))                                    # ?v= — 브라우저 · Pages 캐시가 옛 설정을 붙잡지 않게
+web = game.replace("<body>", f'<body>\n<script src="festival-config.js?v={VER}"></script>', 1)
 (DOCS / "index.html").write_text(web, encoding="utf-8")
 (DOCS / ".nojekyll").write_text("", encoding="utf-8")          # 밑줄로 시작하는 파일도 그대로 내보내게
 cfg = DOCS / "festival-config.js"
@@ -79,7 +81,8 @@ if not cfg.exists():
 print(f"✔  {DOCS / 'index.html'}  ({(DOCS / 'index.html').stat().st_size/1024:.0f} KB)  — GitHub Pages")
 # 실시간 순위판 (따로 띄우는 화면) — 같은 festival-config.js 의 서버에서 순위를 받아 옴
 import shutil
-shutil.copyfile(ROOT / "web" / "board.html", DOCS / "board.html")
+(DOCS / "board.html").write_text((ROOT / "web" / "board.html").read_text(encoding="utf-8")
+                                  .replace('src="festival-config.js"', f'src="festival-config.js?v={VER}"'), encoding="utf-8")
 shutil.copyfile(ROOT / "web" / "qrcode.js", DOCS / "qrcode.js")              # QR 생성 (MIT) — CDN 없이
 (DOCS / "fonts").mkdir(exist_ok=True)
 shutil.copyfile(ROOT / "assets" / "fonts" / "DungGeunMo.woff2", DOCS / "fonts" / "DungGeunMo.woff2")

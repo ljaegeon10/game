@@ -218,6 +218,22 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   letter-spacing:.06em; font-variant-numeric:tabular-nums;
 }
 
+/* 축제판 — 시계 밑 개발자 기록 (넘기면 빨갛게) */
+#timerbox{ flex-wrap:wrap; justify-content:flex-end; }
+#devpace{ display:block; flex-basis:100%; text-align:right; margin-top:-1px; font-size:7px; letter-spacing:.06em; color:var(--glow); font-variant-numeric:tabular-nums; white-space:nowrap; }
+#devpace.over{ color:var(--danger); text-decoration:line-through; opacity:.75; }
+#devpace.hidden{ display:none; }
+/* 개발자 기록 — 참가 등록 · 게임 안 순위판 (순위와 따로) */
+.fe-dev{ display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 4px; padding:5px 8px; font-size:8px;
+  border:1px dashed rgba(125,227,200,.5); background:rgba(125,227,200,.06); color:rgba(241,236,224,.7); }
+.fe-dev.hidden, .fb-dev.hidden{ display:none; }
+.fe-devtag{ padding:2px 5px 1px; font-size:.8em; letter-spacing:.12em; color:#0a0910; background:var(--glow); }
+.fe-dev b, .fb-dev b{ font-weight:400; color:var(--baek); }
+.fe-devtm{ color:var(--glow); font-variant-numeric:tabular-nums; }
+.fb-dev{ display:flex; align-items:center; justify-content:center; gap:.7em; margin-top:clamp(8px, 1.6vh, 18px); padding:clamp(5px, 1vh, 9px) 20px;
+  font-size:clamp(13px, min(2vw, 3vh), 24px); border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); }
+.fb-devsub{ font-size:.7em; color:rgba(241,236,224,.5); }
+
 /* ── 일반 모드 탐사 진행도 ─────────────────────────────── */
 #explorebox.hidden{ display:none; }
 #exploretext{ font-size:10px; color:rgba(159,198,239,.85); letter-spacing:.06em; font-variant-numeric:tabular-nums; }
@@ -1250,11 +1266,13 @@ body.touch.tplay #tbtn{ display:flex; }
 }
 body.touch #hint{ display:none; }          /* 아래 안내 줄이 자리를 차지해 게임 화면 위아래가 잘리지 않게 */
 body.touch #frame{ gap:0; }
+/* 참가 등록 칸이 열려 있으면 아래 제작진 글은 숨김 (← 뒤로 와 겹치지 않게) */
+#title:has(#fest-entry:not(.hidden)) #credits{ display:none; }
 
 </style>
 </head>
 <body>
-<script src="festival-config.js"></script>
+<script src="festival-config.js?v=1794531441"></script>
 
 <div id="frame">
   <div id="stage">
@@ -1280,6 +1298,7 @@ body.touch #frame{ gap:0; }
         <div id="timerbox">
           <span class="datelabel">TIME</span>
           <span id="timertext">0:00.00</span>
+          <span id="devpace" class="hidden" title="개발자 최고 기록 (축제판)"></span>
         </div>
         <!-- 일반 모드 : 시계 대신 밟은 방 수 (관문이 열리는 조건) -->
         <div id="explorebox" class="hidden" title="밟아 본 방">
@@ -12906,6 +12925,8 @@ window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, originalSta
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const ON = !!window.WB_FESTIVAL;
+/* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', ms: 103757 };
 /* 데이터베이스 · 파일 저장 꺼내기 — 지금 런타임은 `await claude.use("db")` (없으면 null).
    예전 런타임(window.claude.db 가 바로 있던 때)도 그대로 받아 줌 */
 const caps = {};
@@ -13014,6 +13035,7 @@ function buildEntry() {
   const box = mk('div'); box.id = 'fest-entry'; box.className = 'hidden';
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
+    <p class="fe-dev hidden" id="fe-dev"></p>
     <p id="fe-nowrite" class="hidden"></p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
@@ -13025,8 +13047,23 @@ function buildEntry() {
   return box;
 }
 let entryCb = null;
+/* 개발자 최고 기록 — festival-config.js 의 WB_DEV ({ name, ms }). 순위와 따로 화면에만 */
+const devRec = () => { const d = window.WB_DEV; return d && d.ms > 0 ? { name: String(d.name || '개발자'), ms: +d.ms } : null; };
+function showDev() {
+  const d = devRec();
+  ['fe-dev', 'fb-dev'].forEach(id => { const el = $(id); if (el) el.classList.toggle('hidden', !d); });
+  if (!d) return;
+  const fe = $('fe-dev'); if (fe) { fe.textContent = ''; fe.append(mk('span', 'fe-devtag', '개발자 기록'), mk('b', null, d.name), mk('span', 'fe-devtm', fmt(d.ms)), mk('span', null, ' — 깨 보세요!')); }
+  const fb = $('fb-dev');
+  if (fb) {
+    const n = bestPerPerson(runs).filter(r => isClear(r) && r.ms < d.ms).length;
+    fb.textContent = ''; fb.append(mk('span', 'fe-devtag', '개발자 기록'), mk('b', null, d.name), mk('span', 'fe-devtm', fmt(d.ms)),
+                                   mk('span', 'fb-devsub', n ? `순위 밖 · ${n}명이 깼어요!` : '순위 밖 · 이 기록을 깨 보세요!'));
+  }
+}
 function ask(onGo, onBack) {
   const box = $('fest-entry'); if (!box) { onGo(); return; }
+  showDev();
   entryCb = { onGo, onBack };
   $('fe-name').value = ''; $('fe-contact').value = ''; $('fe-agree').checked = false; $('fe-err').textContent = '';
   box.classList.remove('hidden'); box.classList.remove('nowrite');
@@ -13129,6 +13166,7 @@ function buildBoard() {
       <h2>우물 아래 <small>타임어택 순위</small></h2>
       <div class="fb-stat" id="fb-stat"></div>
     </div>
+    <div class="fb-dev hidden" id="fb-dev"></div>
     <div class="fb-live" id="fb-live"></div>
     <ol class="fb-list" id="fb-list"></ol>
     <p class="fb-empty" id="fb-empty">아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!</p>
@@ -13233,6 +13271,7 @@ function render() {
   });
   $('fb-empty').classList.toggle('hidden', list.length > 0);
   $('fb-stat').textContent = `참가 ${list.length}명 · 클리어 ${list.filter(isClear).length}명 · 도전 ${runs.length}판`;
+  showDev();
   status();
   if (admin) renderAdmin();
 }
@@ -13850,6 +13889,8 @@ function startGame(timeAttack = true, diffId = 'normal') {
   $('title').classList.add('hidden');
   $('hud').classList.remove('hidden');
   $('timerbox').classList.toggle('hidden', !G.timeAttack);
+  { const d = window.WB_DEV, dp = $('devpace'), on = G.timeAttack && d && d.ms > 0;      // 개발자 기록 — 축제판 시계 밑에
+    dp.classList.toggle('hidden', !on); dp.classList.remove('over'); if (on) dp.textContent = `DEV ${d.name || ''} ${fmtTime(d.ms)}`; }
   updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
@@ -14151,7 +14192,12 @@ function hash(s) {
   return h >>> 0;
 }
 
-function updateTimer() { $('timertext').textContent = fmtTime(runTime()); }
+function updateTimer() {
+  const t = runTime();
+  $('timertext').textContent = fmtTime(t);
+  const d = window.WB_DEV, dp = $('devpace');                // 축제판 — 시계 밑에 개발자 기록 (넘기면 빨갛게)
+  if (dp && d && d.ms > 0) dp.classList.toggle('over', t > d.ms);
+}
 
 /* ═══════════ 날짜 HUD ═════════════════════════════════ */
 function setDate(i) {

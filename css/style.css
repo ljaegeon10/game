@@ -195,6 +195,22 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   letter-spacing:.06em; font-variant-numeric:tabular-nums;
 }
 
+/* 축제판 — 시계 밑 개발자 기록 (넘기면 빨갛게) */
+#timerbox{ flex-wrap:wrap; justify-content:flex-end; }
+#devpace{ display:block; flex-basis:100%; text-align:right; margin-top:-1px; font-size:7px; letter-spacing:.06em; color:var(--glow); font-variant-numeric:tabular-nums; white-space:nowrap; }
+#devpace.over{ color:var(--danger); text-decoration:line-through; opacity:.75; }
+#devpace.hidden{ display:none; }
+/* 개발자 기록 — 참가 등록 · 게임 안 순위판 (순위와 따로) */
+.fe-dev{ display:flex; align-items:center; justify-content:center; gap:6px; margin:0 0 4px; padding:5px 8px; font-size:8px;
+  border:1px dashed rgba(125,227,200,.5); background:rgba(125,227,200,.06); color:rgba(241,236,224,.7); }
+.fe-dev.hidden, .fb-dev.hidden{ display:none; }
+.fe-devtag{ padding:2px 5px 1px; font-size:.8em; letter-spacing:.12em; color:#0a0910; background:var(--glow); }
+.fe-dev b, .fb-dev b{ font-weight:400; color:var(--baek); }
+.fe-devtm{ color:var(--glow); font-variant-numeric:tabular-nums; }
+.fb-dev{ display:flex; align-items:center; justify-content:center; gap:.7em; margin-top:clamp(8px, 1.6vh, 18px); padding:clamp(5px, 1vh, 9px) 20px;
+  font-size:clamp(13px, min(2vw, 3vh), 24px); border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); }
+.fb-devsub{ font-size:.7em; color:rgba(241,236,224,.5); }
+
 /* ── 일반 모드 탐사 진행도 ─────────────────────────────── */
 #explorebox.hidden{ display:none; }
 #exploretext{ font-size:10px; color:rgba(159,198,239,.85); letter-spacing:.06em; font-variant-numeric:tabular-nums; }
@@ -1227,3 +1243,5 @@ body.touch.tplay #tbtn{ display:flex; }
 }
 body.touch #hint{ display:none; }          /* 아래 안내 줄이 자리를 차지해 게임 화면 위아래가 잘리지 않게 */
 body.touch #frame{ gap:0; }
+/* 참가 등록 칸이 열려 있으면 아래 제작진 글은 숨김 (← 뒤로 와 겹치지 않게) */
+#title:has(#fest-entry:not(.hidden)) #credits{ display:none; }
