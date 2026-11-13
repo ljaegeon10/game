@@ -2891,7 +2891,7 @@ function drawFinalLock() {
 
 /* ── 미니맵 ────────────────────────────────────────── */
 function drawMinimap() {
-  const cell = 9, gap = 2, ox = W - 20, oy = H - 19;   // 모니터 베젤(12px) 안쪽으로
+  const cell = 9, gap = 2, ox = W - 15, oy = H - 14;   // 모니터 베젤(7px) 안쪽으로
   const ids = Object.keys(MAP);
   const maxX = Math.max(...ids.map(i => MAP[i].gx));
   const maxY = Math.max(...ids.map(i => MAP[i].gy));
@@ -3304,7 +3304,7 @@ function drawBoss() {
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
-  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 24;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
@@ -4412,7 +4412,7 @@ function drawAbom() {
   }
 
   // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 24;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);

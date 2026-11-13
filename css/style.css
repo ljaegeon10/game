@@ -1284,7 +1284,7 @@ body.tfill.topview #crt{ border-radius:0; }
    화면이 창을 꽉 채우므로 틀은 화면 안쪽에 그립니다 — 가운데 둥근 유리(.glass)의 바깥을
    아주 넓은 그림자(spread)로 칠해 플라스틱 틀이 되고, 유리 안쪽엔 깊이감 그늘. 위쪽은 살짝 밝게(빛 받는 쪽).
    본편(숲 · 던전 · 보스) 동안만 (body.topview) — 오프닝 · 엔딩 · 탈출(3D, 현실)엔 없음 */
-#bezel{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; overflow:hidden; --bz:12px; --rad:16px; }
+#bezel{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; overflow:hidden; --bz:7px; --rad:13px; }
 body.topview #bezel{ display:block; }
 #bezel .glass{ position:absolute; inset:var(--bz); border-radius:var(--rad);
   box-shadow:
@@ -1301,13 +1301,13 @@ body.topview #bezel{ display:block; }
   background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); animation:ledBreath 3.2s ease-in-out infinite; }
 @keyframes ledBreath{ 50%{ opacity:.45; } }
 #bezel .model{ position:absolute; z-index:2; left:0; right:0; bottom:calc(var(--bz) * .5 - 2.5px); text-align:center; line-height:1;
-  font-size:4.5px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
+  font-size:3.6px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
 /* 유리 모양에 맞춰 — 주사선 · 반사도 같은 둥근 유리 안에만 */
-body.topview #crt, body.tfill.topview #crt, body.touch.topview #crt{ inset:var(--bz-in, 12px); border-radius:16px; }
-body.topview #crt::after{ border-radius:16px; }
+body.topview #crt, body.tfill.topview #crt, body.touch.topview #crt{ inset:7px; border-radius:13px; }
+body.topview #crt::after{ border-radius:13px; }
 /* 틀 안쪽으로 HUD · 대사 상자를 들임 */
-body.topview #hud{ padding:17px 20px; }
-body.topview #subtitle{ left:20px; right:20px; bottom:18px; }
+body.topview #hud{ padding:12px 15px; }
+body.topview #subtitle{ left:16px; right:16px; bottom:14px; }
 
 /* ── 일시정지 (ESC · P) — 창 전체를 덮는 어두운 막 위에 작은 상자 ───────────── */
 #pausemenu{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;

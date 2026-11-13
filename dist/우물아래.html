@@ -1313,7 +1313,7 @@ body.tfill.topview #crt{ border-radius:0; }
    화면이 창을 꽉 채우므로 틀은 화면 안쪽에 그립니다 — 가운데 둥근 유리(.glass)의 바깥을
    아주 넓은 그림자(spread)로 칠해 플라스틱 틀이 되고, 유리 안쪽엔 깊이감 그늘. 위쪽은 살짝 밝게(빛 받는 쪽).
    본편(숲 · 던전 · 보스) 동안만 (body.topview) — 오프닝 · 엔딩 · 탈출(3D, 현실)엔 없음 */
-#bezel{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; overflow:hidden; --bz:12px; --rad:16px; }
+#bezel{ display:none; position:absolute; inset:0; z-index:91; pointer-events:none; overflow:hidden; --bz:7px; --rad:13px; }
 body.topview #bezel{ display:block; }
 #bezel .glass{ position:absolute; inset:var(--bz); border-radius:var(--rad);
   box-shadow:
@@ -1330,13 +1330,13 @@ body.topview #bezel{ display:block; }
   background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); animation:ledBreath 3.2s ease-in-out infinite; }
 @keyframes ledBreath{ 50%{ opacity:.45; } }
 #bezel .model{ position:absolute; z-index:2; left:0; right:0; bottom:calc(var(--bz) * .5 - 2.5px); text-align:center; line-height:1;
-  font-size:4.5px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
+  font-size:3.6px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
 /* 유리 모양에 맞춰 — 주사선 · 반사도 같은 둥근 유리 안에만 */
-body.topview #crt, body.tfill.topview #crt, body.touch.topview #crt{ inset:var(--bz-in, 12px); border-radius:16px; }
-body.topview #crt::after{ border-radius:16px; }
+body.topview #crt, body.tfill.topview #crt, body.touch.topview #crt{ inset:7px; border-radius:13px; }
+body.topview #crt::after{ border-radius:13px; }
 /* 틀 안쪽으로 HUD · 대사 상자를 들임 */
-body.topview #hud{ padding:17px 20px; }
-body.topview #subtitle{ left:20px; right:20px; bottom:18px; }
+body.topview #hud{ padding:12px 15px; }
+body.topview #subtitle{ left:16px; right:16px; bottom:14px; }
 
 /* ── 일시정지 (ESC · P) — 창 전체를 덮는 어두운 막 위에 작은 상자 ───────────── */
 #pausemenu{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;
@@ -16961,7 +16961,7 @@ function drawFinalLock() {
 
 /* ── 미니맵 ────────────────────────────────────────── */
 function drawMinimap() {
-  const cell = 9, gap = 2, ox = W - 20, oy = H - 19;   // 모니터 베젤(12px) 안쪽으로
+  const cell = 9, gap = 2, ox = W - 15, oy = H - 14;   // 모니터 베젤(7px) 안쪽으로
   const ids = Object.keys(MAP);
   const maxX = Math.max(...ids.map(i => MAP[i].gx));
   const maxY = Math.max(...ids.map(i => MAP[i].gy));
@@ -17374,7 +17374,7 @@ function drawBoss() {
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
-  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 24;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
@@ -18482,7 +18482,7 @@ function drawAbom() {
   }
 
   // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 24;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
   g.save();
   g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
   g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
