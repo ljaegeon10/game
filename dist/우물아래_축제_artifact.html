@@ -16681,7 +16681,30 @@ function drawMinimap() {
       g.fillRect(x + cell / 2 - 1, y + cell / 2 - 1, 2, 2);
     }
   });
+  // 타임어택 — 지금 가야 할 곳까지의 가장 짧은 길을 작은 원으로 (다음 방은 크게 깜빡, 그 뒤는 점점 옅게)
+  if (G.timeAttack) {
+    const path = taRoute();
+    path.forEach((id, i) => {
+      const r = MAP[id], cx = x0 + r.gx * (cell + gap) + cell / 2, cy = y0 + r.gy * (cell + gap) + cell / 2;
+      if (!G.visited.has(id)) { g.strokeStyle = 'rgba(125,227,200,.35)'; g.strokeRect(cx - cell / 2 + .5, cy - cell / 2 + .5, cell - 1, cell - 1); }
+      const next = i === 0, pulse = .6 + .4 * Math.sin(G.t * .18);
+      g.fillStyle = next ? `rgba(125,227,200,${pulse})` : `rgba(125,227,200,${Math.max(.3, .7 - i * .12)})`;
+      g.beginPath(); g.arc(cx, cy, next ? 2.6 : 1.6, 0, Math.PI * 2); g.fill();
+      if (next) { g.strokeStyle = `rgba(125,227,200,${pulse * .7})`; g.lineWidth = 1; g.beginPath(); g.arc(cx, cy, 4, 0, Math.PI * 2); g.stroke(); }
+    });
+  }
   g.restore();
+}
+/* 타임어택 길잡이 — 지금 방에서 다음 목표(남은 관문 열쇠 방 → 심층 → 탈출구)까지 가장 짧은 방 순서 (지금 방은 빼고) */
+function taRoute() {
+  if (!G.room || !MAP[G.room]) return [];
+  const prev = { [G.room]: null }, q = [G.room], dist = { [G.room]: 0 };
+  while (q.length) { const c = q.shift(); for (const d in DIRS) { const nb = neighbourOf(c, d); if (nb && !(nb in prev)) { prev[nb] = c; dist[nb] = dist[c] + 1; q.push(nb); } } }
+  const keys = DOOR_KEY_ROOMS.filter(id => roomHasDoorKey(id) && id in prev).sort((a, b) => dist[a] - dist[b]);
+  const goal = keys.length ? keys[0] : Object.keys(MAP).find(id => G.bossDead ? MAP[id].final : MAP[id].boss);
+  if (!goal || !(goal in prev) || goal === G.room) return [];
+  const path = []; for (let c = goal; c && c !== G.room; c = prev[c]) path.unshift(c);
+  return path;
 }
 
 /* ── 오브젝트 ──────────────────────────────────────── */
@@ -19808,7 +19831,7 @@ window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEndin
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
                   endingScene: () => endingScene, escapeScene: () => escapeScene, beginEscape,
                   killBoss, MORPH_PRE, AD, AD_DONE,
-                  devJump, openDevPanel, devKillAll, OP, opT, beginDoze, DOZE_AFTER,
+                  taRoute, devJump, openDevPanel, devKillAll, OP, opT, beginDoze, DOZE_AFTER,
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
 /* 소리가 안 나는데 원인을 알 수 없는 상황(브라우저/삽입된 환경이
