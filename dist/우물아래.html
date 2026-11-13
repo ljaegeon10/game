@@ -18781,6 +18781,8 @@ function beginEnding() {
       fr.textContent = '순위판에 기록을 올리는 중…'; fr.classList.remove('hidden');
       Festival.finish(ms).then(rank => {
         fr.textContent = rank ? `${Festival.player.name} 님, 순위판 ${rank}위!` : '기록을 이 기기에 저장했어요 — 연결되면 순위판에 올라가요';
+        const dev = window.WB_DEV;                                // 개발자 기록 (순위와 따로)
+        if (dev && dev.ms > 0) fr.textContent += ms < dev.ms ? `  ·  개발자 ${dev.name || ''} 기록을 깼어요! 🔥` : `  ·  개발자 기록까지 ${fmtTime(ms - dev.ms)}`;
       });
     }
   }

@@ -68,6 +68,15 @@ li.empty{ justify-content:center; display:flex; color:var(--dim); font-size:clam
 li .nm small{ display:block; margin-top:2px; font-size:.45em; color:var(--hwang); letter-spacing:.04em; opacity:.85; }   /* 1~3등 상품 */
 .prizes{ display:block; margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--hwang); line-height:1.6; }
 .prizes:empty{ display:none; }
+/* 개발자 최고 기록 — 순위와 따로, 목록 위 한 줄 */
+.dev{ display:flex; align-items:center; gap:clamp(10px, 1.4vw, 22px); margin:0 0 clamp(8px, 1.4vh, 16px); padding:clamp(8px, 1.4vh, 14px) 18px;
+  border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); font-size:clamp(14px, min(1.9vw, 3vh), 30px); }
+.dev[hidden]{ display:none; }
+.dev .tag{ flex:none; padding:3px 10px 2px; font-size:.55em; letter-spacing:.2em; color:var(--ink); background:var(--glow); }
+.dev .who{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dev .who small{ margin-left:.6em; font-size:.6em; color:var(--dim); }
+.dev .tm{ flex:none; color:var(--glow); font-variant-numeric:tabular-nums; }
+li .nm small.beat{ color:var(--glow); }
 /* 공지 — 화면 아래로 흐르는 띠 (시트의 '공지' 가 있을 때만) */
 #notice{ position:fixed; left:0; right:0; bottom:0; z-index:3; overflow:hidden; white-space:nowrap; padding:8px 0;
   background:rgba(194,53,44,.9); color:#fff; font-size:clamp(14px, 1.6vw, 24px); }
@@ -145,6 +154,7 @@ footer a:hover, footer button:hover{ color:var(--baek); border-color:rgba(241,23
   </header>
 
   <section class="rank" aria-label="순위">
+    <div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
     <div class="rank-head"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
     <ol id="list"></ol>
     <p class="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
@@ -176,6 +186,14 @@ const SERVER = String(window.WB_SERVER || '').trim();
 const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주소의 ?top= 이 시트 설정보다 먼저
 let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
 let prizes = ['', '', ''];
+/* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
+let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
+function parseDev(v) {
+  const t = String(v || '').trim(), m = t.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
+  if (!m) return null;
+  const ms = (+m[1] * 60 + +m[2]) * 1000 + (m[3] ? +m[3].padEnd(3, '0') : 0);
+  return ms > 0 ? { name: t.replace(m[0], '').trim(), ms } : null;
+}
 const PKEY = 'wellbelow.board.pin';
 const $ = id => document.getElementById(id);
 const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -213,11 +231,21 @@ function render() {
   list.slice(0, TOP).forEach((r, i) => {
     const li = mk('li', (i < 3 ? 'p' + (i + 1) : '') + (isClear(r) ? '' : ' fail') + (fresh.has(r.id) ? ' new' : ''));
     const nm = mk('span', 'nm', String(r.name || ''));
-    if (i < 3 && prizes[i] && isClear(r)) nm.appendChild(mk('small', null, '🎁 ' + prizes[i]));   // 상품은 클리어한 사람에게만
+    const tags = [];
+    if (i < 3 && prizes[i] && isClear(r)) tags.push('🎁 ' + prizes[i]);   // 상품은 클리어한 사람에게만
+    if (dev && isClear(r) && r.ms < dev.ms) tags.push('🔥 개발자 기록 돌파');
+    if (tags.length) nm.appendChild(mk('small', tags.length === 1 && !tags[0].startsWith('🎁') ? 'beat' : null, tags.join('  ')));
     li.append(mk('span', 'no', String(i + 1)), nm, mk('span', 'tl', r.tail ? '···' + r.tail : ''),
               mk('span', 'tm', isClear(r) ? fmt(r.ms) : String(r.stage || '도전')));
     ol.appendChild(li);
   });
+  $('dev').hidden = !dev;
+  if (dev) {
+    $('devName').textContent = dev.name || '개발자';
+    const n = list.filter(r => isClear(r) && r.ms < dev.ms).length;
+    $('devSub').textContent = n ? `순위 밖 · ${n}명이 깼어요!` : '순위 밖 · 이 기록을 깨 보세요!';
+    $('devTime').textContent = fmt(dev.ms);
+  }
   if (!list.length) ol.appendChild(mk('li', 'empty', '아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!'));
   $('sPeople').textContent = list.length;
   $('sClear').textContent = list.filter(isClear).length;
@@ -257,6 +285,7 @@ function applySettings(st) {
   if (!TOP_URL) { const n = parseInt(st['보여줄 등수'], 10); if (n) TOP = Math.max(3, Math.min(30, n)); }
   prizes = ['1등 상품', '2등 상품', '3등 상품'].map(k => String(st[k] || '').trim());
   $('cfgPrizes').textContent = prizes.map((v, i) => v ? `${i + 1}등 ${v}` : '').filter(Boolean).join(' · ');
+  if ('개발자 기록' in st && String(st['개발자 기록']).trim()) dev = parseDev(st['개발자 기록']) || dev;
   const note = String(st['공지'] || '').trim();
   $('notice').hidden = !note; $('noticeText').textContent = note; document.body.classList.toggle('has-notice', !!note);
 }

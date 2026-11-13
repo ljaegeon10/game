@@ -5,3 +5,6 @@ window.WB_FESTIVAL = true;
 window.WB_SERVER = 'https://script.google.com/macros/s/AKfycbwQV5gWJWzZK0JzJo6af8_C6iBWySEYNwI78mIWIWDW3tHiF7ZBYDrKKrobyXT69c0/exec';
 /* 순위판 설정을 고치는 구글 시트 탭 — 순위판 오른쪽 아래 ✏️ 수정 버튼이 여기로 (시트 주인만 열림) */
 window.WB_SHEET = 'https://docs.google.com/spreadsheets/d/1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE/edit#gid=518773294';
+/* 개발자 최고 기록 — 순위에는 안 들어가고 순위판 위에 '깨 보세요' 로 따로 나옴. 지우면 안 보임
+   (구글 시트 '순위판 설정' 탭의 '개발자 기록' 칸이 있으면 그게 먼저) */
+window.WB_DEV = { name: '장도우', ms: 103757 };
