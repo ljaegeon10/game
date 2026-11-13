@@ -1298,3 +1298,38 @@ body.topview #obang-frame{ display:block; }
 #obang-frame .r{ right:0; box-shadow:-1px 0 0 rgba(0,0,0,.85); background-position:0 calc(var(--seg) * -2); }
 /* 띠 안쪽으로 HUD · 미니맵을 조금 들임 */
 body.topview #hud{ padding:11px 13px; }
+
+/* ── 일시정지 (ESC · P) — 창 전체를 덮는 어두운 막 위에 작은 상자 ───────────── */
+#pausemenu{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;
+  background:rgba(3,4,8,.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); font-family:var(--font-ui); }
+#pausemenu.hidden{ display:none; }
+.pm-box{ width:min(360px, 86vw); padding:22px 22px 18px; background:rgba(10,14,20,.94); border:1px solid rgba(110,214,232,.35);
+  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:6px; animation:msIn .18s ease-out 1; }
+.pm-obang{ display:flex; height:4px; margin:-22px -22px 14px; }
+.pm-obang i{ flex:1; }
+.pm-obang i:nth-child(1){ background:var(--cheong); } .pm-obang i:nth-child(2){ background:var(--baek); } .pm-obang i:nth-child(3){ background:var(--jeok); }
+.pm-obang i:nth-child(4){ background:var(--heuk); } .pm-obang i:nth-child(5){ background:var(--hwang); }
+.pm-title{ margin:0; font-size:22px; letter-spacing:.3em; color:var(--baek); text-align:center; }
+.pm-sub{ margin:0 0 10px; font-size:10px; letter-spacing:.32em; color:rgba(110,214,232,.65); text-align:center; }
+.pm-item{ position:relative; margin:0; padding:11px 14px 11px 18px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  font-family:inherit; font-size:15px; font-weight:400; letter-spacing:.08em; text-align:left; color:rgba(190,222,232,.7);
+  background:none; border:none; border-bottom:1px solid rgba(110,214,232,.1); box-shadow:none; cursor:pointer; }
+.pm-item b{ font-weight:400; }
+.pm-item em{ font-style:normal; font-size:10px; color:rgba(190,222,232,.35); letter-spacing:.04em; }
+.pm-item::before{ content:''; position:absolute; left:0; top:7px; bottom:7px; width:3px; background:#6ee0f2; opacity:0; box-shadow:0 0 8px rgba(110,224,242,.9); }
+.pm-item.sel{ color:#f2fbff; background:linear-gradient(90deg, rgba(110,224,242,.16), rgba(110,224,242,0) 85%); }
+.pm-item.sel::before{ opacity:1; }
+.pm-item:hover, .pm-item:active{ transform:none; box-shadow:none; }
+.pm-item[data-act="quit"].sel, .pm-item[data-act="quit-yes"].sel{ color:#ffd9d4; }
+.pm-item[data-act="quit"]::before, .pm-item[data-act="quit-yes"]::before{ background:#e8695c; box-shadow:0 0 8px rgba(232,105,92,.8); }
+.pm-confirm{ margin-top:8px; padding-top:10px; border-top:1px solid rgba(232,105,92,.35); display:flex; flex-direction:column; gap:4px; }
+.pm-confirm.hidden{ display:none; }
+.pm-confirm p{ margin:0 0 6px; font-size:13px; color:#ffd9d4; }
+.pm-confirm p span{ display:block; margin-top:3px; font-size:11px; color:rgba(255,217,212,.55); }
+#pausemenu.confirming > .pm-box > .pm-item{ opacity:.35; pointer-events:none; }
+/* 휴대폰 — 위쪽 가운데 작은 ‖ (게임 중에만, body.ingame) */
+#tpause{ display:none; position:fixed; z-index:2500; top:max(8px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); margin:0;
+  width:38px; height:30px; padding:0; border-radius:6px; font-size:13px; font-weight:700; letter-spacing:0;
+  color:var(--baek); background:rgba(15,14,20,.55); border:1px solid rgba(241,236,224,.3); box-shadow:none; }
+body.touch.ingame #tpause{ display:block; }
+body.paused #tpause{ display:none; }

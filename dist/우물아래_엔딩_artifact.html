@@ -1436,6 +1436,7 @@ class EndingScene {
   /* 고정 시간 간격 루프 — 화면 주사율이 달라도 연출 시간은 같습니다 */
   loop(now) {
     if (!this.running) return;
+    if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last);
     this.last = now;
     while (this.acc >= STEP && this.running) {
@@ -6803,6 +6804,7 @@ class EscapeScene {
   }
   loop(now) {
     if (!this.running) return;
+    if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last); this.last = now;
     while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; }
     if (!this.running) return;

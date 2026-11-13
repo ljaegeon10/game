@@ -6066,6 +6066,7 @@ function loop(now) {
   if (dt > 250) dt = STEP;
   acc += dt;
 
+  if (PAUSE.on) { acc = 0; return; }              // 일시정지 — 멈춘 그 장 그대로 (다시 그리지도 않음)
   let steps = 0;
   while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
   if (acc > STEP * 5) acc = 0;
@@ -6075,7 +6076,98 @@ function loop(now) {
   // 브라운관은 탑뷰 본편에서만 (css body.topview)
   const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
   if (top !== _topview) { _topview = top; document.body.classList.toggle('topview', top); }
+  const ing = canPause();
+  if (ing !== _ingame) { _ingame = ing; document.body.classList.toggle('ingame', ing); }
 }
+let _ingame = null;
+
+/* ═══════════ 일시정지 — 게임 중 ESC (또는 P) ═══════════════════════
+   1부(숲 · 던전 · 보스) · 오프닝 · 엔딩 · 탈출 어디서든. 멈춘 동안은 게임 · 타이머 · 소리가 모두 서고,
+   메뉴에서 계속하기 / 전체 화면 / 처음 화면으로 (나가기는 한 번 더 물어봄). 휴대폰은 위쪽 ‖ 버튼 */
+const PAUSE = { on: false, at: 0, sel: 0, confirm: false };
+const titleUp = () => !$('title').classList.contains('hidden');
+function canPause() {
+  if (titleUp() || G.mode === 'dead') return false;                       // 시작 화면 · 사망 화면은 따로
+  if ($('endcard').classList.contains('on')) return false;                 // 엔드 카드 — 이미 끝난 판
+  if (document.getElementById('fest-board') && !$('fest-board').classList.contains('hidden')) return false;
+  return true;
+}
+const pmItems = () => [...document.querySelectorAll(PAUSE.confirm ? '#pm-confirm .pm-item' : '#pausemenu > .pm-box > .pm-item')];
+function pmSelect(i) { const it = pmItems(); PAUSE.sel = (i + it.length) % it.length; document.querySelectorAll('#pausemenu .pm-item').forEach(b => b.classList.remove('sel')); it[PAUSE.sel].classList.add('sel'); }
+function scenes() { return [endingScene, escapeScene].filter(x => x && x.running); }
+function pauseGame() {
+  if (PAUSE.on || !canPause()) return;
+  PAUSE.on = true; PAUSE.at = performance.now(); PAUSE.confirm = false;
+  scenes().forEach(sc => { sc.paused = true; if (sc.unlock) sc.unlock(); if (sc.held) sc.held.clear(); });
+  try { const ac = Sfx.context(); if (ac && ac.state === 'running') ac.suspend(); } catch (e) {}
+  releaseAll(); mouse.down = false;
+  $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming');
+  $('pm-sub').textContent = G.timeAttack && RUN.running ? `TIME ${fmtTime(runTime())} · 시계도 멈췄어요` : 'SESSION PAUSED';
+  $('pausemenu').classList.remove('hidden'); document.body.classList.add('paused');
+  pmSelect(0);
+}
+function resumeGame() {
+  if (!PAUSE.on) return;
+  const d = performance.now() - PAUSE.at;
+  if (RUN.running) RUN.start += d;                                          // 멈춘 동안은 기록에 안 셈
+  PAUSE.on = false;
+  scenes().forEach(sc => { sc.paused = false; sc.last = performance.now(); });
+  try { const ac = Sfx.context(); if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {}
+  lastT = 0; acc = 0;
+  $('pausemenu').classList.add('hidden'); document.body.classList.remove('paused');
+}
+function quitToTitle() {
+  PAUSE.on = false; $('pausemenu').classList.add('hidden'); document.body.classList.remove('paused');
+  try { const ac = Sfx.context(); if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {}
+  if (endingScene && endingScene.running) endingScene.stop();
+  if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
+  escFull(false);
+  $('ending').classList.add('hidden');
+  $('endcard').classList.remove('on');
+  resetRun();
+  lastT = 0; acc = 0;
+}
+function pmGo(act) {
+  act = act || (pmItems()[PAUSE.sel] || {}).dataset?.act;
+  if (act === 'resume') resumeGame();
+  else if (act === 'full') {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { try { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+  else if (act === 'quit') {
+    PAUSE.confirm = true; $('pm-confirm').classList.remove('hidden'); $('pausemenu').classList.add('confirming');
+    $('pm-confirm-sub').textContent = G.timeAttack && RUN.running ? '타임어택 기록은 남지 않아요.' : '지금까지의 진행은 사라져요.';
+    pmSelect(1);                                                            // 기본은 '취소' 쪽 — 실수로 나가지 않게
+  }
+  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(2); }
+  else if (act === 'quit-yes') quitToTitle();
+}
+/* 키 — 다른 처리보다 먼저 (capture). 멈춘 동안엔 게임 · 탈출 · 엔딩으로 키가 가지 않게 */
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (!PAUSE.on) {
+    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && !e.target.closest?.('input, textarea')) {
+      e.preventDefault(); e.stopImmediatePropagation(); pauseGame();
+    }
+    return;
+  }
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.repeat) return;
+  if (k === 'Escape' || e.code === 'KeyP') { if (PAUSE.confirm) pmGo('quit-no'); else resumeGame(); return; }
+  if (k === 'ArrowUp' || e.code === 'KeyW') pmSelect(PAUSE.sel - 1);
+  if (k === 'ArrowDown' || e.code === 'KeyS') pmSelect(PAUSE.sel + 1);
+  if (k === 'Enter' || k === ' ') pmGo();
+}, true);
+addEventListener('keyup', e => { if (PAUSE.on) { e.stopImmediatePropagation(); } }, true);
+document.querySelectorAll('#pausemenu .pm-item').forEach(b => {
+  b.addEventListener('click', e => { e.stopPropagation(); pmGo(b.dataset.act); });
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { const it = pmItems(), i = it.indexOf(b); if (i >= 0) pmSelect(i); } });
+});
+['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(n => $('pausemenu').addEventListener(n, e => e.stopPropagation()));
+$('pausemenu').addEventListener('click', e => { if (e.target.id === 'pausemenu' && !PAUSE.confirm) resumeGame(); });   // 바깥을 누르면 계속
+$('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); });
+$('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,

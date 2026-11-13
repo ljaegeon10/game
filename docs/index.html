@@ -1328,10 +1328,45 @@ body.topview #obang-frame{ display:block; }
 /* 띠 안쪽으로 HUD · 미니맵을 조금 들임 */
 body.topview #hud{ padding:11px 13px; }
 
+/* ── 일시정지 (ESC · P) — 창 전체를 덮는 어두운 막 위에 작은 상자 ───────────── */
+#pausemenu{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;
+  background:rgba(3,4,8,.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); font-family:var(--font-ui); }
+#pausemenu.hidden{ display:none; }
+.pm-box{ width:min(360px, 86vw); padding:22px 22px 18px; background:rgba(10,14,20,.94); border:1px solid rgba(110,214,232,.35);
+  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:6px; animation:msIn .18s ease-out 1; }
+.pm-obang{ display:flex; height:4px; margin:-22px -22px 14px; }
+.pm-obang i{ flex:1; }
+.pm-obang i:nth-child(1){ background:var(--cheong); } .pm-obang i:nth-child(2){ background:var(--baek); } .pm-obang i:nth-child(3){ background:var(--jeok); }
+.pm-obang i:nth-child(4){ background:var(--heuk); } .pm-obang i:nth-child(5){ background:var(--hwang); }
+.pm-title{ margin:0; font-size:22px; letter-spacing:.3em; color:var(--baek); text-align:center; }
+.pm-sub{ margin:0 0 10px; font-size:10px; letter-spacing:.32em; color:rgba(110,214,232,.65); text-align:center; }
+.pm-item{ position:relative; margin:0; padding:11px 14px 11px 18px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  font-family:inherit; font-size:15px; font-weight:400; letter-spacing:.08em; text-align:left; color:rgba(190,222,232,.7);
+  background:none; border:none; border-bottom:1px solid rgba(110,214,232,.1); box-shadow:none; cursor:pointer; }
+.pm-item b{ font-weight:400; }
+.pm-item em{ font-style:normal; font-size:10px; color:rgba(190,222,232,.35); letter-spacing:.04em; }
+.pm-item::before{ content:''; position:absolute; left:0; top:7px; bottom:7px; width:3px; background:#6ee0f2; opacity:0; box-shadow:0 0 8px rgba(110,224,242,.9); }
+.pm-item.sel{ color:#f2fbff; background:linear-gradient(90deg, rgba(110,224,242,.16), rgba(110,224,242,0) 85%); }
+.pm-item.sel::before{ opacity:1; }
+.pm-item:hover, .pm-item:active{ transform:none; box-shadow:none; }
+.pm-item[data-act="quit"].sel, .pm-item[data-act="quit-yes"].sel{ color:#ffd9d4; }
+.pm-item[data-act="quit"]::before, .pm-item[data-act="quit-yes"]::before{ background:#e8695c; box-shadow:0 0 8px rgba(232,105,92,.8); }
+.pm-confirm{ margin-top:8px; padding-top:10px; border-top:1px solid rgba(232,105,92,.35); display:flex; flex-direction:column; gap:4px; }
+.pm-confirm.hidden{ display:none; }
+.pm-confirm p{ margin:0 0 6px; font-size:13px; color:#ffd9d4; }
+.pm-confirm p span{ display:block; margin-top:3px; font-size:11px; color:rgba(255,217,212,.55); }
+#pausemenu.confirming > .pm-box > .pm-item{ opacity:.35; pointer-events:none; }
+/* 휴대폰 — 위쪽 가운데 작은 ‖ (게임 중에만, body.ingame) */
+#tpause{ display:none; position:fixed; z-index:2500; top:max(8px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); margin:0;
+  width:38px; height:30px; padding:0; border-radius:6px; font-size:13px; font-weight:700; letter-spacing:0;
+  color:var(--baek); background:rgba(15,14,20,.55); border:1px solid rgba(241,236,224,.3); box-shadow:none; }
+body.touch.ingame #tpause{ display:block; }
+body.paused #tpause{ display:none; }
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794538565"></script>
+<script src="festival-config.js?v=1794538730"></script>
 
 <div id="frame">
   <div id="stage">
@@ -1605,6 +1640,23 @@ body.topview #hud{ padding:11px 13px; }
   <p id="hint">화면을 클릭하면 소리가 켜집니다 · 전체 조작은 타이틀 화면 참고</p>
 </div>
 
+<!-- 일시정지 — 게임 중 ESC (또는 P) · 휴대폰은 위쪽 ‖ 버튼. 창 전체를 덮음 (탈출 화면 위로도) -->
+<div id="pausemenu" class="hidden" role="dialog" aria-label="일시정지">
+  <div class="pm-box">
+    <div class="pm-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="pm-title">일시정지</p>
+    <p class="pm-sub" id="pm-sub">SESSION PAUSED</p>
+    <button class="pm-item sel" data-act="resume"><b>계속하기</b><em>ESC</em></button>
+    <button class="pm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
+    <button class="pm-item" data-act="quit"><b>처음 화면으로</b><em>진행 중인 판은 사라져요</em></button>
+    <div class="pm-confirm hidden" id="pm-confirm">
+      <p>정말 나갈까요? <span id="pm-confirm-sub">지금까지의 진행은 사라져요.</span></p>
+      <button class="pm-item" data-act="quit-yes"><b>나가기</b></button>
+      <button class="pm-item" data-act="quit-no"><b>취소</b></button>
+    </div>
+  </div>
+</div>
+<button id="tpause" aria-label="일시정지">Ⅱ</button>
 <script>
 /* 이 파일은 tools/make_dungeon_bgm.py 가 생성합니다. 직접 고치지 마세요.
    던전 탐사 브금 — 원본에서 6.264s ~ 118.992s 구간을 MP3 프레임 단위로
@@ -5847,6 +5899,7 @@ class EndingScene {
   /* 고정 시간 간격 루프 — 화면 주사율이 달라도 연출 시간은 같습니다 */
   loop(now) {
     if (!this.running) return;
+    if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last);
     this.last = now;
     while (this.acc >= STEP && this.running) {
@@ -12184,6 +12237,7 @@ class EscapeScene {
   }
   loop(now) {
     if (!this.running) return;
+    if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last); this.last = now;
     while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; }
     if (!this.running) return;
@@ -20072,6 +20126,7 @@ function loop(now) {
   if (dt > 250) dt = STEP;
   acc += dt;
 
+  if (PAUSE.on) { acc = 0; return; }              // 일시정지 — 멈춘 그 장 그대로 (다시 그리지도 않음)
   let steps = 0;
   while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
   if (acc > STEP * 5) acc = 0;
@@ -20081,7 +20136,98 @@ function loop(now) {
   // 브라운관은 탑뷰 본편에서만 (css body.topview)
   const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
   if (top !== _topview) { _topview = top; document.body.classList.toggle('topview', top); }
+  const ing = canPause();
+  if (ing !== _ingame) { _ingame = ing; document.body.classList.toggle('ingame', ing); }
 }
+let _ingame = null;
+
+/* ═══════════ 일시정지 — 게임 중 ESC (또는 P) ═══════════════════════
+   1부(숲 · 던전 · 보스) · 오프닝 · 엔딩 · 탈출 어디서든. 멈춘 동안은 게임 · 타이머 · 소리가 모두 서고,
+   메뉴에서 계속하기 / 전체 화면 / 처음 화면으로 (나가기는 한 번 더 물어봄). 휴대폰은 위쪽 ‖ 버튼 */
+const PAUSE = { on: false, at: 0, sel: 0, confirm: false };
+const titleUp = () => !$('title').classList.contains('hidden');
+function canPause() {
+  if (titleUp() || G.mode === 'dead') return false;                       // 시작 화면 · 사망 화면은 따로
+  if ($('endcard').classList.contains('on')) return false;                 // 엔드 카드 — 이미 끝난 판
+  if (document.getElementById('fest-board') && !$('fest-board').classList.contains('hidden')) return false;
+  return true;
+}
+const pmItems = () => [...document.querySelectorAll(PAUSE.confirm ? '#pm-confirm .pm-item' : '#pausemenu > .pm-box > .pm-item')];
+function pmSelect(i) { const it = pmItems(); PAUSE.sel = (i + it.length) % it.length; document.querySelectorAll('#pausemenu .pm-item').forEach(b => b.classList.remove('sel')); it[PAUSE.sel].classList.add('sel'); }
+function scenes() { return [endingScene, escapeScene].filter(x => x && x.running); }
+function pauseGame() {
+  if (PAUSE.on || !canPause()) return;
+  PAUSE.on = true; PAUSE.at = performance.now(); PAUSE.confirm = false;
+  scenes().forEach(sc => { sc.paused = true; if (sc.unlock) sc.unlock(); if (sc.held) sc.held.clear(); });
+  try { const ac = Sfx.context(); if (ac && ac.state === 'running') ac.suspend(); } catch (e) {}
+  releaseAll(); mouse.down = false;
+  $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming');
+  $('pm-sub').textContent = G.timeAttack && RUN.running ? `TIME ${fmtTime(runTime())} · 시계도 멈췄어요` : 'SESSION PAUSED';
+  $('pausemenu').classList.remove('hidden'); document.body.classList.add('paused');
+  pmSelect(0);
+}
+function resumeGame() {
+  if (!PAUSE.on) return;
+  const d = performance.now() - PAUSE.at;
+  if (RUN.running) RUN.start += d;                                          // 멈춘 동안은 기록에 안 셈
+  PAUSE.on = false;
+  scenes().forEach(sc => { sc.paused = false; sc.last = performance.now(); });
+  try { const ac = Sfx.context(); if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {}
+  lastT = 0; acc = 0;
+  $('pausemenu').classList.add('hidden'); document.body.classList.remove('paused');
+}
+function quitToTitle() {
+  PAUSE.on = false; $('pausemenu').classList.add('hidden'); document.body.classList.remove('paused');
+  try { const ac = Sfx.context(); if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {}
+  if (endingScene && endingScene.running) endingScene.stop();
+  if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
+  escFull(false);
+  $('ending').classList.add('hidden');
+  $('endcard').classList.remove('on');
+  resetRun();
+  lastT = 0; acc = 0;
+}
+function pmGo(act) {
+  act = act || (pmItems()[PAUSE.sel] || {}).dataset?.act;
+  if (act === 'resume') resumeGame();
+  else if (act === 'full') {
+    const el = document.documentElement;
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { try { const r = (el.requestFullscreen || el.webkitRequestFullscreen).call(el); if (r && r.catch) r.catch(() => {}); } catch (e) {} }
+  }
+  else if (act === 'quit') {
+    PAUSE.confirm = true; $('pm-confirm').classList.remove('hidden'); $('pausemenu').classList.add('confirming');
+    $('pm-confirm-sub').textContent = G.timeAttack && RUN.running ? '타임어택 기록은 남지 않아요.' : '지금까지의 진행은 사라져요.';
+    pmSelect(1);                                                            // 기본은 '취소' 쪽 — 실수로 나가지 않게
+  }
+  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(2); }
+  else if (act === 'quit-yes') quitToTitle();
+}
+/* 키 — 다른 처리보다 먼저 (capture). 멈춘 동안엔 게임 · 탈출 · 엔딩으로 키가 가지 않게 */
+addEventListener('keydown', e => {
+  const k = e.key;
+  if (!PAUSE.on) {
+    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && !e.target.closest?.('input, textarea')) {
+      e.preventDefault(); e.stopImmediatePropagation(); pauseGame();
+    }
+    return;
+  }
+  e.preventDefault(); e.stopImmediatePropagation();
+  if (e.repeat) return;
+  if (k === 'Escape' || e.code === 'KeyP') { if (PAUSE.confirm) pmGo('quit-no'); else resumeGame(); return; }
+  if (k === 'ArrowUp' || e.code === 'KeyW') pmSelect(PAUSE.sel - 1);
+  if (k === 'ArrowDown' || e.code === 'KeyS') pmSelect(PAUSE.sel + 1);
+  if (k === 'Enter' || k === ' ') pmGo();
+}, true);
+addEventListener('keyup', e => { if (PAUSE.on) { e.stopImmediatePropagation(); } }, true);
+document.querySelectorAll('#pausemenu .pm-item').forEach(b => {
+  b.addEventListener('click', e => { e.stopPropagation(); pmGo(b.dataset.act); });
+  b.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') { const it = pmItems(), i = it.indexOf(b); if (i >= 0) pmSelect(i); } });
+});
+['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'].forEach(n => $('pausemenu').addEventListener(n, e => e.stopPropagation()));
+$('pausemenu').addEventListener('click', e => { if (e.target.id === 'pausemenu' && !PAUSE.confirm) resumeGame(); });   // 바깥을 누르면 계속
+$('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); });
+$('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
 window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,

@@ -288,6 +288,23 @@
   <p id="hint">화면을 클릭하면 소리가 켜집니다 · 전체 조작은 타이틀 화면 참고</p>
 </div>
 
+<!-- 일시정지 — 게임 중 ESC (또는 P) · 휴대폰은 위쪽 ‖ 버튼. 창 전체를 덮음 (탈출 화면 위로도) -->
+<div id="pausemenu" class="hidden" role="dialog" aria-label="일시정지">
+  <div class="pm-box">
+    <div class="pm-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="pm-title">일시정지</p>
+    <p class="pm-sub" id="pm-sub">SESSION PAUSED</p>
+    <button class="pm-item sel" data-act="resume"><b>계속하기</b><em>ESC</em></button>
+    <button class="pm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
+    <button class="pm-item" data-act="quit"><b>처음 화면으로</b><em>진행 중인 판은 사라져요</em></button>
+    <div class="pm-confirm hidden" id="pm-confirm">
+      <p>정말 나갈까요? <span id="pm-confirm-sub">지금까지의 진행은 사라져요.</span></p>
+      <button class="pm-item" data-act="quit-yes"><b>나가기</b></button>
+      <button class="pm-item" data-act="quit-no"><b>취소</b></button>
+    </div>
+  </div>
+</div>
+<button id="tpause" aria-label="일시정지">Ⅱ</button>
 <script src="js/dungeon_bgm.js"></script>
 <script src="js/approach_bgm.js"></script>
 <script src="js/boss2_bgm.js"></script>
