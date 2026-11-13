@@ -7,7 +7,8 @@
 <!-- 실시간 순위판 (GitHub Pages: docs/board.html)
      부스 옆 모니터 · TV 에 띄워 두는 화면. 게임(docs/index.html)과 같은 festival-config.js 의 WB_SERVER
      (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
-     F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10). -->
+     F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10).
+     글 · 상품 · 공지 · 등수 · PIN 은 구글 시트의 '순위판 설정' 탭에서 고치면 몇 초 뒤 그대로 바뀝니다. -->
 <script src="festival-config.js"></script>
 <script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
 <style>
@@ -64,6 +65,17 @@ li.new{ animation:pop 1.2s ease-out 1, glow 2.4s ease-in-out 3; }
 @keyframes glow{ 50%{ background:rgba(125,227,200,.16); } }
 li.empty{ justify-content:center; display:flex; color:var(--dim); font-size:clamp(14px, 1.8vw, 26px); border:none; }
 .rule{ margin:10px 0 0; font-size:clamp(11px, 1vw, 15px); color:rgba(241,236,224,.3); }
+li .nm small{ display:block; margin-top:2px; font-size:.45em; color:var(--hwang); letter-spacing:.04em; opacity:.85; }   /* 1~3등 상품 */
+.prizes{ display:block; margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--hwang); line-height:1.6; }
+.prizes:empty{ display:none; }
+/* 공지 — 화면 아래로 흐르는 띠 (시트의 '공지' 가 있을 때만) */
+#notice{ position:fixed; left:0; right:0; bottom:0; z-index:3; overflow:hidden; white-space:nowrap; padding:8px 0;
+  background:rgba(194,53,44,.9); color:#fff; font-size:clamp(14px, 1.6vw, 24px); }
+#notice[hidden]{ display:none; }
+#notice span{ display:inline-block; padding-left:100%; animation:ticker 18s linear infinite; }
+@keyframes ticker{ to{ transform:translateX(-100%); } }
+body.has-notice .wrap{ padding-bottom:clamp(40px, 6vh, 64px); }
+body.has-notice footer{ bottom:calc(clamp(14px, 1.6vw, 24px) + 26px); }
 
 /* 오른쪽 — 지금 도전 중 · 최근 · 참가 QR */
 aside{ min-height:0; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 26px); }
@@ -121,8 +133,8 @@ footer button{ font:inherit; color:inherit; background:none; border:1px solid rg
 <div class="wrap">
   <header>
     <div>
-      <span class="club">DITC 동아리 축제 부스</span>
-      <h1>우물 아래<small>타임어택 순위</small></h1>
+      <span class="club" id="cfgClub">DITC 동아리 축제 부스</span>
+      <h1><span id="cfgTitle">우물 아래</span><small id="cfgSub">타임어택 순위</small></h1>
     </div>
     <div class="stats">
       <div class="stat"><b id="sPeople">0</b><span>참가</span></div>
@@ -142,10 +154,11 @@ footer button{ font:inherit; color:inherit; background:none; border:1px solid rg
     <div class="card recent"><h2>방금 들어온 기록</h2><ul id="recent"></ul></div>
     <div class="card join">
       <div id="qr"></div>
-      <p>찍고 바로 도전!<br>타임어택 TOP 3 상품 증정<small id="gameUrl"></small></p>
+      <p><span id="cfgQr">찍고 바로 도전!</span><br><span id="cfgPrize">타임어택 TOP 3 상품 증정</span><span class="prizes" id="cfgPrizes"></span><small id="gameUrl"></small></p>
     </div>
   </aside>
 </div>
+<div id="notice" hidden><span id="noticeText"></span></div>
 <footer id="net"><i></i><span id="netText">연결 중…</span><button id="fs" title="전체 화면 (F)">⛶</button></footer>
 <div class="gate" id="gate" hidden>
   <form id="pinForm">
@@ -159,7 +172,9 @@ footer button{ font:inherit; color:inherit; background:none; border:1px solid rg
 'use strict';
 (() => {
 const SERVER = String(window.WB_SERVER || '').trim();
-const TOP = Math.max(3, Math.min(30, +new URLSearchParams(location.search).get('top') || 10));
+const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주소의 ?top= 이 시트 설정보다 먼저
+let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
+let prizes = ['', '', ''];
 const PKEY = 'wellbelow.board.pin';
 const $ = id => document.getElementById(id);
 const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
@@ -196,7 +211,9 @@ function render() {
   seen = new Set(runs.map(r => r.id));
   list.slice(0, TOP).forEach((r, i) => {
     const li = mk('li', (i < 3 ? 'p' + (i + 1) : '') + (isClear(r) ? '' : ' fail') + (fresh.has(r.id) ? ' new' : ''));
-    li.append(mk('span', 'no', String(i + 1)), mk('span', 'nm', String(r.name || '')), mk('span', 'tl', r.tail ? '···' + r.tail : ''),
+    const nm = mk('span', 'nm', String(r.name || ''));
+    if (i < 3 && prizes[i] && isClear(r)) nm.appendChild(mk('small', null, '🎁 ' + prizes[i]));   // 상품은 클리어한 사람에게만
+    li.append(mk('span', 'no', String(i + 1)), nm, mk('span', 'tl', r.tail ? '···' + r.tail : ''),
               mk('span', 'tm', isClear(r) ? fmt(r.ms) : String(r.stage || '도전')));
     ol.appendChild(li);
   });
@@ -230,6 +247,18 @@ function renderLive() {
     el.append(h, mk('div', 'who', '도전자를 기다리는 중…'));
   }
 }
+/* 구글 시트 '순위판 설정' — 비어 있는 칸은 처음 글 그대로 */
+const DEF = {};
+function applySettings(st) {
+  const set = (id, key) => { const el = $(id); if (!(id in DEF)) DEF[id] = el.textContent; el.textContent = String(st[key] || '').trim() || DEF[id]; };
+  set('cfgClub', '동아리 이름'); set('cfgTitle', '제목'); set('cfgSub', '부제'); set('cfgQr', 'QR 문구'); set('cfgPrize', '상품 안내');
+  document.title = `${$('cfgTitle').textContent} — 실시간 순위판`;
+  if (!TOP_URL) { const n = parseInt(st['보여줄 등수'], 10); if (n) TOP = Math.max(3, Math.min(30, n)); }
+  prizes = ['1등 상품', '2등 상품', '3등 상품'].map(k => String(st[k] || '').trim());
+  $('cfgPrizes').textContent = prizes.map((v, i) => v ? `${i + 1}등 ${v}` : '').filter(Boolean).join(' · ');
+  const note = String(st['공지'] || '').trim();
+  $('notice').hidden = !note; $('noticeText').textContent = note; document.body.classList.toggle('has-notice', !!note);
+}
 function net(ok, text) { $('net').classList.toggle('off', !ok); $('netText').textContent = text; }
 
 async function poll() {
@@ -241,6 +270,7 @@ async function poll() {
     if (!j.ok && j.error === 'pin') { askPin(!!store.get()); return; }
     if (!j.ok) throw new Error('server');
     runs = Array.isArray(j.runs) ? j.runs : []; live = j.live || null; lastOk = Date.now();
+    if (j.settings) applySettings(j.settings);
     render(); renderLive();
     net(true, '실시간 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   } catch (e) {

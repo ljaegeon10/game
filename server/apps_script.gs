@@ -5,6 +5,8 @@
    기록은 이 스크립트가 붙은 구글 시트에 쌓입니다.
      · '기록' 시트   — 이름 · 연락처 뒷자리 · 결과 · 시간 (순위판에 나가는 것)
      · '연락처' 시트 — 전체 연락처 (순위판에는 절대 안 나감, 시트 주인만 봄)
+     · '순위판 설정' 시트 — 순위판(docs/board.html)에 나오는 글 · 상품 · 공지 · 등수 · PIN.
+                          '값' 칸만 고치면 몇 초 뒤 순위판에 그대로 반영 (다시 배포할 필요 없음)
 
    설치 · 배포 순서는 server/README.md.
    ═══════════════════════════════════════════════════════════════ */
@@ -17,13 +19,36 @@ const BOARD_PIN = '';
    script.google.com 에서 따로 만든 프로젝트(아이패드 등)면 꼭 넣어야 합니다 */
 const SHEET_ID = '1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE';
 
-const RUNS = '기록', CONTACTS = '연락처';
+const RUNS = '기록', CONTACTS = '연락처', SETTINGS = '순위판 설정';
+/* 순위판 설정 — [항목, 처음 값, 설명]. 시트에 없으면 이대로 만들어 둡니다 (항목 이름은 바꾸지 마세요) */
+const SETTING_ROWS = [
+  ['동아리 이름', 'DITC 동아리 축제 부스', '맨 위 빨간 띠'],
+  ['제목', '우물 아래', '큰 제목'],
+  ['부제', '타임어택 순위', '제목 옆 작은 글'],
+  ['보여줄 등수', 10, '3 ~ 30'],
+  ['상품 안내', '타임어택 TOP 3 상품 증정', 'QR 옆 큰 글'],
+  ['1등 상품', '', '비워 두면 안 보임'],
+  ['2등 상품', '', ''],
+  ['3등 상품', '', ''],
+  ['QR 문구', '찍고 바로 도전!', ''],
+  ['공지', '', '비워 두면 안 보임 — 화면 아래에 흐르는 공지'],
+  ['순위판 PIN', '', '숫자를 넣으면 그 PIN 을 알아야 순위판을 봄 (비우면 누구나)']
+];
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
 
 /* 처음 한 번 — 편집기에서 setup 을 골라 ▶ 실행 (시트 두 장과 제목 줄을 만듭니다) */
 function setup() {
-  sheet_(RUNS, RUN_HEAD); sheet_(CONTACTS, CONTACT_HEAD);
+  sheet_(RUNS, RUN_HEAD); sheet_(CONTACTS, CONTACT_HEAD); settings_();
+}
+/* 순위판 설정 읽기 — 없으면 시트를 만들고, 빠진 항목은 아래에 채워 넣음 */
+function settings_() {
+  const sh = sheet_(SETTINGS, ['항목', '값', '설명']);
+  const n = sh.getLastRow() - 1, rows = n > 0 ? sh.getRange(2, 1, n, 2).getValues() : [];
+  const have = {}; rows.forEach(r => { have[String(r[0]).trim()] = r[1]; });
+  const miss = SETTING_ROWS.filter(r => !(r[0] in have));
+  if (miss.length) { sh.getRange(sh.getLastRow() + 1, 1, miss.length, 3).setValues(miss); miss.forEach(r => { have[r[0]] = r[1]; }); }
+  return have;
 }
 function sheet_(name, head) {
   const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
@@ -93,9 +118,12 @@ function saveRun_(b) {
 /* ── 보내기 : 순위판이 받아 감 (연락처는 없음) ── */
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (BOARD_PIN && String(p.pin || '') !== String(BOARD_PIN)) return out_({ ok: false, error: 'pin' });
+  const set = settings_(), pin = String(set['순위판 PIN'] || BOARD_PIN || '').trim();
+  if (pin && String(p.pin || '') !== pin) return out_({ ok: false, error: 'pin' });
   const live = JSON.parse(PropertiesService.getScriptProperties().getProperty('live') || 'null');
-  return out_({ ok: true, runs: readRuns_(), live: live });
+  const board = {};                                          // PIN 은 빼고 순위판에 보냄
+  SETTING_ROWS.forEach(r => { if (r[0] !== '순위판 PIN') board[r[0]] = str_(set[r[0]], 120); });
+  return out_({ ok: true, runs: readRuns_(), live: live, settings: board });
 }
 function readRuns_() {
   const sh = sheet_(RUNS, RUN_HEAD), n = sh.getLastRow() - 1;

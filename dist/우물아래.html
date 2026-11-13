@@ -13360,6 +13360,10 @@ addEventListener('keydown', e => {
   if (!notField(e)) return;                         // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   if (e.repeat) return;
+  // 같은 자리(물리 키)를 누를 때와 뗄 때 글자가 다를 수 있음 — Shift · Caps Lock · 한/영 전환(w → W · ㅈ).
+  // 그래서 "이 키 자리로 누른 글자"를 기억해 두었다가 뗄 때 그 글자를 놓습니다 (예전엔 여기서 키가 눌린 채로 굳었음)
+  if (keyOfCode[e.code] && keyOfCode[e.code] !== e.key) key[keyOfCode[e.code]] = false;
+  if (e.code) { keyOfCode[e.code] = e.key; codeDown[e.code] = true; }
   key[e.key] = true;
   const k = e.key.toLowerCase();
   konamiKey(e.code);
@@ -13383,7 +13387,22 @@ addEventListener('keydown', e => {
     if (k === 'escape' || k === 'backspace') closeDiffSelect();
   }
 });
-addEventListener('keyup', e => { key[e.key] = false; });
+addEventListener('keyup', e => {
+  key[e.key] = false;
+  if (keyOfCode[e.code]) key[keyOfCode[e.code]] = false;
+  delete keyOfCode[e.code]; codeDown[e.code] = false;
+});
+/* 창을 벗어나면(알트탭 · 다른 창 클릭 · 탭 전환) 그 사이 뗀 키는 keyup 이 안 옴 — 전부 놓은 걸로 */
+const keyOfCode = {}, codeDown = {};
+function releaseAll() {
+  for (const k in key) key[k] = false;
+  for (const c in codeDown) codeDown[c] = false;
+  for (const c in keyOfCode) delete keyOfCode[c];
+  mouse.down = false;
+}
+addEventListener('blur', releaseAll);
+document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+addEventListener('contextmenu', releaseAll);
 /* 화면을 누르고 있는지 — 컷신 "길게 눌러 건너뛰기" (터치 · 마우스) */
 let ptrHeld = false;
 addEventListener('pointerdown', () => { ptrHeld = true; });
@@ -14717,10 +14736,10 @@ function update() {
 
   /* ── 이동 ─────────────────────────────────────────── */
   let mx = 0, my = 0;
-  if (down('a', 'A', 'ㅁ')) mx--;
-  if (down('d', 'D', 'ㅇ')) mx++;
-  if (down('w', 'W', 'ㅈ')) my--;
-  if (down('s', 'S', 'ㄴ')) my++;
+  if (down('a', 'A', 'ㅁ') || codeDown.KeyA) mx--;      // 글자 + 자리(code) 둘 다 — 한/영 · Caps Lock 상관없이
+  if (down('d', 'D', 'ㅇ') || codeDown.KeyD) mx++;
+  if (down('w', 'W', 'ㅈ') || codeDown.KeyW) my--;
+  if (down('s', 'S', 'ㄴ') || codeDown.KeyS) my++;
   if (!mx && !my && forest) {          // 숲에선 방향키로도 이동
     if (key.ArrowLeft) mx--; if (key.ArrowRight) mx++;
     if (key.ArrowUp) my--;   if (key.ArrowDown) my++;
