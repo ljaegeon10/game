@@ -97,6 +97,11 @@ function bakeFigure() {
 }
 
 let wall = null, fig = null, raf = 0, t = 0, figTry = 0, figAt = 0, figWait = 0;
+/* 인물은 미리 구워 둔 그림(js/title_figure.js — tools/make_title_figure.js)을 먼저 씁니다.
+   브라우저의 WebGL 에 기대지 않으므로 파이어폭스 · 3D 가 꺼진 기기에서도 늘 보임. 그림이 없을 때만 그 자리에서 3D 로 구움 */
+const PRE = window.TITLE_FIG || null;
+let preImg = null;
+if (PRE && PRE.src) { const im = new Image(); im.onload = () => { preImg = im; }; im.onerror = () => { preImg = false; }; im.src = PRE.src; }
 const dust = Array.from({ length: 70 }, () => ({ x: rnd() * W, y: rnd() * H, r: (.5 + rnd() * 1.3) * K * .5, v: .08 + rnd() * .25, p: rnd() * 6.28, a: .15 + rnd() * .5 }));
 function draw() {
   t++;
@@ -109,8 +114,12 @@ function draw() {
   g.addColorStop(0, `rgba(60,170,200,${.22 * fl})`); g.addColorStop(.45, `rgba(30,110,130,${.09 * fl})`); g.addColorStop(1, 'rgba(0,0,0,0)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
   c.globalCompositeOperation = 'source-over';
-  if (fig) {                                                                           // 숨 — 살짝 오르내림
-    const by = Math.sin(t * .018) * 2.2 * K;
+  const by = Math.sin(t * .018) * 2.2 * K;                                              // 숨 — 살짝 오르내림
+  if (preImg) {                                                                        // 미리 구운 그림 — 16:10 틀 기준이라 세로 차이의 절반만큼 올려서
+    c.globalAlpha = .9 + .1 * fl;
+    c.drawImage(preImg, PRE.x, PRE.y - (PRE.fh - H) / 2 + by, PRE.w, PRE.h);
+    c.globalAlpha = 1;
+  } else if (fig) {
     c.globalAlpha = .9 + .1 * fl;
     c.drawImage(fig, 0, by);
     c.globalAlpha = 1;
@@ -138,7 +147,7 @@ function loop() {
   if (!wall) wall = bakeWall();
   // 인물 — 없으면 굽기. 실패하면(3D 가 아직 준비 안 됨 등) 1초 간격으로 몇 번 더 해 봄. 창 크기를 끄는 동안엔 멈출 때까지 기다림
   const now = performance.now();
-  if (!fig && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
+  if (!fig && (!PRE || preImg === false) && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
   if (!(t & 1) || t < 3) draw(); else t++;                                     // 한 장 건너 한 장 (30fps)
   raf = requestAnimationFrame(loop);
 }
