@@ -620,6 +620,7 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
    diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
+  if (window.WellShaft) WellShaft.prebake();    // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
   if (G.konami && !G.timeAttack) { BALANCE.playerHp += 1; BALANCE.abomPlayerMax += 1; }   // 이스터에그 ③
@@ -1459,6 +1460,7 @@ function update() {
   if (G.mode === 'fall') {
     G.fallT++;
     if (G.fallT > FALL_DUR) { G.mode = 'landing'; G.landT = 0; }
+
     return;
   }
   if (G.mode === 'landing') {
@@ -2423,7 +2425,7 @@ function updateCamera(snap) {
 const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
 
 function useHiRes() {
-  const on = !!G.opening;                         // 오프닝은 일반 판 · 개발자 모드 모두 고해상도
+  const on = !!G.opening || G.mode === 'wakeup';  // 오프닝 · 우물 바닥에서 올려다보는 장면은 고해상도
   if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
   if (!cvHi) {
     cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
@@ -5341,71 +5343,8 @@ function renderWakeup() {
   // 초점 — 눈이 덜 떠졌을수록 흐립니다
   const blur = (1 - o) * 5.5;          // 다 그린 뒤 blurFrame 으로 한 번에
 
-  // 위로 좁아지는 우물 통로 — 돌을 쌓아 올린 단이 입구 쪽으로 모입니다
-  const RING_N = 9;
-  for (let i = RING_N; i >= 1; i--) {
-    const k = i / RING_N;                      // 1 = 가까운 아래쪽, 0 = 저 위
-    const rr = 26 + Math.pow(k, 1.3) * 300;
-    const oy = cy + k * 30;
-    const seg = 9 + (i % 3) * 2;               // 한 단에 박힌 돌 개수
-    const base = 9 + (1 - k) * 44;             // 위로 갈수록 빛을 받아 밝습니다
-    for (let s = 0; s < seg; s++) {
-      const a0 = (s / seg) * 6.283 + i * .43;
-      const a1 = a0 + (6.283 / seg) * .84;     // 돌 사이 이음매만큼 띄웁니다
-      const v = base + ((s * 37 + i * 53) % 15) - 7;
-      g.strokeStyle = `rgb(${v | 0},${v * .94 | 0},${v * 1.08 | 0})`;
-      g.lineWidth = 7 + (1 - k) * 8;
-      g.beginPath(); g.ellipse(cx, oy, rr, rr * .72, 0, a0, a1); g.stroke();
-    }
-  }
-
-  // 입구에서 쏟아지는 빛
-  const lg = g.createRadialGradient(cx, cy, 4, cx, cy, 200);
-  lg.addColorStop(0, 'rgba(170,184,208,.55)');
-  lg.addColorStop(.10, 'rgba(98,110,134,.26)');
-  lg.addColorStop(.45, 'rgba(40,44,58,.12)');
-  lg.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = lg; g.fillRect(0, 0, W, H);
-
-  // 저 위의 우물 입구 (해 질 녘 하늘 한 조각)
-  g.fillStyle = 'rgba(156,172,196,.95)';
-  g.beginPath(); g.ellipse(cx, cy, 22, 15, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = 'rgba(98,112,138,.65)';
-  g.beginPath(); g.ellipse(cx, cy + 4, 22, 15, 0, .25, Math.PI - .25); g.fill();
-  // 입구 테두리 — 울퉁불퉁한 돌
-  g.strokeStyle = 'rgba(26,25,31,.95)'; g.lineWidth = 3;
-  g.beginPath();
-  for (let a = 0; a <= 6.32; a += .34) {
-    const w = 1 + Math.sin(a * 5.1) * .1;
-    const px = cx + Math.cos(a) * 23 * w, py = cy + Math.sin(a) * 16.5 * w;
-    a ? g.lineTo(px, py) : g.moveTo(px, py);
-  }
-  g.closePath(); g.stroke();
-
-  // 입구에서 내려오는 빛줄기 (아래로 퍼짐)
-  g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = .13 + o * .1;
-  const beam = g.createLinearGradient(0, cy, 0, H);
-  beam.addColorStop(0, 'rgba(150,168,200,.6)');
-  beam.addColorStop(1, 'rgba(150,168,200,0)');
-  g.fillStyle = beam;
-  g.beginPath();
-  g.moveTo(cx - 19, cy); g.lineTo(cx + 19, cy);
-  g.lineTo(cx + 160, H); g.lineTo(cx - 160, H);
-  g.closePath(); g.fill();
-  g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = 1;
-
-  // 빛줄기 속을 떠도는 먼지
-  g.fillStyle = 'rgba(214,220,232,.6)';
-  G.fx.forEach(f => {
-    if (f.k !== 'dust') return;
-    const d = Math.abs(f.x - cx);
-    if (d > 150) return;
-    g.globalAlpha = (1 - d / 150) * (f.life / f.max) * .75;
-    g.fillRect(f.x, f.y, 1, 2);
-  });
-  g.globalAlpha = 1;
+  // 우물 통로 — 원통 안쪽을 픽셀마다 계산해 구운 그림 + 빛 · 줄 · 먼지 · 물방울 (js/wellshaft.js)
+  WellShaft.draw(g, t, o, breathe, G.fx);
   blurFrame(blur);
 
   drawEyelids(o);
