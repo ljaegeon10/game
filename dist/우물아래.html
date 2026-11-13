@@ -3,6 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<!-- 휴대폰 '홈 화면에 추가' 로 열면 주소창 없이 전체 화면 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="우물 아래">
+<meta name="theme-color" content="#0a0910">
 <title>우물 아래 — The Well Below</title>
 <meta name="description" content="오래된 우물 아래, 무엇이 기다리고 있을까 — 짧고 어두운 탑뷰 어드벤처">
 <style>
@@ -1266,6 +1272,26 @@ body.touch.tplay #tbtn{ display:flex; }
 }
 body.touch #hint{ display:none; }          /* 아래 안내 줄이 자리를 차지해 게임 화면 위아래가 잘리지 않게 */
 body.touch #frame{ gap:0; }
+/* 휴대폰 — 브라운관 테두리 · 그림자를 빼서 그만큼 화면을 더 크게 (테두리도 같이 커져서 자리를 먹음) */
+body.touch #stage, body.touch.topview #stage{ box-shadow:none; border-radius:0; }
+body.touch.topview #crt{ border-radius:0; }
+html:has(body.touch), body.touch{ background:#000; }
+/* 전체 화면 버튼 (안드로이드 · 아이패드) — 전체 화면이 아닐 때만 오른쪽 위 */
+#tfs{
+  position:fixed; z-index:55; top:max(8px, env(safe-area-inset-top)); right:max(8px, env(safe-area-inset-right));
+  width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:8px;
+  font-size:20px; color:var(--baek); background:rgba(15,14,20,.6); border:1px solid rgba(241,236,224,.3); touch-action:none;
+}
+:fullscreen #tfs, :-webkit-full-screen #tfs{ display:none; }
+/* 아이폰 — 주소창 숨기는 법 안내 (한 번, 7초) */
+#tfstip{
+  position:fixed; z-index:70; left:50%; top:max(10px, env(safe-area-inset-top)); transform:translateX(-50%); max-width:92vw;
+  padding:9px 16px; text-align:center; font-size:13px; line-height:1.5; color:var(--baek);
+  background:rgba(15,14,20,.92); border:1px solid rgba(227,178,60,.7); border-radius:8px; transition:opacity .5s;
+}
+#tfstip b{ color:var(--hwang); font-weight:400; }
+#tfstip small{ font-size:11px; color:rgba(241,236,224,.6); }
+#tfstip.out{ opacity:0; }
 /* 참가 등록 칸이 열려 있으면 아래 제작진 글은 숨김 (← 뒤로 와 겹치지 않게) */
 #title:has(#fest-entry:not(.hidden)) #credits{ display:none; }
 
@@ -13360,10 +13386,13 @@ const DIRS = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] };
 const OPP  = { N: 'S', S: 'N', W: 'E', E: 'W' };
 
 /* ── 화면 정수배 확대 ───────────────────────────────────── */
+/* 실제로 보이는 넓이 — 휴대폰은 주소창 · 도구 막대가 나오고 들어갈 때 visualViewport 가 더 정확함 */
+const viewW = () => Math.round((window.visualViewport && visualViewport.width) || window.innerWidth);
+const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
   const n = document.body.classList.contains('touch')
-    ? Math.max(.4, Math.min((window.innerWidth - 10) / VW, (window.innerHeight - 10) / VH))
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 휴대폰은 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
@@ -13373,6 +13402,10 @@ function fit() {
   stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
+if (window.visualViewport) visualViewport.addEventListener('resize', fit);   // 주소창이 접히거나 펴질 때
+addEventListener('orientationchange', () => setTimeout(fit, 250));
+addEventListener('fullscreenchange', () => setTimeout(fit, 60));
+addEventListener('webkitfullscreenchange', () => setTimeout(fit, 60));
 
 /* ── 입력 ───────────────────────────────────────────────── */
 /* 아티팩트(iframe)처럼 페이지가 삽입되어 있는 경우, 로드 직후엔 이 문서에
@@ -13473,7 +13506,44 @@ function touchSetup() {
   tEl.rot = mk('trot', '화면을 가로로 돌리면 더 크게 보여요');
   tEl.btn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); onConfirm(); });
   const pb = $('prompt').querySelector('b'); if (pb) pb.textContent = '조사';
+  // 전체 화면 — 주소창 · 도구 막대 없이 (안드로이드 · 아이패드). 손가락을 뗄 때 한 번 저절로, 나간 뒤엔 ⛶ 버튼으로
+  if (FS.can()) {
+    tEl.fs = mk('tfs', '⛶'); tEl.fs.title = '전체 화면';
+    tEl.fs.addEventListener('pointerup', e => { e.preventDefault(); e.stopPropagation(); FS.go(); });
+    tEl.fs.addEventListener('pointerdown', e => e.stopPropagation());
+  } else if (!FS.standalone()) setTimeout(fsTip, 1200);   // 아이폰 — 사파리는 전체 화면이 없어서 '도구 막대 가리기' 안내
   fit();
+}
+const FS = {
+  el: document.documentElement,
+  can() { return !!(this.el.requestFullscreen || this.el.webkitRequestFullscreen); },
+  on() { return !!(document.fullscreenElement || document.webkitFullscreenElement); },
+  standalone() { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; },
+  asked: false,
+  go() {
+    if (this.on() || !this.can()) return;
+    try {
+      const p = this.el.requestFullscreen ? this.el.requestFullscreen({ navigationUI: 'hide' }) : this.el.webkitRequestFullscreen();
+      if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+  }
+};
+// 손가락을 뗄 때(브라우저가 전체 화면을 허락하는 순간) 처음 한 번 저절로 — 입력칸을 누를 땐 키보드 때문에 건너뜀
+addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch' || !TOUCH.on || FS.asked || FS.on()) return;
+  if (e.target.closest && e.target.closest('input, textarea, label')) return;
+  FS.asked = true; FS.go();
+}, true);
+/* 아이폰 사파리 — 주소창을 숨기는 법을 한 번만 알려 줌 */
+function fsTip() {
+  if (FS.on() || FS.standalone()) return;
+  let seen = false; try { seen = sessionStorage.getItem('wellbelow.fstip') === '1'; sessionStorage.setItem('wellbelow.fstip', '1'); } catch (e) {}
+  if (seen) return;
+  const d = document.createElement('div'); d.id = 'tfstip';
+  d.innerHTML = '화면이 작으면 — 주소창의 <b>가가</b>(aA) → <b>도구 막대 가리기</b><br><small>또는 공유 → 홈 화면에 추가 하면 전체 화면으로</small>';
+  d.addEventListener('pointerdown', e => { e.stopPropagation(); d.remove(); });
+  document.body.appendChild(d);
+  setTimeout(() => d.classList.add('out'), 7000); setTimeout(() => d.remove(), 7600);
 }
 /* 손가락 → 게임 화면 좌표 (카메라를 더하면 방 좌표) */
 function touchPos(e) {

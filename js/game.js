@@ -25,10 +25,13 @@ const DIRS = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] };
 const OPP  = { N: 'S', S: 'N', W: 'E', E: 'W' };
 
 /* ── 화면 정수배 확대 ───────────────────────────────────── */
+/* 실제로 보이는 넓이 — 휴대폰은 주소창 · 도구 막대가 나오고 들어갈 때 visualViewport 가 더 정확함 */
+const viewW = () => Math.round((window.visualViewport && visualViewport.width) || window.innerWidth);
+const viewH = () => Math.round((window.visualViewport && visualViewport.height) || window.innerHeight);
 function fit() {
   // 휴대폰 · 태블릿(터치 모드)은 정수배가 아니어도 화면을 꽉 채웁니다 (작은 화면에서 1배로 남으면 너무 작음)
   const n = document.body.classList.contains('touch')
-    ? Math.max(.4, Math.min((window.innerWidth - 10) / VW, (window.innerHeight - 10) / VH))
+    ? Math.max(.4, Math.min(viewW() / VW, viewH() / VH))          // 휴대폰은 테두리 없이 화면 끝까지
     : Math.max(1, Math.min(
     Math.floor((window.innerWidth  - 40) / VW),
     Math.floor((window.innerHeight - 90) / VH)
@@ -38,6 +41,10 @@ function fit() {
   stage.style.margin = `${(n - 1) * VH / 2}px ${(n - 1) * VW / 2}px`;
 }
 window.addEventListener('resize', fit);
+if (window.visualViewport) visualViewport.addEventListener('resize', fit);   // 주소창이 접히거나 펴질 때
+addEventListener('orientationchange', () => setTimeout(fit, 250));
+addEventListener('fullscreenchange', () => setTimeout(fit, 60));
+addEventListener('webkitfullscreenchange', () => setTimeout(fit, 60));
 
 /* ── 입력 ───────────────────────────────────────────────── */
 /* 아티팩트(iframe)처럼 페이지가 삽입되어 있는 경우, 로드 직후엔 이 문서에
@@ -138,7 +145,44 @@ function touchSetup() {
   tEl.rot = mk('trot', '화면을 가로로 돌리면 더 크게 보여요');
   tEl.btn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); onConfirm(); });
   const pb = $('prompt').querySelector('b'); if (pb) pb.textContent = '조사';
+  // 전체 화면 — 주소창 · 도구 막대 없이 (안드로이드 · 아이패드). 손가락을 뗄 때 한 번 저절로, 나간 뒤엔 ⛶ 버튼으로
+  if (FS.can()) {
+    tEl.fs = mk('tfs', '⛶'); tEl.fs.title = '전체 화면';
+    tEl.fs.addEventListener('pointerup', e => { e.preventDefault(); e.stopPropagation(); FS.go(); });
+    tEl.fs.addEventListener('pointerdown', e => e.stopPropagation());
+  } else if (!FS.standalone()) setTimeout(fsTip, 1200);   // 아이폰 — 사파리는 전체 화면이 없어서 '도구 막대 가리기' 안내
   fit();
+}
+const FS = {
+  el: document.documentElement,
+  can() { return !!(this.el.requestFullscreen || this.el.webkitRequestFullscreen); },
+  on() { return !!(document.fullscreenElement || document.webkitFullscreenElement); },
+  standalone() { return matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true; },
+  asked: false,
+  go() {
+    if (this.on() || !this.can()) return;
+    try {
+      const p = this.el.requestFullscreen ? this.el.requestFullscreen({ navigationUI: 'hide' }) : this.el.webkitRequestFullscreen();
+      if (p && p.then) p.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+    } catch (e) {}
+  }
+};
+// 손가락을 뗄 때(브라우저가 전체 화면을 허락하는 순간) 처음 한 번 저절로 — 입력칸을 누를 땐 키보드 때문에 건너뜀
+addEventListener('pointerup', e => {
+  if (e.pointerType !== 'touch' || !TOUCH.on || FS.asked || FS.on()) return;
+  if (e.target.closest && e.target.closest('input, textarea, label')) return;
+  FS.asked = true; FS.go();
+}, true);
+/* 아이폰 사파리 — 주소창을 숨기는 법을 한 번만 알려 줌 */
+function fsTip() {
+  if (FS.on() || FS.standalone()) return;
+  let seen = false; try { seen = sessionStorage.getItem('wellbelow.fstip') === '1'; sessionStorage.setItem('wellbelow.fstip', '1'); } catch (e) {}
+  if (seen) return;
+  const d = document.createElement('div'); d.id = 'tfstip';
+  d.innerHTML = '화면이 작으면 — 주소창의 <b>가가</b>(aA) → <b>도구 막대 가리기</b><br><small>또는 공유 → 홈 화면에 추가 하면 전체 화면으로</small>';
+  d.addEventListener('pointerdown', e => { e.stopPropagation(); d.remove(); });
+  document.body.appendChild(d);
+  setTimeout(() => d.classList.add('out'), 7000); setTimeout(() => d.remove(), 7600);
 }
 /* 손가락 → 게임 화면 좌표 (카메라를 더하면 방 좌표) */
 function touchPos(e) {
