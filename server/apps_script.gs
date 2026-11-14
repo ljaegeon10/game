@@ -202,13 +202,32 @@ function doGet(e) {
   if (lk.tryLock(0)) { try { markTop_(runs, false, set); } catch (err) {} finally { lk.releaseLock(); } }             // 시트에서 줄을 지웠어도 1 · 2 · 3등 표시가 따라감
   return out_({ ok: true, runs: runs, live: live, settings: board, admin: true });
 }
+/* '1:35.89' → 95890 (못 읽으면 0) */
+const parseT_ = t => { const m = String(t == null ? '' : t).match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/); return m ? (+m[1] * 60 + +m[2]) * 1000 + (m[3] ? +m[3].padEnd(3, '0') : 0) : 0; };
 function readRuns_() {
   const sh = sheet_(RUNS, RUN_HEAD), n = sh.getLastRow() - 1;
   if (n < 1) return [];
-  return sh.getRange(2, 1, n, RUN_HEAD.length).getValues()
-    .filter(v => v[0] && v[2])                              // 시트에서 지운 줄은 빼고
-    .map(v => ({ id: String(v[0]), at: new Date(v[1]).getTime() || 0, name: String(v[2]), tail: String(v[3]).padStart(4, '0'),
-                 clear: v[4] === '클리어', stage: String(v[5]), score: Number(v[6]) || 0, ms: Number(v[7]) || 0 }));
+  const rng = sh.getRange(2, 1, n, RUN_HEAD.length), vals = rng.getValues(), shown = rng.getDisplayValues();
+  return vals.map((v, i) => [v, shown[i]])
+    .filter(([v]) => v[0] && v[2])                          // 시트에서 지운 줄은 빼고
+    .map(([v, d]) => {
+      // 시간 — 사람이 '시간'(1:35.89) 칸만 고쳤으면 그걸 따름 ('시간(ms)' 와 0.01초 넘게 다르면)
+      const a = Number(v[7]) || 0, b = parseT_(d[8]);
+      return { id: String(v[0]), at: new Date(v[1]).getTime() || 0, name: String(v[2]), tail: String(d[3] || v[3]).padStart(4, '0'),
+               clear: v[4] === '클리어', stage: String(v[5]), score: Number(v[6]) || 0, ms: b && Math.abs(b - a) >= 10 ? b : a };
+    });
+}
+/* 시트에서 손으로 고치면 — '시간' ↔ '시간(ms)' 을 서로 맞추고 1 · 2 · 3등 다시 (시트에 붙은 스크립트일 때 저절로) */
+function onEdit(e) {
+  try {
+    const sh = e.range.getSheet(); if (sh.getName() !== RUNS || e.range.getRow() < 2) return;
+    const c = e.range.getColumn(), r = e.range.getRow();
+    if (e.range.getNumRows() === 1 && e.range.getNumColumns() === 1) {
+      if (c === 9) { const ms = parseT_(e.range.getDisplayValue()); if (ms) sh.getRange(r, 8).setValue(ms); }
+      if (c === 8) { const ms = Number(e.range.getValue()); if (ms > 0) sh.getRange(r, 9).setValue("'" + fmt_(ms)); }
+    }
+    markTop_(readRuns_(), true);
+  } catch (err) {}
 }
 
 /* 순서 — 게임(js/festival.js)과 같음: 클리어한 사람이 위(빠른 순), 못 깬 사람은 멀리 간 순 · 같으면 오래 버틴 순.
