@@ -15643,6 +15643,7 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
   if (window.WellShaft) WellShaft.prebake();    // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
+  prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
   if (G.konami && !G.timeAttack) { BALANCE.playerHp += 1; BALANCE.abomPlayerMax += 1; }   // 이스터에그 ③
@@ -15770,7 +15771,7 @@ function loadForest(opening) {
   G.chest = null; G.floorKey = null; G.boss = null; G.doors = {};
   P.slow = 0; P.x = 52; P.y = H / 2; P.dir = 'right'; P.inv = 40; P.dead = false;
   $('dead').classList.add('hidden');
-  G.floor = bakeForest(W, H, TS);
+  G.floor = forestFloor();
   G.props = []; G.theme = 'forest';
   G.butterflies = Array.from({ length: 7 }, () => ({
     x: 60 + Math.random() * (W - 140), y: 40 + Math.random() * (H - 90),
@@ -15882,6 +15883,31 @@ function stateOf(id) {
   return G.st[id];
 }
 
+/* 바닥 그림 — 방마다 한 번만 굽고 다시 씀. 들어설 때마다 픽셀 단위로 새로 구우면 방을 옮길 때마다 멈칫했음 (타임어택에서 특히).
+   게임이 시작되면 쉬는 틈에 모든 방을 미리 구워 둡니다 (prebakeFloors) */
+const FLOOR_CACHE = new Map();
+const floorKey = id => { const r = MAP[id], [w, h] = r.size || [VW, VH]; return `${id}|${w}|${h}|${roomTheme(id)}`; };
+function roomFloor(id) {
+  const k = floorKey(id); let f = FLOOR_CACHE.get(k);
+  if (!f) { const r = MAP[id], [w, h] = r.size || [VW, VH]; f = bakeDungeonFloor(w, h, TS, hash(id), r.depth, roomTheme(id)); FLOOR_CACHE.set(k, f); }
+  return f;
+}
+let FOREST_FLOOR = null;
+function forestFloor() { if (!FOREST_FLOOR || FOREST_FLOOR.width !== W || FOREST_FLOOR.height !== H) FOREST_FLOOR = bakeForest(W, H, TS); return FOREST_FLOOR; }
+let floorJob = 0;
+function prebakeFloors(delay = 300) {
+  clearTimeout(floorJob);
+  const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 0));
+  const ids = Object.keys(MAP);
+  const next = () => {
+    while (ids.length && FLOOR_CACHE.has(floorKey(ids[0]))) ids.shift();
+    if (!ids.length) return;
+    roomFloor(ids.shift());
+    floorJob = setTimeout(() => idle(next), 40);
+  };
+  floorJob = setTimeout(() => idle(next), delay);
+}
+
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
@@ -15893,7 +15919,7 @@ function loadRoom(id, fromDir) {
   $('dead').classList.add('hidden');
 
   G.theme = roomTheme(id); G.props = buildRoomProps(id);
-  G.floor = bakeDungeonFloor(W, H, TS, hash(id), r.depth, G.theme);
+  G.floor = roomFloor(id);                     // 미리 구워 둔 바닥 (없으면 지금 굽기)
   G.plants = bakePlants(hash(id) + 91, r.depth);
   buildDoors(id);
 
@@ -19932,7 +19958,9 @@ function warmOpening(delay = 1200) {
     () => { const R = OP3; if (!R) return;                         // 첫 그리기 — 셰이더 컴파일 · 텍스처 올리기를 여기서
             try { opLabImage(R, 0, .9); R.fig.render({ kind: 'suit', x: .34, y: -1.58, z: .98, yaw: -.25, stride: 0, reach: .45, lean: .35, alpha: 1 },
                   { cam: { f: 450, px: 480, py: 250, roll: -.55 }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0], lights: OP_LIT }); } catch (e) {} },
-    () => { if (window.WellShaft) WellShaft.prebake(); }
+    () => { if (window.WellShaft) WellShaft.prebake(); },
+    () => { if (W === VW && H === VH) forestFloor(); },
+    () => { prebakeFloors(0); }
   ];
   const next = () => { if (!titleUp() || !steps.length) return; steps.shift()(); warmT = setTimeout(() => idle(next), 120); };
   warmT = setTimeout(() => idle(next), delay);
