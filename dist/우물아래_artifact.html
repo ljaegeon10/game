@@ -662,10 +662,10 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 .dv-hint{ margin:0; font-size:7px; color:rgba(236,230,216,.4); }
 .dv-hint b{ color:rgba(236,230,216,.75); font-weight:400; }
 #dvback{
-  margin-top:0; padding:4px 14px; font-size:9px; font-weight:400; letter-spacing:.16em;
-  background:none; color:rgba(241,236,224,.34); border:none; box-shadow:none;
+  margin-top:2px; padding:7px 22px; font-size:12px; font-weight:400; letter-spacing:.16em;
+  background:rgba(15,14,20,.45); color:rgba(241,236,224,.72); border:1px solid rgba(241,236,224,.28); border-radius:3px; box-shadow:none;
 }
-#dvback:hover{ background:none; color:rgba(241,236,224,.7); }
+#dvback:hover, #dvback:focus-visible{ background:rgba(241,236,224,.1); color:#fff; border-color:rgba(241,236,224,.6); }
 #devbadge{
   position:absolute; left:50%; top:3px; transform:translateX(-50%); z-index:95;
   font-size:7px; letter-spacing:.3em; padding:1px 6px;
@@ -755,12 +755,12 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 }
 .diffbtn[data-diff="hard"]:hover b{ color:#e5817a; }
 #msback, #dsback{
-  margin-top:2px; padding:5px 14px;
-  font-size:9px; font-weight:400; letter-spacing:.16em;
-  background:none; color:rgba(241,236,224,.34);
-  border:none; box-shadow:none;
+  margin-top:6px; padding:7px 22px;
+  font-size:12px; font-weight:400; letter-spacing:.16em;
+  background:rgba(15,14,20,.45); color:rgba(241,236,224,.72);
+  border:1px solid rgba(241,236,224,.28); border-radius:3px; box-shadow:none;
 }
-#msback:hover, #dsback:hover{ background:none; color:rgba(241,236,224,.7); }
+#msback:hover, #dsback:hover, #msback:focus-visible, #dsback:focus-visible{ background:rgba(241,236,224,.1); color:#fff; border-color:rgba(241,236,224,.6); }
 #msback:active, #dsback:active{ transform:none; box-shadow:none; }
 
 /* 사망/엔딩 화면의 일반 버튼 */
@@ -1330,20 +1330,20 @@ body.topview #subtitle{ left:16px; right:16px; bottom:14px; }
 #pausemenu{ position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;
   background:rgba(3,4,8,.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); font-family:var(--font-ui); }
 #pausemenu.hidden{ display:none; }
-.pm-box{ width:min(360px, 86vw); padding:22px 22px 18px; background:rgba(10,14,20,.94); border:1px solid rgba(110,214,232,.35);
-  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:6px; animation:msIn .18s ease-out 1; }
-.pm-obang{ display:flex; height:4px; margin:-22px -22px 14px; }
+.pm-box{ width:min(500px, 90vw); padding:30px 30px 24px; background:rgba(10,14,20,.94); border:1px solid rgba(110,214,232,.35);
+  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:8px; animation:msIn .18s ease-out 1; }
+.pm-obang{ display:flex; height:5px; margin:-30px -30px 18px; }
 .pm-obang i{ flex:1; }
 .pm-obang i:nth-child(1){ background:var(--cheong); } .pm-obang i:nth-child(2){ background:var(--baek); } .pm-obang i:nth-child(3){ background:var(--jeok); }
 .pm-obang i:nth-child(4){ background:var(--heuk); } .pm-obang i:nth-child(5){ background:var(--hwang); }
-.pm-title{ margin:0; font-size:22px; letter-spacing:.3em; color:var(--baek); text-align:center; }
-.pm-sub{ margin:0 0 10px; font-size:10px; letter-spacing:.32em; color:rgba(110,214,232,.65); text-align:center; }
-.pm-item{ position:relative; margin:0; padding:11px 14px 11px 18px; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
-  font-family:inherit; font-size:15px; font-weight:400; letter-spacing:.08em; text-align:left; color:rgba(190,222,232,.7);
+.pm-title{ margin:0; font-size:30px; letter-spacing:.3em; color:var(--baek); text-align:center; }
+.pm-sub{ margin:0 0 14px; font-size:12px; letter-spacing:.32em; color:rgba(110,214,232,.65); text-align:center; }
+.pm-item{ position:relative; margin:0; padding:17px 18px 17px 24px; min-height:58px; align-items:center !important; display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+  font-family:inherit; font-size:20px; font-weight:400; letter-spacing:.08em; text-align:left; color:rgba(190,222,232,.7);
   background:none; border:none; border-bottom:1px solid rgba(110,214,232,.1); box-shadow:none; cursor:pointer; }
 .pm-item b{ font-weight:400; }
-.pm-item em{ font-style:normal; font-size:10px; color:rgba(190,222,232,.35); letter-spacing:.04em; }
-.pm-item::before{ content:''; position:absolute; left:0; top:7px; bottom:7px; width:3px; background:#6ee0f2; opacity:0; box-shadow:0 0 8px rgba(110,224,242,.9); }
+.pm-item em{ font-style:normal; font-size:12px; color:rgba(190,222,232,.35); letter-spacing:.04em; }
+.pm-item::before{ content:''; position:absolute; left:0; top:9px; bottom:9px; width:4px; background:#6ee0f2; opacity:0; box-shadow:0 0 8px rgba(110,224,242,.9); }
 .pm-item.sel{ color:#f2fbff; background:linear-gradient(90deg, rgba(110,224,242,.16), rgba(110,224,242,0) 85%); }
 .pm-item.sel::before{ opacity:1; }
 .pm-item:hover, .pm-item:active{ transform:none; box-shadow:none; }
@@ -1351,15 +1351,24 @@ body.topview #subtitle{ left:16px; right:16px; bottom:14px; }
 .pm-item[data-act="quit"]::before, .pm-item[data-act="quit-yes"]::before{ background:#e8695c; box-shadow:0 0 8px rgba(232,105,92,.8); }
 .pm-confirm{ margin-top:8px; padding-top:10px; border-top:1px solid rgba(232,105,92,.35); display:flex; flex-direction:column; gap:4px; }
 .pm-confirm.hidden{ display:none; }
-.pm-confirm p{ margin:0 0 6px; font-size:13px; color:#ffd9d4; }
-.pm-confirm p span{ display:block; margin-top:3px; font-size:11px; color:rgba(255,217,212,.55); }
+.pm-confirm p{ margin:0 0 8px; font-size:16px; color:#ffd9d4; }
+.pm-confirm p span{ display:block; margin-top:4px; font-size:13px; color:rgba(255,217,212,.55); }
 #pausemenu.confirming > .pm-box > .pm-item{ opacity:.35; pointer-events:none; }
 /* 휴대폰 — 위쪽 가운데 작은 ‖ (게임 중에만, body.ingame) */
 #tpause{ display:none; position:fixed; z-index:2500; top:max(8px, env(safe-area-inset-top)); left:50%; transform:translateX(-50%); margin:0;
-  width:38px; height:30px; padding:0; border-radius:6px; font-size:13px; font-weight:700; letter-spacing:0;
+  width:52px; height:42px; padding:0; border-radius:8px; font-size:17px; font-weight:700; letter-spacing:0;
   color:var(--baek); background:rgba(15,14,20,.55); border:1px solid rgba(241,236,224,.3); box-shadow:none; }
 body.touch.ingame #tpause{ display:block; }
 body.paused #tpause{ display:none; }
+/* 휴대폰 가로 — 높이가 낮으면 메뉴를 조금 줄여 한 화면에 (확인 단계까지) */
+@media (max-height:520px){
+  .pm-box{ padding:18px 22px 14px; gap:4px; max-height:96vh; overflow:auto; }
+  .pm-obang{ margin:-18px -22px 10px; }
+  .pm-title{ font-size:22px; } .pm-sub{ margin-bottom:6px; }
+  .pm-item{ min-height:46px; padding:11px 16px 11px 20px; font-size:17px; }
+  #pausemenu.confirming > .pm-box > .pm-item{ display:none; }   /* 「정말 나갈까요?」 — 위 메뉴는 접어서 나가기 · 취소가 보이게 */
+  .pm-confirm{ margin-top:0; border-top:none; }
+}
 
 </style>
 <div id="frame">
