@@ -83,13 +83,13 @@ const str_ = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ''
 function doPost(e) {
   let b;
   try { b = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'invalid' }); }
+  if (b.op === 'check') return out_(sameKey_(settings_()['관리 PIN'], b.key) ? { ok: true } : { ok: false, error: 'key' });   // 읽기만 — 잠금 없이 바로
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(10000)) return out_({ ok: false, error: 'busy' });
+  if (!lock.tryLock(25000)) return out_({ ok: false, error: 'busy' });
   try {
     if (b.op === 'live') return out_(saveLive_(b.body || {}));
     if (b.op === 'run') return out_(saveRun_(b));
     if (b.op === 'delete') return out_(deleteRuns_(b));
-    if (b.op === 'check') return out_(sameKey_(settings_()['관리 PIN'], b.key) ? { ok: true } : { ok: false, error: 'key' });
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }
@@ -137,17 +137,21 @@ function deleteRuns_(b) {
   const set = settings_(), key = String(set['관리 PIN'] || '').trim();
   if (!sameKey_(key, b.key)) return { ok: false, error: 'key' };
   const name = str_(b.name, 10), tail = str_(b.tail, 4).replace(/\D/g, '').padStart(4, '0'), one = str_(b.id, 40);
-  const runs = sheet_(RUNS, RUN_HEAD), n = runs.getLastRow() - 1;
   const ids = {};
-  if (n > 0) {
-    const v = runs.getRange(2, 1, n, 4).getValues();
-    for (let i = v.length - 1; i >= 0; i--) {
-      const hit = one ? String(v[i][0]) === one : (String(v[i][2]) === name && String(v[i][3]).padStart(4, '0') === tail);
-      if (hit) { ids[String(v[i][0])] = 1; runs.deleteRow(i + 2); }
-    }
-  }
-  const contacts = sheet_(CONTACTS, CONTACT_HEAD), m = contacts.getLastRow() - 1;
-  if (m > 0) { const c = contacts.getRange(2, 1, m, 1).getValues(); for (let i = c.length - 1; i >= 0; i--) if (ids[String(c[i][0])]) contacts.deleteRow(i + 2); }
+  // 남길 줄만 골라 한 번에 다시 씀 — 줄마다 지우면 한 줄에 1초 가까이 걸려 그동안 다른 기록이 'busy' 로 막혔음
+  const keep = (sh, hit) => {
+    const n = sh.getLastRow() - 1, w = sh.getLastColumn(); if (n < 1) return;
+    const rng = sh.getRange(2, 1, n, w), v = rng.getValues(), left = v.filter(r => !hit(r));
+    if (left.length === v.length) return;
+    rng.clearContent();
+    if (left.length) sh.getRange(2, 1, left.length, w).setValues(left);
+    sh.getRange(2 + left.length, 1, v.length - left.length, w).setBackground('#ffffff');   // 비워진 아래 줄의 금은동 색도 지움
+  };
+  keep(sheet_(RUNS, RUN_HEAD), r => {
+    const h = one ? String(r[0]) === one : (String(r[2]) === name && String(r[3]).padStart(4, '0') === tail);
+    if (h) ids[String(r[0])] = 1; return h;
+  });
+  if (Object.keys(ids).length) keep(sheet_(CONTACTS, CONTACT_HEAD), r => !!ids[String(r[0])]);
   markTop_(readRuns_(), true, set);
   return { ok: true, deleted: Object.keys(ids).length };
 }
@@ -194,7 +198,8 @@ function doGet(e) {
   const board = {};                                          // PIN 은 빼고 순위판에 보냄
   SETTING_ROWS.forEach(r => { if (PRIVATE.indexOf(r[0]) < 0) board[r[0]] = str_(set[r[0]], 120); });
   const runs = readRuns_();
-  try { markTop_(runs, false, set); } catch (err) {}             // 시트에서 줄을 지웠어도 1 · 2 · 3등 표시가 따라감
+  const lk = LockService.getScriptLock();
+  if (lk.tryLock(0)) { try { markTop_(runs, false, set); } catch (err) {} finally { lk.releaseLock(); } }             // 시트에서 줄을 지웠어도 1 · 2 · 3등 표시가 따라감
   return out_({ ok: true, runs: runs, live: live, settings: board, admin: true });
 }
 function readRuns_() {

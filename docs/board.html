@@ -9,7 +9,7 @@
      (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
      F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10).
      글 · 상품 · 공지 · 등수 · PIN 은 구글 시트의 '순위판 설정' 탭에서 고치면 몇 초 뒤 그대로 바뀝니다. -->
-<script src="festival-config.js?v=1794677765"></script>
+<script src="festival-config.js?v=1794678277"></script>
 <script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
@@ -395,6 +395,9 @@ async function api(body) {
   return res.json();
 }
 const OLD = '기록 서버가 아직 옛 버전이에요 — Apps Script 코드를 새로 붙여 넣고 「새 버전」으로 다시 배포해 주세요';
+const why = j => !j ? '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 해 주세요'
+              : j.error === 'busy' ? '서버가 다른 기록을 저장하는 중이에요 — 몇 초 뒤 다시 눌러 주세요'
+              : j.error === 'key' ? '관리 코드가 맞지 않아요' : j.error === 'invalid' ? OLD : '서버 오류 (' + j.error + ') — 잠시 뒤 다시 해 주세요';
 $('admNo').addEventListener('click', admClose);
 $('adm').addEventListener('click', e => { if (e.target.id === 'adm') admClose(); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !$('adm').hidden) admClose(); });
@@ -409,13 +412,13 @@ $('admForm').addEventListener('submit', async e => {
       $('admErr').textContent = '확인하는 중…';
       const j = await api({ op: 'check', key: k });
       if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 — ✕ 지우기 · 위쪽 ✏️ 로 글 · 상품 고치기'); return; }
-      $('admErr').textContent = j && j.error === 'key' ? '관리 코드가 맞지 않아요' : OLD;
+      $('admErr').textContent = why(j);
     } else if (admMode === 'del') {
-      const r = admRun; $('admErr').textContent = '지우는 중…';
+      const r = admRun; $('admErr').textContent = '지우는 중… (몇 초 걸려요)';
       const j = await api({ op: 'delete', key: adminKey.get(), name: r.name, tail: r.tail });
       if (j && j.ok) { runs = runs.filter(x => !(x.name === r.name && String(x.tail) === String(r.tail))); render(); admClose(); toast(`지웠어요 — ${r.name} (${j.deleted || 0}판)`); poll(); return; }
       if (j && j.error === 'key') { adminOn(false); admOpen('pin'); $('admErr').textContent = '관리 코드가 바뀌었어요 — 다시 입력해 주세요'; return; }
-      $('admErr').textContent = OLD;
+      $('admErr').textContent = why(j);
     }
   } catch (err) { $('admErr').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 해 주세요'; }
   ok.disabled = false;
