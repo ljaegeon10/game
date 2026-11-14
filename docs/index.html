@@ -1419,7 +1419,7 @@ body.paused #tpause{ display:none; }
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794676557"></script>
+<script src="festival-config.js?v=1794676768"></script>
 
 <div id="frame">
   <div id="stage">
@@ -13434,7 +13434,7 @@ class Part2 {
     removeEventListener('keydown', this.onKey); removeEventListener('keyup', this.onKeyUp); removeEventListener('pointermove', this.onMove); removeEventListener('pointerup', this.onUp); removeEventListener('blur', this.onBlur);
     if (document.pointerLockElement === this.el.cv && document.exitPointerLock) document.exitPointerLock();
     try { if (this.humN) { this.humN.g.gain.value = 0; this.humN.o.stop(); this.humN.o2.stop(); } } catch (e) {}
-    try { if (this.sfx.creepDrone) this.sfx.creepDrone(false); } catch (e) {}
+    try { if (this.buzzN) { const ac = this.buzzN.g.context; this.buzzN.g.gain.cancelScheduledValues(ac.currentTime); this.buzzN.g.gain.value = 0; this.buzzN.nodes.forEach(n => n.stop()); this.buzzN = null; } } catch (e) {}
     try { const ext = this.gl && this.gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); } catch (e) {}
     if (this.root) this.root.remove();
   }
@@ -13445,6 +13445,33 @@ class Part2 {
       const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 49; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 140; o.connect(f); f.connect(g);
       const o2 = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = 73.6; const g2 = ac.createGain(); g2.gain.value = .5; o2.connect(g2); g2.connect(g);
       o.start(); o2.start(); g.gain.exponentialRampToValueAtTime(.05, ac.currentTime + 3); this.humN = { g, o, o2 }; } catch (e) {}
+  }
+  /* 정전 뒤 — 백룸 같은 형광등 소리 : 120Hz 지지직 + 가늘게 새는 고음 (낮게 둥둥 울리던 드론 · 심장 소리 대신, 귀가 덜 아프게) */
+  buzz(on) {
+    try {
+      const ac = this.audio(); if (!ac) return;
+      if (!on) { if (this.buzzN) { this.buzzN.g.gain.setTargetAtTime(.0001, ac.currentTime, .5); } return; }
+      if (this.buzzN) { this.buzzN.g.gain.setTargetAtTime(2.6, ac.currentTime, .8); return; }
+      const out = window.Settings ? Settings.bus(ac, 'sfx', Settings.out(ac)) : ac.destination;
+      const g = ac.createGain(); g.gain.value = .0001; g.connect(out); g.gain.setTargetAtTime(2.6, ac.currentTime + .4, .9);
+      const nodes = [];
+      const osc = (type, f) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; nodes.push(o); return o; };
+      const gain = v => { const x = ac.createGain(); x.gain.value = v; return x; };
+      const filt = (type, f, q = .7) => { const x = ac.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
+      // 형광등 지지직 — 120Hz 톱니파의 윗배음만 (낮은 둥 소리는 걸러 냄)
+      const z1 = osc('sawtooth', 120), bp = filt('bandpass', 2600, .9), hp = filt('highpass', 900), zg = gain(.022);
+      z1.connect(bp); bp.connect(hp); hp.connect(zg); zg.connect(g);
+      const z2 = osc('square', 240), hp2 = filt('highpass', 3200), zg2 = gain(.004);
+      z2.connect(hp2); hp2.connect(zg2); zg2.connect(g);
+      // 가늘게 새는 고음 두 줄 — 아주 작게, 천천히 흔들림
+      const w1 = osc('sine', 7600), w2 = osc('sine', 9850), wg1 = gain(.0026), wg2 = gain(.0012);
+      w1.connect(wg1); wg1.connect(g); w2.connect(wg2); wg2.connect(g);
+      const lfo = osc('sine', .23), lg = gain(22); lfo.connect(lg); lg.connect(w1.frequency);
+      // 가끔 떨리는 크기 (전압이 흔들리는 느낌)
+      const flut = osc('sine', 3.1), fg = gain(.006); flut.connect(fg); fg.connect(zg.gain);
+      nodes.forEach(n => n.start());
+      this.buzzN = { g, nodes };
+    } catch (e) {}
   }
   /* ── 글자 ── */
   say(txt, who = 'me', dur = 180, delay = 0) { this.subs.push({ txt, who, at: this.t + delay, end: this.t + delay + dur }); }
@@ -13551,32 +13578,32 @@ class Part2 {
       if (!L.fl || t > L.fl.end) { if (!L.fl || t > L.fl.end + L.fl.gap) L.fl = { at: t, end: t + 10 + (Math.random() * 18 | 0), gap: (260 - L.flick * 200) * (.6 + Math.random()) }; }
       const on = t <= L.fl.end && t >= L.fl.at ? ((t - L.fl.at) % 7 < 3 ? .25 : .9) : 1;
       L.k += (on - L.k) * .5; }
-    if (E.blackout && t === E.blackout) { S.blackout = 1; this.fx('landThump', .5); this.fx('static', .5, 1); this.shake = 8; this.say('…정전?', 'me', 130, 30);
-      this.say('B동 3층 주 전원 차단. 피험자 07, 병실로 돌아가십시오.', 'pa', 300, 170); this.fx('creepDrone', true); if (!S.readLog) this.setObj('관찰실 책상의 일지를 읽어 보자'); E.far = t + 420; }
+    if (E.blackout && t === E.blackout) { S.blackout = 1; this.fx('landThump', .22); this.fx('static', .5, 1); this.shake = 8; this.say('…정전?', 'me', 130, 30);
+      this.say('B동 3층 주 전원 차단. 피험자 07, 병실로 돌아가십시오.', 'pa', 300, 170); this.buzz(true);
+      try { if (this.humN) this.humN.g.gain.setTargetAtTime(.0001, this.humN.g.context.currentTime, .6); } catch (e) {} if (!S.readLog) this.setObj('관찰실 책상의 일지를 읽어 보자'); E.far = t + 420; }
     if (S.blackout) { for (const L of [...LV.hallL, ...LV.obsL, ...LV.locL]) L.on = Math.max(0, L.on - .04); }
     // 스쳐 가는 그림자들 — 정해 둔 때가 되면, 그 자리가 실제로 눈에 들어오는 순간 나타남 (안 보고 지나치면 볼 때까지 기다림)
     if (E.far && t >= E.far && !E.farDone && !this.fig && Math.abs(c.z) < 1.4) {
       const spot = [2, 4.5, 8.5, 10.5, 14.5, 16.5, 20.5, 24].map(x => [x, 0]).find(p => { const d = Math.abs(p[0] - c.x); return d > 5 && d < 14 && this.sees(p, .93); });
-      if (spot) { E.farDone = 1; this.fig = { x: spot[0], z: 0, until: t + 40, lit: 1 }; this.fx('glitch', .7); this.fx('heartMuffled', .3); this.say('…방금, 저기 누가 서 있었어.', 'me', 180, 50); }
+      if (spot) { E.farDone = 1; this.fig = { x: spot[0], z: 0, until: t + 40, lit: 1 }; this.fx('glitch', .7); this.say('…방금, 저기 누가 서 있었어.', 'me', 180, 50); }
     }
     if (E.bang && t === E.bang) { this.fx('landThump', .7); this.shake = 9; this.say('…복도에서 난 소리야.', 'me', 150, 30); this.say('보안 요원, B동 3층 도착. 수색을 시작합니다.', 'pa', 280, 200); E.cart = 1; }
     // 카드를 꺼낸 뒤 — 탈의실 문간 너머 복도에 (나가려면 문 쪽을 볼 수밖에 없음)
     if (E.door && t >= E.door && !E.doorDone && !this.fig && c.z < -1.9 && this.sees([LOC.door, -.9], .9)) {
-      E.doorDone = 1; this.fig = { x: LOC.door, z: -.9, until: t + 30, lit: 1 }; this.fx('glitch', .8); this.fx('heartMuffled', .3); this.shake = 6; this.say('…!', 'me', 60, 10);
+      E.doorDone = 1; this.fig = { x: LOC.door, z: -.9, until: t + 30, lit: 1 }; this.fx('glitch', .8); this.shake = 6; this.say('…!', 'me', 60, 10);
     }
     if (E.behind && t >= E.behind && !E.behindDone) {                          // 파일을 읽고 돌아서면 — 문간에 서 있다
       if (!E.behindSet) { E.behindSet = 1; this.fig = { x: REC.door, z: HALL.z1 + .6, until: t + 99999, lit: 1 }; }
-      if (this.sees([REC.door, HALL.z1 + .6], .82)) { E.behindDone = 1; this.fig.until = t + 18; this.fx('glitch', 1); this.fx('landThump', .6); this.fx('heartMuffled', .35); this.shake = 12; this.say('!!', 'me', 50); this.say('…갔어. 빨리 나가야 해.', 'me', 170, 90); }
+      if (this.sees([REC.door, HALL.z1 + .6], .82)) { E.behindDone = 1; this.fig.until = t + 18; this.fx('glitch', 1); this.fx('static', .35, .5); this.shake = 12; this.say('!!', 'me', 50); this.say('…갔어. 빨리 나가야 해.', 'me', 170, 90); }
     }
     if (this.fig && t > this.fig.until) this.fig = null;
     // 정전 뒤 — 심장 소리, 멀리서 발소리
-    if (S.blackout && (this.heartT -= 1) < 0) { this.heartT = this.fig ? 34 : 95; this.fx('heartMuffled', this.fig ? .28 : .1); }
     if (S.blackout && t % 530 === 200) this.fx('step'); if (S.blackout && t % 530 === 222) this.fx('step');
     // 방에 처음 들어설 때
     const inR = (R, pad = 0) => c.x > R.x0 && c.x < R.x1 && Math.abs(c.z) > 1.6 + pad && (R.z1 > 2 ? c.z > 0 : c.z < 0);
     if (!E.obsIn && inR(OBS)) { E.obsIn = 1; this.say('관찰실. 여기서 날 지켜봤구나.', 'me', 190); this.setObj('관찰실을 뒤져 보자'); }
     if (!E.locIn && inR(LOC)) { E.locIn = 1; this.say('탈의실… 사물함마다 이름표가 있어.', 'me', 190); }
-    if (!E.recIn && inR(REC)) { E.recIn = 1; this.fx('creepDrone', true); this.say('…이 통들, 전부 사람 크기야.', 'me', 200, 40); this.setObj('책상 위의 파일을 찾자'); }
+    if (!E.recIn && inR(REC)) { E.recIn = 1; this.buzz(true); this.say('…이 통들, 전부 사람 크기야.', 'me', 200, 40); this.setObj('책상 위의 파일을 찾자'); }
     // 막혔을 때 혼잣말 힌트
     if (++this.hintT > 4200 && !this.modalOpen && !S.ending) { this.hintT = 0;
       this.say(!S.readLog ? '관찰실 책상에 뭔가 있었던 것 같은데.' : !S.card ? '사물함 B-07, 번호는 0520.' : !S.rec ? '자료 보관실 — 문 옆 단말에 카드를 대자.' : !S.code ? '보관실 책상 위에 파일이 있었어.' : '복도 동쪽 끝, 비상구. 2145.', 'me', 220); }
