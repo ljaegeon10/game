@@ -211,8 +211,13 @@ function better(a, b) {
   else { if ((a.score || 0) !== (b.score || 0)) return (a.score || 0) > (b.score || 0); if (a.ms !== b.ms) return a.ms > b.ms; }
   return (a.at || 0) < (b.at || 0);
 }
-/* 개발자 본인의 판(WB_DEV 의 이름 + 뒷자리)은 순위 · 참가 수에서 뺌 — 개발자 기록은 위에 따로 */
-const isDev = r => { const d = window.WB_DEV; return !!(d && d.tail && String(r.name || '') === String(d.name || '') && String(r.tail || '').padStart(4, '0') === String(d.tail)); };
+/* 개발자 본인의 판(이름이 WB_DEV.name — 뒷자리 상관없이)은 순위 · 참가 수에서 뺌 — 개발자 기록은 위에 따로.
+   그 사람이 더 빠르게 깨면 그 기록이 곧 개발자 기록 */
+const devName = () => String((window.WB_DEV && window.WB_DEV.name) || (dev && dev.name) || '').trim();
+const isDev = r => !!devName() && String((r && r.name) || '').trim() === devName();
+function bumpDev(list) {
+  for (const r of list || []) if (r && isClear(r) && typeof r.ms === 'number' && r.ms > 0 && isDev(r) && (!dev || r.ms < dev.ms)) dev = { name: devName(), ms: r.ms };
+}
 function best(runs) {
   const m = new Map();
   for (const r of runs) { if (!r || typeof r.ms !== 'number' || isDev(r)) continue; const k = r.name + '|' + r.tail, b = m.get(k); if (!b || better(r, b)) m.set(k, r); }
@@ -288,7 +293,7 @@ function applySettings(st) {
   if (!TOP_URL) { const n = parseInt(st['보여줄 등수'], 10); if (n) TOP = Math.max(3, Math.min(30, n)); }
   prizes = ['1등 상품', '2등 상품', '3등 상품'].map(k => String(st[k] || '').trim());
   $('cfgPrizes').textContent = prizes.map((v, i) => v ? `${i + 1}등 ${v}` : '').filter(Boolean).join(' · ');
-  if ('개발자 기록' in st && String(st['개발자 기록']).trim()) dev = parseDev(st['개발자 기록']) || dev;
+  if ('개발자 기록' in st && String(st['개발자 기록']).trim()) { const p = parseDev(st['개발자 기록']); if (p && (!dev || p.ms < dev.ms)) dev = { name: p.name || devName(), ms: p.ms }; }   // 더 빠른 쪽
   const note = String(st['공지'] || '').trim();
   $('notice').hidden = !note; $('noticeText').textContent = note; document.body.classList.toggle('has-notice', !!note);
 }
@@ -302,8 +307,10 @@ async function poll() {
     const j = await r.json();
     if (!j.ok && j.error === 'pin') { askPin(!!store.get()); return; }
     if (!j.ok) throw new Error('server');
-    runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null; lastOk = Date.now();   // 개발자 판은 순위 · 최근 기록 · 수에서 빠짐
+    runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null; lastOk = Date.now();
+    bumpDev(j.runs);   // 개발자 판은 순위 · 최근 기록 · 수에서 빠짐
     if (j.settings) applySettings(j.settings);
+    bumpDev(j.runs);                                                          // 시트 값보다 개발자가 더 빨랐으면 그 기록
     render(); renderLive();
     net(true, '실시간 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
   } catch (e) {

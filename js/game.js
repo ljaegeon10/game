@@ -5600,9 +5600,15 @@ function beginEnding() {
     if (window.Festival && Festival.on && Festival.player) {      // 축제판 — 순위판에 올리고 등수를 알려 줌
       const fr = $('fest-result');
       fr.textContent = '순위판에 기록을 올리는 중…'; fr.classList.remove('hidden');
+      const dev0 = window.WB_DEV ? +window.WB_DEV.ms : 0;         // 올리기 전의 개발자 기록
+      const me = Festival.player.name, isDevP = Festival.isDevName && Festival.isDevName(me);
       Festival.finish(ms).then(rank => {
-        fr.textContent = rank ? `${Festival.player.name} 님, 순위판 ${rank}위!` : '기록을 이 기기에 저장했어요 — 연결되면 순위판에 올라가요';
-        const dev = window.WB_DEV;                                // 개발자 기록 (순위와 따로)
+        const dev = window.WB_DEV;
+        if (isDevP) {                                            // 개발자 본인 — 순위 대신 개발자 기록으로
+          fr.textContent = dev0 > 0 && ms < dev0 ? `개발자 기록 갱신! ${fmtTime(dev0)} → ${fmtTime(ms)} 🔥` : `개발자 판 — 지금 개발자 기록 ${fmtTime(dev0)} (${fmtTime(ms - dev0)} 느림)`;
+          return;
+        }
+        fr.textContent = rank ? `${me} 님, 순위판 ${rank}위!` : '기록을 이 기기에 저장했어요 — 연결되면 순위판에 올라가요';
         if (dev && dev.ms > 0) fr.textContent += ms < dev.ms ? `  ·  개발자 ${dev.name || ''} 기록을 깼어요! 🔥` : `  ·  개발자 기록까지 ${fmtTime(ms - dev.ms)}`;
       });
     }

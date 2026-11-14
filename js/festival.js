@@ -25,6 +25,18 @@
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
 if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 98788 };
+/* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
+const DEVKEY = 'wellbelow.devbest';
+try { const v = JSON.parse(localStorage.getItem(DEVKEY) || 'null'), d = window.WB_DEV;
+      if (d && v && v.name === d.name && v.ms > 0 && v.ms < d.ms) d.ms = v.ms; } catch (e) {}
+const isDevName = name => { const d = window.WB_DEV; return !!(d && d.name && String(name || '').trim() === String(d.name).trim()); };
+function bumpDev(list) {
+  const d = window.WB_DEV; if (!d || !Array.isArray(list)) return false;
+  let hit = false;
+  for (const r of list) if (r && r.clear !== false && typeof r.ms === 'number' && r.ms > 0 && isDevName(r.name) && !(r.ms >= d.ms)) { d.ms = r.ms; hit = true; }
+  if (hit) { try { localStorage.setItem(DEVKEY, JSON.stringify({ name: d.name, ms: d.ms })); } catch (e) {} try { showDev(); } catch (e) {} }
+  return hit;
+}
 /* 데이터베이스 · 파일 저장 꺼내기 — 지금 런타임은 `await claude.use("db")` (없으면 null).
    예전 런타임(window.claude.db 가 바로 있던 때)도 그대로 받아 줌 */
 const caps = {};
@@ -104,7 +116,7 @@ async function flush() {
         try {
           const j = await post({ op: 'run', id: it.id, run: it.run, contact: it.contact }); ranks[it.id] = j.rank || null; dropQ(it.id);
           // 서버가 센 등수엔 개발자 판이 섞여 있을 수 있으니 — 순위판을 받아 개발자를 뺀 등수로 다시 셈
-          try { const b = await fetchBoard(getPin()); if (b && b.ok && Array.isArray(b.runs)) ranks[it.id] = rankOf(bestPerPerson(b.runs), it.run.name, tailOf(it.run)) || ranks[it.id]; } catch (e2) {}
+          try { const b = await fetchBoard(getPin()); if (b && b.ok) bumpDev(b.runs); if (b && b.ok && Array.isArray(b.runs)) ranks[it.id] = rankOf(bestPerPerson(b.runs), it.run.name, tailOf(it.run)) || ranks[it.id]; } catch (e2) {}
         }
         catch (e) { if (e.code === 'invalid') dropQ(it.id); else break; }   // 서버가 거절한 기록은 버리고, 끊긴 거면 다음에 다시
       }
@@ -221,12 +233,14 @@ async function record(ms, res) {
   const tail = player.contact.slice(-4), at = Date.now();
   const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at, ...res }, contact: { name: player.name, contact: player.contact } };
   memQ = getQ().concat(item); saveQ(memQ);
+  bumpDev([item.run]);                                               // 개발자 본인 판 — 깨면 바로 개발자 기록으로
   setLive({ state: 'idle', name: player.name, ms: Math.round(ms), ...res });
   await flush();
   if (HTTP) return ranks[item.id] || null;
   try {
     const d = await db(); if (!d) return null;
     const snap = await d.collection('runs').orderBy('ms', 'asc').limit(1000).get();
+    bumpDev(snap.docs.map(x => x.data()));
     return rankOf(bestPerPerson(snap.docs.map(x => x.data())), player.name, tail);
   } catch (e) { return null; }
 }
@@ -247,8 +261,8 @@ function better(a, b) {
   }
   return (a.at || 0) < (b.at || 0);
 }
-/* 개발자 본인의 판(WB_DEV 의 이름 + 뒷자리)은 순위에서 뺌 — 개발자 기록은 순위 밖에 따로 */
-const isDev = r => { const d = window.WB_DEV; return !!(d && d.tail && String(r.name || '') === String(d.name || '') && tailOf(r) === String(d.tail)); };
+/* 개발자 본인의 판(이름이 WB_DEV.name — 뒷자리 상관없이)은 순위에서 뺌 — 개발자 기록은 순위 밖에 따로 */
+const isDev = r => isDevName(r && r.name);
 function bestPerPerson(runs) {
   const best = new Map();
   for (const r of runs) {
@@ -308,7 +322,7 @@ async function openBoard() {
   if (!d) { $('fb-net').textContent = '순위판은 claude.ai 에 로그인해야 볼 수 있어요'; return; }
   $('fb-net').textContent = '';
   const fail = e => { $('fb-net').textContent = '순위판 연결 끊김 — 새로고침해 주세요'; console.warn('board', e && e.code); };
-  unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); render(); }, fail));
+  unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); bumpDev(runs); render(); }, fail));
   unsub.push(d.doc('live/now').onSnapshot(s => { live = s.exists ? s.data() : null; renderLive(); }, fail));
   tick = setInterval(renderLive, 250);
 }
@@ -328,6 +342,7 @@ async function pollBoard() {
       }
       throw new Error('server');
     }
+    bumpDev(j.runs);                                                                     // 개발자가 더 빨랐으면 개발자 기록 갱신
     runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null;   // 개발자 판은 빼고
     $('fb-net').textContent = ''; render(); renderLive();
   } catch (e) { $('fb-net').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 시도해요'; }
@@ -429,9 +444,10 @@ function init() {
     credits.parentNode.insertBefore(btn, credits);
   }
   flush(); setInterval(flush, 20000);
+  if (HTTP) fetchBoard(getPin()).then(j => { if (j && j.ok) bumpDev(j.runs); }).catch(() => {});   // 개발자가 다른 기기에서 깬 기록도 바로
   if (/board/.test(location.hash)) openBoard();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, ask, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();
