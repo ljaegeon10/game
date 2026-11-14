@@ -4,7 +4,7 @@
    첫 번째 복선입니다.
    ═══════════════════════════════════════════════════════════ */
 const Sfx = (() => {
-  let ac = null, master = null, ambGain = null, amb = [], started = false;
+  let ac = null, master = null, mix = null, musicIn = null, ambGain = null, amb = [], started = false;
 
   /* 던전 브금 볼륨 — 환경음(0.12~0.15)보다 확실히 앞에 서도록 올렸습니다 */
   const BGM_VOL = 0.52;
@@ -86,8 +86,11 @@ const Sfx = (() => {
     try {
       if (!ac) {
         ac = new (window.AudioContext || window.webkitAudioContext)();
-        master = ac.createGain();
-        master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        mix = ac.createGain();
+        mix.gain.value = 1.35;                    // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        // 설정(settings.js) — 효과음은 master, 브금은 musicIn 으로 들어와 각자 음량을 거친 뒤 mix 에서 만남
+        master = window.Settings ? Settings.bus(ac, 'sfx', mix) : mix;
+        musicIn = window.Settings ? Settings.bus(ac, 'music', mix) : mix;
         // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
         const comp = ac.createDynamicsCompressor();
         comp.threshold.value = -10;
@@ -95,8 +98,8 @@ const Sfx = (() => {
         comp.ratio.value = 14;
         comp.attack.value = 0.002;
         comp.release.value = 0.18;
-        master.connect(comp);
-        comp.connect(ac.destination);
+        mix.connect(comp);
+        comp.connect(window.Settings ? Settings.out(ac) : ac.destination);
       }
       // iOS 는 다른 앱에 다녀오거나 전화가 오면 'interrupted' 로 멈춥니다
       if (ac.state === 'suspended' || ac.state === 'interrupted') ac.resume();
@@ -540,7 +543,7 @@ const Sfx = (() => {
         g.gain.exponentialRampToValueAtTime(BGM_VOL * 1.5, t + 0.05);
         g.gain.setValueAtTime(BGM_VOL * 1.5, t + BGM_HIT_HOLD);
         g.gain.exponentialRampToValueAtTime(BGM_VOL, t + BGM_HIT_HOLD + 1.2);
-        src.connect(lp); lp.connect(g); g.connect(master);
+        src.connect(lp); lp.connect(g); g.connect(musicIn);
         src.start(t, 0);
         api._dg = { src, g };
       } else {
@@ -601,7 +604,7 @@ const Sfx = (() => {
         const g = c.createGain();
         g.gain.setValueAtTime(0.0001, t);
         g.gain.exponentialRampToValueAtTime(cfg.vol, t + cfg.fade);
-        src.connect(g); g.connect(master);
+        src.connect(g); g.connect(musicIn);
         src.start(t, st.skip ? cfg.loopStart : 0);
         st.skip = false;
         st.node = { src, g };
@@ -689,7 +692,7 @@ const Sfx = (() => {
       if (ambGain) { try { ambGain.disconnect(); } catch (e) {} ambGain = null; }
     },
 
-    muteAll() { if (master) master.gain.value = 0; },
+    muteAll() { if (mix) mix.gain.value = 0; },
     /* 엔딩 씬(ending.js)이 자기 소리를 같은 컨텍스트에 얹을 때 씁니다 —
        새 컨텍스트를 만들면 브라우저 잠금을 다시 풀어야 하니까요. */
     context() { return ctx(); },

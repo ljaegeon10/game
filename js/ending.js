@@ -71,7 +71,7 @@ class EndSfx {
     }
     this.master = this.ac.createGain();
     this.master.gain.value = .55;
-    this.master.connect(this.ac.destination);
+    this.master.connect(window.Settings ? Settings.bus(this.ac, 'sfx', Settings.out(this.ac)) : this.ac.destination);
     const len = this.ac.sampleRate * 2;
     this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
     const d = this.noiseBuf.getChannelData(0);

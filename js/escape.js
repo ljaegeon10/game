@@ -87,8 +87,10 @@ class EscSfx {
     if (!this.ac) {
       try {
         this.ac = (this.audioFn && this.audioFn()) || new (window.AudioContext || window.webkitAudioContext)();
-        this.master = this.ac.createGain(); this.master.gain.value = .9;
-        this.master.connect(this.ac.destination);
+        const mix = this.ac.createGain(); mix.gain.value = .9;
+        mix.connect(window.Settings ? Settings.out(this.ac) : this.ac.destination);
+        this.master = window.Settings ? Settings.bus(this.ac, 'sfx', mix) : mix;          // 설정의 효과음 · 배경음악 음량
+        this.musicIn = window.Settings ? Settings.bus(this.ac, 'music', mix) : mix;
       } catch (e) { return null; }
     }
     if (this.ac.state === 'suspended' || this.ac.state === 'interrupted') this.ac.resume();
@@ -263,7 +265,7 @@ class EscSfx {
       g.gain.setValueAtTime(.0001, t);
       g.gain.exponentialRampToValueAtTime(V, t + (intro ? .25 : 1.2));
     }
-    src.connect(g).connect(this.master);
+    src.connect(g).connect(this.musicIn || this.master);
     src.start(t, at < src.loopEnd ? at : ESC_BGM.loop0);
     this.bgmNode = { src, g };
   }
@@ -508,7 +510,8 @@ const WakeState = {
     // 마우스 — 누르지 않고 움직이기만 해도 둘러봄 (한 번 누르면 잠겨 끝없이 돌릴 수 있음).
     // 예전엔 잠기지 않았을 때 커서가 화면 끝 4% 안에 머물면 저절로 계속 돌았는데, 돌아다닐 땐 커서가 숨겨져 있어서
     // 끝에 닿은 줄 모르고 "갑자기 한쪽으로 빙빙 도는" 것처럼 느껴졌음 — 그 자동 회전은 뺐습니다 (끝에 닿으면 ← → 키나 클릭해 잠금)
-    c.yaw += turn * .032 + s.lookDX * .0032; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 + tilt));
+    const sx = window.Settings ? Settings.look() : 1, sy = window.Settings ? Settings.lookY() : 1;   // 설정의 카메라 감도 · 상하 반전
+    c.yaw += turn * .032 + s.lookDX * .0032 * sx; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 * sy + tilt));
     s.lookDX = 0; s.lookDY = 0;
     // 걷기 — 속도는 천천히 붙고 천천히 풀림. 한 걸음 0.75m, 발이 닿을 때 가라앉고 디딘 발 쪽으로 살짝 실림
     const ml = Math.hypot(fw, st), want = ml > .05 ? .026 * Math.min(1, ml) : 0;

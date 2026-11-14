@@ -559,6 +559,7 @@ function menuGo(act) {
   if (act === 'start') { openModeSelect(); openDiffSelect(); }          // 일반 모드 — 바로 난이도
   else if (act === 'time') { openModeSelect(); startTimeAttack(); }
   else if (act === 'board') { if (window.Festival) Festival.openBoard(); }
+  else if (act === 'settings') { if (window.Settings) Settings.open(() => { const b = menuItems().find(x => x.dataset.act === 'settings'); if (b) b.focus(); }); }
   else if (act === 'full') {
     const el = document.documentElement;
     if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -6141,6 +6142,7 @@ function quitToTitle() {
 function pmGo(act) {
   act = act || (pmItems()[PAUSE.sel] || {}).dataset?.act;
   if (act === 'resume') resumeGame();
+  else if (act === 'settings') { if (window.Settings) { $('pausemenu').classList.add('hidden'); Settings.open(() => { if (PAUSE.on) { $('pausemenu').classList.remove('hidden'); pmSelect(PAUSE.sel); } }); } }
   else if (act === 'full') {
     const el = document.documentElement;
     if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -6151,7 +6153,7 @@ function pmGo(act) {
     $('pm-confirm-sub').textContent = G.timeAttack && RUN.running ? '타임어택 기록은 남지 않아요.' : '지금까지의 진행은 사라져요.';
     pmSelect(1);                                                            // 기본은 '취소' 쪽 — 실수로 나가지 않게
   }
-  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(2); }
+  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(3); }
   else if (act === 'quit-yes') quitToTitle();
 }
 /* 키 — 다른 처리보다 먼저 (capture). 멈춘 동안엔 게임 · 탈출 · 엔딩으로 키가 가지 않게 */

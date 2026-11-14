@@ -1361,3 +1361,29 @@ body.paused #tpause{ display:none; }
 #tanotice b{ margin-right:8px; font-weight:400; font-size:7px; letter-spacing:.2em; color:var(--glow); }
 #tanotice em{ font-style:normal; color:#e3b23c; }
 .fe-tanote{ margin:0 0 6px; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }
+
+/* ═══ 설정 (settings.js) — 일시정지 메뉴와 같은 생김새 ═══ */
+#settings{ position:fixed; inset:0; z-index:3100; display:flex; align-items:center; justify-content:center; padding:12px;
+  background:rgba(3,4,8,.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); font-family:var(--font-ui); }
+#settings.hidden{ display:none; }
+.st-box{ width:min(560px, 92vw); max-height:94vh; overflow:auto; padding:30px 30px 24px; background:rgba(10,14,20,.95); border:1px solid rgba(110,214,232,.35);
+  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:4px; animation:msIn .18s ease-out 1; }
+.st-box .pm-obang{ margin:-30px -30px 18px; }
+.st-row{ display:grid; grid-template-columns:minmax(120px, 1fr) minmax(140px, 1.5fr) 58px; align-items:center; gap:14px; padding:12px 6px;
+  border-bottom:1px solid rgba(110,214,232,.1); cursor:pointer; }
+.st-l b{ display:block; font-weight:400; font-size:19px; letter-spacing:.06em; color:rgba(220,238,244,.92); }
+.st-l small{ display:block; margin-top:3px; font-size:11px; color:rgba(190,222,232,.42); }
+.st-row output{ font-size:16px; text-align:right; color:#6ee0f2; font-variant-numeric:tabular-nums; }
+.st-row input[type=range]{ width:100%; height:28px; margin:0; accent-color:#6ee0f2; cursor:pointer; background:none; }
+.st-row input:focus-visible{ outline:2px solid #6ee0f2; outline-offset:3px; }
+.st-check input{ justify-self:start; width:24px; height:24px; margin:0; accent-color:#6ee0f2; }
+.st-btns{ display:flex; gap:10px; margin-top:16px; }
+.st-btn{ flex:1; margin:0; padding:14px 0; font-family:inherit; font-size:17px; font-weight:400; letter-spacing:.1em; color:rgba(220,238,244,.8);
+  background:rgba(110,214,232,.06); border:1px solid rgba(110,214,232,.3); border-radius:3px; box-shadow:none; cursor:pointer; }
+.st-btn.st-main{ color:#06141a; background:#6ee0f2; border-color:#6ee0f2; }
+.st-btn:hover, .st-btn:focus-visible{ outline:none; border-color:#cfeff6; transform:none; box-shadow:0 0 0 2px rgba(110,224,242,.35); }
+@media (max-height:520px), (max-width:520px){
+  .st-box{ padding:16px 18px 12px; } .st-box .pm-obang{ margin:-16px -18px 10px; }
+  .st-row{ padding:7px 4px; gap:10px; grid-template-columns:minmax(96px, 1fr) minmax(110px, 1.5fr) 48px; }
+  .st-l b{ font-size:15px; } .st-l small{ display:none; } .st-btns{ margin-top:8px; } .st-btn{ padding:10px 0; font-size:15px; }
+}

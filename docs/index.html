@@ -1391,10 +1391,36 @@ body.paused #tpause{ display:none; }
 #tanotice em{ font-style:normal; color:#e3b23c; }
 .fe-tanote{ margin:0 0 6px; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }
 
+/* ═══ 설정 (settings.js) — 일시정지 메뉴와 같은 생김새 ═══ */
+#settings{ position:fixed; inset:0; z-index:3100; display:flex; align-items:center; justify-content:center; padding:12px;
+  background:rgba(3,4,8,.72); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); font-family:var(--font-ui); }
+#settings.hidden{ display:none; }
+.st-box{ width:min(560px, 92vw); max-height:94vh; overflow:auto; padding:30px 30px 24px; background:rgba(10,14,20,.95); border:1px solid rgba(110,214,232,.35);
+  box-shadow:0 20px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; gap:4px; animation:msIn .18s ease-out 1; }
+.st-box .pm-obang{ margin:-30px -30px 18px; }
+.st-row{ display:grid; grid-template-columns:minmax(120px, 1fr) minmax(140px, 1.5fr) 58px; align-items:center; gap:14px; padding:12px 6px;
+  border-bottom:1px solid rgba(110,214,232,.1); cursor:pointer; }
+.st-l b{ display:block; font-weight:400; font-size:19px; letter-spacing:.06em; color:rgba(220,238,244,.92); }
+.st-l small{ display:block; margin-top:3px; font-size:11px; color:rgba(190,222,232,.42); }
+.st-row output{ font-size:16px; text-align:right; color:#6ee0f2; font-variant-numeric:tabular-nums; }
+.st-row input[type=range]{ width:100%; height:28px; margin:0; accent-color:#6ee0f2; cursor:pointer; background:none; }
+.st-row input:focus-visible{ outline:2px solid #6ee0f2; outline-offset:3px; }
+.st-check input{ justify-self:start; width:24px; height:24px; margin:0; accent-color:#6ee0f2; }
+.st-btns{ display:flex; gap:10px; margin-top:16px; }
+.st-btn{ flex:1; margin:0; padding:14px 0; font-family:inherit; font-size:17px; font-weight:400; letter-spacing:.1em; color:rgba(220,238,244,.8);
+  background:rgba(110,214,232,.06); border:1px solid rgba(110,214,232,.3); border-radius:3px; box-shadow:none; cursor:pointer; }
+.st-btn.st-main{ color:#06141a; background:#6ee0f2; border-color:#6ee0f2; }
+.st-btn:hover, .st-btn:focus-visible{ outline:none; border-color:#cfeff6; transform:none; box-shadow:0 0 0 2px rgba(110,224,242,.35); }
+@media (max-height:520px), (max-width:520px){
+  .st-box{ padding:16px 18px 12px; } .st-box .pm-obang{ margin:-16px -18px 10px; }
+  .st-row{ padding:7px 4px; gap:10px; grid-template-columns:minmax(96px, 1fr) minmax(110px, 1.5fr) 48px; }
+  .st-l b{ font-size:15px; } .st-l small{ display:none; } .st-btns{ margin-top:8px; } .st-btn{ padding:10px 0; font-size:15px; }
+}
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794675126"></script>
+<script src="festival-config.js?v=1794675438"></script>
 
 <div id="frame">
   <div id="stage">
@@ -1566,6 +1592,7 @@ body.paused #tpause{ display:none; }
         <button class="tm-item sel" data-act="start"><b>게임 시작</b><em>일반 모드</em></button>
         <button class="tm-item" data-act="time"><b>타임어택</b><em>기록 경쟁</em></button>
         <button class="tm-item hidden" data-act="board"><b>순위판</b><em>실시간</em></button>
+        <button class="tm-item" data-act="settings"><b>설정</b><em>소리 · 감도</em></button>
         <button class="tm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
       </nav>
       <span id="t-ver" aria-hidden="true">DITC · v1.4</span>
@@ -1680,6 +1707,7 @@ body.paused #tpause{ display:none; }
     <p class="pm-title">일시정지</p>
     <p class="pm-sub" id="pm-sub">SESSION PAUSED</p>
     <button class="pm-item sel" data-act="resume"><b>계속하기</b><em>ESC</em></button>
+    <button class="pm-item" data-act="settings"><b>설정</b><em>소리 · 카메라 감도</em></button>
     <button class="pm-item" data-act="full"><b>전체 화면</b><em>F11</em></button>
     <button class="pm-item" data-act="quit"><b>처음 화면으로</b><em>진행 중인 판은 사라져요</em></button>
     <div class="pm-confirm hidden" id="pm-confirm">
@@ -1764,13 +1792,127 @@ function loadAssets() {
 
 </script>
 <script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════════
+   settings.js — 세부 설정 : 소리(전체 · 배경음악 · 효과음) · 카메라 감도(1인칭) · 상하 반전
+
+   이 기기에 기억합니다 (localStorage 'wellbelow.settings').
+   소리 — 모든 소리가 지나가는 길목에 음량 노드를 하나씩 끼움:
+     Settings.out(ac)              전체 음량 → 스피커 (ac.destination 대신 여기로 연결)
+     Settings.bus(ac, kind, to)    'music' · 'sfx' 음량 → to (같은 ac · to · kind 면 같은 노드)
+   카메라 — escape.js(탈출 1인칭) · part2.js(2부)가 마우스 · 손가락으로 둘러볼 때 Settings.look() 을 곱함
+   화면 — Settings.open(onClose) : 시작화면 메뉴 「설정」 · 일시정지 메뉴 「설정」
+   ═══════════════════════════════════════════════════════════════ */
+(() => {
+const KEY = 'wellbelow.settings';
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false };
+const S = { ...DEF };
+try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
+
+/* ── 소리 길목 ── */
+const OUT = new WeakMap(), BUS = [];        // BUS : { ac, kind, node }
+const vol = k => k === 'music' ? S.music : k === 'sfx' ? S.sfx : S.master;
+const curve = v => v * v;                   // 귀에 고르게 들리게 (밀대 반이면 소리 1/4)
+function apply() {
+  const set = (node, v, ac) => { try { node.gain.setTargetAtTime(curve(v), ac.currentTime, .03); } catch (e) { node.gain.value = curve(v); } };
+  for (const b of BUS) set(b.node, vol(b.kind), b.ac);
+  OUTS.forEach(o => set(o.node, S.master, o.ac));
+}
+const OUTS = [];
+function out(ac) {
+  let n = OUT.get(ac);
+  if (!n) { n = ac.createGain(); n.gain.value = curve(S.master); n.connect(ac.destination); OUT.set(ac, n); OUTS.push({ ac, node: n }); }
+  return n;
+}
+function bus(ac, kind, to) {
+  to = to || out(ac);
+  let b = BUS.find(x => x.ac === ac && x.kind === kind && x.to === to);
+  if (!b) { const node = ac.createGain(); node.gain.value = curve(vol(kind)); node.connect(to); b = { ac, kind, to, node }; BUS.push(b); }
+  return b.node;
+}
+
+/* ── 화면 ── */
+const ROWS = [
+  { k: 'master', label: '전체 음량', min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'sens',   label: '카메라 감도', sub: '1인칭에서 둘러보는 빠르기', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
+];
+let el = null, onClose = null, testT = 0;
+function build() {
+  el = document.createElement('div'); el.id = 'settings'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '설정');
+  el.innerHTML = `<div class="st-box">
+    <div class="pm-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="pm-title">설정</p><p class="pm-sub">SETTINGS · 이 기기에 저장돼요</p>
+    ${ROWS.map(r => `<label class="st-row" data-k="${r.k}"><span class="st-l"><b>${r.label}</b>${r.sub ? `<small>${r.sub}</small>` : ''}</span>
+      <input type="range" min="${r.min}" max="${r.max}" step="${r.step}"><output></output></label>`).join('')}
+    <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>마우스를 올리면 아래를 봄</small></span><input type="checkbox" data-k="invertY"><output></output></label>
+    <div class="st-btns"><button class="st-btn" data-act="reset">기본값</button><button class="st-btn st-main" data-act="close">닫기</button></div>
+  </div>`;
+  document.body.appendChild(el);
+  el.querySelectorAll('.st-row[data-k]').forEach(row => {
+    const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'), o = row.querySelector('output');
+    inp.addEventListener('input', () => {
+      S[r.k] = +inp.value; o.textContent = r.fmt(S[r.k]); apply(); save();
+      if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
+    });
+  });
+  const ck = el.querySelector('input[data-k=invertY]');
+  ck.addEventListener('change', () => { S.invertY = ck.checked; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔'; save(); });
+  el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); sync(); apply(); save(); });
+  el.querySelector('[data-act=close]').addEventListener('click', close);
+  el.addEventListener('click', e => { if (e.target === el) close(); });
+  ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(n => el.addEventListener(n, e => e.stopPropagation()));
+}
+function sync() {
+  el.querySelectorAll('.st-row[data-k]').forEach(row => { const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'); inp.value = S[r.k]; row.querySelector('output').textContent = r.fmt(S[r.k]); });
+  const ck = el.querySelector('input[data-k=invertY]'); ck.checked = S.invertY; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔';
+}
+const focusables = () => [...el.querySelectorAll('input, .st-btn')];
+function open(cb) {
+  if (!el) build();
+  onClose = cb || null; sync();
+  el.classList.remove('hidden'); document.body.classList.add('settings-open');
+  setTimeout(() => focusables()[0].focus(), 0);
+}
+function close() {
+  if (!el || el.classList.contains('hidden')) return;
+  el.classList.add('hidden'); document.body.classList.remove('settings-open');
+  const f = onClose; onClose = null; if (f) f();
+}
+const isOpen = () => !!el && !el.classList.contains('hidden');
+/* 키 — 게임 · 일시정지 메뉴보다 먼저 (이 파일이 먼저 읽힘). 열려 있으면 여기서만 */
+addEventListener('keydown', e => {
+  if (!isOpen()) return;
+  e.stopImmediatePropagation();
+  const k = e.key, f = focusables(), i = f.indexOf(document.activeElement);
+  if (k === 'Escape' || e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) close(); return; }
+  if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'Tab') { e.preventDefault(); const d = (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) ? -1 : 1; f[(Math.max(0, i) + d + f.length) % f.length].focus(); return; }
+  const a = document.activeElement;
+  if ((k === 'Enter' || k === ' ') && a && a.type === 'checkbox') { e.preventDefault(); a.click(); return; }
+  if ((k === 'Enter' || k === ' ') && a && a.classList.contains('st-btn')) { e.preventDefault(); a.click(); return; }
+  if ((k === 'ArrowLeft' || k === 'ArrowRight') && a && a.type === 'range') return;   // 밀대는 브라우저가 움직임
+  if (k.length === 1 || k === 'Enter') e.preventDefault();
+}, true);
+addEventListener('keyup', e => { if (isOpen()) e.stopImmediatePropagation(); }, true);
+
+window.Settings = {
+  get: k => S[k], out, bus, open, close, isOpen,
+  look: () => S.sens,                                  // 둘러보기 배율
+  lookY: () => S.sens * (S.invertY ? -1 : 1)
+};
+})();
+
+</script>
+<script>
 /* ═══════════════════════════════════════════════════════════
    audio.js — WebAudio 로 전부 합성합니다 (외부 음원 파일 없음)
    지상의 "새소리" 밑에 아주 작게 깔리는 기계음 비프/환풍기 소리가
    첫 번째 복선입니다.
    ═══════════════════════════════════════════════════════════ */
 const Sfx = (() => {
-  let ac = null, master = null, ambGain = null, amb = [], started = false;
+  let ac = null, master = null, mix = null, musicIn = null, ambGain = null, amb = [], started = false;
 
   /* 던전 브금 볼륨 — 환경음(0.12~0.15)보다 확실히 앞에 서도록 올렸습니다 */
   const BGM_VOL = 0.52;
@@ -1852,8 +1994,11 @@ const Sfx = (() => {
     try {
       if (!ac) {
         ac = new (window.AudioContext || window.webkitAudioContext)();
-        master = ac.createGain();
-        master.gain.value = 1.35;                 // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        mix = ac.createGain();
+        mix.gain.value = 1.35;                    // 최대치 근처까지 올림 (전체 볼륨이 너무 작다는 피드백)
+        // 설정(settings.js) — 효과음은 master, 브금은 musicIn 으로 들어와 각자 음량을 거친 뒤 mix 에서 만남
+        master = window.Settings ? Settings.bus(ac, 'sfx', mix) : mix;
+        musicIn = window.Settings ? Settings.bus(ac, 'music', mix) : mix;
         // 소리를 키운 만큼, 겹쳐 울릴 때 찢어지지 않도록 리미터를 하나 걸어둡니다
         const comp = ac.createDynamicsCompressor();
         comp.threshold.value = -10;
@@ -1861,8 +2006,8 @@ const Sfx = (() => {
         comp.ratio.value = 14;
         comp.attack.value = 0.002;
         comp.release.value = 0.18;
-        master.connect(comp);
-        comp.connect(ac.destination);
+        mix.connect(comp);
+        comp.connect(window.Settings ? Settings.out(ac) : ac.destination);
       }
       // iOS 는 다른 앱에 다녀오거나 전화가 오면 'interrupted' 로 멈춥니다
       if (ac.state === 'suspended' || ac.state === 'interrupted') ac.resume();
@@ -2306,7 +2451,7 @@ const Sfx = (() => {
         g.gain.exponentialRampToValueAtTime(BGM_VOL * 1.5, t + 0.05);
         g.gain.setValueAtTime(BGM_VOL * 1.5, t + BGM_HIT_HOLD);
         g.gain.exponentialRampToValueAtTime(BGM_VOL, t + BGM_HIT_HOLD + 1.2);
-        src.connect(lp); lp.connect(g); g.connect(master);
+        src.connect(lp); lp.connect(g); g.connect(musicIn);
         src.start(t, 0);
         api._dg = { src, g };
       } else {
@@ -2367,7 +2512,7 @@ const Sfx = (() => {
         const g = c.createGain();
         g.gain.setValueAtTime(0.0001, t);
         g.gain.exponentialRampToValueAtTime(cfg.vol, t + cfg.fade);
-        src.connect(g); g.connect(master);
+        src.connect(g); g.connect(musicIn);
         src.start(t, st.skip ? cfg.loopStart : 0);
         st.skip = false;
         st.node = { src, g };
@@ -2455,7 +2600,7 @@ const Sfx = (() => {
       if (ambGain) { try { ambGain.disconnect(); } catch (e) {} ambGain = null; }
     },
 
-    muteAll() { if (master) master.gain.value = 0; },
+    muteAll() { if (mix) mix.gain.value = 0; },
     /* 엔딩 씬(ending.js)이 자기 소리를 같은 컨텍스트에 얹을 때 씁니다 —
        새 컨텍스트를 만들면 브라우저 잠금을 다시 풀어야 하니까요. */
     context() { return ctx(); },
@@ -4666,7 +4811,7 @@ class EndSfx {
     }
     this.master = this.ac.createGain();
     this.master.gain.value = .55;
-    this.master.connect(this.ac.destination);
+    this.master.connect(window.Settings ? Settings.bus(this.ac, 'sfx', Settings.out(this.ac)) : this.ac.destination);
     const len = this.ac.sampleRate * 2;
     this.noiseBuf = this.ac.createBuffer(1, len, this.ac.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
@@ -10699,8 +10844,10 @@ class EscSfx {
     if (!this.ac) {
       try {
         this.ac = (this.audioFn && this.audioFn()) || new (window.AudioContext || window.webkitAudioContext)();
-        this.master = this.ac.createGain(); this.master.gain.value = .9;
-        this.master.connect(this.ac.destination);
+        const mix = this.ac.createGain(); mix.gain.value = .9;
+        mix.connect(window.Settings ? Settings.out(this.ac) : this.ac.destination);
+        this.master = window.Settings ? Settings.bus(this.ac, 'sfx', mix) : mix;          // 설정의 효과음 · 배경음악 음량
+        this.musicIn = window.Settings ? Settings.bus(this.ac, 'music', mix) : mix;
       } catch (e) { return null; }
     }
     if (this.ac.state === 'suspended' || this.ac.state === 'interrupted') this.ac.resume();
@@ -10875,7 +11022,7 @@ class EscSfx {
       g.gain.setValueAtTime(.0001, t);
       g.gain.exponentialRampToValueAtTime(V, t + (intro ? .25 : 1.2));
     }
-    src.connect(g).connect(this.master);
+    src.connect(g).connect(this.musicIn || this.master);
     src.start(t, at < src.loopEnd ? at : ESC_BGM.loop0);
     this.bgmNode = { src, g };
   }
@@ -11120,7 +11267,8 @@ const WakeState = {
     // 마우스 — 누르지 않고 움직이기만 해도 둘러봄 (한 번 누르면 잠겨 끝없이 돌릴 수 있음).
     // 예전엔 잠기지 않았을 때 커서가 화면 끝 4% 안에 머물면 저절로 계속 돌았는데, 돌아다닐 땐 커서가 숨겨져 있어서
     // 끝에 닿은 줄 모르고 "갑자기 한쪽으로 빙빙 도는" 것처럼 느껴졌음 — 그 자동 회전은 뺐습니다 (끝에 닿으면 ← → 키나 클릭해 잠금)
-    c.yaw += turn * .032 + s.lookDX * .0032; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 + tilt));
+    const sx = window.Settings ? Settings.look() : 1, sy = window.Settings ? Settings.lookY() : 1;   // 설정의 카메라 감도 · 상하 반전
+    c.yaw += turn * .032 + s.lookDX * .0032 * sx; c.pitch = Math.max(-.85, Math.min(.85, c.pitch - s.lookDY * .0032 * sy + tilt));
     s.lookDX = 0; s.lookDY = 0;
     // 걷기 — 속도는 천천히 붙고 천천히 풀림. 한 걸음 0.75m, 발이 닿을 때 가라앉고 디딘 발 쪽으로 살짝 실림
     const ml = Math.hypot(fw, st), want = ml > .05 ? .026 * Math.min(1, ml) : 0;
@@ -13277,7 +13425,7 @@ class Part2 {
   unlock() { if (document.pointerLockElement === this.el.cv && document.exitPointerLock) document.exitPointerLock(); }
   fx(name, ...a) { try { if (this.sfx[name]) this.sfx[name](...a); } catch (e) {} }
   hum() {
-    try { const ac = this.audio(); if (!ac) return; const g = ac.createGain(); g.gain.value = .0001; g.connect(ac.destination);
+    try { const ac = this.audio(); if (!ac) return; const g = ac.createGain(); g.gain.value = .0001; g.connect(window.Settings ? Settings.bus(ac, 'sfx', Settings.out(ac)) : ac.destination);
       const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 49; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 140; o.connect(f); f.connect(g);
       const o2 = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = 73.6; const g2 = ac.createGain(); g2.gain.value = .5; o2.connect(g2); g2.connect(g);
       o.start(); o2.start(); g.gain.exponentialRampToValueAtTime(.05, ac.currentTime + 3); this.humN = { g, o, o2 }; } catch (e) {}
@@ -13351,7 +13499,8 @@ class Part2 {
   update() {
     const S = this.S, c = this.cam, t = ++this.t, H = this.held, E = this.events, LV = this.lv;
     // 둘러보기
-    c.yaw += this.look[0] * .0023; c.pitch = clamp(c.pitch - this.look[1] * .0023, -1.25, 1.25); this.look = [0, 0];
+    const sx = window.Settings ? Settings.look() : 1, sy = window.Settings ? Settings.lookY() : 1;   // 설정의 카메라 감도 · 상하 반전
+    c.yaw += this.look[0] * .0023 * sx; c.pitch = clamp(c.pitch - this.look[1] * .0023 * sy, -1.25, 1.25); this.look = [0, 0];
     if (H.has('ArrowLeft')) c.yaw -= .035; if (H.has('ArrowRight')) c.yaw += .035;
     // 걷기 — 벽 · 가구에 막힘
     let fw = (H.has('KeyW') || H.has('ArrowUp') ? 1 : 0) - (H.has('KeyS') || H.has('ArrowDown') ? 1 : 0) - this.stick[1], st = (H.has('KeyD') ? 1 : 0) - (H.has('KeyA') ? 1 : 0) + this.stick[0];
@@ -15625,6 +15774,7 @@ function menuGo(act) {
   if (act === 'start') { openModeSelect(); openDiffSelect(); }          // 일반 모드 — 바로 난이도
   else if (act === 'time') { openModeSelect(); startTimeAttack(); }
   else if (act === 'board') { if (window.Festival) Festival.openBoard(); }
+  else if (act === 'settings') { if (window.Settings) Settings.open(() => { const b = menuItems().find(x => x.dataset.act === 'settings'); if (b) b.focus(); }); }
   else if (act === 'full') {
     const el = document.documentElement;
     if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -21207,6 +21357,7 @@ function quitToTitle() {
 function pmGo(act) {
   act = act || (pmItems()[PAUSE.sel] || {}).dataset?.act;
   if (act === 'resume') resumeGame();
+  else if (act === 'settings') { if (window.Settings) { $('pausemenu').classList.add('hidden'); Settings.open(() => { if (PAUSE.on) { $('pausemenu').classList.remove('hidden'); pmSelect(PAUSE.sel); } }); } }
   else if (act === 'full') {
     const el = document.documentElement;
     if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
@@ -21217,7 +21368,7 @@ function pmGo(act) {
     $('pm-confirm-sub').textContent = G.timeAttack && RUN.running ? '타임어택 기록은 남지 않아요.' : '지금까지의 진행은 사라져요.';
     pmSelect(1);                                                            // 기본은 '취소' 쪽 — 실수로 나가지 않게
   }
-  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(2); }
+  else if (act === 'quit-no') { PAUSE.confirm = false; $('pm-confirm').classList.add('hidden'); $('pausemenu').classList.remove('confirming'); pmSelect(3); }
   else if (act === 'quit-yes') quitToTitle();
 }
 /* 키 — 다른 처리보다 먼저 (capture). 멈춘 동안엔 게임 · 탈출 · 엔딩으로 키가 가지 않게 */

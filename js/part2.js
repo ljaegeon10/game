@@ -443,7 +443,7 @@ class Part2 {
   unlock() { if (document.pointerLockElement === this.el.cv && document.exitPointerLock) document.exitPointerLock(); }
   fx(name, ...a) { try { if (this.sfx[name]) this.sfx[name](...a); } catch (e) {} }
   hum() {
-    try { const ac = this.audio(); if (!ac) return; const g = ac.createGain(); g.gain.value = .0001; g.connect(ac.destination);
+    try { const ac = this.audio(); if (!ac) return; const g = ac.createGain(); g.gain.value = .0001; g.connect(window.Settings ? Settings.bus(ac, 'sfx', Settings.out(ac)) : ac.destination);
       const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 49; const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 140; o.connect(f); f.connect(g);
       const o2 = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = 73.6; const g2 = ac.createGain(); g2.gain.value = .5; o2.connect(g2); g2.connect(g);
       o.start(); o2.start(); g.gain.exponentialRampToValueAtTime(.05, ac.currentTime + 3); this.humN = { g, o, o2 }; } catch (e) {}
@@ -517,7 +517,8 @@ class Part2 {
   update() {
     const S = this.S, c = this.cam, t = ++this.t, H = this.held, E = this.events, LV = this.lv;
     // 둘러보기
-    c.yaw += this.look[0] * .0023; c.pitch = clamp(c.pitch - this.look[1] * .0023, -1.25, 1.25); this.look = [0, 0];
+    const sx = window.Settings ? Settings.look() : 1, sy = window.Settings ? Settings.lookY() : 1;   // 설정의 카메라 감도 · 상하 반전
+    c.yaw += this.look[0] * .0023 * sx; c.pitch = clamp(c.pitch - this.look[1] * .0023 * sy, -1.25, 1.25); this.look = [0, 0];
     if (H.has('ArrowLeft')) c.yaw -= .035; if (H.has('ArrowRight')) c.yaw += .035;
     // 걷기 — 벽 · 가구에 막힘
     let fw = (H.has('KeyW') || H.has('ArrowUp') ? 1 : 0) - (H.has('KeyS') || H.has('ArrowDown') ? 1 : 0) - this.stick[1], st = (H.has('KeyD') ? 1 : 0) - (H.has('KeyA') ? 1 : 0) + this.stick[0];
