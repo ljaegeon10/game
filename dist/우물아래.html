@@ -1169,8 +1169,8 @@ body.escfull #ending{ overflow:hidden; }
   color:var(--hwang); background:rgba(227,178,60,.10); border:1px solid rgba(227,178,60,.7); box-shadow:none;
 }
 .fe-go:hover{ background:rgba(227,178,60,.2); }
-#fe-back{ margin:0 auto; padding:4px 14px; font-size:9px; letter-spacing:.16em; background:none; color:rgba(241,236,224,.34); border:none; box-shadow:none; }
-#fe-back:hover{ color:rgba(241,236,224,.7); }
+#fe-back{ margin:4px auto 0; padding:7px 22px; font-size:12px; letter-spacing:.16em; background:rgba(15,14,20,.45); color:rgba(241,236,224,.72); border:1px solid rgba(241,236,224,.28); border-radius:3px; box-shadow:none; }
+#fe-back:hover, #fe-back:focus-visible{ background:rgba(241,236,224,.1); color:#fff; border-color:rgba(241,236,224,.6); }
 #fest-boardbtn{
   position:absolute; right:10px; top:10px; margin:0; padding:4px 9px;
   font-size:8px; letter-spacing:.12em; color:var(--glow);
@@ -1382,6 +1382,15 @@ body.paused #tpause{ display:none; }
   .pm-confirm{ margin-top:0; border-top:none; }
 }
 
+/* 타임어택 안내 — 던전에 들어선 뒤 몇 초, 화면 아래 가운데 */
+#tanotice{ position:absolute; left:50%; bottom:16px; transform:translate(-50%, 6px); z-index:5; padding:5px 12px 4px; white-space:nowrap; pointer-events:none;
+  font-size:9px; letter-spacing:.04em; color:var(--baek); background:rgba(8,10,14,.82); border:1px solid rgba(227,178,60,.55);
+  opacity:0; transition:opacity .5s, transform .5s; }
+#tanotice.on{ opacity:1; transform:translate(-50%, 0); }
+#tanotice b{ margin-right:8px; font-weight:400; font-size:7px; letter-spacing:.2em; color:var(--glow); }
+#tanotice em{ font-style:normal; color:#e3b23c; }
+.fe-tanote{ margin:0 0 6px; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }
+
 </style>
 </head>
 <body>
@@ -1398,6 +1407,9 @@ body.paused #tpause{ display:none; }
     <div id="crt" aria-hidden="true"></div>       <!-- 1부 탑뷰 — 브라운관 화면 (css) -->
     <!-- 1부 탑뷰 — 모니터 베젤 : 둥근 유리 둘레의 검은 플라스틱 틀 · 전원 표시등 · 모델명 (css). 3D(현실)에선 없음 -->
     <div id="bezel" aria-hidden="true"><i class="glass"></i><i class="led"></i><span class="model">SLEEP-LAB MONITOR · CELL 07</span></div>
+
+    <!-- 타임어택 — 던전에 들어서면 화면 아래에 잠깐 -->
+    <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠를 모으거나 상자를 열지 않아도 돼요 — <em>몬스터만 잡아도 클리어!</em></div>
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
@@ -1564,6 +1576,7 @@ body.paused #tpause{ display:none; }
           <button class="modebtn" data-mode="time">
             <b>타임어택 모드</b>
             <span>기록 경쟁 · 죽으면 처음부터</span>
+            <em>열쇠 · 상자 없이 몬스터만 잡아도 클리어!</em>
           </button>
           <button class="modebtn" data-mode="normal">
             <b>일반 모드</b>
@@ -14745,6 +14758,7 @@ function buildEntry() {
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
     <p class="fe-dev hidden" id="fe-dev"></p>
+    <p class="fe-tanote">💡 열쇠 · 상자는 안 모아도 돼요 — 몬스터만 잡아도 클리어!</p>
     <p id="fe-nowrite" class="hidden"></p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
@@ -15743,6 +15757,7 @@ function respawn() {
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
+  { const n = $('tanotice'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   Sfx.ring(0);
   stopRun();
   if (window.Festival) Festival.end();
@@ -16182,6 +16197,9 @@ function enterDungeon() {
   loadRoom('start', 'W');
   Sfx.dungeonBgm(true);
   G.wake = G.timeAttack ? 0 : WAKE_DUR;
+  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초)
+    const n = $('tanotice'); n.classList.add('on'); clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 9000);
+  }
   G.shake = 28; G.flash = 1; glare(1.4);
   shockRing(W / 2, H / 2, 380, '255,236,198', 9, 46);
   shockRing(W / 2, H / 2, 250, '227,178,60', 6, 36);
@@ -21228,7 +21246,7 @@ $('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
 $('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { part2: () => part2Scene, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+window.__game = { part2: () => part2Scene, enterDungeon, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,

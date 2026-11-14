@@ -692,6 +692,7 @@ function respawn() {
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
+  { const n = $('tanotice'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   Sfx.ring(0);
   stopRun();
   if (window.Festival) Festival.end();
@@ -1131,6 +1132,9 @@ function enterDungeon() {
   loadRoom('start', 'W');
   Sfx.dungeonBgm(true);
   G.wake = G.timeAttack ? 0 : WAKE_DUR;
+  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초)
+    const n = $('tanotice'); n.classList.add('on'); clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 9000);
+  }
   G.shake = 28; G.flash = 1; glare(1.4);
   shockRing(W / 2, H / 2, 380, '255,236,198', 9, 46);
   shockRing(W / 2, H / 2, 250, '227,178,60', 6, 36);
@@ -6177,7 +6181,7 @@ $('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
 $('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { part2: () => part2Scene, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+window.__game = { part2: () => part2Scene, enterDungeon, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,

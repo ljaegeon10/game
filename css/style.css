@@ -1140,8 +1140,8 @@ body.escfull #ending{ overflow:hidden; }
   color:var(--hwang); background:rgba(227,178,60,.10); border:1px solid rgba(227,178,60,.7); box-shadow:none;
 }
 .fe-go:hover{ background:rgba(227,178,60,.2); }
-#fe-back{ margin:0 auto; padding:4px 14px; font-size:9px; letter-spacing:.16em; background:none; color:rgba(241,236,224,.34); border:none; box-shadow:none; }
-#fe-back:hover{ color:rgba(241,236,224,.7); }
+#fe-back{ margin:4px auto 0; padding:7px 22px; font-size:12px; letter-spacing:.16em; background:rgba(15,14,20,.45); color:rgba(241,236,224,.72); border:1px solid rgba(241,236,224,.28); border-radius:3px; box-shadow:none; }
+#fe-back:hover, #fe-back:focus-visible{ background:rgba(241,236,224,.1); color:#fff; border-color:rgba(241,236,224,.6); }
 #fest-boardbtn{
   position:absolute; right:10px; top:10px; margin:0; padding:4px 9px;
   font-size:8px; letter-spacing:.12em; color:var(--glow);
@@ -1352,3 +1352,12 @@ body.paused #tpause{ display:none; }
   #pausemenu.confirming > .pm-box > .pm-item{ display:none; }   /* 「정말 나갈까요?」 — 위 메뉴는 접어서 나가기 · 취소가 보이게 */
   .pm-confirm{ margin-top:0; border-top:none; }
 }
+
+/* 타임어택 안내 — 던전에 들어선 뒤 몇 초, 화면 아래 가운데 */
+#tanotice{ position:absolute; left:50%; bottom:16px; transform:translate(-50%, 6px); z-index:5; padding:5px 12px 4px; white-space:nowrap; pointer-events:none;
+  font-size:9px; letter-spacing:.04em; color:var(--baek); background:rgba(8,10,14,.82); border:1px solid rgba(227,178,60,.55);
+  opacity:0; transition:opacity .5s, transform .5s; }
+#tanotice.on{ opacity:1; transform:translate(-50%, 0); }
+#tanotice b{ margin-right:8px; font-weight:400; font-size:7px; letter-spacing:.2em; color:var(--glow); }
+#tanotice em{ font-style:normal; color:#e3b23c; }
+.fe-tanote{ margin:0 0 6px; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }

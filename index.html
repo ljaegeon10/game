@@ -29,6 +29,9 @@
     <!-- 1부 탑뷰 — 모니터 베젤 : 둥근 유리 둘레의 검은 플라스틱 틀 · 전원 표시등 · 모델명 (css). 3D(현실)에선 없음 -->
     <div id="bezel" aria-hidden="true"><i class="glass"></i><i class="led"></i><span class="model">SLEEP-LAB MONITOR · CELL 07</span></div>
 
+    <!-- 타임어택 — 던전에 들어서면 화면 아래에 잠깐 -->
+    <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠를 모으거나 상자를 열지 않아도 돼요 — <em>몬스터만 잡아도 클리어!</em></div>
+
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
       <div id="hudleft">
@@ -194,6 +197,7 @@
           <button class="modebtn" data-mode="time">
             <b>타임어택 모드</b>
             <span>기록 경쟁 · 죽으면 처음부터</span>
+            <em>열쇠 · 상자 없이 몬스터만 잡아도 클리어!</em>
           </button>
           <button class="modebtn" data-mode="normal">
             <b>일반 모드</b>
