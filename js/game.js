@@ -5611,6 +5611,7 @@ const PART2_OPEN = false;
 function restartFromEnd() {
   if (endingScene) { if (endingScene.running) endingScene.stop(); endingScene = null; }
   if (escapeScene) { if (escapeScene.running) escapeScene.stop(); escapeScene = null; }
+  stopPart2();
   escFull(false);
   $('endcard').classList.remove('on');
   $('ending').classList.add('hidden');
@@ -5641,6 +5642,7 @@ function beginEscape(from = 'wake') {
   escFull(true);
   escapeScene = new EscapeScene($('endcv'), {
     audio: () => Sfx.context(),
+    onLeaveRoom: window.Part2 ? () => { escapeScene = null; beginPart2(); } : null,
     onDone: result => {
       escapeScene = null;
       escFull(false);
@@ -5649,6 +5651,15 @@ function beginEscape(from = 'wake') {
     }
   });
   escapeScene.start(from);
+}
+
+/* 2부 「연구동」 — 1인칭 3D 탐색 (part2.js). 비상구를 열면 달리기 추격(위)으로 넘어갑니다 */
+let part2Scene = null;
+function stopPart2() { if (part2Scene) { if (part2Scene.running) part2Scene.stop(); part2Scene = null; } }
+function beginPart2() {
+  escFull(true);
+  part2Scene = new Part2({ sfx: Sfx, audio: () => Sfx.context(), onDone: () => { part2Scene = null; beginEscape('open'); } });
+  if (!part2Scene.start()) part2Scene = null;
 }
 
 /* ═══════════ 이스터에그 ③ — 코나미 코드 (타이틀) ═══════════════
@@ -5847,7 +5858,7 @@ const DEV_STAGES = [
 const DEV_CINES = [
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '탈출 (1인칭 · 깨어남부터)'], ['escapedoor', '탈출 — 비상구부터'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '2부 전체 (깨어남 → 연구동 → 추격)'], ['part2', '2부 — 연구동 탐색부터'], ['escapedoor', '탈출 — 비상구부터'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
   ['away', '이스터에그 : 화면 밖']
 ];
 
@@ -5938,10 +5949,12 @@ function devJump(kind) {
     case 'endlines':  devExit(); interact(); break;
     case 'ending':    devExit(); beginEnding(); break;
     case 'escape':
+    case 'part2':
     case 'escapedoor':
     case 'gunfight':  devExit(); G.mode = 'ending'; stopRun();
                       ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
                       $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
+                      if (kind === 'part2') { beginPart2(); break; }
                       beginEscape(kind === 'escapedoor' ? 'door' : 'wake');
                       if (kind === 'gunfight') escapeScene.jumpTo(270);
                       break;
@@ -5964,6 +5977,7 @@ function devKillAll() {
 function devReturn() {
   if (endingScene && endingScene.running) endingScene.stop();
   if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
+  stopPart2();
   escFull(false);
   $('ending').classList.add('hidden');
   $('endcard').classList.remove('on');
@@ -6028,12 +6042,13 @@ const titleUp = () => !$('title').classList.contains('hidden');
 function canPause() {
   if (titleUp() || G.mode === 'dead') return false;                       // 시작 화면 · 사망 화면은 따로
   if ($('endcard').classList.contains('on')) return false;                 // 엔드 카드 — 이미 끝난 판
+  if (part2Scene && part2Scene.modalOpen) return false;                    // 2부 — 문서 · 번호판이 떠 있으면 ESC 는 그걸 닫음
   if (document.getElementById('fest-board') && !$('fest-board').classList.contains('hidden')) return false;
   return true;
 }
 const pmItems = () => [...document.querySelectorAll(PAUSE.confirm ? '#pm-confirm .pm-item' : '#pausemenu > .pm-box > .pm-item')];
 function pmSelect(i) { const it = pmItems(); PAUSE.sel = (i + it.length) % it.length; document.querySelectorAll('#pausemenu .pm-item').forEach(b => b.classList.remove('sel')); it[PAUSE.sel].classList.add('sel'); }
-function scenes() { return [endingScene, escapeScene].filter(x => x && x.running); }
+function scenes() { return [endingScene, escapeScene, part2Scene].filter(x => x && x.running); }
 function pauseGame() {
   if (PAUSE.on || !canPause()) return;
   PAUSE.on = true; PAUSE.at = performance.now(); PAUSE.confirm = false;
@@ -6060,6 +6075,7 @@ function quitToTitle() {
   try { const ac = Sfx.context(); if (ac && ac.state === 'suspended') ac.resume(); } catch (e) {}
   if (endingScene && endingScene.running) endingScene.stop();
   if (escapeScene && escapeScene.running) { escapeScene.stop(); escapeScene = null; }
+  stopPart2();
   escFull(false);
   $('ending').classList.add('hidden');
   $('endcard').classList.remove('on');
@@ -6109,7 +6125,7 @@ $('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
 $('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+window.__game = { part2: () => part2Scene, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,

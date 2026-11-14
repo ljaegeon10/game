@@ -467,7 +467,8 @@ const WakeState = {
       s.doorSlide = Math.min(1, s.doorSlide + .02);
       const tgt = { x: DOOR_AT[0], y: 1.62, z: 6.4, yaw: 0, pitch: -.02, roll: 0 };
       s.cam = camLerp(s.cam, tgt, .06);
-      if (s.doorSlide >= 1) { s.fade = Math.min(1, s.fade + .04); if (s.fade >= 1) { s.wk = 'hall'; s.wt = 0; s.z = WAKE_HALL0; s.sfx.humVol(.5); } }
+      if (s.doorSlide >= 1) { s.fade = Math.min(1, s.fade + .04); if (s.fade >= 1) { if (s.onLeaveRoom) { const f = s.onLeaveRoom; s.stop(); f(); return; }   // 2부 — 연구동 탐색(part2.js)으로
+        s.wk = 'hall'; s.wt = 0; s.z = WAKE_HALL0; s.sfx.humVol(.5); } }
     }
     else if (s.wk === 'hall') {
       s.fade = Math.max(0, s.fade - .04);
@@ -1818,7 +1819,8 @@ function bakeScan() {
 
 /* ═════════════ 씬 본체 ═════════════════════════════════════ */
 class EscapeScene {
-  constructor(canvas, { audio, onDone } = {}) {
+  constructor(canvas, { audio, onDone, onLeaveRoom } = {}) {
+    this.onLeaveRoom = onLeaveRoom || null;        // 병실 문을 나설 때 — 주면 복도 걷기 대신 여기로 넘김
     this.canvas = canvas;
     canvas.width = W; canvas.height = H; this.k = 1;
     this.ctx = canvas.getContext('2d');
@@ -1848,7 +1850,7 @@ class EscapeScene {
     ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'onLock', 'onLeave', 'onBlur'].forEach(k => this[k] = this[k].bind(this));
     this.running = false;
   }
-  /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) */
+  /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) · 'open' (문이 열린 순간부터 — 2부 탐색 뒤) */
   start(from = 'wake') {
     this.frame = 0; this.held.clear(); this.prompt = null; this.fromWake = false;
     this.canvas.style.imageRendering = 'auto';           // 화면 배율로 늘릴 때 매끈하게 (픽셀로 늘리면 글자 · 3D 가 뭉개짐)
@@ -1867,7 +1869,8 @@ class EscapeScene {
     this.obs = []; this.guards = []; this.gun = null; this.drops = []; this.bits = []; this.view = 'fwd';
     this.pistol = PA ? PA.bake() : null;
     this.mx = W / 2; this.my = H / 2;
-    this.go(from === 'door' ? 'door' : 'wake');
+    if (from === 'open') { this.fromWake = true; this.sfx.hum(true); this.sfx.humVol(.5); }   // 2부 탐색에서 비상구를 연 직후
+    this.go(from === 'door' ? 'door' : from === 'open' ? 'open' : 'wake');
     this.running = true; this.acc = 0; this.last = performance.now();
     addEventListener('keydown', this.onKey); addEventListener('keyup', this.onKeyUp);
     addEventListener('pointerup', this.onUp); addEventListener('pointercancel', this.onUp);
