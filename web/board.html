@@ -119,6 +119,24 @@ footer i{ width:8px; height:8px; border-radius:50%; background:var(--glow); disp
 footer.off i{ background:var(--danger); }
 footer button, footer a{ font:inherit; color:inherit; background:none; border:1px solid rgba(241,236,224,.2); padding:3px 8px; cursor:pointer; text-decoration:none; }
 footer a:hover, footer button:hover{ color:var(--baek); border-color:rgba(241,236,224,.6); }
+/* 🗑 관리 — 창(알림창 대신 페이지 안에서) */
+#adm{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; background:rgba(10,9,16,.86); }
+#adm[hidden]{ display:none; }
+#adm .box{ width:min(460px, 90vw); padding:26px 28px 22px; background:#15141b; border:2px solid rgba(241,236,224,.25); text-align:center; display:flex; flex-direction:column; gap:14px; }
+#adm h3{ margin:0; font-weight:400; font-size:clamp(18px, 1.8vw, 26px); }
+#adm p{ margin:0; font-size:clamp(13px, 1.2vw, 17px); color:var(--dim); line-height:1.55; }
+#adm p b{ color:var(--baek); font-weight:400; }
+#adm input{ font:inherit; font-size:30px; text-align:center; letter-spacing:.3em; padding:8px; color:var(--baek); background:#0d0c12; border:2px solid rgba(241,236,224,.3); outline:none; }
+#adm input:focus{ border-color:var(--hwang); }
+#adm .err{ min-height:1.3em; color:var(--danger); font-size:15px; }
+#adm .row{ display:flex; gap:10px; }
+#adm .row button{ flex:1; font:inherit; font-size:18px; padding:10px 0; cursor:pointer; border:none; }
+#adm .ok{ color:var(--ink); background:var(--hwang); } #adm .ok.red{ color:#fff; background:#d33a3a; }
+#adm .no{ color:var(--baek); background:none; border:1px solid rgba(241,236,224,.3) !important; }
+#adm button:disabled{ opacity:.5; cursor:default; }
+#toast{ position:fixed; left:50%; bottom:clamp(40px, 7vh, 80px); transform:translateX(-50%); z-index:70; padding:10px 20px; font-size:clamp(14px, 1.3vw, 18px);
+  background:rgba(21,20,27,.95); border:1px solid var(--glow); opacity:0; pointer-events:none; transition:opacity .3s; }
+#toast.on{ opacity:1; } #toast.bad{ border-color:var(--danger); color:#ffb4ab; }
 /* 🗑 관리 — 줄마다 지우기 버튼 */
 body.admin footer #admin{ color:#fff; background:var(--danger); border-color:var(--danger); }
 body.admin #adminBar{ display:flex; }
@@ -181,6 +199,13 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   </aside>
 </div>
 <div id="notice" hidden><span id="noticeText"></span></div>
+<div id="adm" hidden><form class="box" id="admForm" autocomplete="off">
+  <h3 id="admTitle"></h3><p id="admText"></p>
+  <input id="admPin" inputmode="numeric" maxlength="12" placeholder="••••••">
+  <div class="err" id="admErr"></div>
+  <div class="row"><button type="button" class="no" id="admNo">취소</button><button type="submit" class="ok" id="admOk">확인</button></div>
+</form></div>
+<div id="toast"></div>
 <div id="adminBar"><span>🗑 관리 중 — 지울 기록의 ✕ 를 누르세요 (그 사람의 기록이 전부 지워져요)</span><button id="adminOff">끝내기</button></div>
 <footer id="net"><i></i><span id="netText">연결 중…</span><a id="edit" target="_blank" rel="noopener" hidden title="순위판 글 · 상품 · 공지 고치기 (구글 시트)">✏️ 수정</a><button id="admin" title="기록 지우기 — 시트 '순위판 설정' 의 관리 PIN">🗑 관리</button><button id="fs" title="전체 화면 (F)">⛶</button></footer>
 <div class="gate" id="gate" hidden>
@@ -341,30 +366,62 @@ $('pinForm').addEventListener('submit', e => {
 /* 전체 화면 — F 또는 ⛶ */
 const fs = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); };
 $('fs').addEventListener('click', fs);
-addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && $('gate').hidden) fs(); });
+addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && $('gate').hidden && $('adm').hidden && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) fs(); });
 
 /* 🗑 관리 — 시트 '순위판 설정' 의 '관리 PIN' 을 넣으면 줄마다 ✕ 지우기. 그 사람(이름 + 뒷자리)의 기록이 시트에서도 지워짐 */
 const AKEY = 'wellbelow.board.admin';
 const adminKey = { get: () => { try { return sessionStorage.getItem(AKEY) || ''; } catch (e) { return ''; } }, set: v => { try { v ? sessionStorage.setItem(AKEY, v) : sessionStorage.removeItem(AKEY); } catch (e) {} } };
 function adminOn(on) { document.body.classList.toggle('admin', on); if (!on) adminKey.set(''); }
-$('admin').addEventListener('click', () => {
-  if (document.body.classList.contains('admin')) { adminOn(false); return; }
-  const k = prompt('관리 PIN 을 입력하세요\n(구글 시트 「순위판 설정」 탭의 「관리 PIN」 칸)');
-  if (!k) return; adminKey.set(k.trim()); adminOn(true);
-});
-$('adminOff').addEventListener('click', () => adminOn(false));
-async function delRun(r) {
-  if (!confirm(`${r.name} (···${r.tail}) 의 기록을 전부 지울까요?\n순위판과 구글 시트에서 모두 지워지고 되돌릴 수 없어요.`)) return;
-  net(true, '지우는 중…');
-  try {
-    const res = await fetch(SERVER, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                      body: JSON.stringify({ op: 'delete', key: adminKey.get(), name: r.name, tail: r.tail }) });
-    const j = await res.json();
-    if (j && j.ok) { runs = runs.filter(x => !(x.name === r.name && String(x.tail) === String(r.tail))); render(); net(true, `지웠어요 — ${r.name} (${j.deleted || 0}판)`); poll(); return; }
-    if (j && j.error === 'key') { alert('관리 PIN 이 맞지 않아요. 시트 「순위판 설정」 탭의 「관리 PIN」 을 확인해 주세요.'); adminOn(false); return; }
-    alert('기록 서버가 아직 지우기를 몰라요 — 구글 앱스 스크립트 코드를 새로 붙여 넣고 「새 버전」으로 다시 배포해 주세요 (server/README.md).');
-  } catch (e) { alert('기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 해 주세요.'); }
+/* 알림창(prompt · confirm · alert) 대신 페이지 안의 창 — 브라우저에서 '대화상자 차단'을 눌러도 그대로 됨 */
+let admMode = null, admRun = null;
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = bad ? 'on bad' : 'on'; clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 3200); }
+function admOpen(mode, r) {
+  admMode = mode; admRun = r || null;
+  const pin = mode === 'pin';
+  $('admTitle').textContent = pin ? '🗑 관리 PIN' : '기록을 지울까요?';
+  $('admText').innerHTML = pin ? '구글 시트 <b>「순위판 설정」</b> 탭의 <b>「관리 PIN」</b> 칸에 있는 숫자예요.'
+                               : `<b>${esc(r.name)} (···${esc(r.tail)})</b> 의 기록이 순위판 · 구글 시트에서 모두 지워져요.<br>되돌릴 수 없어요.`;
+  $('admPin').hidden = !pin; $('admPin').value = '';
+  $('admErr').textContent = '';
+  $('admOk').textContent = pin ? '확인' : '지우기'; $('admOk').classList.toggle('red', !pin); $('admOk').disabled = false;
+  $('adm').hidden = false;
+  setTimeout(() => (pin ? $('admPin') : $('admOk')).focus(), 30);
 }
+function admClose() { $('adm').hidden = true; admMode = null; admRun = null; }
+const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function api(body) {
+  const res = await fetch(SERVER, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  return res.json();
+}
+const OLD = '기록 서버가 아직 옛 버전이에요 — Apps Script 코드를 새로 붙여 넣고 「새 버전」으로 다시 배포해 주세요';
+$('admNo').addEventListener('click', admClose);
+$('adm').addEventListener('click', e => { if (e.target.id === 'adm') admClose(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !$('adm').hidden) admClose(); });
+$('admForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const ok = $('admOk'); if (ok.disabled) return;
+  if (!SERVER) { $('admErr').textContent = '기록 서버 주소가 없어요'; return; }
+  ok.disabled = true;
+  try {
+    if (admMode === 'pin') {
+      const k = $('admPin').value.trim(); if (!k) { $('admErr').textContent = 'PIN 을 입력해 주세요'; ok.disabled = false; return; }
+      $('admErr').textContent = '확인하는 중…';
+      const j = await api({ op: 'check', key: k });
+      if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 — 지울 기록의 ✕ 지우기를 누르세요'); return; }
+      $('admErr').textContent = j && j.error === 'key' ? 'PIN 이 맞지 않아요' : OLD;
+    } else if (admMode === 'del') {
+      const r = admRun; $('admErr').textContent = '지우는 중…';
+      const j = await api({ op: 'delete', key: adminKey.get(), name: r.name, tail: r.tail });
+      if (j && j.ok) { runs = runs.filter(x => !(x.name === r.name && String(x.tail) === String(r.tail))); render(); admClose(); toast(`지웠어요 — ${r.name} (${j.deleted || 0}판)`); poll(); return; }
+      if (j && j.error === 'key') { adminOn(false); admOpen('pin'); $('admErr').textContent = 'PIN 이 바뀌었어요 — 다시 입력해 주세요'; return; }
+      $('admErr').textContent = OLD;
+    }
+  } catch (err) { $('admErr').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 해 주세요'; }
+  ok.disabled = false;
+});
+$('admin').addEventListener('click', () => { if (document.body.classList.contains('admin')) { adminOn(false); toast('관리 모드를 끝냈어요'); } else admOpen('pin'); });
+$('adminOff').addEventListener('click', () => { adminOn(false); toast('관리 모드를 끝냈어요'); });
+function delRun(r) { admOpen('del', r); }
 
 /* ✏️ 수정 — 구글 시트의 '순위판 설정' 탭을 새 탭으로 (festival-config.js 의 WB_SHEET) */
 if (window.WB_SHEET) { $('edit').href = window.WB_SHEET; $('edit').hidden = false; }

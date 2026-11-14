@@ -87,6 +87,7 @@ function doPost(e) {
     if (b.op === 'live') return out_(saveLive_(b.body || {}));
     if (b.op === 'run') return out_(saveRun_(b));
     if (b.op === 'delete') return out_(deleteRuns_(b));
+    if (b.op === 'check') { const k = String(settings_()['관리 PIN'] || '').trim(); return out_(k && String(b.key || '').trim() === k ? { ok: true } : { ok: false, error: 'key' }); }
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }
