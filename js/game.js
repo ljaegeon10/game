@@ -5715,7 +5715,7 @@ let part2Scene = null;
 function stopPart2() { if (part2Scene) { if (part2Scene.running) part2Scene.stop(); part2Scene = null; } }
 function beginPart2() {
   escFull(true);
-  part2Scene = new Part2({ sfx: Sfx, audio: () => Sfx.context(), onDone: () => { part2Scene = null; beginEscape('open'); } });
+  part2Scene = new Part2({ sfx: Sfx, audio: () => Sfx.context(), onDone: () => { part2Scene = null; beginEscape('run'); } });
   if (!part2Scene.start()) part2Scene = null;
 }
 

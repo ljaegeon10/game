@@ -6706,7 +6706,7 @@ class EscapeScene {
     ['loop', 'onKey', 'onKeyUp', 'onDown', 'onUp', 'onMove', 'onTouchStart', 'onTouchMove', 'onTouchEnd', 'onLock', 'onLeave', 'onBlur'].forEach(k => this[k] = this[k].bind(this));
     this.running = false;
   }
-  /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) · 'open' (문이 열린 순간부터 — 2부 탐색 뒤) */
+  /* from : 'wake' (침대에서 깨어나기부터 — 기본) · 'door' (비상구 앞부터) · 'open' (문이 열린 순간부터) · 'run' (문을 지나 바로 달림 — 2부 탐색 뒤) */
   start(from = 'wake') {
     this.frame = 0; this.held.clear(); this.prompt = null; this.fromWake = false;
     this.canvas.style.imageRendering = 'auto';           // 화면 배율로 늘릴 때 매끈하게 (픽셀로 늘리면 글자 · 3D 가 뭉개짐)
@@ -6726,7 +6726,8 @@ class EscapeScene {
     this.pistol = PA ? PA.bake() : null;
     this.mx = W / 2; this.my = H / 2;
     if (from === 'open') { this.fromWake = true; this.sfx.hum(true); this.sfx.humVol(.5); }   // 2부 탐색에서 비상구를 연 직후
-    this.go(from === 'door' ? 'door' : from === 'open' ? 'open' : 'wake');
+    if (from === 'run') { this.fromWake = true; this.jumpTo(.6, true); }       // 2부 — 비상구를 지나 계단실에 들어선 그 자리부터 바로 달림
+    else this.go(from === 'door' ? 'door' : from === 'open' ? 'open' : 'wake');
     this.running = true; this.acc = 0; this.last = performance.now();
     addEventListener('keydown', this.onKey); addEventListener('keyup', this.onKeyUp);
     addEventListener('pointerup', this.onUp); addEventListener('pointercancel', this.onUp);
@@ -6799,10 +6800,10 @@ class EscapeScene {
     this.sfx.hum(true);
   }
   /* 개발자 모드 — 문을 연 상태로 z 지점부터 바로 달립니다 */
-  jumpTo(z) {
+  jumpTo(z, fresh = false) {
     this.resetRun();
     this.z = z; this.doorOpen = 1; this.lights = 1; this.alarm = 1;
-    this.sfx.alarm(true); this.sfx.humVol(1); this.sfx.bgm(true, ESC_BGM.loop0);   // 중간부터면 가장 센 구간부터
+    this.sfx.alarm(true); this.sfx.humVol(1); this.sfx.bgm(true, fresh ? 0 : ESC_BGM.loop0);   // 중간부터면 가장 센 구간부터 · fresh 면 처음부터
     RUN_LINES.forEach(([lz], i) => { if (lz < z) this.saidMask |= 1 << i; });
     REAL.forEach(([rz], i) => { if (rz < z) this.realMask |= 1 << i; });
     CORNERS().forEach(([cz], i) => { if (cz < z + 4) this.turnDone |= 1 << i; });
