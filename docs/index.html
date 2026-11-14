@@ -1419,7 +1419,7 @@ body.paused #tpause{ display:none; }
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794678277"></script>
+<script src="festival-config.js?v=1794678653"></script>
 
 <div id="frame">
   <div id="stage">
@@ -15694,10 +15694,9 @@ function fillList(el, list, hi) {
     el.appendChild(li);
   });
 }
+/* 시작화면의 '최고 기록' 상자 — 보이지 않게 (기록은 그대로 저장 · 판이 끝난 화면에선 보임) */
 function renderBestTimes() {
-  const list = loadRecords();
-  $('besttimes').classList.toggle('hidden', !list.length);
-  if (list.length) fillList($('bestlist'), list.slice(0, 3));
+  $('besttimes').classList.add('hidden');
 }
 
 /* ═══════════ 자막 ═════════════════════════════════════
