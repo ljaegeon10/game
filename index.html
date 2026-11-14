@@ -233,13 +233,19 @@
       <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
       <div id="devpanel" class="hidden">
         <p class="ms-q">DEV MODE</p>
-        <div class="dv-part"><p class="dv-ptitle">1부 — 우물 아래</p>
+        <!-- 폴더 — 1부 · 2부. 누르면 그 폴더만 열림 -->
+        <p class="dv-crumb" id="dv-crumb">DEV</p>
+        <div class="dv-folders" id="dv-folders">
+          <button class="dv-folder" data-folder="p1" type="button"><i class="dv-fic" aria-hidden="true"></i><b>1부</b><span>우물 아래</span><em id="dv-n1"></em></button>
+          <button class="dv-folder f2" data-folder="p2" type="button"><i class="dv-fic" aria-hidden="true"></i><b>2부</b><span>연구동</span><em id="dv-n2"></em></button>
+        </div>
+        <div class="dv-part hidden" data-folder="p1">
           <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
           <div class="dv-group"><span class="dv-label">컷신</span><div class="dv-row" id="dv-cines"></div></div>
           <div class="dv-group"><span class="dv-label">이스터에그</span><div class="dv-row" id="dv-eggs"></div></div>
         </div>
-        <div class="dv-part dv-p2"><p class="dv-ptitle">2부 — 연구동</p>
-          <div class="dv-group"><div class="dv-row" id="dv-part2"></div></div>
+        <div class="dv-part dv-p2 hidden" data-folder="p2">
+          <div class="dv-group"><span class="dv-label">이야기 순서대로</span><div class="dv-row" id="dv-part2"></div></div>
         </div>
         <label class="dv-toggle"><input type="checkbox" id="dv-god"> 무적</label>
         <p class="dv-hint">게임 중 <b>K</b> 방의 적 전부 처치 · <b>`</b> 이 화면으로 돌아오기</p>

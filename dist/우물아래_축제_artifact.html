@@ -646,10 +646,25 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 #devpanel.hidden{ display:none; }
 #devpanel .ms-q{ color:#7de3c8; }
 .dv-group{ display:flex; flex-direction:column; align-items:center; gap:3px; }
-.dv-part{ display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:560px; padding:6px 8px 8px; border:1px solid rgba(125,227,200,.22); background:rgba(125,227,200,.03); }
-.dv-part.dv-p2{ border-color:rgba(232,105,92,.35); background:rgba(232,105,92,.04); }
-.dv-ptitle{ margin:0 0 1px; font-size:8px; letter-spacing:.25em; color:#7de3c8; }
-.dv-p2 .dv-ptitle{ color:#ff9a8c; }
+.dv-part{ display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:560px; }
+.dv-part.hidden, .dv-folders.hidden, .dv-crumb.hidden{ display:none; }
+/* 폴더 */
+.dv-crumb{ margin:0; font-size:8px; letter-spacing:.14em; color:rgba(236,230,216,.55); }
+.dv-crumb a{ color:#7de3c8; text-decoration:none; } .dv-crumb a:hover{ text-decoration:underline; }
+.dv-folders{ display:flex; gap:18px; justify-content:center; padding:6px 0 4px; }
+.dv-folder{ position:relative; width:118px; margin:0; padding:30px 0 9px; display:flex; flex-direction:column; align-items:center; gap:2px;
+  font-family:inherit; font-weight:400; color:#e9eef2; background:none; border:none; box-shadow:none; cursor:pointer; }
+.dv-folder .dv-fic{ position:absolute; left:8px; right:8px; top:6px; bottom:0; z-index:-1;
+  background:linear-gradient(180deg, #2b6f64, #1c4a43); border:1px solid #7de3c8; border-radius:2px 4px 4px 4px; box-shadow:0 3px 10px rgba(0,0,0,.4); }
+.dv-folder .dv-fic::before{ content:''; position:absolute; left:-1px; top:-8px; width:42%; height:8px; background:#2b6f64; border:1px solid #7de3c8; border-bottom:none; border-radius:3px 6px 0 0; }
+.dv-folder .dv-fic::after{ content:''; position:absolute; left:0; right:0; top:0; height:7px; background:rgba(255,255,255,.08); }
+.dv-folder.f2 .dv-fic, .dv-folder.f2 .dv-fic::before{ background:#6e2c28; border-color:#ff9a8c; }
+.dv-folder.f2 .dv-fic{ background:linear-gradient(180deg, #7a322c, #4f1f1c); }
+.dv-folder b{ font-size:15px; font-weight:400; letter-spacing:.1em; }
+.dv-folder span{ font-size:8px; letter-spacing:.12em; color:rgba(233,238,242,.75); }
+.dv-folder em{ font-style:normal; font-size:6px; color:rgba(233,238,242,.45); }
+.dv-folder:hover .dv-fic, .dv-folder:focus-visible .dv-fic{ filter:brightness(1.25); transform:translateY(-2px); }
+.dv-folder:hover, .dv-folder:active{ transform:none; background:none; box-shadow:none; }
 .dv-label{ font-size:7px; letter-spacing:.3em; color:rgba(236,230,216,.4); }
 .dv-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:540px; }
 .dv-btn{
@@ -1627,13 +1642,19 @@ body.paused #tpause{ display:none; }
       <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
       <div id="devpanel" class="hidden">
         <p class="ms-q">DEV MODE</p>
-        <div class="dv-part"><p class="dv-ptitle">1부 — 우물 아래</p>
+        <!-- 폴더 — 1부 · 2부. 누르면 그 폴더만 열림 -->
+        <p class="dv-crumb" id="dv-crumb">DEV</p>
+        <div class="dv-folders" id="dv-folders">
+          <button class="dv-folder" data-folder="p1" type="button"><i class="dv-fic" aria-hidden="true"></i><b>1부</b><span>우물 아래</span><em id="dv-n1"></em></button>
+          <button class="dv-folder f2" data-folder="p2" type="button"><i class="dv-fic" aria-hidden="true"></i><b>2부</b><span>연구동</span><em id="dv-n2"></em></button>
+        </div>
+        <div class="dv-part hidden" data-folder="p1">
           <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
           <div class="dv-group"><span class="dv-label">컷신</span><div class="dv-row" id="dv-cines"></div></div>
           <div class="dv-group"><span class="dv-label">이스터에그</span><div class="dv-row" id="dv-eggs"></div></div>
         </div>
-        <div class="dv-part dv-p2"><p class="dv-ptitle">2부 — 연구동</p>
-          <div class="dv-group"><div class="dv-row" id="dv-part2"></div></div>
+        <div class="dv-part dv-p2 hidden" data-folder="p2">
+          <div class="dv-group"><span class="dv-label">이야기 순서대로</span><div class="dv-row" id="dv-part2"></div></div>
         </div>
         <label class="dv-toggle"><input type="checkbox" id="dv-god"> 무적</label>
         <p class="dv-hint">게임 중 <b>K</b> 방의 적 전부 처치 · <b>`</b> 이 화면으로 돌아오기</p>
@@ -21375,7 +21396,25 @@ DEV_STAGES.forEach(([id, name]) => {
   b.addEventListener('click', () => devJump(id));
   $(box).appendChild(b);
 }));
-$('dvback').addEventListener('click', closeDevPanel);
+/* 폴더 — 1부 · 2부. 연 폴더는 기억해 두었다가 (` 로 돌아오면) 다시 그 폴더 */
+const DV_FOLDERS = { p1: '1부 — 우물 아래', p2: '2부 — 연구동' };
+let dvOpen = null;
+try { dvOpen = sessionStorage.getItem('wellbelow.devfolder') || null; } catch (e) {}
+function devFolder(id) {
+  dvOpen = DV_FOLDERS[id] ? id : null;
+  try { dvOpen ? sessionStorage.setItem('wellbelow.devfolder', dvOpen) : sessionStorage.removeItem('wellbelow.devfolder'); } catch (e) {}
+  $('dv-folders').classList.toggle('hidden', !!dvOpen);
+  document.querySelectorAll('#devpanel .dv-part').forEach(el => el.classList.toggle('hidden', el.dataset.folder !== dvOpen));
+  $('dv-crumb').innerHTML = dvOpen ? `<a href="#" id="dv-up">DEV</a> › 📂 ${DV_FOLDERS[dvOpen]}` : 'DEV';
+  $('dv-crumb').classList.toggle('hidden', !dvOpen);
+  if (dvOpen) $('dv-up').addEventListener('click', e => { e.preventDefault(); devFolder(null); });
+  $('dvback').textContent = dvOpen ? '← 폴더 목록' : '← 뒤로';
+}
+document.querySelectorAll('#dv-folders .dv-folder').forEach(b => b.addEventListener('click', () => { Sfx.pick && Sfx.pick(); devFolder(b.dataset.folder); }));
+$('dv-n1').textContent = `${DEV_STAGES.length + DEV_CINES.length + DEV_EGGS.length}개`;
+$('dv-n2').textContent = `${DEV_PART2.length}개`;
+devFolder(dvOpen);
+$('dvback').addEventListener('click', () => { if (dvOpen) devFolder(null); else closeDevPanel(); });
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
 
 /* ═══════════ 루프 ═════════════════════════════════════

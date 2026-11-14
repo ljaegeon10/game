@@ -6064,7 +6064,25 @@ DEV_STAGES.forEach(([id, name]) => {
   b.addEventListener('click', () => devJump(id));
   $(box).appendChild(b);
 }));
-$('dvback').addEventListener('click', closeDevPanel);
+/* 폴더 — 1부 · 2부. 연 폴더는 기억해 두었다가 (` 로 돌아오면) 다시 그 폴더 */
+const DV_FOLDERS = { p1: '1부 — 우물 아래', p2: '2부 — 연구동' };
+let dvOpen = null;
+try { dvOpen = sessionStorage.getItem('wellbelow.devfolder') || null; } catch (e) {}
+function devFolder(id) {
+  dvOpen = DV_FOLDERS[id] ? id : null;
+  try { dvOpen ? sessionStorage.setItem('wellbelow.devfolder', dvOpen) : sessionStorage.removeItem('wellbelow.devfolder'); } catch (e) {}
+  $('dv-folders').classList.toggle('hidden', !!dvOpen);
+  document.querySelectorAll('#devpanel .dv-part').forEach(el => el.classList.toggle('hidden', el.dataset.folder !== dvOpen));
+  $('dv-crumb').innerHTML = dvOpen ? `<a href="#" id="dv-up">DEV</a> › 📂 ${DV_FOLDERS[dvOpen]}` : 'DEV';
+  $('dv-crumb').classList.toggle('hidden', !dvOpen);
+  if (dvOpen) $('dv-up').addEventListener('click', e => { e.preventDefault(); devFolder(null); });
+  $('dvback').textContent = dvOpen ? '← 폴더 목록' : '← 뒤로';
+}
+document.querySelectorAll('#dv-folders .dv-folder').forEach(b => b.addEventListener('click', () => { Sfx.pick && Sfx.pick(); devFolder(b.dataset.folder); }));
+$('dv-n1').textContent = `${DEV_STAGES.length + DEV_CINES.length + DEV_EGGS.length}개`;
+$('dv-n2').textContent = `${DEV_PART2.length}개`;
+devFolder(dvOpen);
+$('dvback').addEventListener('click', () => { if (dvOpen) devFolder(null); else closeDevPanel(); });
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
 
 /* ═══════════ 루프 ═════════════════════════════════════
