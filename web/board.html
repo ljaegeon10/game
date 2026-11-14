@@ -142,7 +142,8 @@ body.admin footer #admin{ color:#fff; background:var(--danger); border-color:var
 body.admin #adminBar{ display:flex; }
 #adminBar{ display:none; position:fixed; left:50%; top:10px; transform:translateX(-50%); z-index:50; align-items:center; gap:12px; padding:8px 16px;
   font-size:clamp(12px, 1.1vw, 16px); background:rgba(140,20,28,.92); border:1px solid #ff6a5a; color:#fff; }
-#adminBar button{ font:inherit; color:#fff; background:none; border:1px solid rgba(255,255,255,.6); padding:3px 10px; cursor:pointer; }
+#adminBar button, #adminBar a{ font:inherit; color:#fff; background:none; border:1px solid rgba(255,255,255,.6); padding:3px 10px; cursor:pointer; text-decoration:none; }
+#adminBar a:hover, #adminBar button:hover{ background:rgba(255,255,255,.15); }
 li .del{ display:none; }
 body.admin li{ grid-template-columns:var(--cols) auto; }
 body.admin li .del{ display:inline-block; font:inherit; font-size:.55em; padding:4px 10px; color:#fff; background:rgba(200,40,40,.85); border:1px solid #ff6a5a; cursor:pointer; }
@@ -206,8 +207,8 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   <div class="row"><button type="button" class="no" id="admNo">취소</button><button type="submit" class="ok" id="admOk">확인</button></div>
 </form></div>
 <div id="toast"></div>
-<div id="adminBar"><span>🗑 관리 중 — 지울 기록의 ✕ 를 누르세요 (그 사람의 기록이 전부 지워져요)</span><button id="adminOff">끝내기</button></div>
-<footer id="net"><i></i><span id="netText">연결 중…</span><a id="edit" target="_blank" rel="noopener" hidden title="순위판 글 · 상품 · 공지 고치기 (구글 시트)">✏️ 수정</a><button id="admin" title="기록 지우기 — 시트 '순위판 설정' 의 관리 PIN">🗑 관리</button><button id="fs" title="전체 화면 (F)">⛶</button></footer>
+<div id="adminBar"><span>⚙ 관리 중 — 지울 기록의 ✕ 지우기</span><a id="edit" target="_blank" rel="noopener" hidden>✏️ 글 · 상품 · 공지 고치기 (시트)</a><button id="adminOff">끝내기</button></div>
+<footer id="net"><i></i><span id="netText">연결 중…</span><button id="admin" title="관리 — 기록 지우기 · 글 · 상품 고치기 (관리 코드)">⚙ 관리</button><button id="fs" title="전체 화면 (F)">⛶</button></footer>
 <div class="gate" id="gate" hidden>
   <form id="pinForm">
     <div id="gateMsg">순위판 PIN 을 입력해 주세요</div>
@@ -378,8 +379,8 @@ function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.classNam
 function admOpen(mode, r) {
   admMode = mode; admRun = r || null;
   const pin = mode === 'pin';
-  $('admTitle').textContent = pin ? '🗑 관리 PIN' : '기록을 지울까요?';
-  $('admText').innerHTML = pin ? '구글 시트 <b>「순위판 설정」</b> 탭의 <b>「관리 PIN」</b> 칸에 있는 숫자예요.'
+  $('admTitle').textContent = pin ? '⚙ 관리 코드' : '기록을 지울까요?';
+  $('admText').innerHTML = pin ? '기록 지우기 · 글 · 상품 고치기는 관리 코드가 있어야 해요.'
                                : `<b>${esc(r.name)} (···${esc(r.tail)})</b> 의 기록이 순위판 · 구글 시트에서 모두 지워져요.<br>되돌릴 수 없어요.`;
   $('admPin').hidden = !pin; $('admPin').value = '';
   $('admErr').textContent = '';
@@ -404,16 +405,16 @@ $('admForm').addEventListener('submit', async e => {
   ok.disabled = true;
   try {
     if (admMode === 'pin') {
-      const k = $('admPin').value.trim(); if (!k) { $('admErr').textContent = 'PIN 을 입력해 주세요'; ok.disabled = false; return; }
+      const k = $('admPin').value.trim(); if (!k) { $('admErr').textContent = '관리 코드를 입력해 주세요'; ok.disabled = false; return; }
       $('admErr').textContent = '확인하는 중…';
       const j = await api({ op: 'check', key: k });
-      if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 — 지울 기록의 ✕ 지우기를 누르세요'); return; }
-      $('admErr').textContent = j && j.error === 'key' ? 'PIN 이 맞지 않아요' : OLD;
+      if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 — ✕ 지우기 · 위쪽 ✏️ 로 글 · 상품 고치기'); return; }
+      $('admErr').textContent = j && j.error === 'key' ? '관리 코드가 맞지 않아요' : OLD;
     } else if (admMode === 'del') {
       const r = admRun; $('admErr').textContent = '지우는 중…';
       const j = await api({ op: 'delete', key: adminKey.get(), name: r.name, tail: r.tail });
       if (j && j.ok) { runs = runs.filter(x => !(x.name === r.name && String(x.tail) === String(r.tail))); render(); admClose(); toast(`지웠어요 — ${r.name} (${j.deleted || 0}판)`); poll(); return; }
-      if (j && j.error === 'key') { adminOn(false); admOpen('pin'); $('admErr').textContent = 'PIN 이 바뀌었어요 — 다시 입력해 주세요'; return; }
+      if (j && j.error === 'key') { adminOn(false); admOpen('pin'); $('admErr').textContent = '관리 코드가 바뀌었어요 — 다시 입력해 주세요'; return; }
       $('admErr').textContent = OLD;
     }
   } catch (err) { $('admErr').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 해 주세요'; }

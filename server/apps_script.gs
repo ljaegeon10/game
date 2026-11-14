@@ -36,10 +36,12 @@ const SETTING_ROWS = [
   ['공지', '', '비워 두면 안 보임 — 화면 아래에 흐르는 공지'],
   ['개발자 기록', '', '예: 장도우 1:43.75 — 순위와 따로 위에 나옴 (비우면 festival-config.js 의 WB_DEV)'],
   ['순위판 PIN', '', '숫자를 넣으면 그 PIN 을 알아야 순위판을 봄 (비우면 누구나)'],
-  ['관리 PIN', '', '순위판의 🗑 관리 — 이 숫자를 알아야 기록을 지움 (처음에 저절로 만들어짐 · 순위판에는 안 나감)'],
+  ['관리 PIN', '', '순위판의 ⚙ 관리 코드 — 기록 지우기 · 글 고치기 (처음에 저절로 만들어짐 · 순위판에는 안 나감)'],
   ['개발자 이름', '장도우', '이 이름의 판은 순위 · TOP 3 에서 빠짐']
 ];
 const PRIVATE = ['순위판 PIN', '관리 PIN'];                  // 순위판으로 안 보내는 항목
+/* 관리 코드 견주기 — 시트가 069211 을 숫자 69211 로 바꿔 적어도 맞게 (앞의 0 · 빈칸 무시) */
+const sameKey_ = (a, b) => { const n = v => String(v == null ? '' : v).trim().replace(/^0+(?=.)/, ''); return !!n(a) && n(a) === n(b); };
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
 
@@ -87,7 +89,7 @@ function doPost(e) {
     if (b.op === 'live') return out_(saveLive_(b.body || {}));
     if (b.op === 'run') return out_(saveRun_(b));
     if (b.op === 'delete') return out_(deleteRuns_(b));
-    if (b.op === 'check') { const k = String(settings_()['관리 PIN'] || '').trim(); return out_(k && String(b.key || '').trim() === k ? { ok: true } : { ok: false, error: 'key' }); }
+    if (b.op === 'check') return out_(sameKey_(settings_()['관리 PIN'], b.key) ? { ok: true } : { ok: false, error: 'key' });
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }
@@ -133,7 +135,7 @@ function saveRun_(b) {
 /* 순위판 🗑 — 관리 PIN 이 맞으면 그 사람(이름 + 뒷자리)의 기록을 전부 지움 ('기록' · '연락처' 의 줄 모두). id 만 주면 그 한 판만 */
 function deleteRuns_(b) {
   const set = settings_(), key = String(set['관리 PIN'] || '').trim();
-  if (!key || String(b.key || '').trim() !== key) return { ok: false, error: 'key' };
+  if (!sameKey_(key, b.key)) return { ok: false, error: 'key' };
   const name = str_(b.name, 10), tail = str_(b.tail, 4).replace(/\D/g, '').padStart(4, '0'), one = str_(b.id, 40);
   const runs = sheet_(RUNS, RUN_HEAD), n = runs.getLastRow() - 1;
   const ids = {};
