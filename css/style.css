@@ -629,6 +629,10 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 #devpanel.hidden{ display:none; }
 #devpanel .ms-q{ color:#7de3c8; }
 .dv-group{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.dv-part{ display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:560px; padding:6px 8px 8px; border:1px solid rgba(125,227,200,.22); background:rgba(125,227,200,.03); }
+.dv-part.dv-p2{ border-color:rgba(232,105,92,.35); background:rgba(232,105,92,.04); }
+.dv-ptitle{ margin:0 0 1px; font-size:8px; letter-spacing:.25em; color:#7de3c8; }
+.dv-p2 .dv-ptitle{ color:#ff9a8c; }
 .dv-label{ font-size:7px; letter-spacing:.3em; color:rgba(236,230,216,.4); }
 .dv-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:540px; }
 .dv-btn{

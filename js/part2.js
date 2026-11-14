@@ -447,6 +447,13 @@ class Part2 {
     this.say('아무도 없어. 다들 어디 간 거야.', 'me', 200, 300);
     return true;
   }
+  /* 개발자 모드 — 단서를 다 모은 채 비상구 앞 (끝 장면 바로 보기) */
+  devAtExit() {
+    const S = this.S; Object.assign(S, { light: true, lightOn: true, card: true, locker: true, rec: true, code: true, readLog: true, readFile: true, blackout: 1, exitTried: true });
+    this.recSlide = 1; this.lockSwing = 1; const i = this.solid.indexOf(this.recBlock); if (i >= 0) this.solid.splice(i, 1);
+    Object.assign(this.events, { farDone: 1, doorDone: 1, behindDone: 1, obsIn: 1, locIn: 1, recIn: 1 });
+    Object.assign(this.cam, { x: 23.6, z: .2, yaw: 0, pitch: 0 }); this.inv(); this.setObj('복도 동쪽 끝 — 비상구에 번호를 넣자'); this.buzz(true);
+  }
   fail() { if (this.root) this.root.remove(); this.running = false; this.onDone('nogl'); }
   stop() {
     this.running = false; cancelAnimationFrame(this.raf);

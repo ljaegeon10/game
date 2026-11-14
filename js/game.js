@@ -5911,11 +5911,15 @@ const DEV_STAGES = [
   ['south', '남쪽 방'], ['mid', '중앙'], ['ne', '북동 통로'], ['se', '남동 통로'],
   ['gate', '관문'], ['boss', '심층 (보스)'], ['exit', '탈출구']
 ];
-const DEV_CINES = [
+const DEV_CINES = [                                 // 1부 컷신
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '2부 전체 (깨어남 → 연구동 → 추격)'], ['part2', '2부 — 연구동 탐색부터'], ['escapedoor', '탈출 — 비상구부터'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
-  ['away', '이스터에그 : 화면 밖']
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만']
+];
+const DEV_EGGS = [['doze', '졸음'], ['away', '화면 밖']];
+const DEV_PART2 = [                                 // 2부 — 깨어남 → 연구동 탐색 → 비상구 → 추격 · 총격전
+  ['escape', '2부 전체 (깨어남부터)'], ['part2', '연구동 탐색부터'], ['part2exit', '연구동 — 비상구 앞'],
+  ['escaperun', '추격 — 비상구 지나서'], ['gunfight', '추격 — 총격전부터']
 ];
 
 let logoClicks = [];
@@ -6006,11 +6010,18 @@ function devJump(kind) {
     case 'ending':    devExit(); beginEnding(); break;
     case 'escape':
     case 'part2':
+    case 'part2exit':
+    case 'escaperun':
     case 'escapedoor':
     case 'gunfight':  devExit(); G.mode = 'ending'; stopRun();
                       ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
                       $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
-                      if (kind === 'part2') { beginPart2(); break; }
+                      if (kind === 'part2' || kind === 'part2exit') {
+                        beginPart2();
+                        if (kind === 'part2exit' && part2Scene) part2Scene.devAtExit();   // 단서는 다 모은 채 비상구 앞
+                        break;
+                      }
+                      if (kind === 'escaperun') { beginEscape('run'); break; }
                       beginEscape(kind === 'escapedoor' ? 'door' : 'wake');
                       if (kind === 'gunfight') escapeScene.jumpTo(270);
                       break;
@@ -6047,12 +6058,12 @@ DEV_STAGES.forEach(([id, name]) => {
   b.addEventListener('click', () => devJump(id));
   $('dv-stages').appendChild(b);
 });
-DEV_CINES.forEach(([id, name]) => {
+[[DEV_CINES, 'dv-cines'], [DEV_EGGS, 'dv-eggs'], [DEV_PART2, 'dv-part2']].forEach(([list, box]) => list.forEach(([id, name]) => {
   const b = document.createElement('button');
   b.className = 'dv-btn'; b.textContent = name; b.type = 'button';
   b.addEventListener('click', () => devJump(id));
-  $('dv-cines').appendChild(b);
-});
+  $(box).appendChild(b);
+}));
 $('dvback').addEventListener('click', closeDevPanel);
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
 

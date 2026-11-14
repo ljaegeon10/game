@@ -646,6 +646,10 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 #devpanel.hidden{ display:none; }
 #devpanel .ms-q{ color:#7de3c8; }
 .dv-group{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.dv-part{ display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; max-width:560px; padding:6px 8px 8px; border:1px solid rgba(125,227,200,.22); background:rgba(125,227,200,.03); }
+.dv-part.dv-p2{ border-color:rgba(232,105,92,.35); background:rgba(232,105,92,.04); }
+.dv-ptitle{ margin:0 0 1px; font-size:8px; letter-spacing:.25em; color:#7de3c8; }
+.dv-p2 .dv-ptitle{ color:#ff9a8c; }
 .dv-label{ font-size:7px; letter-spacing:.3em; color:rgba(236,230,216,.4); }
 .dv-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:4px; max-width:540px; }
 .dv-btn{
@@ -1623,8 +1627,14 @@ body.paused #tpause{ display:none; }
       <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
       <div id="devpanel" class="hidden">
         <p class="ms-q">DEV MODE</p>
-        <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
-        <div class="dv-group"><span class="dv-label">컷신</span><div class="dv-row" id="dv-cines"></div></div>
+        <div class="dv-part"><p class="dv-ptitle">1부 — 우물 아래</p>
+          <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
+          <div class="dv-group"><span class="dv-label">컷신</span><div class="dv-row" id="dv-cines"></div></div>
+          <div class="dv-group"><span class="dv-label">이스터에그</span><div class="dv-row" id="dv-eggs"></div></div>
+        </div>
+        <div class="dv-part dv-p2"><p class="dv-ptitle">2부 — 연구동</p>
+          <div class="dv-group"><div class="dv-row" id="dv-part2"></div></div>
+        </div>
         <label class="dv-toggle"><input type="checkbox" id="dv-god"> 무적</label>
         <p class="dv-hint">게임 중 <b>K</b> 방의 적 전부 처치 · <b>`</b> 이 화면으로 돌아오기</p>
         <button id="dvback">← 뒤로</button>
@@ -13413,6 +13423,13 @@ class Part2 {
     this.say('아무도 없어. 다들 어디 간 거야.', 'me', 200, 300);
     return true;
   }
+  /* 개발자 모드 — 단서를 다 모은 채 비상구 앞 (끝 장면 바로 보기) */
+  devAtExit() {
+    const S = this.S; Object.assign(S, { light: true, lightOn: true, card: true, locker: true, rec: true, code: true, readLog: true, readFile: true, blackout: 1, exitTried: true });
+    this.recSlide = 1; this.lockSwing = 1; const i = this.solid.indexOf(this.recBlock); if (i >= 0) this.solid.splice(i, 1);
+    Object.assign(this.events, { farDone: 1, doorDone: 1, behindDone: 1, obsIn: 1, locIn: 1, recIn: 1 });
+    Object.assign(this.cam, { x: 23.6, z: .2, yaw: 0, pitch: 0 }); this.inv(); this.setObj('복도 동쪽 끝 — 비상구에 번호를 넣자'); this.buzz(true);
+  }
   fail() { if (this.root) this.root.remove(); this.running = false; this.onDone('nogl'); }
   stop() {
     this.running = false; cancelAnimationFrame(this.raf);
@@ -21205,11 +21222,15 @@ const DEV_STAGES = [
   ['south', '남쪽 방'], ['mid', '중앙'], ['ne', '북동 통로'], ['se', '남동 통로'],
   ['gate', '관문'], ['boss', '심층 (보스)'], ['exit', '탈출구']
 ];
-const DEV_CINES = [
+const DEV_CINES = [                                 // 1부 컷신
   ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
-  ['endlines', '엔딩 대사'], ['ending', '엔딩만'], ['escape', '2부 전체 (깨어남 → 연구동 → 추격)'], ['part2', '2부 — 연구동 탐색부터'], ['escapedoor', '탈출 — 비상구부터'], ['gunfight', '탈출 — 총격전부터'], ['doze', '이스터에그 : 졸음'],
-  ['away', '이스터에그 : 화면 밖']
+  ['endlines', '엔딩 대사'], ['ending', '엔딩만']
+];
+const DEV_EGGS = [['doze', '졸음'], ['away', '화면 밖']];
+const DEV_PART2 = [                                 // 2부 — 깨어남 → 연구동 탐색 → 비상구 → 추격 · 총격전
+  ['escape', '2부 전체 (깨어남부터)'], ['part2', '연구동 탐색부터'], ['part2exit', '연구동 — 비상구 앞'],
+  ['escaperun', '추격 — 비상구 지나서'], ['gunfight', '추격 — 총격전부터']
 ];
 
 let logoClicks = [];
@@ -21300,11 +21321,18 @@ function devJump(kind) {
     case 'ending':    devExit(); beginEnding(); break;
     case 'escape':
     case 'part2':
+    case 'part2exit':
+    case 'escaperun':
     case 'escapedoor':
     case 'gunfight':  devExit(); G.mode = 'ending'; stopRun();
                       ['prompt', 'hud', 'subtitle'].forEach(id => $(id).classList.add('hidden'));
                       $('ending').classList.remove('hidden'); Sfx.ambientStop(); Sfx.dungeonBgm(false);
-                      if (kind === 'part2') { beginPart2(); break; }
+                      if (kind === 'part2' || kind === 'part2exit') {
+                        beginPart2();
+                        if (kind === 'part2exit' && part2Scene) part2Scene.devAtExit();   // 단서는 다 모은 채 비상구 앞
+                        break;
+                      }
+                      if (kind === 'escaperun') { beginEscape('run'); break; }
                       beginEscape(kind === 'escapedoor' ? 'door' : 'wake');
                       if (kind === 'gunfight') escapeScene.jumpTo(270);
                       break;
@@ -21341,12 +21369,12 @@ DEV_STAGES.forEach(([id, name]) => {
   b.addEventListener('click', () => devJump(id));
   $('dv-stages').appendChild(b);
 });
-DEV_CINES.forEach(([id, name]) => {
+[[DEV_CINES, 'dv-cines'], [DEV_EGGS, 'dv-eggs'], [DEV_PART2, 'dv-part2']].forEach(([list, box]) => list.forEach(([id, name]) => {
   const b = document.createElement('button');
   b.className = 'dv-btn'; b.textContent = name; b.type = 'button';
   b.addEventListener('click', () => devJump(id));
-  $('dv-cines').appendChild(b);
-});
+  $(box).appendChild(b);
+}));
 $('dvback').addEventListener('click', closeDevPanel);
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
 
