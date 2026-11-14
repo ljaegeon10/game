@@ -21,7 +21,7 @@ g.imageSmoothingEnabled = false;
 /* 고해상도 화면 — 오프닝은 3배 해상도 캔버스(#gamehi)에 그립니다. 그리는 코드는 그대로
    (576×324 좌표), cv · g 만 잠깐 바꿔 끼우고 기본 변환을 SR 배로 둡니다. 그 밖엔 늘 SR = 1 */
 const cvMain = cv, gMain = g, HI_R = 3;
-let SR = 1, cvHi = null, gHi = null;
+let SR = 1, cvHi = null, gHi = null, onSH = null;   // onSH : 화면 세로가 바뀔 때 (미리 지은 오프닝 3D 크기 맞춤)
 
 const $ = id => document.getElementById(id);
 const stage = $('stage');
@@ -43,6 +43,7 @@ function fit() {
     stage.style.height = SH + 'px';
     cvMain.height = SH; cvMain.style.height = SH + 'px'; gMain.imageSmoothingEnabled = false;
     if (cvHi) { cvHi.height = SH * HI_R; cvHi.style.height = SH + 'px'; }
+    if (onSH) onSH();
   }
   if (window.TitleScreen && TitleScreen.resize) TitleScreen.resize(1920 * SH / VW);
   const n = Math.max(.4, Math.min(viewW() / VW, viewH() / SH));
@@ -697,7 +698,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmOpening(2000);
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -4889,14 +4890,31 @@ function op3d() {
   try {
     if (!window.LabRoom || !window.Figure3D || !window.Opening3D) return null;
     const lab = new LabRoom(); if (!lab.ok) return null;
-    const FW = cvHi ? cvHi.width : 960, FH = cvHi ? cvHi.height : 540;
+    const FW = VW * HI_R, FH = SH * HI_R;                           // 고해상도 화면(cvHi)과 같은 크기 — 시작 전에 미리 지어도 맞게
     const fig = new Figure3D(FW, FH); if (!fig.ok) return null;    // 방호복도 고해상도 화면 그대로 (늘려 찍으면 흐려졌음)
     fig.k = FW / 960;
-    const scene = new Opening3D(cvHi ? cvHi.width : 960, cvHi ? cvHi.height : 540); if (!scene.ok) return null;
-    lab.setScale((cvHi ? cvHi.width : 960) / 960);
+    const scene = new Opening3D(FW, FH); if (!scene.ok) return null;
+    lab.setScale(FW / 960);
     OP3 = { lab, fig, scene, ceil: null };
   } catch (e) { OP3 = null; }
   return OP3;
+}
+/* 시작화면에 있는 동안 오프닝 3D 를 미리 — 시작 버튼을 누르는 순간 한꺼번에 지으면 1~2초 멈췄음.
+   한 번에 하나씩, 화면이 쉬는 틈에 (사람 메시 → 실험실 · 숲 → 셰이더 데우기 · 우물 굽기) */
+let warmT = 0;
+function warmOpening(delay = 1200) {
+  clearTimeout(warmT);
+  const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 800 }) : setTimeout(fn, 0));
+  const steps = [
+    () => { if (window.Figure3D && Figure3D.warm) Figure3D.warm(); },
+    () => { op3d(); },
+    () => { const R = OP3; if (!R) return;                         // 첫 그리기 — 셰이더 컴파일 · 텍스처 올리기를 여기서
+            try { opLabImage(R, 0, .9); R.fig.render({ kind: 'suit', x: .34, y: -1.58, z: .98, yaw: -.25, stride: 0, reach: .45, lean: .35, alpha: 1 },
+                  { cam: { f: 450, px: 480, py: 250, roll: -.55 }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0], lights: OP_LIT }); } catch (e) {} },
+    () => { if (window.WellShaft) WellShaft.prebake(); }
+  ];
+  const next = () => { if (!titleUp() || !steps.length) return; steps.shift()(); warmT = setTimeout(() => idle(next), 120); };
+  warmT = setTimeout(() => idle(next), delay);
 }
 function op3dDispose() {
   if (!OP3) return;
@@ -6166,6 +6184,7 @@ window.__game = { part2: () => part2Scene, G, P, RUN, MAP, BALANCE, loadRoom, lo
   }, 1000);
 })();
 
-loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });
+onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); warmOpening(800); } };
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); warmOpening(1500); });
 
 })();
