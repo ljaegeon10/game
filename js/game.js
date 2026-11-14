@@ -5160,9 +5160,13 @@ function drawOpWatcher(w) {
     g.strokeStyle = 'rgba(214,204,140,.7)'; g.lineWidth = 2.5;
     g.beginPath(); g.ellipse(0, 0, 32, 39, 0, Math.PI * 1.1, Math.PI * 1.75); g.stroke();
     g.fillStyle = '#050406';
-    g.beginPath(); g.ellipse(-3, 5, 20, 25, 0, 0, Math.PI * 2); g.fill();        // 얼굴창
-    g.strokeStyle = `rgba(255,214,170,${.7 + Math.sin(w * .5) * .25})`; g.lineWidth = 3; g.lineCap = 'round';
-    g.beginPath(); g.ellipse(-3, 5, 15, 20, 0, Math.PI * 1.05, Math.PI * 1.45); g.stroke();
+    g.beginPath(); g.ellipse(-3, 5, 20, 25, 0, 0, Math.PI * 2); g.fill();        // 검은 마스크
+    g.fillStyle = '#1c2028'; for (const sx of [-1, 1]) { g.beginPath(); g.arc(-3 + sx * 9, -2, 8.5, 0, Math.PI * 2); g.fill(); }   // 고글 테
+    g.fillStyle = '#020203'; for (const sx of [-1, 1]) { g.beginPath(); g.arc(-3 + sx * 9, -2, 6.3, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#2a313b'; g.beginPath(); g.arc(-3, 17, 8.5, 0, Math.PI * 2); g.fill();                                           // 입 앞 정화통 하나
+    g.fillStyle = '#0c0e12'; g.beginPath(); g.arc(-3, 17, 4.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = `rgba(255,214,170,${.7 + Math.sin(w * .5) * .25})`; g.lineWidth = 2; g.lineCap = 'round';
+    for (const sx of [-1, 1]) { g.beginPath(); g.arc(-3 + sx * 9, -2, 5, Math.PI * 1.05, Math.PI * 1.5); g.stroke(); }             // 렌즈에 비친 노을
     g.lineCap = 'butt';
     g.restore();
   }

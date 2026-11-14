@@ -1540,14 +1540,20 @@ function drawSuit(b, s, pt, k, dz, z, o) {
   if (hr > 4) { b.fillStyle = YL; b.beginPath(); b.ellipse(hd[0] - hr * .35, hd[1] - hr * .55, hr * .35, hr * .2, -.5, 0, Math.PI * 2); b.fill(); }
   b.fillStyle = sh([7, 9, 12]); b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .1, hr * .62, hr * .72, 0, 0, Math.PI * 2); b.fill();
   if (hr > 5) { b.strokeStyle = K; b.lineWidth = Math.max(1, hr * .1); b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .1, hr * .66, hr * .76, 0, 0, Math.PI * 2); b.stroke(); }
+  if (hr > 3) {                                            // 고글 두 알 · 입 앞 정화통 하나 (3D 모델 figure3d.js 와 같은 얼굴)
+    for (const sx of [-1, 1]) { b.fillStyle = sh([32, 37, 45]); b.beginPath(); b.arc(hd[0] + sx * hr * .27, hd[1] - hr * .12, hr * .27, 0, Math.PI * 2); b.fill();
+      b.fillStyle = sh([4, 5, 7]); b.beginPath(); b.arc(hd[0] + sx * hr * .27, hd[1] - hr * .12, hr * .2, 0, Math.PI * 2); b.fill(); }
+    b.fillStyle = sh([61, 70, 82]); b.beginPath(); b.arc(hd[0], hd[1] + hr * .45, hr * .26, 0, Math.PI * 2); b.fill();
+    b.fillStyle = sh([20, 23, 28]); b.beginPath(); b.arc(hd[0], hd[1] + hr * .45, hr * .14, 0, Math.PI * 2); b.fill();
+  }
   if (o.visor > 0) {                                       // 얼굴창 속 붉은 불빛 (경비원이 겨눌 때)
     b.fillStyle = `rgba(255,${60 - o.visor * 40},${50 - o.visor * 30},${.35 + o.visor * .6})`;
-    b.fillRect(hd[0] - hr * .45, hd[1] - hr * .05, hr * .9, Math.max(1, hr * .16));
+    for (const sx of [-1, 1]) { b.beginPath(); b.arc(hd[0] + sx * hr * .27, hd[1] - hr * .12, hr * .16, 0, Math.PI * 2); b.fill(); }   // 고글 속 붉은 불빛
   }
   const gl = o.glint == null ? .7 + .3 * Math.sin(s.frame * .2) : o.glint;    // 형광등이 얼굴창을 스침
   if (gl > .05) {
     b.strokeStyle = `rgba(235,245,255,${gl * .85})`; b.lineWidth = Math.max(.6, hr * .1);
-    b.beginPath(); b.ellipse(hd[0], hd[1] + hr * .1, hr * .5, hr * .6, 0, Math.PI * 1.08, Math.PI * 1.42); b.stroke();
+    for (const sx of [-1, 1]) { b.beginPath(); b.arc(hd[0] + sx * hr * .27, hd[1] - hr * .12, hr * .16, Math.PI * 1.08, Math.PI * 1.5); b.stroke(); }   // 고글 렌즈에
     if (hr > 6) { b.fillStyle = `rgba(235,245,255,${gl * .7})`; b.beginPath(); b.arc(hd[0] + hr * .28, hd[1] - hr * .3, hr * .07, 0, Math.PI * 2); b.fill(); }
   }
   b.lineCap = 'butt'; b.lineJoin = 'miter';

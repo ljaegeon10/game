@@ -128,15 +128,43 @@ function buildSuit() {
     (u, th) => .014 * crease(th * 2.5 + u * 2) * Math.sin(u * PI) + .034 * Math.exp(-Math.pow((u - .24) / .07, 2)) * crease(th * 4.5 + Math.sin(th * 2) * 2)
              + .008 * Math.sin(th * 3 - u * 5) + .02 * Math.exp(-Math.pow(u / .1, 2)) * Math.sin(th * 7 + 1.3)      // 자락 끝은 물결
              - .014 * Math.exp(-Math.pow((u - .24) / .035, 2)), C.suit, MAT.suit);
-  // 보호면 — 후드 앞으로 살짝 튀어나온 새까만 유리, 둘레 고무 테두리 (얼굴은 보이지 않음)
-  torso.ellipsoid([0, .728, .104], [.112, 0, 0], [0, .122, 0], [0, 0, .122], hex('#07090c'), 28, 20, { m: MAT.visor });
-  ring(torso, [0, .728, .172], .1, .109, .014, C.gasket, MAT.gloss(.35), .012);
-  // 턱 양옆의 정화통 — 짧은 원통 · 앞의 구멍 난 덮개
+  // ── 얼굴 — 후드 속 검은 고무 마스크 · 둥근 고글 두 알 · 입 앞 가운데 정화통 하나 (얼굴은 보이지 않음)
+  torso.ellipsoid([0, .724, .098], [.108, 0, 0], [0, .12, 0], [0, 0, .1], hex('#15181e'), 28, 20, { m: MAT.gloss(.12) });
+  ring(torso, [0, .728, .172], .1, .109, .014, C.gasket, MAT.gloss(.35), .012);          // 후드 조임 테두리
+  // 고글 — 두꺼운 고무 테 · 살짝 볼록한 새까만 렌즈 · 금속 조임 고리 · 코 다리 · 머리 뒤로 도는 끈
+  const GY = .768, GX = .05;
   for (const sx of [-1, 1]) {
-    const o = [sx * .078, .612, .128], ax = norm([sx * .62, -.38, .68]);
-    torso.lathe(o, ax, [[.026, 0], [.03, .006], [.037, .012], [.037, .046], [.032, .052], [.02, .054, hex('#14171c')], [0, .054, hex('#14171c')]], hex('#3d4652'), 18, { m: MAT.gloss(.5) });
-    torso.torus(add(o, mul(ax, .03)), ax, .037, .004, hex('#59636f'), 18, 6, { m: MAT.gloss(.7) });
+    const ax = norm([sx * .2, -.04, 1]), o = [sx * GX, GY, .168];
+    torso.lathe(o, ax, [[.046, 0], [.049, .006], [.049, .024], [.045, .031], [.039, .033], [.037, .028, hex('#0c0e12')]], hex('#20252d'), 28, { m: MAT.gloss(.4) });
+    const lc = add(o, mul(ax, .024)), U = norm(cross([0, 1, 0], ax)), V = cross(ax, U);
+    torso.ellipsoid(lc, mul(U, .0385), mul(V, .0385), mul(ax, .011), hex('#07090c'), 22, 12, { m: MAT.visor });
+    torso.torus(add(o, mul(ax, .031)), ax, .0425, .0035, hex('#6a7480'), 28, 6, { m: MAT.gloss(.85) });
+    torso.torus(add(o, mul(ax, .004)), ax, .049, .005, hex('#14171c'), 24, 6, { m: MAT.gloss(.3) });
+    // 옆 통기구 · 끈 고리
+    torso.rbox(sx * .098 - .008, sx * .098 + .008, GY - .014, GY + .014, .158, .178, hex('#3a424e'), .004, { m: MAT.gloss(.7) });
   }
+  torso.rbox(-.014, .014, GY - .012, GY + .01, .182, .198, hex('#20252d'), .006, { m: MAT.gloss(.4) });      // 코 다리
+  { const st = []; for (let i = 0; i <= 40; i++) { const th = lerp(.62, TAU - .62, i / 40); st.push([Math.sin(th) * .171, GY + .012 * Math.sin(th * .5) , .012 + Math.cos(th) * .166]); }
+    torso.tube(st, .0105, hex('#101318'), 8, { m: MAT.gloss(.3) });
+    torso.tube(st.map(p => [p[0] * 1.012, p[1], .012 + (p[2] - .012) * 1.012]), .0045, hex('#8e98a4'), 5, { m: MAT.gloss(.5) }); }   // 끈 가운데 회색 줄
+  // 반면 마스크 — 코 · 입을 덮는 고무 컵, 가운데 앞으로 정화통 하나
+  torso.ellipsoid([0, .676, .168], [.064, 0, 0], [0, .052, 0], [0, 0, .05], hex('#262c36'), 22, 14, { m: MAT.gloss(.4) });
+  torso.ellipsoid([0, .706, .186], [.022, 0, 0], [0, .03, 0], [0, 0, .022], hex('#262c36'), 12, 8, { m: MAT.gloss(.4) });   // 콧등
+  { const o = [0, .668, .2], ax = norm([0, -.3, 1]);
+    torso.lathe(o, ax, [[.028, 0], [.032, .008], [.034, .016], [.044, .02], [.046, .026], [.046, .06], [.043, .068], [.039, .071], [.035, .067, hex('#14171c')], [0, .067, hex('#14171c')]],
+                hex('#3d4652'), 30, { m: MAT.gloss(.5) });
+    torso.torus(add(o, mul(ax, .026)), ax, .046, .0045, hex('#59636f'), 30, 6, { m: MAT.gloss(.75) });
+    torso.torus(add(o, mul(ax, .043)), ax, .0465, .0055, hex('#b9a551'), 30, 6, { m: MAT.gloss(.3) });          // 노란 띠 (필터 등급 표시)
+    torso.torus(add(o, mul(ax, .061)), ax, .0455, .004, hex('#59636f'), 30, 6, { m: MAT.gloss(.75) });
+    // 앞 덮개 — 동심원 숨구멍 · 가운데 나사
+    for (const r of [.011, .02, .029]) torso.torus(add(o, mul(ax, .0685)), ax, r, .0026, hex('#566170'), 24, 5, { m: MAT.gloss(.6) });
+    torso.lathe(add(o, mul(ax, .067)), ax, [[.006, 0], [.006, .006], [0, .007]], hex('#8e98a4'), 10, { m: MAT.gloss(.9) }); }
+  // 마스크 끈 — 볼을 지나 후드 속으로, 턱 아래 날숨 밸브
+  for (const sx of [-1, 1]) {
+    torso.tube([[sx * .055, .69, .19], [sx * .08, .698, .176], [sx * .098, .704, .158]], .007, hex('#101318'), 6, { m: MAT.gloss(.3) });
+    torso.tube([[sx * .05, .652, .185], [sx * .074, .652, .17], [sx * .09, .655, .154]], .007, hex('#101318'), 6, { m: MAT.gloss(.3) });
+  }
+  torso.lathe([0, .632, .178], norm([0, -1, .35]), [[.016, 0], [.019, .004], [.019, .012], [.012, .016, hex('#14171c')], [0, .016, hex('#14171c')]], hex('#3a424e'), 16, { m: MAT.gloss(.6) });
   // 등의 송풍기(공기 정화 장치) — 둥근 상자 · 어깨끈 · 후드 뒤로 올라가는 주름 호스
   torso.rbox(-.105, .105, .1, .35, -.225, -.135, hex('#2c333f'), .03, { m: MAT.gloss(.3) });
   torso.rbox(-.07, .07, .14, .2, -.232, -.22, hex('#1a1e26'), .008, { m: MAT.gloss(.2) });

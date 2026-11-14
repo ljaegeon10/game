@@ -590,10 +590,12 @@ class Lab {
     R('#1a1f28', ox - 2, 71, 4, 4); R('#c9a040', ox - 1, 72, 2, 2);
     x.fillStyle = '#46442f'; x.beginPath(); x.ellipse(ox, 59, 6.5, 7.5, 0, 0, 7); x.fill();
     x.fillStyle = '#706a45'; x.beginPath(); x.ellipse(ox, 58, 5.8, 6.6, 0, 0, 7); x.fill();
-    x.fillStyle = '#040507'; x.beginPath(); x.ellipse(ox, 59, 3.4, 4.3, 0, 0, 7); x.fill();
+    x.fillStyle = '#15181e'; x.beginPath(); x.ellipse(ox, 59, 3.6, 4.4, 0, 0, 7); x.fill();      // 검은 고무 마스크
+    R('#040507', ox - 3, 57, 3, 2); R('#040507', ox + 1, 57, 3, 2);                               // 고글 두 알
+    R('#3d4652', ox - 1, 60, 3, 3); R('#b9a551', ox - 1, 61, 3, 1);                               // 입 앞 정화통 하나
     R('#101a25', ox - 15, 74, 6, 9);                     // 클립보드
     R('#1a1f28', ox - 13, 78, 3, 3);                     // 청회색 장갑
-    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox - 2, 56, 2, 1);   // 얼굴창에 빛이 스침
+    if (Math.sin(t * .021) > .93) R('rgba(200,230,255,.8)', ox - 3, 57, 1, 1);   // 고글에 빛이 스침
     x.strokeStyle = 'rgba(255,255,255,.07)'; x.lineWidth = 2;
     x.beginPath(); x.moveTo(205, 92); x.lineTo(230, 36); x.moveTo(222, 92); x.lineTo(240, 52); x.stroke();
 
