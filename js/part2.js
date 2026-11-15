@@ -472,31 +472,69 @@ class Part2 {
       const o2 = ac.createOscillator(); o2.type = 'sine'; o2.frequency.value = 73.6; const g2 = ac.createGain(); g2.gain.value = .5; o2.connect(g2); g2.connect(g);
       o.start(); o2.start(); g.gain.exponentialRampToValueAtTime(.05, ac.currentTime + 3); this.humN = { g, o, o2 }; } catch (e) {}
   }
-  /* 정전 뒤 — 백룸 같은 형광등 소리 : 120Hz 지지직 + 가늘게 새는 고음 (낮게 둥둥 울리던 드론 · 심장 소리 대신, 귀가 덜 아프게) */
+  /* 정전 뒤 — 누전 소리 : 어디선가 전선이 합선돼 지직… 파직! 하고 튀는 잡음 (낮은 둥 · 삐— 하는 고음 없이) */
   buzz(on) {
     try {
       const ac = this.audio(); if (!ac) return;
       if (!on) { if (this.buzzN) { this.buzzN.g.gain.setTargetAtTime(.0001, ac.currentTime, .5); } return; }
-      if (this.buzzN) { this.buzzN.g.gain.setTargetAtTime(2.6, ac.currentTime, .8); return; }
+      if (this.buzzN) { this.buzzN.g.gain.setTargetAtTime(1, ac.currentTime, .8); return; }
       const out = window.Settings ? Settings.bus(ac, 'sfx', Settings.out(ac)) : ac.destination;
-      const g = ac.createGain(); g.gain.value = .0001; g.connect(out); g.gain.setTargetAtTime(2.6, ac.currentTime + .4, .9);
-      const nodes = [];
-      const osc = (type, f) => { const o = ac.createOscillator(); o.type = type; o.frequency.value = f; nodes.push(o); return o; };
-      const gain = v => { const x = ac.createGain(); x.gain.value = v; return x; };
-      const filt = (type, f, q = .7) => { const x = ac.createBiquadFilter(); x.type = type; x.frequency.value = f; x.Q.value = q; return x; };
-      // 형광등 지지직 — 120Hz 톱니파의 윗배음만 (낮은 둥 소리는 걸러 냄)
-      const z1 = osc('sawtooth', 120), bp = filt('bandpass', 2600, .9), hp = filt('highpass', 900), zg = gain(.022);
-      z1.connect(bp); bp.connect(hp); hp.connect(zg); zg.connect(g);
-      const z2 = osc('square', 240), hp2 = filt('highpass', 3200), zg2 = gain(.004);
-      z2.connect(hp2); hp2.connect(zg2); zg2.connect(g);
-      // 가늘게 새는 고음 두 줄 — 아주 작게, 천천히 흔들림
-      const w1 = osc('sine', 7600), w2 = osc('sine', 9850), wg1 = gain(.0026), wg2 = gain(.0012);
-      w1.connect(wg1); wg1.connect(g); w2.connect(wg2); wg2.connect(g);
-      const lfo = osc('sine', .23), lg = gain(22); lfo.connect(lg); lg.connect(w1.frequency);
-      // 가끔 떨리는 크기 (전압이 흔들리는 느낌)
-      const flut = osc('sine', 3.1), fg = gain(.006); flut.connect(fg); fg.connect(zg.gain);
+      const g = ac.createGain(); g.gain.value = .0001; g.connect(out); g.gain.setTargetAtTime(1, ac.currentTime + .3, .6);
+      const sr = ac.sampleRate, nodes = [];
+      // ① 잡음 — 흰 잡음에 불꽃 튀는 딱딱 소리를 섞어 둠 (7초 반복)
+      const nb = ac.createBuffer(1, sr * 7, sr), nd = nb.getChannelData(0);
+      for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      // ② 크기 — 전기가 붙었다 떨어졌다 : 잘게 떨리는 지직(60Hz 로 끊김) 구간 · 조용한 틈 · 가끔 파직 하는 큰 불꽃 (11초 반복, 잡음과 길이가 달라 되풀이가 안 들림)
+      const eb = ac.createBuffer(1, sr * 11, sr), ed = eb.getChannelData(0);
+      let i = 0;
+      while (i < ed.length) {
+        const r = Math.random();
+        if (r < .36) { i += sr * (.05 + Math.random() * .45) | 0; continue; }                 // 조용한 틈
+        if (r < .88) {                                                                       // 지직 — 60Hz 로 끊기는 떨림
+          const len = sr * (.08 + Math.random() * .7) | 0, amp = .12 + Math.random() * .22, hz = 50 + Math.random() * 20;
+          for (let k = 0; k < len && i + k < ed.length; k++) { const ph = (k / sr * hz) % 1, e = Math.min(1, k / 300, (len - k) / 600);
+            ed[i + k] = amp * e * (ph < .32 ? 1 : .06) * (.6 + .4 * Math.random()); }
+          i += len;
+        } else {                                                                             // 파직! — 큰 불꽃 뒤에 잔 불꽃 몇 개
+          const n = 1 + (Math.random() * 4 | 0);
+          for (let q = 0; q < n; q++) { const len = sr * (.012 + Math.random() * .03) | 0, amp = (q ? .35 : .8) + Math.random() * .2;
+            for (let k = 0; k < len && i + k < ed.length; k++) ed[i + k] = amp * Math.exp(-k / (sr * .008));
+            i += len + (sr * (.02 + Math.random() * .09) | 0); }
+        }
+      }
+      const noise = ac.createBufferSource(); noise.buffer = nb; noise.loop = true; nodes.push(noise);
+      const env = ac.createBufferSource(); env.buffer = eb; env.loop = true; nodes.push(env);
+      const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2300; bp.Q.value = .55;
+      const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 500;
+      const vca = ac.createGain(); vca.gain.value = 0; env.connect(vca.gain);
+      noise.connect(bp); bp.connect(hp); hp.connect(vca);
+      const lvl = ac.createGain(); lvl.gain.value = .5; vca.connect(lvl); lvl.connect(g);
+      // ③ 지직 밑에 깔리는 전기 웅 — 같은 크기 흐름을 따라 켜졌다 꺼짐 (윗배음만)
+      const hum = ac.createOscillator(); hum.type = 'sawtooth'; hum.frequency.value = 120; nodes.push(hum);
+      const hh = ac.createBiquadFilter(); hh.type = 'bandpass'; hh.frequency.value = 900; hh.Q.value = .8;
+      const hv = ac.createGain(); hv.gain.value = 0; env.connect(hv.gain);
+      const hl = ac.createGain(); hl.gain.value = .12; hum.connect(hh); hh.connect(hv); hv.connect(hl); hl.connect(g);
       nodes.forEach(n => n.start());
       this.buzzN = { g, nodes };
+    } catch (e) {}
+  }
+  /* 갑툭튀 — 낮게 깔리며 덮치는 소리 : 낮은 톱니파 둘이 살짝 어긋난 채 아래로 떨어지고, 묵직한 숨 같은 잡음 (k 0‥1 세기) */
+  sting(k = 1) {
+    try {
+      const ac = this.audio(); if (!ac) return;
+      const out = window.Settings ? Settings.bus(ac, 'sfx', Settings.out(ac)) : ac.destination, t = ac.currentTime, dur = 1.1 + k * .7;
+      const g = ac.createGain(); g.connect(out);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2 + .16 * k, t + .035); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(520, t); lp.frequency.exponentialRampToValueAtTime(140, t + dur * .7); lp.connect(g);
+      for (const [f0, f1, type, v] of [[82, 46, 'sawtooth', .55], [87.5, 48.5, 'sawtooth', .45], [123, 69, 'triangle', .3], [55, 41, 'sine', .7]]) {
+        const o = ac.createOscillator(), og = ac.createGain(); o.type = type; og.gain.value = v;
+        o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * .8);
+        o.connect(og); og.connect(lp); o.start(t); o.stop(t + dur + .05);
+      }
+      const n = Math.floor(ac.sampleRate * .5), nb = ac.createBuffer(1, n, ac.sampleRate), d = nb.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (n * .3));
+      const ns = ac.createBufferSource(), nf = ac.createBiquadFilter(), ng = ac.createGain(); ns.buffer = nb; nf.type = 'lowpass'; nf.frequency.value = 300; ng.gain.value = .5 * k;
+      ns.connect(nf); nf.connect(ng); ng.connect(g); ns.start(t);
     } catch (e) {}
   }
   /* ── 글자 ── */
@@ -611,16 +649,16 @@ class Part2 {
     // 스쳐 가는 그림자들 — 정해 둔 때가 되면, 그 자리가 실제로 눈에 들어오는 순간 나타남 (안 보고 지나치면 볼 때까지 기다림)
     if (E.far && t >= E.far && !E.farDone && !this.fig && Math.abs(c.z) < 1.4) {
       const spot = [2, 4.5, 8.5, 10.5, 14.5, 16.5, 20.5, 24].map(x => [x, 0]).find(p => { const d = Math.abs(p[0] - c.x); return d > 5 && d < 14 && this.sees(p, .93); });
-      if (spot) { E.farDone = 1; this.fig = { x: spot[0], z: 0, until: t + 40, lit: 1 }; this.fx('glitch', .7); this.say('…방금, 저기 누가 서 있었어.', 'me', 180, 50); }
+      if (spot) { E.farDone = 1; this.fig = { x: spot[0], z: 0, until: t + 40, lit: 1 }; this.sting(.5); this.say('…방금, 저기 누가 서 있었어.', 'me', 180, 50); }
     }
     if (E.bang && t === E.bang) { this.fx('landThump', .7); this.shake = 9; this.say('…복도에서 난 소리야.', 'me', 150, 30); this.say('보안 요원, B동 3층 도착. 수색을 시작합니다.', 'pa', 280, 200); E.cart = 1; }
     // 카드를 꺼낸 뒤 — 탈의실 문간 너머 복도에 (나가려면 문 쪽을 볼 수밖에 없음)
     if (E.door && t >= E.door && !E.doorDone && !this.fig && c.z < -1.9 && this.sees([LOC.door, -.9], .9)) {
-      E.doorDone = 1; this.fig = { x: LOC.door, z: -.9, until: t + 30, lit: 1 }; this.fx('glitch', .8); this.shake = 6; this.say('…!', 'me', 60, 10);
+      E.doorDone = 1; this.fig = { x: LOC.door, z: -.9, until: t + 30, lit: 1 }; this.sting(.75); this.shake = 6; this.say('…!', 'me', 60, 10);
     }
     if (E.behind && t >= E.behind && !E.behindDone) {                          // 파일을 읽고 돌아서면 — 문간에 서 있다
       if (!E.behindSet) { E.behindSet = 1; this.fig = { x: REC.door, z: HALL.z1 + .6, until: t + 99999, lit: 1 }; }
-      if (this.sees([REC.door, HALL.z1 + .6], .82)) { E.behindDone = 1; this.fig.until = t + 18; this.fx('glitch', 1); this.fx('static', .35, .5); this.shake = 12; this.say('!!', 'me', 50); this.say('…갔어. 빨리 나가야 해.', 'me', 170, 90); }
+      if (this.sees([REC.door, HALL.z1 + .6], .82)) { E.behindDone = 1; this.fig.until = t + 18; this.sting(1); this.shake = 12; this.say('!!', 'me', 50); this.say('…갔어. 빨리 나가야 해.', 'me', 170, 90); }
     }
     if (this.fig && t > this.fig.until) this.fig = null;
     // 정전 뒤 — 심장 소리, 멀리서 발소리
@@ -643,7 +681,7 @@ class Part2 {
       if (e === 30) { this.red = 1; this.fx('alarm'); this.shake = 10; this.say('B동 봉쇄. B동 봉쇄.', 'sys', 160); for (const L of LV.lights) if (!L.box || L.box[0] < VEST.x0 - 1) L.on = 0; }
       if (e === 50 || e === 80 || e === 110) this.fx('alarm');
       if (e === 70) { this.fx('step'); this.fig = { x: Math.max(1.5, c.x - 10), z: 0, until: t + 99999, lit: 1, run: 1 };
-                      this.forceLook = { yaw: Math.PI, pitch: 0, k: .12 }; this.say('어디 가요, 07.', 'doc', 120, 12); this.fx('glitch', 1); this.shake = 6; }
+                      this.forceLook = { yaw: Math.PI, pitch: 0, k: .12 }; this.say('어디 가요, 07.', 'doc', 120, 12); this.sting(1); this.shake = 6; }
       if (e === 135) { this.forceLook = { yaw: 0, pitch: 0, k: .16 }; }
       if (e === 160) { this.forceLook = null; S.ending = 2; this.say('달려!', 'me', 120); this.setObj('비상구 너머로 달려!'); }
       if (this.fig && this.fig.run && e > 70) { this.fig.x += e < 160 ? .035 : .07; if (Math.abs(this.fig.z - c.z) > .01) this.fig.z += (c.z - this.fig.z) * .02; }
