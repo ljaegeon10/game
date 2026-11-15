@@ -3835,6 +3835,70 @@ function buildSuit() {
   return P;
 }
 
+/* ═════════════ 방호복 소품 — 뼈대 모델(hazmat.js)에 덧붙임 ═════════════
+   모델의 선 자세(팔을 45° 벌린 A 자세 · 발밑이 원점 · 앞이 +z) 좌표로 짓고, 뼈 이름별로 묶어 둡니다.
+   그릴 때 그 뼈의 스킨 행렬을 곱하면 몸을 따라 움직입니다 (Figure3D.drawGear) */
+function buildGear() {
+  const P = {};
+  // ── 가슴(UpperChest) : 바이오해저드 패치 · 출입증 · 선량계 · 등의 송풍기와 어깨끈 · 무전기
+  const ch = new Mesh();
+  ch.rbox(-.058, .058, 1.262, 1.378, .146, .157, C.plate, .008, { m: MAT.cloth });
+  ch.quad([-.05, 1.37, .1585], [.05, 1.37, .1585], [.05, 1.27, .1585], [-.05, 1.27, .1585], [1, 1, 1], { m: MAT.gloss(.1), uv: UV.bio });
+  ch.rbox(.082, .162, 1.318, 1.37, .138, .146, hex('#e2e6e9'), .004, { m: MAT.gloss(.5) });                                    // 출입증
+  ch.quad([.084, 1.368, .1468], [.16, 1.368, .1468], [.16, 1.32, .1468], [.084, 1.32, .1468], [1, 1, 1], { m: MAT.gloss(.5), uv: UV.card });
+  ch.rbox(.113, .131, 1.366, 1.39, .139, .15, C.metal, .003, { m: MAT.gloss(.8) });
+  ch.rbox(-.15, -.108, 1.3, 1.372, .128, .148, hex('#20242c'), .006, { m: MAT.gloss(.35) });                                   // 선량계
+  ch.rbox(-.143, -.115, 1.34, 1.362, .148, .15, hex('#3fb7a0'), .002, { m: MAT.glow });
+  ch.rbox(-.142, -.136, 1.31, 1.316, .148, .151, hex('#ff5a4a'), .001, { m: MAT.glow });
+  // 등 — 송풍기(공기 정화 장치) : 둥근 상자 · 흡기 그릴 · 표시등 · 필터 통 둘
+  ch.rbox(-.11, .11, 1.12, 1.385, -.25, -.142, hex('#2c333f'), .03, { m: MAT.gloss(.3) });
+  ch.rbox(-.075, .075, 1.17, 1.24, -.258, -.246, hex('#1a1e26'), .008, { m: MAT.gloss(.2) });
+  for (let i = 0; i < 5; i++) ch.rbox(-.066, .066, 1.18 + i * .012, 1.186 + i * .012, -.261, -.256, hex('#59636f'), .002, { m: MAT.gloss(.6) });
+  ch.rbox(.045, .085, 1.33, 1.358, -.256, -.246, hex('#3fb7a0'), .004, { m: MAT.glow });
+  ch.rbox(-.085, -.05, 1.335, 1.353, -.256, -.246, hex('#14181c'), .003, { m: MAT.gloss(.4) });
+  for (const sx of [-1, 1]) ch.lathe([sx * .118, 1.2, -.196], [sx, 0, 0], [[.036, 0], [.04, .006], [.04, .04], [.034, .046], [.02, .048, hex('#14171c')], [0, .048, hex('#14171c')]], hex('#3d4652'), 18, { m: MAT.gloss(.5) });
+  // 어깨끈 — 등 위에서 어깨를 넘어 가슴 앞으로, 가슴 가로 끈 · 버클
+  for (const sx of [-1, 1]) {
+    const st = [[sx * .085, 1.36, -.15], [sx * .09, 1.44, -.12], [sx * .095, 1.478, -.03], [sx * .098, 1.455, .07], [sx * .1, 1.4, .128], [sx * .102, 1.3, .15], [sx * .105, 1.2, .152], [sx * .11, 1.12, .142]];
+    ch.tube(st, .013, C.black, 6, { m: MAT.gloss(.25) });
+    ch.rbox(sx * .102 - .018, sx * .102 + .018, 1.235, 1.262, .15, .168, C.metal, .004, { m: MAT.gloss(.8) });
+  }
+  ch.tube([[-.1, 1.245, .158], [-.05, 1.243, .163], [.05, 1.243, .163], [.1, 1.245, .158]], .009, C.black, 6, { m: MAT.gloss(.25) });
+  // 무전기 — 왼쪽 어깨끈에, 짧은 안테나 · 붉은 표시등
+  ch.rbox(.078, .128, 1.39, 1.468, .118, .152, hex('#1a1e26'), .008, { m: MAT.gloss(.4) });
+  ch.tube([[.118, 1.468, .135], [.119, 1.51, .13], [.121, 1.545, .122]], .0045, hex('#101318'), 5, { m: MAT.gloss(.3) });
+  ch.rbox(.086, .094, 1.452, 1.46, .152, .154, hex('#ff5a4a'), .001, { m: MAT.glow });
+  for (let i = 0; i < 3; i++) ch.rbox(.086, .12, 1.402 + i * .012, 1.407 + i * .012, .152, .1535, hex('#39424d'), .001, { m: MAT.gloss(.3) });
+  // 송풍기에서 후드 뒤로 올라가는 주름 호스
+  { const hz = []; for (let i = 0; i <= 14; i++) { const u = i / 14; hz.push([.06 - u * .04, lerp(1.37, 1.56, u), -.2 - Math.sin(u * PI) * .06 + u * .075]); }
+    ch.tube(hz, .018, hex('#20252e'), 8, { m: MAT.gloss(.3) });
+    for (let i = 1; i < 14; i++) ch.torus(hz[i], norm(sub(hz[i + 1], hz[i - 1])), .0185, .0042, hex('#343b47'), 10, 5, { m: MAT.gloss(.3) }); }
+  P.UpperChest = ch;
+  // ── 허리(Hips) : 벨트 · 버클 · 파우치 · 손전등 · 호스 연결구와 끊어진 노란 코일 호스
+  const hp = new Mesh();
+  tube(hp, 2, 40, u => ({ y: lerp(1.045, .995, u), a: .208, b: .152, z: -.004 }), null, C.black, MAT.gloss(.35));
+  hp.rbox(-.036, .036, 1.0, 1.04, .143, .162, C.metal, .006, { m: MAT.gloss(.8) });
+  hp.rbox(-.02, .02, 1.011, 1.029, .162, .165, hex('#2a303a'), .003, { m: MAT.gloss(.5) });
+  hp.rbox(.12, .21, .91, 1.03, .075, .15, C.black, .02, { m: MAT.gloss(.25) });                                               // 파우치
+  hp.rbox(.125, .205, .99, 1.025, .11, .156, hex('#20242c'), .012, { m: MAT.gloss(.25) });
+  hp.rbox(.158, .172, 1.0, 1.012, .156, .16, C.metal, .002, { m: MAT.gloss(.8) });
+  hp.lathe([.19, 1.0, -.06], [.25, -1, -.1], [[.02, 0], [.022, .01], [.022, .11], [.03, .125], [.03, .15], [.024, .152, hex('#fff4d0')], [0, .152, hex('#fff4d0')]], hex('#2a303a'), 14, { m: MAT.gloss(.6) });   // 손전등
+  hp.lathe([-.205, .99, .07], [-1, -.25, .3], [[.03, 0], [.03, .025], [.022, .035], [.022, .06], [.026, .065], [.026, .08]], hex('#46505e'), 14, { m: MAT.gloss(.6) });
+  { const coil = []; for (let i = 0; i <= 200; i++) { const u = i / 200, th = u * TAU * 10;
+      coil.push([-.262 - u * .03 + Math.cos(th) * .03, .965 - u * .44, .095 - u * .04 + Math.sin(th) * .03]); }
+    hp.tube(coil, .0082, C.hose, 6, { m: MAT.gloss(.45) });
+    hp.lathe(coil[coil.length - 1], [0, -1, 0], [[.011, 0], [.011, .02], [.006, .022, hex('#111')], [0, .022, hex('#111')]], hex('#3a3f48'), 8, { m: MAT.gloss(.5) }); }
+  P.Hips = hp;
+  // ── 넓적다리 : 오른쪽에 접착 테이프로 붙인 번호표 · 왼쪽에 무릎 보호대
+  for (const [bone, sx] of [['LeftLowerLeg', 1], ['RightLowerLeg', -1]]) {
+    const m = new Mesh();
+    m.ellipsoid([sx * .1, .5, .075], [.062, 0, 0], [0, .07, 0], [0, 0, .03], hex('#262d3a'), 16, 10, { m: MAT.gloss(.45) });
+    for (const dy of [-.05, .05]) m.tube([[sx * .1 - .07, .5 + dy, .03], [sx * .1 - .05, .5 + dy, .085], [sx * .1 + .05, .5 + dy, .085], [sx * .1 + .07, .5 + dy, .03]], .008, C.black, 5, { m: MAT.gloss(.25) });
+    P[bone] = m;
+  }
+  return P;
+}
+
 /* ═════════════ 경비원 — 원래 디자인 그대로 ═══════════════════════ */
 function buildGuard() {
   const P = {};
@@ -4095,7 +4159,8 @@ function camProj(cam, W, H, far = 80) {
 }
 /* 사람 메시 — 한 번만 짓고 구운 그늘(AO)까지 담아 둠. 새 Figure3D 마다 다시 지으면 0.5초쯤 멈칫했음
    (오프닝 · 탈출 · 2부가 저마다 하나씩 만듦). 시작화면에서 미리 불러 둡니다 (game.js warmOpening) */
-let BODY = null, ATLAS_C = null;
+let BODY = null, ATLAS_C = null, GEAR = null;
+function gearParts() { if (!GEAR) { const g = buildGear(); GEAR = {}; for (const k in g) GEAR[k] = { v: new Float32Array(g[k].v) }; } return GEAR; }
 function bodyParts() {
   if (BODY) return BODY;
   const sp = buildSuit(), gp = buildGuard();
@@ -4135,6 +4200,9 @@ class Figure3D {
       gl.bufferData(gl.ARRAY_BUFFER, f, gl.STATIC_DRAW); o[k] = { b, n: f.length / 12 }; } return o; };
     this.upload = up;
     if (opts.bodies === false) return;
+    try { this.hz = window.Hazmat ? Hazmat.attach(gl) : null; } catch (e) { this.hz = null; }   // 방호복 뼈대 모델
+    gl.useProgram(pr);
+    if (this.hz) { try { this.gear = up(gearParts()); } catch (e) { this.gear = null; } }
     const B = bodyParts();
     this.suit = up(B.suit);
     this.guard = up(B.guard);
@@ -4153,6 +4221,11 @@ class Figure3D {
     this.at.forEach((a, i) => { if (a >= 0) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, sz[i], gl.FLOAT, false, 48, off * 4); } off += sz[i]; });
     gl.uniformMatrix4fv(this.un.uM, false, new Float32Array(m));
     gl.drawArrays(gl.TRIANGLES, 0, p.n);
+  }
+  /* 방호복에 덧붙이는 소품 — 선 자세 기준으로 지어 두고 뼈에 붙여 그림 (buildGear) */
+  drawGear(base) {
+    if (!this.gear) return;
+    for (const k in this.gear) { const m = this.hz.bone(k); if (m) this.draw(this.gear, k, M4.mul(base, m)); }
   }
   begin() {
     const gl = this.gl;
@@ -4182,6 +4255,12 @@ class Figure3D {
     const run = fig.run || 0, st = fig.stride == null ? 1 : fig.stride, reach = fig.reach || 0, aim = fig.aim || 0;
     const bob = Math.abs(Math.sin(run)) * .045 * st;
     const base = M4.chain(M4.T(fig.x, fig.y, -fig.z), M4.RY(fig.yaw || 0));
+    // 방호복 — 뼈대 모델(hazmat.js). 그려졌으면 여기서 끝, 아직 준비 전(텍스처 푸는 중)이면 아래의 예전 방식으로
+    if (!G && this.hz) {
+      const ok = this.hz.draw(base, this.proj(env.cam), fig, env);
+      gl.useProgram(this.pr); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      if (ok) { this.drawGear(base); return this.canvas; }
+    }
     const hipY = (G ? .93 : .94) + bob - .02 * st;
     const torso = M4.chain(base, M4.T(0, hipY, 0), M4.RX((fig.lean != null ? fig.lean : .16 * st) + reach * .06), M4.RZ(Math.sin(run) * .05 * st), M4.RY(Math.sin(run) * .12 * st));
     this.draw(set, 'torso', torso);
@@ -4213,7 +4292,7 @@ class Figure3D {
   }
 }
 
-Figure3D.warm = () => { bodyParts(); if (!ATLAS_C) ATLAS_C = paintAtlas(); };
+Figure3D.warm = () => { bodyParts(); if (window.Hazmat) gearParts(); if (!ATLAS_C) ATLAS_C = paintAtlas(); };
 window.Figure3D = Figure3D;
 window.Fig3DUtil = { camProj, M4, MAT, surf, tube, curve };
 })();

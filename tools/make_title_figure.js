@@ -11,8 +11,11 @@ const ROOT = path.join(__dirname, '..');
   const p = await b.newPage();
   await p.setContent('<!doctype html><meta charset="utf-8"><body></body>');
   await p.addScriptTag({ path: path.join(ROOT, 'js/labroom.js') });
+  await p.addScriptTag({ path: path.join(ROOT, 'js/hazmat_model.js') });      // 방호복 뼈대 모델 (figure3d 보다 먼저)
+  await p.addScriptTag({ path: path.join(ROOT, 'js/hazmat.js') });
   await p.addScriptTag({ path: path.join(ROOT, 'js/figure3d.js') });
-  const out = await p.evaluate(() => {
+  const out = await p.evaluate(async () => {
+    if (window.Hazmat) { await Hazmat.whenReady(); await new Promise(r => setTimeout(r, 200)); }
     const W = 1920, H = 1200;                              // 16:10 틀 — 16:9 에선 위아래를 60px 씩 잘라 씀
     const F = new Figure3D(W, H); F.k = W / 960;
     const ex = (H / W * 960 - 540) / 2;
