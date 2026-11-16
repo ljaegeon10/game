@@ -421,6 +421,9 @@ function parseShock(raw) {
 }
 
 const TOUCH_HINT = { '이동 — W A S D': '이동 — 화면 왼쪽을 누르고 끌기', '공격 — 방향키 / 마우스': '공격 — 적을 누르고 있기' };
+/* 대사가 나오는 동안 위아래로 검은 띠가 내려오고 HUD 는 물러남 (css body.cine) */
+new MutationObserver(() => document.body.classList.toggle('cine', !$('subtitle').classList.contains('hidden')))
+  .observe($('subtitle'), { attributes: true, attributeFilter: ['class'] });
 function say(lines, cb) {
   if (TOUCH.on) lines = lines.map(l => TOUCH_HINT[l.t] ? { ...l, t: TOUCH_HINT[l.t] } : l);
   talk.q = lines.slice(); talk.cb = cb || null;
@@ -888,6 +891,15 @@ function prebakeFloors(delay = 300) {
   floorJob = setTimeout(() => idle(next), delay);
 }
 
+/* 화면에 잠깐 뜨는 이름 카드 — 방에 처음 들어설 때(위쪽 가운데), 보스가 나타날 때(가운데 크게) */
+const ROOM_EN = { start: 'WELL BOTTOM', fork: 'CROSSING', north: 'NORTH WARD', south: 'SOUTH WARD', mid: 'CENTRAL HALL', ne: 'NE PASSAGE', se: 'SE PASSAGE', gate: 'THE GATE', boss: 'THE DEEP', exit: 'WAY OUT' };
+function titleCard(main, sub, kind) {
+  const el = $('titlecard'); if (!el) return;
+  el.className = ''; void el.offsetWidth;                         // 애니메이션 다시
+  el.querySelector('b').textContent = main; el.querySelector('span').textContent = sub;
+  el.className = 'on ' + (kind || 'room');
+  clearTimeout(el._t); el._t = setTimeout(() => { el.className = ''; }, kind === 'boss' ? 2600 : 2200);
+}
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
@@ -898,6 +910,7 @@ function loadRoom(id, fromDir) {
   P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
+  if (!s.carded && !G.dev0) { s.carded = true; titleCard(r.name, `DEPTH ${String(r.depth).padStart(2, '0')}  ·  ${ROOM_EN[id] || ''}`, 'room'); }
   G.theme = roomTheme(id); G.props = buildRoomProps(id);
   G.floor = roomFloor(id);                     // 미리 구워 둔 바닥 (없으면 지금 굽기)
   G.plants = bakePlants(hash(id) + 91, r.depth);
@@ -1055,6 +1068,7 @@ function queueBoss() {
 }
 
 function makeBoss() {
+  titleCard('관측자', 'THE OBSERVER', 'boss');
   G.boss = {
     kind: 'eye',
     x: W / 2, y: 118, r: 34, hp: BALANCE.bossHp, max: BALANCE.bossHp,
@@ -2240,6 +2254,7 @@ function tickMorph() {
 }
 
 function makeAbom() {
+  titleCard('심연', 'THE ABYSS', 'boss');
   G.boss = {
     kind: 'abom',
     x: G.morphX, y: G.morphY, r: 46,
@@ -3337,13 +3352,7 @@ function drawBoss() {
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
-  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
-  g.save();
-  g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
-  g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
-  g.fillStyle = '#c2352c'; g.fillRect(bx, by, bw * Math.max(0, B.hp / B.max), 5);
-  drawSaekdong(g, bx, by - 4, bw, 2, false, .55);
-  g.restore();
+  drawBossBar(B, '관측자', 'THE OBSERVER', '#e0483c', 0);
 }
 
 /* ── 페이즈3 「심연」 그리기 ────────────────────────────
@@ -4444,21 +4453,28 @@ function drawAbom() {
     g.restore();
   }
 
-  // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  drawBossBar(B, '심연', 'THE ABYSS', B.stage === 2 ? '#ff5a48' : '#c8323a', .5);
+}
+
+/* 보스 체력 막대 — 이름 · 영문 부제 · 얇은 막대. 깎인 만큼은 밝은 잔상이 잠깐 남았다 따라 줄어듭니다.
+   mark : 막대 위 눈금 자리(0‥1, 0 이면 없음) */
+function drawBossBar(B, name, sub, col, mark) {
+  const bw = 260, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 17, hk = Math.max(0, B.hp / B.max);
+  if (B._hpShow == null || B._hpShow < hk) B._hpShow = hk;
+  B._hpShow += (hk - B._hpShow) * .06;
   g.save();
-  g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
-  g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
-  const hk = Math.max(0, B.hp / B.max);
-  g.fillStyle = B.stage === 2 ? '#e8483a' : '#a8262c';
-  g.fillRect(bx, by, bw * hk, 5);
-  g.fillStyle = 'rgba(255,255,255,.35)';
-  g.fillRect(bx + bw * .5, by - 1, 1, 7);
-  drawSaekdong(g, bx, by - 4, bw, 2, false, .55);
-  g.font = 'bold 9px DungGeunMo, ui-monospace, monospace';
-  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  g.fillStyle = '#c2352c';
-  g.fillText('심연', bx, by - 6);
+  g.font = '10px DungGeunMo, ui-monospace, monospace'; g.textBaseline = 'alphabetic';
+  g.textAlign = 'left'; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(name, bx + 1, by - 4); g.fillStyle = '#f3efe6'; g.fillText(name, bx, by - 5);
+  const nw = g.measureText(name).width;
+  g.font = '8px DungGeunMo, ui-monospace, monospace'; g.fillStyle = col; g.fillText(sub, bx + nw + 8, by - 5);
+  g.textAlign = 'right'; g.fillStyle = 'rgba(243,239,230,.6)'; g.fillText(Math.ceil(hk * 100) + '%', bx + bw, by - 5);
+  g.fillStyle = 'rgba(6,7,12,.72)'; g.fillRect(bx - 1, by - 1, bw + 2, 5);
+  g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(bx, by, bw, 3);
+  g.fillStyle = 'rgba(255,236,214,.85)'; g.fillRect(bx, by, bw * B._hpShow, 3);            // 방금 깎인 만큼 — 밝은 잔상
+  g.fillStyle = col; g.fillRect(bx, by, bw * hk, 3);
+  g.fillStyle = '#fff'; g.fillRect(bx + bw * hk - 1, by - 1, 1, 5);                          // 끝의 흰 눈금
+  if (mark) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(bx + bw * mark, by - 2, 1, 7); }
+  g.fillStyle = col; g.fillRect(bx - 5, by, 2, 3); g.fillRect(bx + bw + 3, by, 2, 3);
   g.restore();
 }
 

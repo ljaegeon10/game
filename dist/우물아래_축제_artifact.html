@@ -1423,6 +1423,96 @@ body.paused #tpause{ display:none; }
   .st-l b{ font-size:15px; } .st-l small{ display:none; } .st-btns{ margin-top:8px; } .st-btn{ padding:10px 0; font-size:15px; }
 }
 
+
+/* ═══════════════════════════════════════════════════════════════
+   1부 화면 손질 — 또렷한 화면 · 영화 같은 대사 · 얇고 날렵한 UI
+   (탁한 브라운관 필터 · 두꺼운 회색 대사창 · 투박한 하트를 걷어냄)
+   ═══════════════════════════════════════════════════════════════ */
+/* ① 화면 — 주사선 · RGB 줄 · 가장자리 어둠을 옅게, 색은 또렷하게 */
+body.topview #crt{
+  background:
+    repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.09) 2px 3px),
+    radial-gradient(ellipse 80% 76% at 50% 46%, rgba(255,255,255,.02) 0%, rgba(0,0,0,0) 58%, rgba(0,0,0,.3) 100%);
+  box-shadow: inset 0 0 22px rgba(0,0,0,.6);
+  animation:none;
+}
+body.topview #crt::after{ background:linear-gradient(135deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,0) 26%); }
+body.topview #game{ filter:contrast(1.14) saturate(1.3) brightness(1.2); }
+
+/* ② HUD — 하트 대신 기울어진 체력 칸, 얇은 글씨 */
+#hud{ font-size:9px; letter-spacing:.06em; text-shadow:0 1px 0 rgba(0,0,0,.9); transition:opacity .35s, transform .35s; }
+#hearts{ gap:3px; padding-left:3px; }
+.heart, .heart.empty{ width:15px; height:6px; background:none; image-rendering:auto; transform:skewX(-22deg); }
+.heart{ background:linear-gradient(180deg, #ff7566 0 35%, #e0483c 35% 100%); box-shadow:0 0 6px rgba(224,72,60,.75), 0 1px 0 #2a0707; }
+.heart.empty{ background:rgba(10,10,16,.55); box-shadow:inset 0 0 0 1px rgba(224,72,60,.38); }
+.heart.hit{ animation:hpHit .32s ease-out 1; }
+@keyframes hpHit{ 0%{ transform:skewX(-22deg) scale(1.6, 2.2); filter:brightness(3); } 100%{ transform:skewX(-22deg) scale(1); filter:none; } }
+.heart.gain{ animation:hpGain .45s ease-out 1; }
+@keyframes hpGain{ 0%{ transform:skewX(-22deg) scaleX(0); } 70%{ transform:skewX(-22deg) scaleX(1.25); filter:brightness(2); } 100%{ transform:skewX(-22deg) scaleX(1); } }
+#hudleft{ gap:6px; }
+#keyrow{ gap:8px; padding:2px 6px 1px; background:linear-gradient(90deg, rgba(8,9,14,.6), rgba(8,9,14,0)); border-left:2px solid rgba(241,236,224,.35); }
+#keys, #gatekeys{ font-size:9px; gap:3px; }
+#hudright{ gap:2px; }
+#hudright > div{ padding:1px 0 1px 10px; }
+.datelabel{ font-size:6px; letter-spacing:.3em; color:rgba(241,236,224,.42); }
+#datetext{ font-size:8px; color:rgba(241,236,224,.55); letter-spacing:.14em; }
+#timerbox{ border-right:2px solid var(--hwang); padding-right:6px !important; background:linear-gradient(270deg, rgba(8,9,14,.6), rgba(8,9,14,0)); }
+#timertext{ font-size:15px; color:#fff3d0; letter-spacing:.04em; text-shadow:0 0 8px rgba(227,178,60,.6), 0 1px 0 #000; }
+
+/* ③ 대사 — 위아래 검은 띠가 내려오고, 상자 없이 글만. 말은 흰색 · 속말은 푸른 회색 · 시스템은 청록 고정폭 */
+#cine-t, #cine-b{ position:absolute; left:0; right:0; height:0; z-index:33; background:#05060a; pointer-events:none; transition:height .32s cubic-bezier(.2,.8,.2,1); }
+#cine-t{ top:0; } #cine-b{ bottom:0; }
+body.cine #cine-t{ height:26px; } body.cine #cine-b{ height:58px; }
+body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:translateY(-6px); }
+#subtitle, body.topview #subtitle{
+  left:0; right:0; bottom:0; min-height:58px; box-sizing:border-box; padding:9px 56px 8px 62px;
+  background:none; border:none; display:flex; align-items:center;
+}
+#subtitle::before{ content:''; position:absolute; left:40px; top:14px; bottom:14px; width:3px; background:var(--hwang); transform:skewX(-14deg); box-shadow:0 0 8px rgba(227,178,60,.7); }
+#subtitle p{ font-size:12.5px; line-height:1.6; color:#f6f2ea; letter-spacing:.02em; text-shadow:0 1px 0 #000; }
+#subtitle.whisper::before{ background:#7f97b4; box-shadow:0 0 8px rgba(127,151,180,.6); }
+#subtitle.whisper p{ color:#aebfd3; font-style:normal; }
+#subtitle.sys, body.topview #subtitle.sys{ background:none; border:none; }
+#subtitle.sys::before{ background:var(--glow); box-shadow:0 0 8px rgba(125,227,200,.7); }
+#subtitle.sys p{ font-size:11px; letter-spacing:.1em; color:var(--glow); }
+#subtag{ left:62px; top:3px; padding:0; font-size:6px; letter-spacing:.4em; background:none; border:none; color:rgba(125,227,200,.7); }
+#subtitle.sys{ padding-top:16px; }
+#subnext{ right:38px; bottom:22px; font-size:8px; color:rgba(241,236,224,.7); animation:nextBlink .9s steps(2) infinite; }
+@keyframes nextBlink{ 0%{ opacity:1; transform:translateY(0); } 100%{ opacity:.25; transform:translateY(2px); } }
+
+/* ④ 조사 안내 — 키 모양 + 글 */
+#prompt{ bottom:30px; padding:0; background:none; border:none; font-size:9px; letter-spacing:.06em; color:#f1ece0; text-shadow:0 1px 0 #000, 0 0 6px rgba(0,0,0,.9); animation:none; transition:opacity .25s; }
+#prompt b{ display:inline-block; margin-right:6px; padding:2px 6px 1px; color:#0a0910; background:#f1ece0; font-weight:400; box-shadow:0 2px 0 rgba(0,0,0,.6); animation:keyTap 1.1s steps(2) infinite; }
+@keyframes keyTap{ 0%{ transform:translateY(0); } 100%{ transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.6); } }
+
+/* ⑤ 이름 카드 — 방 : 위쪽 가운데에 줄이 그어지며 / 보스 : 가운데 크게, 붉은 띠 */
+#titlecard{ position:absolute; left:0; right:0; top:34px; z-index:31; display:none; flex-direction:column; align-items:center; gap:3px; pointer-events:none; }
+#titlecard.on{ display:flex; }
+#titlecard i{ display:block; height:1px; width:150px; background:linear-gradient(90deg, rgba(241,236,224,0), rgba(241,236,224,.85), rgba(241,236,224,0)); animation:tcLine 2.2s ease-out 1 both; }
+#titlecard b{ font-weight:400; font-size:13px; letter-spacing:.5em; text-indent:.5em; color:#f6f2ea; text-shadow:0 1px 0 #000, 0 0 10px rgba(0,0,0,.9); animation:tcText 2.2s ease-out 1 both; }
+#titlecard span{ font-size:6px; letter-spacing:.42em; text-indent:.42em; color:rgba(125,227,200,.85); text-shadow:0 1px 0 #000; animation:tcText 2.2s ease-out .08s 1 both; }
+@keyframes tcLine{ 0%{ transform:scaleX(0); opacity:0; } 14%{ transform:scaleX(1); opacity:1; } 80%{ opacity:1; } 100%{ transform:scaleX(1.3); opacity:0; } }
+@keyframes tcText{ 0%{ opacity:0; letter-spacing:.9em; } 16%{ opacity:1; letter-spacing:.5em; } 80%{ opacity:1; } 100%{ opacity:0; } }
+#titlecard.boss{ top:0; bottom:0; justify-content:center; gap:5px; }
+#titlecard.boss::before{ content:''; position:absolute; left:0; right:0; top:50%; height:54px; margin-top:-27px; z-index:-1;
+  background:linear-gradient(90deg, rgba(5,6,10,0), rgba(5,6,10,.86) 18%, rgba(5,6,10,.86) 82%, rgba(5,6,10,0)); border-top:1px solid rgba(224,72,60,.7); border-bottom:1px solid rgba(224,72,60,.7);
+  transform:skewY(-2deg); animation:tcBand 2.6s ease-out 1 both; }
+#titlecard.boss i{ width:220px; background:linear-gradient(90deg, rgba(224,72,60,0), #e0483c, rgba(224,72,60,0)); animation-duration:2.6s; }
+#titlecard.boss b{ font-size:26px; letter-spacing:.6em; text-indent:.6em; color:#fff; text-shadow:2px 0 0 rgba(224,72,60,.9), -2px 0 0 rgba(63,224,200,.6), 0 0 18px rgba(224,72,60,.6); animation-duration:2.6s; }
+#titlecard.boss span{ font-size:8px; color:#ff8f82; animation-duration:2.6s; }
+@keyframes tcBand{ 0%{ transform:skewY(-2deg) scaleY(0); } 10%{ transform:skewY(-2deg) scaleY(1); } 82%{ opacity:1; } 100%{ opacity:0; } }
+
+/* ⑥ 사망 화면 — 붉게 덮는 대신 어둡게 가라앉고, 기울어진 붉은 띠 위에 한 줄 */
+#dead{ background:radial-gradient(ellipse at 50% 45%, rgba(20,6,9,.82), rgba(4,4,8,.95)); gap:4px; }
+#dead::before{ content:''; position:absolute; left:-5%; right:-5%; top:50%; height:120px; margin-top:-78px; background:linear-gradient(180deg, rgba(224,72,60,.16), rgba(224,72,60,.04)); border-top:1px solid rgba(224,72,60,.75); border-bottom:1px solid rgba(224,72,60,.25); transform:skewY(-3deg); z-index:-1; }
+.d-line{ font-size:15px; letter-spacing:.34em; text-indent:.34em; color:#fff; text-shadow:2px 0 0 rgba(224,72,60,.9), -2px 0 0 rgba(63,224,200,.5); animation:flick 2.2s steps(3) infinite; }
+#dead button{ margin-top:10px; padding:7px 20px 6px; font-weight:400; letter-spacing:.14em; color:#0a0910; background:#f1ece0; border:none; box-shadow:3px 3px 0 #e0483c; }
+#dead button:hover{ background:#fff; transform:translate(-1px, -1px); box-shadow:4px 4px 0 #e0483c; }
+#dead #fest-next{ background:none; color:#f1ece0; box-shadow:inset 0 0 0 1px rgba(241,236,224,.5); }
+/* 타임어택 안내 — 상자 대신 얇은 띠 */
+#tanotice{ border:none; background:linear-gradient(90deg, rgba(5,6,10,0), rgba(5,6,10,.82) 14%, rgba(5,6,10,.82) 86%, rgba(5,6,10,0)); padding:5px 34px 4px; font-size:8.5px; }
+#tanotice::before{ content:''; position:absolute; left:20px; top:4px; bottom:4px; width:2px; background:var(--hwang); transform:skewX(-14deg); }
+
 </style>
 <script>window.WB_FESTIVAL = true;</script>
 <div id="frame">
@@ -1482,6 +1572,9 @@ body.paused #tpause{ display:none; }
     <div id="morphsys"><span id="morphtext"></span><i class="caret"></i></div>
 
     <!-- ── 자막 / 나레이션 ────────────────────────────────── -->
+    <!-- 대사 중의 위아래 띠 · 방/보스 이름 카드 -->
+    <i id="cine-t" aria-hidden="true"></i><i id="cine-b" aria-hidden="true"></i>
+    <div id="titlecard" aria-hidden="true"><i></i><b></b><span></span></div>
     <div id="subtitle" class="hidden">
       <span id="subtag" class="hidden">SYSTEM</span>
       <p id="subtext"></p>
@@ -16140,6 +16233,9 @@ function parseShock(raw) {
 }
 
 const TOUCH_HINT = { '이동 — W A S D': '이동 — 화면 왼쪽을 누르고 끌기', '공격 — 방향키 / 마우스': '공격 — 적을 누르고 있기' };
+/* 대사가 나오는 동안 위아래로 검은 띠가 내려오고 HUD 는 물러남 (css body.cine) */
+new MutationObserver(() => document.body.classList.toggle('cine', !$('subtitle').classList.contains('hidden')))
+  .observe($('subtitle'), { attributes: true, attributeFilter: ['class'] });
 function say(lines, cb) {
   if (TOUCH.on) lines = lines.map(l => TOUCH_HINT[l.t] ? { ...l, t: TOUCH_HINT[l.t] } : l);
   talk.q = lines.slice(); talk.cb = cb || null;
@@ -16607,6 +16703,15 @@ function prebakeFloors(delay = 300) {
   floorJob = setTimeout(() => idle(next), delay);
 }
 
+/* 화면에 잠깐 뜨는 이름 카드 — 방에 처음 들어설 때(위쪽 가운데), 보스가 나타날 때(가운데 크게) */
+const ROOM_EN = { start: 'WELL BOTTOM', fork: 'CROSSING', north: 'NORTH WARD', south: 'SOUTH WARD', mid: 'CENTRAL HALL', ne: 'NE PASSAGE', se: 'SE PASSAGE', gate: 'THE GATE', boss: 'THE DEEP', exit: 'WAY OUT' };
+function titleCard(main, sub, kind) {
+  const el = $('titlecard'); if (!el) return;
+  el.className = ''; void el.offsetWidth;                         // 애니메이션 다시
+  el.querySelector('b').textContent = main; el.querySelector('span').textContent = sub;
+  el.className = 'on ' + (kind || 'room');
+  clearTimeout(el._t); el._t = setTimeout(() => { el.className = ''; }, kind === 'boss' ? 2600 : 2200);
+}
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
   G.inForest = false; G.room = id; G.depth = r.depth;
@@ -16617,6 +16722,7 @@ function loadRoom(id, fromDir) {
   P.inv = 40; P.slow = 0; P.dead = false;
   $('dead').classList.add('hidden');
 
+  if (!s.carded && !G.dev0) { s.carded = true; titleCard(r.name, `DEPTH ${String(r.depth).padStart(2, '0')}  ·  ${ROOM_EN[id] || ''}`, 'room'); }
   G.theme = roomTheme(id); G.props = buildRoomProps(id);
   G.floor = roomFloor(id);                     // 미리 구워 둔 바닥 (없으면 지금 굽기)
   G.plants = bakePlants(hash(id) + 91, r.depth);
@@ -16774,6 +16880,7 @@ function queueBoss() {
 }
 
 function makeBoss() {
+  titleCard('관측자', 'THE OBSERVER', 'boss');
   G.boss = {
     kind: 'eye',
     x: W / 2, y: 118, r: 34, hp: BALANCE.bossHp, max: BALANCE.bossHp,
@@ -17959,6 +18066,7 @@ function tickMorph() {
 }
 
 function makeAbom() {
+  titleCard('심연', 'THE ABYSS', 'boss');
   G.boss = {
     kind: 'abom',
     x: G.morphX, y: G.morphY, r: 46,
@@ -19056,13 +19164,7 @@ function drawBoss() {
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
-  const bw = 220, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
-  g.save();
-  g.fillStyle = 'rgba(8,8,14,.75)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
-  g.fillStyle = '#3a1c1c'; g.fillRect(bx, by, bw, 5);
-  g.fillStyle = '#c2352c'; g.fillRect(bx, by, bw * Math.max(0, B.hp / B.max), 5);
-  drawSaekdong(g, bx, by - 4, bw, 2, false, .55);
-  g.restore();
+  drawBossBar(B, '관측자', 'THE OBSERVER', '#e0483c', 0);
 }
 
 /* ── 페이즈3 「심연」 그리기 ────────────────────────────
@@ -20163,21 +20265,28 @@ function drawAbom() {
     g.restore();
   }
 
-  // 체력 막대 — 2단계로 넘어가면 눈금이 하나 더 붙습니다
-  const bw = 250, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 20;   // 화면 아래 가운데 (늘어난 띠까지 내려서, 베젤 안쪽)
+  drawBossBar(B, '심연', 'THE ABYSS', B.stage === 2 ? '#ff5a48' : '#c8323a', .5);
+}
+
+/* 보스 체력 막대 — 이름 · 영문 부제 · 얇은 막대. 깎인 만큼은 밝은 잔상이 잠깐 남았다 따라 줄어듭니다.
+   mark : 막대 위 눈금 자리(0‥1, 0 이면 없음) */
+function drawBossBar(B, name, sub, col, mark) {
+  const bw = 260, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 17, hk = Math.max(0, B.hp / B.max);
+  if (B._hpShow == null || B._hpShow < hk) B._hpShow = hk;
+  B._hpShow += (hk - B._hpShow) * .06;
   g.save();
-  g.fillStyle = 'rgba(8,8,14,.78)'; g.fillRect(bx - 2, by - 2, bw + 4, 9);
-  g.fillStyle = '#2c1214'; g.fillRect(bx, by, bw, 5);
-  const hk = Math.max(0, B.hp / B.max);
-  g.fillStyle = B.stage === 2 ? '#e8483a' : '#a8262c';
-  g.fillRect(bx, by, bw * hk, 5);
-  g.fillStyle = 'rgba(255,255,255,.35)';
-  g.fillRect(bx + bw * .5, by - 1, 1, 7);
-  drawSaekdong(g, bx, by - 4, bw, 2, false, .55);
-  g.font = 'bold 9px DungGeunMo, ui-monospace, monospace';
-  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-  g.fillStyle = '#c2352c';
-  g.fillText('심연', bx, by - 6);
+  g.font = '10px DungGeunMo, ui-monospace, monospace'; g.textBaseline = 'alphabetic';
+  g.textAlign = 'left'; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(name, bx + 1, by - 4); g.fillStyle = '#f3efe6'; g.fillText(name, bx, by - 5);
+  const nw = g.measureText(name).width;
+  g.font = '8px DungGeunMo, ui-monospace, monospace'; g.fillStyle = col; g.fillText(sub, bx + nw + 8, by - 5);
+  g.textAlign = 'right'; g.fillStyle = 'rgba(243,239,230,.6)'; g.fillText(Math.ceil(hk * 100) + '%', bx + bw, by - 5);
+  g.fillStyle = 'rgba(6,7,12,.72)'; g.fillRect(bx - 1, by - 1, bw + 2, 5);
+  g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(bx, by, bw, 3);
+  g.fillStyle = 'rgba(255,236,214,.85)'; g.fillRect(bx, by, bw * B._hpShow, 3);            // 방금 깎인 만큼 — 밝은 잔상
+  g.fillStyle = col; g.fillRect(bx, by, bw * hk, 3);
+  g.fillStyle = '#fff'; g.fillRect(bx + bw * hk - 1, by - 1, 1, 5);                          // 끝의 흰 눈금
+  if (mark) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(bx + bw * mark, by - 2, 1, 7); }
+  g.fillStyle = col; g.fillRect(bx - 5, by, 2, 3); g.fillRect(bx + bw + 3, by, 2, 3);
   g.restore();
 }
 
