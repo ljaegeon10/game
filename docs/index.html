@@ -1407,7 +1407,7 @@ body.paused #tpause{ display:none; }
 #tanotice.on{ opacity:1; transform:translate(-50%, 0); }
 #tanotice b{ margin-right:8px; font-weight:400; font-size:7px; letter-spacing:.2em; color:var(--glow); }
 #tanotice em{ font-style:normal; color:#e3b23c; }
-.fe-tanote{ margin:0 0 6px; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }
+.fe-tanote{ margin:0 0 6px; line-height:1.6; font-size:8px; text-align:center; color:#e3b23c; letter-spacing:.03em; }
 
 /* ═══ 설정 (settings.js) — 일시정지 메뉴와 같은 생김새 ═══ */
 #settings{ position:fixed; inset:0; z-index:3100; display:flex; align-items:center; justify-content:center; padding:12px;
@@ -1525,10 +1525,39 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 #tanotice{ border:none; background:linear-gradient(90deg, rgba(5,6,10,0), rgba(5,6,10,.82) 14%, rgba(5,6,10,.82) 86%, rgba(5,6,10,0)); padding:5px 34px 4px; font-size:8.5px; }
 #tanotice::before{ content:''; position:absolute; left:20px; top:4px; bottom:4px; width:2px; background:var(--hwang); transform:skewX(-14deg); }
 
+/* 타임어택 지도 설명 — 오른쪽 아래 지도 바로 위 */
+#maplegend{ position:absolute; right:14px; bottom:54px; z-index:31; width:196px; padding:7px 9px 6px; pointer-events:none;
+  background:linear-gradient(180deg, rgba(5,6,10,.9), rgba(5,6,10,.82)); border-right:2px solid var(--hwang);
+  font-size:7.5px; line-height:1.45; color:#e9e4d8; text-shadow:0 1px 0 #000; opacity:0; transform:translateY(4px); transition:opacity .4s, transform .4s; }
+#maplegend.on{ opacity:1; transform:translateY(0); }
+#maplegend::after{ content:''; position:absolute; right:22px; bottom:-6px; border:6px solid transparent; border-top-color:rgba(5,6,10,.82); border-bottom:0; }   /* 지도를 가리키는 꼬리 */
+#maplegend p{ margin:0 0 3px; display:flex; gap:6px; align-items:flex-start; }
+#maplegend p span{ flex:1; }
+#maplegend b{ font-weight:400; color:#fff; }
+#maplegend .ml-title{ display:block; margin-bottom:4px; font-size:6.5px; letter-spacing:.3em; color:var(--hwang); }
+#maplegend .ml-hint{ display:block; margin:4px 0 0; font-size:6px; letter-spacing:.06em; color:rgba(233,228,216,.5); }
+#maplegend i{ flex:none; display:inline-block; width:8px; height:8px; margin-top:1px; position:relative; }
+#maplegend .ml-now{ background:#e3b23c; }
+#maplegend .ml-key{ background:rgba(160,172,192,.55); }
+#maplegend .ml-key::before, #maplegend .ml-key::after{ content:''; position:absolute; background:#e3b23c; animation:mlBlink .9s steps(2) infinite; }
+#maplegend .ml-key::before{ left:3px; top:1px; width:2px; height:6px; } #maplegend .ml-key::after{ left:1px; top:3px; width:6px; height:2px; }
+#maplegend .ml-route{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(125,227,200,.7); }
+#maplegend .ml-route::before{ content:''; position:absolute; left:2px; top:2px; width:4px; height:4px; border-radius:50%; background:#7de3c8; animation:mlBlink .7s ease-in-out infinite alternate; }
+#maplegend .ml-boss{ background:rgba(160,172,192,.55); } #maplegend .ml-boss::before{ content:''; position:absolute; left:3px; top:3px; width:3px; height:3px; background:#c2352c; }
+#maplegend .ml-exit{ width:7px; height:7px; margin:0 1px; background:rgba(160,172,192,.55); vertical-align:-1px; } #maplegend .ml-exit::before{ content:''; position:absolute; left:2px; top:2px; width:3px; height:3px; background:#7de3c8; }
+@keyframes mlBlink{ 0%{ opacity:1; } 100%{ opacity:.3; } }
+body.cine #maplegend{ opacity:0; }
+
+.fe-tanote b{ font-weight:400; color:#fff; }
+#maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child{ color:var(--hwang); }
+#maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child::after{ content:' —'; color:rgba(233,228,216,.5); }
+#maplegend p:nth-of-type(4) > span > b:first-child, #maplegend p:nth-of-type(5) > span > b:last-of-type{ color:var(--glow); }
+#maplegend p:nth-of-type(5) > span > b:first-child{ color:#e0483c; }
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794801994"></script>
+<script src="festival-config.js?v=1794809930"></script>
 
 <div id="frame">
   <div id="stage">
@@ -1545,6 +1574,15 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 
     <!-- 타임어택 — 던전에 들어서면 화면 아래에 잠깐 -->
     <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠를 모으거나 상자를 열지 않아도 돼요 — <em>몬스터만 잡아도 클리어!</em></div>
+    <!-- 타임어택 — 오른쪽 아래 지도의 표시 설명 (던전에 들어서면 잠깐 · H 로 다시 보기) -->
+    <div id="maplegend" aria-hidden="true">
+      <p class="ml-title">지도 보는 법</p>
+      <p><i class="ml-now"></i><span><b>노란 칸</b> 지금 있는 방</span></p>
+      <p><i class="ml-key"></i><span><b>깜빡이는 노란 ✚</b> 관문 열쇠가 남은 방 — 그 방 몬스터를 다 잡으면 열쇠가 나와요 (2개 필요)</span></p>
+      <p><i class="ml-route"></i><span><b>청록 점</b> 가장 빠른 길 — 크게 깜빡이는 점이 바로 다음 방</span></p>
+      <p><i class="ml-boss"></i><span><b>빨간 점</b> 심층(보스) · <i class="ml-exit"></i> <b>청록 칸</b> 탈출구</span></p>
+      <p class="ml-hint">H 를 누르면 다시 볼 수 있어요</p>
+    </div>
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">
@@ -15604,7 +15642,7 @@ function buildEntry() {
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
     <p class="fe-dev hidden" id="fe-dev"></p>
-    <p class="fe-tanote">💡 열쇠 · 상자는 안 모아도 돼요 — 몬스터만 잡아도 클리어!</p>
+    <p class="fe-tanote">💡 열쇠 · 상자는 안 모아도 돼요 — 몬스터만 잡아도 클리어!<br>오른쪽 아래 지도의 <b>깜빡이는 노란 ✚</b> 방을 비우면 관문 열쇠, <b>청록 점</b>을 따라가면 가장 빠른 길</p>
     <p id="fe-nowrite" class="hidden"></p>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
@@ -16606,6 +16644,7 @@ function respawn() {
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
+  { const n = $('maplegend'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   { const n = $('tanotice'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   Sfx.ring(0);
   stopRun();
@@ -17052,13 +17091,22 @@ function doorCenter(d) {
 
 /* 지하 첫 방에 들어서는 순간 — 탑뷰로 확 바뀌며 "두둥".
    일반 모드는 눈뜨기 연출 끝에서, 타임어택은 우물을 조사하자마자 옵니다. */
+/* 타임어택 — 오른쪽 아래 지도의 표시 설명 (노란 칸 · 깜빡이는 ✚ · 청록 점 …). ms 동안, H 로 다시 */
+function showMapLegend(ms = 8000) {
+  const el = $('maplegend'); if (!el) return;
+  el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), ms);
+}
+addEventListener('keydown', e => {
+  if (e.code === 'KeyH' && !e.repeat && G.timeAttack && !G.inForest && G.room && $('title').classList.contains('hidden')) showMapLegend(6000);
+});
 function enterDungeon() {
   Sfx.ring(0);                                  // 귀울림은 눈을 다 뜨면 끝
   loadRoom('start', 'W');
   Sfx.dungeonBgm(true);
   G.wake = G.timeAttack ? 0 : WAKE_DUR;
-  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초)
+  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초) · 지도 보는 법 (12초)
     const n = $('tanotice'); n.classList.add('on'); clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 9000);
+    showMapLegend(12000);
   }
   G.shake = 28; G.flash = 1; glare(1.4);
   shockRing(W / 2, H / 2, 380, '255,236,198', 9, 46);

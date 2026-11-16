@@ -31,6 +31,15 @@
 
     <!-- 타임어택 — 던전에 들어서면 화면 아래에 잠깐 -->
     <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠를 모으거나 상자를 열지 않아도 돼요 — <em>몬스터만 잡아도 클리어!</em></div>
+    <!-- 타임어택 — 오른쪽 아래 지도의 표시 설명 (던전에 들어서면 잠깐 · H 로 다시 보기) -->
+    <div id="maplegend" aria-hidden="true">
+      <p class="ml-title">지도 보는 법</p>
+      <p><i class="ml-now"></i><span><b>노란 칸</b> 지금 있는 방</span></p>
+      <p><i class="ml-key"></i><span><b>깜빡이는 노란 ✚</b> 관문 열쇠가 남은 방 — 그 방 몬스터를 다 잡으면 열쇠가 나와요 (2개 필요)</span></p>
+      <p><i class="ml-route"></i><span><b>청록 점</b> 가장 빠른 길 — 크게 깜빡이는 점이 바로 다음 방</span></p>
+      <p><i class="ml-boss"></i><span><b>빨간 점</b> 심층(보스) · <i class="ml-exit"></i> <b>청록 칸</b> 탈출구</span></p>
+      <p class="ml-hint">H 를 누르면 다시 볼 수 있어요</p>
+    </div>
 
     <!-- ── HUD ────────────────────────────────────────────── -->
     <div id="hud" class="hidden">

@@ -695,6 +695,7 @@ function respawn() {
 
 /* 죽으면 진행 상황을 전부 버리고 타이틀로 돌아갑니다 */
 function resetRun() {
+  { const n = $('maplegend'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   { const n = $('tanotice'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   Sfx.ring(0);
   stopRun();
@@ -1141,13 +1142,22 @@ function doorCenter(d) {
 
 /* 지하 첫 방에 들어서는 순간 — 탑뷰로 확 바뀌며 "두둥".
    일반 모드는 눈뜨기 연출 끝에서, 타임어택은 우물을 조사하자마자 옵니다. */
+/* 타임어택 — 오른쪽 아래 지도의 표시 설명 (노란 칸 · 깜빡이는 ✚ · 청록 점 …). ms 동안, H 로 다시 */
+function showMapLegend(ms = 8000) {
+  const el = $('maplegend'); if (!el) return;
+  el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), ms);
+}
+addEventListener('keydown', e => {
+  if (e.code === 'KeyH' && !e.repeat && G.timeAttack && !G.inForest && G.room && $('title').classList.contains('hidden')) showMapLegend(6000);
+});
 function enterDungeon() {
   Sfx.ring(0);                                  // 귀울림은 눈을 다 뜨면 끝
   loadRoom('start', 'W');
   Sfx.dungeonBgm(true);
   G.wake = G.timeAttack ? 0 : WAKE_DUR;
-  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초)
+  if (G.timeAttack) {                           // 타임어택 안내 — 열쇠 · 상자 없이 몬스터만 잡아도 됨 (9초) · 지도 보는 법 (12초)
     const n = $('tanotice'); n.classList.add('on'); clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 9000);
+    showMapLegend(12000);
   }
   G.shake = 28; G.flash = 1; glare(1.4);
   shockRing(W / 2, H / 2, 380, '255,236,198', 9, 46);
