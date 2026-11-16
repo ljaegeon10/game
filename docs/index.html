@@ -1528,7 +1528,7 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794799447"></script>
+<script src="festival-config.js?v=1794801709"></script>
 
 <div id="frame">
   <div id="stage">
@@ -18334,6 +18334,7 @@ function drawFloorBands() {
   g.fillStyle = 'rgba(4,4,8,.55)'; g.fillRect(-20, -b - 2, W + 40, b + 2); g.fillRect(-20, H, W + 40, b + 2);   // 띠는 조금 어둡게 — 방 안이 먼저 보이게
 }
 function renderFrame() {
+  G._bar = null;
   g.save();
   if (G.shake > .4) g.translate((Math.random() - .5) * G.shake, (Math.random() - .5) * G.shake);
   g.translate(-camX(), -camY());                 // 방 안의 것은 카메라만큼 밀어서
@@ -18357,6 +18358,7 @@ function renderFrame() {
   W = roomW; H = roomH;
 }
 function renderScreen() {
+  if (G._bar && !isCine()) paintBossBar(...G._bar);                     // 보스 체력 막대 — 화면 위쪽 가운데
   const cine = G.mode === 'fall' || G.mode === 'landing' || G.mode === 'wakeup' || !!G.opening;
 
   if (G.mode === 'fall') renderFall();
@@ -20286,8 +20288,9 @@ function drawAbom() {
 
 /* 보스 체력 막대 — 이름 · 영문 부제 · 얇은 막대. 깎인 만큼은 밝은 잔상이 잠깐 남았다 따라 줄어듭니다.
    mark : 막대 위 눈금 자리(0‥1, 0 이면 없음) */
-function drawBossBar(B, name, sub, col, mark) {
-  const bw = 260, bx = camX() + (VW - bw) / 2, by = camY() + VH + OY - 17, hk = Math.max(0, B.hp / B.max);
+function drawBossBar(B, name, sub, col, mark) { G._bar = [B, name, sub, col, mark]; }   // 화면 맨 위에 — 보스 · 탄보다 위에 그리도록 renderScreen 에서
+function paintBossBar(B, name, sub, col, mark) {
+  const bw = 260, bx = (VW - bw) / 2, by = 25, hk = Math.max(0, B.hp / B.max);
   if (B._hpShow == null || B._hpShow < hk) B._hpShow = hk;
   B._hpShow += (hk - B._hpShow) * .06;
   g.save();
