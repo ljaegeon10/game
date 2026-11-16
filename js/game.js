@@ -73,7 +73,26 @@ addEventListener('load', reclaimFocus);
    (CSS 의 user-select · touch-callout 만으로는 iPadOS Safari 가 가끔 선택 영역을 띄워서 이벤트에서도 한 번 더) */
 const notField = e => !(e.target && e.target.closest && e.target.closest('input, textarea'));
 ['contextmenu', 'selectstart', 'dragstart'].forEach(n => addEventListener(n, e => { if (notField(e)) e.preventDefault(); }, { capture: true }));
-addEventListener('gesturestart', e => e.preventDefault());           // 두 손가락 확대로 화면이 흐려지며 커지는 것도
+addEventListener('gesturestart', e => e.preventDefault());
+/* 휴대폰 — 두 번 톡(조사 버튼 연타 등)에 화면이 확대되고, touch-action:none 때문에 되돌릴 수도 없던 것 :
+   ① 빠른 두 번째 톡의 기본 동작(두 번 톡 확대)을 막고 ② 그래도 확대돼 있으면 배율 1 로 되돌림 */
+{ let lastEnd = 0;
+  addEventListener('touchend', e => {
+    const now = performance.now();
+    if (now - lastEnd < 350 && !(e.target.closest && e.target.closest('input, textarea, select'))) e.preventDefault();
+    lastEnd = now;
+  }, { passive: false });
+  addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+  const vp = document.querySelector('meta[name=viewport]'), base = vp && vp.getAttribute('content');
+  const unzoom = () => {
+    if (!vp || !window.visualViewport || visualViewport.scale <= 1.01) return;
+    vp.setAttribute('content', base.replace('maximum-scale=1', 'maximum-scale=1.0001'));   // 같은 값을 다시 넣으면 무시하는 브라우저가 있어 살짝 바꿔 넣었다가
+    setTimeout(() => vp.setAttribute('content', base), 60);
+    window.scrollTo(0, 0);
+  };
+  if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(unzoom, 120));
+  setInterval(unzoom, 1500);
+}           // 두 손가락 확대로 화면이 흐려지며 커지는 것도
 
 const key = {};
 const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -147,13 +166,13 @@ cv.addEventListener('mousemove', e => {
 });
 cv.addEventListener('mousedown', e => { e.preventDefault(); if (performance.now() - TOUCH.last < 800) return; mouse.down = true; Sfx.unlock(); });
 
-/* ═══════════ 휴대폰 · 태블릿 — 조이스틱 + 적을 누르고 있어 공격 ═══════════════
+/* ═══════════ 휴대폰 · 태블릿 — 이동 조이스틱(왼쪽) + 공격 조이스틱(오른쪽) ═══════════════
    손가락이 한 번 닿으면 터치 모드가 켜집니다 (화면을 꽉 채우고, 조작 버튼이 나옴).
-   · 적 · 보스 · 항아리를 누르고 있으면 → 그것을 따라가며 계속 쏨 (떼면 멈춤, 쓰러지면 손가락 근처의 다음 것)
-   · 화면 왼쪽 절반의 빈 곳을 누르고 끌면 → 그 자리에 조이스틱이 생겨 이동
-   · 오른쪽 절반의 빈 곳을 누르고 있으면 → 손가락 쪽으로 쏨 (숲에선 어디든 조이스틱)
+   · 화면 왼쪽 절반을 누르고 끌면 → 그 자리에 이동 조이스틱
+   · 오른쪽 절반을 누르고 끌면 → 그 자리에 공격 조이스틱 (끈 쪽으로 계속 쏨 · 그 방향 가까이 적이 있으면 그쪽으로 살짝 맞춰 줌)
+     (숲에선 쏠 일이 없어 어디든 이동 조이스틱)
    · 오른쪽 아래 [조사] = SPACE, 대화 · 쪽지는 화면 아무 데나 톡 */
-const TOUCH = { on: false, last: 0, joy: null, aim: null };
+const TOUCH = { on: false, last: 0, joy: null, aim: null, fire: null };
 const JOY_R = 46;                                       // 조이스틱이 움직이는 반지름 (CSS 픽셀)
 const tEl = {};
 function touchSetup() {
@@ -162,9 +181,12 @@ function touchSetup() {
   document.body.classList.add('touch');
   const mk = (id, html) => { const d = document.createElement('div'); d.id = id; if (html) d.innerHTML = html; document.body.appendChild(d); return d; };
   tEl.joy = mk('tjoy', '<i></i>'); tEl.knob = tEl.joy.firstChild;
+  tEl.fire = mk('tfire', '<i></i>'); tEl.fknob = tEl.fire.firstChild;                       // 공격 조이스틱
+  tEl.hintL = mk('tjhintL', '<span>이동</span>'); tEl.hintR = mk('tjhintR', '<span>공격</span>');   // 엄지를 둘 자리 — 흐리게
   tEl.btn = mk('tbtn', '<b>조사</b>');
   tEl.rot = mk('trot', '화면을 가로로 돌리면 더 크게 보여요');
   tEl.btn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); onConfirm(); });
+  ['touchstart', 'touchend', 'dblclick', 'click'].forEach(n => tEl.btn.addEventListener(n, e => { e.preventDefault(); e.stopPropagation(); }, { passive: false }));   // 연타해도 확대되지 않게
   const pb = $('prompt').querySelector('b'); if (pb) pb.textContent = '조사';
   // 전체 화면 — 주소창 · 도구 막대 없이 (안드로이드 · 아이패드). 손가락을 뗄 때 한 번 저절로, 나간 뒤엔 ⛶ 버튼으로
   if (FS.can()) {
@@ -227,6 +249,17 @@ function touchAimAt() {
   if (a.t && !touchAlive(a.t)) a.t = touchPick(wx, wy, 34);            // 쓰러졌으면 손가락 근처의 다음 것
   return a.t ? { x: a.t.x, y: a.t.y } : { x: wx, y: wy };
 }
+/* 공격 조이스틱 — 끈 방향으로. 그 방향 ±20° · 260px 안에 적 · 보스가 있으면 그 쪽으로 맞춰 줌 */
+const FIRE_DEAD = 14;
+function touchFireDir() {
+  const f = TOUCH.fire; if (!f || Math.hypot(f.dx, f.dy) < FIRE_DEAD) return null;
+  const a0 = Math.atan2(f.dy, f.dx); let best = null, bs = 1e9;
+  const look = (o, r = 0) => { if (!o) return; const dx = o.x - P.x, dy = o.y - P.y, d = Math.hypot(dx, dy) - r; if (d > 260) return;
+    let da = Math.abs(Math.atan2(dy, dx) - a0); if (da > Math.PI) da = 2 * Math.PI - da; if (da > .35) return;
+    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; } };
+  G.foes.forEach(o => !o.dead && look(o)); if (G.boss) look(G.boss, G.boss.r || 30);
+  return best || [f.dx, f.dy];
+}
 const touchPlayMode = () => G.mode === 'play' || G.mode === 'forest';
 // 휴대폰 · 태블릿이면 처음부터 — 첫 톡에서 켜면 화면이 그 순간 바뀌어 누른 버튼이 빗나가기 때문
 if (matchMedia('(hover: none) and (pointer: coarse)').matches) addEventListener('DOMContentLoaded', touchSetup);
@@ -238,39 +271,48 @@ addEventListener('pointerdown', e => {
   if (G.mode === 'talk' || G.mode === 'note' || G.mode === 'doc') { e.preventDefault(); onConfirm(); return; }
   if (!touchPlayMode()) return;
   e.preventDefault();                                   // 뒤따르는 마우스 흉내(mousedown) 막기 — 엉뚱한 곳으로 한 발 나가지 않게
-  const p = touchPos(e), left = e.clientX < innerWidth / 2;
-  const t = G.inForest ? null : touchPick(p.sx + CAM.x, p.sy + CAM.y, 16);
-  if (t && !TOUCH.aim) { TOUCH.aim = { id: e.pointerId, t, sx: p.sx, sy: p.sy }; return; }
-  if ((left || G.inForest) && !TOUCH.joy) {
+  const left = e.clientX < innerWidth / 2;
+  if ((left || G.inForest) && !TOUCH.joy) {                                     // 이동
     TOUCH.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
     tEl.joy.style.left = e.clientX + 'px'; tEl.joy.style.top = e.clientY + 'px';
-    tEl.joy.classList.add('on'); tEl.knob.style.transform = '';
+    tEl.joy.classList.add('on'); tEl.knob.style.transform = ''; tEl.hintL.style.opacity = 0;
     return;
   }
-  if (!G.inForest && !TOUCH.aim) TOUCH.aim = { id: e.pointerId, t: null, sx: p.sx, sy: p.sy };   // 빈 곳 — 손가락 쪽으로
+  if (!left && !G.inForest && !TOUCH.fire) {                                   // 공격
+    TOUCH.fire = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
+    tEl.fire.style.left = e.clientX + 'px'; tEl.fire.style.top = e.clientY + 'px';
+    tEl.fire.classList.add('on'); tEl.fknob.style.transform = ''; tEl.hintR.style.opacity = 0;
+  }
 }, { passive: false });
 addEventListener('pointermove', e => {
   if (e.pointerType !== 'touch') return;
-  const j = TOUCH.joy, a = TOUCH.aim;
+  const j = TOUCH.joy;
   if (j && e.pointerId === j.id) {
     let dx = e.clientX - j.x0, dy = e.clientY - j.y0;
     const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
     j.dx = dx; j.dy = dy; tEl.knob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
-  if (a && e.pointerId === a.id) { const p = touchPos(e); a.sx = p.sx; a.sy = p.sy; }
+  const f = TOUCH.fire;
+  if (f && e.pointerId === f.id) {
+    let dx = e.clientX - f.x0, dy = e.clientY - f.y0;
+    const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
+    f.dx = dx; f.dy = dy; tEl.fknob.style.transform = `translate(${dx}px, ${dy}px)`;
+    tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);
+  }
 }, { passive: true });
 ['pointerup', 'pointercancel'].forEach(n => addEventListener(n, e => {
   if (e.pointerType !== 'touch') return;
-  if (TOUCH.joy && e.pointerId === TOUCH.joy.id) { TOUCH.joy = null; tEl.joy.classList.remove('on'); }
-  if (TOUCH.aim && e.pointerId === TOUCH.aim.id) TOUCH.aim = null;
+  if (TOUCH.joy && e.pointerId === TOUCH.joy.id) { TOUCH.joy = null; tEl.joy.classList.remove('on'); tEl.hintL.style.opacity = ''; }
+  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) { TOUCH.fire = null; tEl.fire.classList.remove('on', 'shoot'); tEl.hintR.style.opacity = ''; }
 }));
-addEventListener('blur', () => { TOUCH.joy = null; TOUCH.aim = null; if (tEl.joy) tEl.joy.classList.remove('on'); });
+addEventListener('blur', () => { TOUCH.joy = null; TOUCH.fire = null; if (tEl.joy) { tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); } });
 /* 조사 버튼 · 조이스틱은 걷고 싸울 때만 */
 setInterval(() => {
   if (!TOUCH.on) return;
   const play = touchPlayMode() || G.mode === 'talk';
   document.body.classList.toggle('tplay', play);
-  if (!touchPlayMode()) { TOUCH.joy = null; TOUCH.aim = null; tEl.joy.classList.remove('on'); }
+  document.body.classList.toggle('tfight', play && !G.inForest);                          // 공격 자리 표시는 던전에서만
+  if (!touchPlayMode()) { TOUCH.joy = null; TOUCH.fire = null; tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); }
 }, 120);
 addEventListener('mouseup', () => { mouse.down = false; });
 /* once:true 였던 걸 뺐습니다 — 아티팩트(iframe)처럼 삽입된 페이지는
@@ -424,7 +466,7 @@ function parseShock(raw) {
   return { plain, ranges };
 }
 
-const TOUCH_HINT = { '이동 — W A S D': '이동 — 화면 왼쪽을 누르고 끌기', '공격 — 방향키 / 마우스': '공격 — 적을 누르고 있기' };
+const TOUCH_HINT = { '이동 — W A S D': '이동 — 화면 왼쪽을 누르고 끌기', '공격 — 방향키 / 마우스': '공격 — 화면 오른쪽을 누르고 쏠 방향으로 끌기' };
 /* 대사가 나오는 동안 위아래로 검은 띠가 내려오고 HUD 는 물러남 (css body.cine) */
 new MutationObserver(() => document.body.classList.toggle('cine', !$('subtitle').classList.contains('hidden')))
   .observe($('subtitle'), { attributes: true, attributeFilter: ['class'] });
@@ -1681,7 +1723,7 @@ function update() {
   if (!forest && P.fireCd <= 0) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
-    if (!ax && !ay && TOUCH.aim) { const t = touchAimAt(); if (t) { ax = t.x - P.x; ay = t.y - P.y; } }   // 휴대폰 — 누르고 있는 적
+    if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱
     if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
     if (ax || ay) {
       shoot(ax, ay);

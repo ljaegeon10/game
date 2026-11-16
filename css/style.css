@@ -1251,6 +1251,19 @@ body.touch{ touch-action:none; overscroll-behavior:none; }
   position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%;
   background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35);
 }
+/* 공격 조이스틱 — 오른쪽 빈 곳을 누른 자리, 붉은 손잡이. 쏘는 중엔 테두리가 밝아짐 */
+#tfire{ position:fixed; z-index:50; width:116px; height:116px; margin:-58px 0 0 -58px; border-radius:50%;
+  border:2px solid rgba(224,72,60,.45); background:radial-gradient(circle, rgba(224,72,60,.1), rgba(224,72,60,.02) 70%); pointer-events:none; opacity:0; transition:opacity .12s; }
+#tfire.on{ opacity:1; }
+#tfire.shoot{ border-color:rgba(255,120,100,.95); box-shadow:0 0 18px rgba(224,72,60,.45); }
+#tfire i{ position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%;
+  background:rgba(224,72,60,.6); border:2px solid rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
+/* 엄지를 둘 자리 — 왼쪽 아래 「이동」 · 오른쪽 아래 「공격」 (그 조이스틱을 쓰는 동안은 숨김) */
+#tjhintL, #tjhintR{ position:fixed; z-index:49; bottom:max(9vh, env(safe-area-inset-bottom)); width:88px; height:88px; border-radius:50%; display:none; align-items:center; justify-content:center;
+  pointer-events:none; font-size:12px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.45); border:2px dashed rgba(241,236,224,.2); transition:opacity .2s; }
+#tjhintL{ left:max(7vw, env(safe-area-inset-left)); }
+#tjhintR{ right:max(7vw, env(safe-area-inset-right)); color:rgba(255,150,130,.55); border-color:rgba(224,72,60,.28); }
+body.touch.tplay #tjhintL{ display:flex; } body.touch.tfight #tjhintR{ display:flex; }
 #tbtn{
   position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:max(28vh, env(safe-area-inset-bottom));   /* 미니맵(오른쪽 아래)을 가리지 않게 조금 위로 */
   width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
@@ -1566,3 +1579,8 @@ body.cine #maplegend{ opacity:0; }
 .pm-box, .st-box{ border-color:rgba(241,236,224,.18); box-shadow:0 18px 50px rgba(0,0,0,.7); }
 .pm-sub{ color:rgba(227,178,60,.7); }
 #title h1 small, #title .t-sub{ color:rgba(241,236,224,.7); }
+
+/* 휴대폰 — 버튼 · 조이스틱 자리에서 두 번 톡 확대 · 길게 눌러 선택 막기 */
+body.touch, body.touch *{ -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
+#tbtn, #tpause, #tfs{ touch-action:none; }
+html{ touch-action:manipulation; }
