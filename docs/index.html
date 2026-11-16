@@ -1528,7 +1528,7 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794801709"></script>
+<script src="festival-config.js?v=1794801994"></script>
 
 <div id="frame">
   <div id="stage">
@@ -2034,7 +2034,7 @@ window.Settings = {
    첫 번째 복선입니다.
    ═══════════════════════════════════════════════════════════ */
 const Sfx = (() => {
-  let ac = null, master = null, mix = null, musicIn = null, ambGain = null, amb = [], started = false;
+  let ac = null, master = null, mix = null, musicIn = null, revIn = null, ambGain = null, amb = [], started = false;
 
   /* 던전 브금 볼륨 — 환경음(0.12~0.15)보다 확실히 앞에 서도록 올렸습니다 */
   const BGM_VOL = 0.52;
@@ -2129,6 +2129,11 @@ const Sfx = (() => {
         comp.attack.value = 0.002;
         comp.release.value = 0.18;
         mix.connect(comp);
+        // 잔향 — 돌방 울림 (기계음이 공간에 붙어 들리게). 효과음이 조금씩 보냄 (send)
+        { const sr = ac.sampleRate, n = Math.floor(sr * 1.3), ir = ac.createBuffer(2, n, sr);
+          for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.2) * (i < sr * .012 ? i / (sr * .012) : 1); }
+          revIn = ac.createGain(); const cv = ac.createConvolver(); cv.buffer = ir; const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3800;
+          const ro = ac.createGain(); ro.gain.value = .5; revIn.connect(lp); lp.connect(cv); cv.connect(ro); ro.connect(master); }
         comp.connect(window.Settings ? Settings.out(ac) : ac.destination);
       }
       // iOS 는 다른 앱에 다녀오거나 전화가 오면 'interrupted' 로 멈춥니다
@@ -2154,6 +2159,43 @@ const Sfx = (() => {
     o.start(t); o.stop(t + dur + 0.05);
   }
 
+  /* ── 효과음 도구 (기계음 · 충격음용) ──
+     at : 지금부터 몇 초 뒤 · wet : 잔향으로 보낼 몫 */
+  function sendOut(g, wet) { g.connect(master); if (wet && revIn) { const s = ac.createGain(); s.gain.value = wet; g.connect(s); s.connect(revIn); } }
+  let NZ = null;
+  function nzBuf() { if (!NZ) { const c = ctx(), n = c.sampleRate * 2; NZ = c.createBuffer(1, n, c.sampleRate); const d = NZ.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } return NZ; }
+  /* 잡음 조각 — 거르개 모양을 골라서 (hp · lp · bp+q), sweep : 거르개 끝 주파수로 미끄러짐 */
+  function burst(at, dur, vol, o = {}) {
+    const c = ctx(), t = c.currentTime + at, src = c.createBufferSource(); src.buffer = nzBuf(); src.playbackRate.value = o.rate || 1;
+    let node = src;
+    const add = (type, f, q) => { const b = c.createBiquadFilter(); b.type = type; b.frequency.setValueAtTime(f, t); if (q) b.Q.value = q; if (o.sweep && type === (o.bp ? 'bandpass' : 'lowpass')) b.frequency.exponentialRampToValueAtTime(o.sweep, t + dur); node.connect(b); node = b; };
+    if (o.hp) add('highpass', o.hp); if (o.lp) add('lowpass', o.lp); if (o.bp) add('bandpass', o.bp, o.q || 1);
+    const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + (o.a || .002)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    node.connect(g); sendOut(g, o.wet); src.start(t, Math.random() * 1.5); src.stop(t + dur + .02);
+  }
+  /* 몸통 — 음높이가 떨어지는 둔한 울림 (sine · 거른 톱니) */
+  function body(at, f0, f1, dur, vol, o = {}) {
+    const c = ctx(), t = c.currentTime + at, os = c.createOscillator(), g = c.createGain(); os.type = o.type || 'sine';
+    os.frequency.setValueAtTime(f0, t); os.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur * (o.glide || .7));
+    let node = os; if (o.lp) { const b = c.createBiquadFilter(); b.type = 'lowpass'; b.frequency.value = o.lp; b.Q.value = o.q || .7; os.connect(b); node = b; }
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + (o.a || .004)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    node.connect(g); sendOut(g, o.wet); os.start(t); os.stop(t + dur + .03);
+  }
+  /* 금속 울림 — 배음이 어긋난 사인 여럿이 저마다 다른 길이로 사그라짐 (쇠 · 열쇠 · 걸쇠) */
+  function metal(at, base, dur, vol, o = {}) {
+    const ratios = o.ratios || [1, 2.76, 5.4, 8.93, 13.3];
+    ratios.forEach((r, i) => body(at, base * r, base * r * (o.bend || 1), dur * (1 - i * .14), vol / (1 + i * .8), { wet: o.wet, a: .001, glide: 1 }));
+  }
+  /* 모터 — 톱니파를 좁게 걸러 웅 하고 도는 소리 (서보 · 펌프) */
+  function servo(at, f0, f1, dur, vol, o = {}) {
+    const c = ctx(), t = c.currentTime + at, os = c.createOscillator(), b = c.createBiquadFilter(), g = c.createGain(); os.type = 'sawtooth';
+    os.frequency.setValueAtTime(f0, t); os.frequency.linearRampToValueAtTime(f1, t + dur);
+    b.type = 'bandpass'; b.frequency.setValueAtTime(f0 * 4, t); b.frequency.linearRampToValueAtTime(f1 * 4, t + dur); b.Q.value = 3;
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(.04, dur * .2)); g.gain.setValueAtTime(vol, t + dur * .75); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    os.connect(b); b.connect(g); sendOut(g, o.wet); os.start(t); os.stop(t + dur + .03);
+  }
+  const vary = (k = .08) => 1 - k + Math.random() * k * 2;
+
   function noise(dur, vol = 0.2, hp = 400, lp = 6000) {
     const c = ctx(), t = c.currentTime;
     const n = Math.floor(c.sampleRate * dur);
@@ -2172,48 +2214,84 @@ const Sfx = (() => {
   const api = {
     unlock() { ctx(); },
 
-    /* 쏘고 · 맞히고 · 맞는 소리 — 묵직하게. 높은 '삑' 대신 낮게 떨어지는 몸통 + 짧은 파열음을 겹치고,
-       매번 음높이를 조금씩 달리해 연사해도 기계음처럼 들리지 않게 */
-    shoot() {                           // 쏨 — 낮게 꺼지는 '툭' + 짧은 파열 + 꼬리
-      const r = .92 + Math.random() * .16;
-      tone(260 * r, 0.10, 'square', 0.17, 62);
-      tone(130 * r, 0.13, 'sine', 0.30, 44);
-      noise(0.055, 0.24, 700, 5200);
-      noise(0.12, 0.09, 160, 1100);
+    /* ── 전투 · 탐험 효과음 — 기계음 · 충격음 (뿅뿅 하는 단음 대신 잡음 · 몸통 · 금속 울림을 겹침) ──
+       매번 음높이 · 결을 조금씩 달리해 연사해도 같은 소리가 반복되지 않게 */
+    shoot() {                           // 에너지 권총 — 방아쇠 딸깍 · 압축 공기 '퓻' · 코일이 튀는 금속 잔향 · 낮은 반동
+      const r = vary(.07);
+      burst(0, .016, .3, { hp: 3200, a: .0005 });                         // 딸깍
+      burst(.004, .11, .3, { bp: 2000 * r, q: 1.4, sweep: 700, a: .001, wet: .12 });   // 퓻 — 거르개가 내려가며
+      body(.002, 190 * r, 58, .13, .42, { lp: 600 });                     // 반동
+      metal(.006, 1350 * r, .16, .05, { ratios: [1, 1.53, 2.31], bend: .92, wet: .2 });   // 코일
     },
-    hit() {                             // 맞힘 — 살에 박히는 '퍽' : 낮은 몸통 + 둔탁한 타격 + 으깨지는 결
-      const r = .9 + Math.random() * .2;
-      tone(165 * r, 0.16, 'sine', 0.55, 42);
-      tone(95 * r, 0.09, 'square', 0.20, 48);
-      noise(0.10, 0.42, 180, 2300);
-      noise(0.035, 0.22, 1800, 7000);
+    hit() {                             // 맞힘 — 둔탁한 '퍽' · 으깨지는 결 · 짧은 금속 튐
+      const r = vary(.1);
+      body(0, 150 * r, 48, .14, .62, { lp: 420 });
+      burst(0, .09, .46, { lp: 2400, hp: 160, a: .001, wet: .1 });
+      burst(.006, .045, .22, { hp: 3200, a: .0008 });
+      metal(.004, 820 * r, .08, .05, { ratios: [1, 2.4], wet: .15 });
     },
-    hurt() {                            // 맞음 — 몸이 울리는 '쿵' + 찢기는 결, 여운이 길게
-      tone(130, 0.42, 'sine', 0.62, 34);
-      tone(175, 0.30, 'sawtooth', 0.34, 46);
-      noise(0.26, 0.36, 110, 1500);
-      noise(0.05, 0.26, 1500, 6000);
-      setTimeout(() => tone(70, 0.34, 'sine', 0.36, 30), 70);
+    hurt() {                            // 맞음 — 방호복이 찢기는 쿵 · 찌그러지는 금속 · 짧은 경고음 두 번
+      body(0, 120, 34, .45, .72, { lp: 300 });
+      body(0, 210, 60, .22, .3, { type: 'sawtooth', lp: 900 });
+      burst(0, .3, .42, { lp: 1600, hp: 90, a: .002, wet: .22 });
+      burst(.01, .06, .26, { hp: 2800 });
+      metal(.01, 310, .32, .07, { ratios: [1, 1.82, 2.97, 4.1], bend: .8, wet: .25 });
+      body(.12, 1180, 1180, .06, .05, { type: 'square', lp: 2600 }); body(.21, 880, 880, .08, .045, { type: 'square', lp: 2200 });   // 방호복 경고 삐삐
     },
-    pickup()  { tone(880, 0.08, 'triangle', 0.32); setTimeout(() => tone(1320, 0.12, 'triangle', 0.28), 70); },
-    keyGet()  { [660, 880, 1170].forEach((f, i) => setTimeout(() => tone(f, 0.13, 'triangle', 0.30), i * 85)); },
-    chest()   { noise(0.3, 0.32, 120, 1400); tone(140, 0.4, 'sawtooth', 0.20, 70); },
-    door()    { noise(0.5, 0.28, 80, 900); tone(90, 0.6, 'sine', 0.24, 50); },
-    pot()     { noise(0.16, 0.40, 1400, 9000); },
-    step()    { noise(0.05, 0.09, 300, 1400); },
+    pickup()  {                         // 주움 — 걸쇠 딸깍 · 장비에 끼우는 착 · 짧은 확인음
+      burst(0, .02, .32, { hp: 2400, a: .0005 });
+      metal(.004, 2100, .07, .06, { ratios: [1, 1.7] });
+      burst(.05, .03, .28, { bp: 1500, q: 2, a: .0008 });
+      body(.07, 740, 980, .1, .07, { lp: 3000 });
+    },
+    keyGet()  {                         // 열쇠 — 쇠가 부딪쳐 울리는 짤랑 · 자물쇠 톱니 · 낮은 확인 울림
+      metal(0, 1480, .55, .14, { wet: .3 }); metal(.07, 1960, .45, .1, { wet: .3 });
+      burst(.0, .04, .25, { hp: 2000 });
+      for (let i = 0; i < 4; i++) burst(.16 + i * .035, .02, .16, { bp: 2400, q: 3, a: .0005 });
+      body(.3, 196, 196, .5, .16, { wet: .3 }); body(.3, 294, 294, .45, .08, { wet: .3 });
+    },
+    chest()   {                         // 상자 — 녹슨 경첩이 끼익 · 뚜껑이 덜컥
+      const c = ctx(), t = c.currentTime, o = c.createOscillator(), b = c.createBiquadFilter(), g = c.createGain(), lfo = c.createOscillator(), lg = c.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 210; lfo.frequency.value = 23; lg.gain.value = 40; lfo.connect(lg); lg.connect(o.frequency);
+      b.type = 'bandpass'; b.frequency.setValueAtTime(1400, t); b.frequency.linearRampToValueAtTime(900, t + .35); b.Q.value = 6;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.12, t + .05); g.gain.exponentialRampToValueAtTime(.0001, t + .38);
+      o.connect(b); b.connect(g); sendOut(g, .2); o.start(t); lfo.start(t); o.stop(t + .4); lfo.stop(t + .4);
+      body(.36, 130, 52, .3, .6, { lp: 380, wet: .25 }); burst(.36, .22, .34, { lp: 1300, hp: 80, wet: .25 });
+      metal(.37, 520, .3, .06, { ratios: [1, 2.3, 3.9], wet: .3 });
+    },
+    door()    {                         // 문 — 공압 '치익' · 모터가 도는 웅 · 끝에 쇠가 맞물리는 덜컹
+      burst(0, .5, .2, { bp: 3200, q: .6, sweep: 1800, a: .03, wet: .15 });
+      servo(.02, 55, 82, .42, .1, { wet: .2 });
+      body(.44, 110, 40, .32, .5, { lp: 320, wet: .3 }); burst(.44, .16, .28, { lp: 1800, hp: 60, wet: .3 });
+      metal(.45, 240, .4, .07, { ratios: [1, 2.1, 3.4, 5.2], wet: .35 });
+    },
+    pot()     {                         // 항아리 · 포자 — 도기가 깨지는 쨍그랑 (잘게 갈라지는 조각들)
+      const r = vary(.12);
+      burst(0, .14, .4, { hp: 1200, a: .001, wet: .15 });
+      for (let i = 0; i < 6; i++) metal(.01 + Math.random() * .12, (1800 + Math.random() * 2600) * r, .07 + Math.random() * .06, .045, { ratios: [1, 1.48] });
+      body(0, 240 * r, 90, .12, .3, { lp: 700 });
+    },
+    step()    {                         // 발소리 — 돌바닥의 작은 사각 · 고무 밑창의 둔한 툭
+      const r = vary(.15);
+      burst(0, .045, .11, { bp: 1100 * r, q: .9, a: .002 });
+      body(0, 95 * r, 60, .05, .12, { lp: 300 });
+    },
+    pick()    { burst(0, .012, .18, { hp: 3000, a: .0005 }); body(.003, 1320, 1320, .03, .04, { lp: 4000 }); },   // 메뉴 — 작은 딸깍
 
     /* 몬스터가 죽을 때 — 피가 아니라 "코드가 튀는" 소리 */
-    glitch(k = 1) {                  // k : 세기 (오프닝의 가벼운 글리치는 작게)
-      const c = ctx(), t = c.currentTime;
-      for (let i = 0; i < 7; i++) {
-        const o = c.createOscillator(), g = c.createGain();
-        o.type = 'square';
-        o.frequency.setValueAtTime(300 + Math.random() * 2600, t + i * 0.022);
-        env(g, t + i * 0.022, 0.002, 0.03, 0.12 * k);
-        o.connect(g); g.connect(master);
-        o.start(t + i * 0.022); o.stop(t + i * 0.022 + 0.05);
+    glitch(k = 1) {                  // k : 세기 — 데이터가 부서지는 소리 : 잘게 깎인 잡음 덩어리 · 아래로 떨어지는 신호 · 짧은 전기 튐
+      const c = ctx(), t = c.currentTime, sr = c.sampleRate, n = Math.floor(sr * .2), buf = c.createBuffer(1, n, sr), d = buf.getChannelData(0);
+      let hold = 1, held = 0, amp = 1;
+      for (let i = 0; i < n; i++) {
+        if (i % 220 === 0) { hold = 2 + (Math.random() * 18 | 0); amp = Math.random() < .3 ? .15 : 1; }     // 덩어리마다 해상도가 깎임
+        if (i % hold === 0) held = Math.random() * 2 - 1;
+        d[i] = held * amp * Math.pow(1 - i / n, 1.4);
       }
-      noise(0.14, 0.20 * k, 2000, 12000);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.setValueAtTime(3600, t); bp.frequency.exponentialRampToValueAtTime(500, t + .2); bp.Q.value = .8;
+      const g = c.createGain(); g.gain.value = .3 * k; src.connect(bp); bp.connect(g); sendOut(g, .15); src.start(t);
+      body(0, 900, 70, .18, .12 * k, { type: 'square', lp: 1800 });                 // 신호가 꺼지며 떨어짐
+      burst(0, .03, .2 * k, { hp: 4000, a: .0005 });
     },
 
     /* 치지직 — 전파가 끊긴 TV 잡음. 덩어리째 커졌다 작아지며 갈라지고, 사이사이 탁탁 튀는 소리.
@@ -2387,10 +2465,15 @@ const Sfx = (() => {
       noise(0.28, vol * 0.5, 40, 380);
     },
 
-    bossRoar() {
-      tone(70, 1.3, 'sawtooth', 0.42, 40);
-      tone(105, 1.1, 'square', 0.20, 55);
-      noise(1.0, 0.30, 60, 900);
+    bossRoar() {                     // 포효 — 어긋난 낮은 톱니 셋이 떨리며 · 쇠를 긁는 잡음 · 바닥이 울리는 저음
+      const c = ctx(), t = c.currentTime, lp = c.createBiquadFilter(), g = c.createGain(), trem = c.createOscillator(), tg = c.createGain();
+      lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(260, t + 1.3); lp.Q.value = 2;
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.34, t + .08); g.gain.exponentialRampToValueAtTime(.0001, t + 1.4);
+      trem.frequency.value = 13; tg.gain.value = .12; trem.connect(tg); tg.connect(g.gain);
+      [68, 71.5, 102].forEach(f => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * .62, t + 1.3); o.connect(lp); o.start(t); o.stop(t + 1.45); });
+      lp.connect(g); sendOut(g, .35); trem.start(t); trem.stop(t + 1.45);
+      burst(0, 1.0, .22, { bp: 1700, q: 1.2, sweep: 600, a: .06, wet: .3 });
+      body(0, 52, 30, 1.2, .5, { wet: .2 });
     },
 
     /* 지상 : 새소리 (평화로움) */
@@ -2401,12 +2484,12 @@ const Sfx = (() => {
     },
 
     /* ⚠ 복선 : 숲속에 어울리지 않는 기계 비프 */
-    beep(vol = 0.07) { tone(1046, 0.055, 'square', vol); },
+    beep(vol = 0.07) { body(0, 1046, 1046, .07, vol * 1.3, { a: .002 }); body(0, 2092, 2092, .05, vol * .25, { a: .002 }); },   // 모니터 삑 — 맑은 사인 + 옅은 배음
 
     /* 오프닝 — 피험자가 깨려 할 때 울리는 모니터 경보 (높게-낮게 두 음) */
-    alarm() {
-      tone(1320, 0.11, 'triangle', 0.13);
-      setTimeout(() => tone(990, 0.15, 'triangle', 0.12), 130);
+    alarm() {                        // 병원 모니터처럼 맑은 두 음
+      body(0, 1320, 1320, .12, .12, { a: .003 }); body(0, 2640, 2640, .08, .02);
+      body(.13, 990, 990, .16, .11, { a: .003 }); body(.13, 1980, 1980, .1, .018);
     },
 
     /* 오프닝 — "용량 올려" 뒤 약이 들어가는 순간: 차가운 쉿 소리와 가라앉는 저음 */
