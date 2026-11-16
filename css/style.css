@@ -1524,3 +1524,33 @@ body.cine #maplegend{ opacity:0; }
 #maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child::after{ content:' —'; color:rgba(233,228,216,.5); }
 #maplegend p:nth-of-type(4) > span > b:first-child, #maplegend p:nth-of-type(5) > span > b:last-of-type{ color:var(--glow); }
 #maplegend p:nth-of-type(5) > span > b:first-child{ color:#e0483c; }
+
+/* ═══ 타임어택 공략 — 시계가 돌기 전에 가장 빠른 길 ═══ */
+#tabrief{ margin-top:22px; display:flex; flex-direction:column; align-items:center; gap:8px; animation:msIn .22s ease-out 1; }
+#tabrief.hidden{ display:none; }
+#tabrief .tb-body{ display:flex; gap:16px; align-items:center; padding:10px 14px 8px; background:rgba(6,10,14,.72); border:1px solid rgba(125,227,200,.22); border-left:2px solid var(--hwang); }
+.tb-map{ width:259px; height:130px; overflow:visible; }
+.tb-room rect{ fill:rgba(160,172,192,.16); stroke:rgba(160,172,192,.35); stroke-width:1; }
+.tb-room.on rect{ fill:rgba(160,172,192,.34); stroke:rgba(241,236,224,.6); }
+.tb-room.off{ opacity:.45; }
+.tb-room.off rect{ stroke-dasharray:2 2; }
+.tb-room.here rect{ fill:#e3b23c; stroke:#e3b23c; }
+.tb-room.key rect{ stroke:#e3b23c; }
+.tb-room.boss rect{ fill:rgba(194,53,44,.45); stroke:#e0483c; }
+.tb-room.exit rect{ fill:rgba(125,227,200,.3); stroke:#7de3c8; }
+.tb-plus{ fill:#e3b23c; animation:mlBlink .8s steps(2) infinite; }
+.tb-room text{ font-family:var(--font-ui); font-size:6px; fill:rgba(241,236,224,.85); text-anchor:middle; paint-order:stroke; stroke:rgba(5,6,10,.85); stroke-width:2px; }
+.tb-room.here text{ fill:#0a0910; stroke:none; }
+.tb-room.off text{ fill:rgba(241,236,224,.4); }
+.tb-path{ fill:none; stroke:#7de3c8; stroke-width:2.2; stroke-linejoin:round; stroke-linecap:round; filter:drop-shadow(0 0 2px rgba(125,227,200,.9)); }
+.tb-dot{ fill:#fff; filter:drop-shadow(0 0 3px #7de3c8); }
+.tb-steps{ margin:0; padding:0 0 0 2px; list-style:none; counter-reset:tb; width:176px; display:flex; flex-direction:column; gap:6px; }
+.tb-steps li{ counter-increment:tb; position:relative; padding-left:16px; text-align:left; font-size:8.5px; line-height:1.5; color:rgba(241,236,224,.85); }
+.tb-steps li::before{ content:counter(tb); position:absolute; left:0; top:0; width:11px; height:11px; font-size:7px; line-height:11px; text-align:center; color:#0a0910; background:#7de3c8; }
+.tb-steps b, .tb-skip b{ font-weight:400; color:#fff; }
+.tb-steps b.y, .tb-skip b.y{ color:#e3b23c; } .tb-steps b.r{ color:#ff6a5a; } .tb-steps b.g, .tb-skip b.g{ color:#7de3c8; }
+.tb-skip{ margin:0; max-width:460px; text-align:center; font-size:7.5px; line-height:1.5; color:rgba(241,236,224,.55); }
+#tbgo{ margin-top:2px; padding:7px 26px 6px; font-size:12px; letter-spacing:.2em; color:#0a0910; background:#7de3c8; border:none; box-shadow:3px 3px 0 rgba(0,0,0,.5); cursor:pointer; }
+#tbgo span{ margin-left:8px; font-size:7px; letter-spacing:.1em; opacity:.6; }
+#tbgo:hover, #tbgo:focus-visible{ background:#a6f2df; outline:none; }
+#tbback{ margin-top:0; padding:5px 18px; font-size:10px; letter-spacing:.16em; background:rgba(15,14,20,.45); color:rgba(241,236,224,.72); border:1px solid rgba(241,236,224,.28); border-radius:3px; box-shadow:none; }

@@ -103,7 +103,11 @@ addEventListener('keydown', e => {
     if (k === 'arrowdown' || k === 's') menuMove(1);
     if (k === 'enter') menuGo();
   }
-  if (G.mode === 'modesel') {                       // 모드 선택은 1 / 2 로도 고를 수 있습니다
+  if (G.mode === 'tabrief') {                       // 타임어택 공략 — SPACE · ENTER 로 시작, ESC 뒤로
+    if (k === ' ' || k === 'enter') { e.preventDefault(); closeTaBrief(true); }
+    if (k === 'escape' || k === 'backspace') closeTaBrief(false);
+  }
+  else if (G.mode === 'modesel') {                  // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startTimeAttack();
     if (k === '2') openDiffSelect();
     if (k === 'escape' || k === 'backspace') closeModeSelect();
@@ -535,6 +539,7 @@ function nextLine() { talk.q.shift(); showLine(); }
 function onConfirm() {
   Sfx.unlock();
   if (G.mode === 'title')  { menuGo(); return; }
+  if (G.mode === 'tabrief') return;            // 공략 화면 — 키 처리는 위에서
   if (G.mode === 'modesel') return;            // 모드는 직접 골라야 넘어갑니다
   if (G.mode === 'diffsel') return;            // 난이도도 마찬가지
   if (G.mode === 'creepy') return;             // 이건 건너뛸 수 없습니다
@@ -600,10 +605,60 @@ function runProgress() {
 
 /* 타임어택 — 축제판이면 먼저 이름 · 연락처를 받고 시작 (기록이 순위판에 모입니다, festival.js) */
 function startTimeAttack() {
-  if (!(window.Festival && Festival.on)) { startGame(true); return; }
+  if (!(window.Festival && Festival.on)) { showTaBrief(); return; }
   $('modesel').classList.add('hidden');
   G.mode = 'entry';
-  Festival.ask(() => startGame(true), () => closeModeSelect());
+  Festival.ask(() => showTaBrief(), () => closeModeSelect());
+}
+/* 타임어택 공략 — 시계가 돌기 전에, 지도 위로 가장 빠른 길이 그려짐.
+   가운데 복도 → 갈림길에서 위(북쪽 방) · 아래(남쪽 방) 들러 관문 열쇠 2개 → 다시 가운데로 쭉 오른쪽 (관문 → 심층 → 탈출구) */
+const TA_PATH = ['start', 'fork', 'north', 'fork', 'south', 'fork', 'mid', 'gate', 'boss', 'exit'];
+function showTaBrief() {
+  const el = $('tabrief'), svg = el.querySelector('svg'), C = 43, S = 36;               // 칸 간격 · 칸 크기
+  const at = id => [MAP[id].gx * C + S / 2, MAP[id].gy * C + S / 2];
+  const NS = 'http://www.w3.org/2000/svg', mk = (tag, attrs, txt) => { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (txt) n.textContent = txt; return n; };
+  const rooms = svg.querySelector('.tb-rooms'); rooms.textContent = '';
+  for (const id in MAP) {
+    const r = MAP[id], x = r.gx * C, y = r.gy * C, on = TA_PATH.includes(id);
+    const cls = 'tb-room' + (on ? ' on' : ' off') + (r.clear === 'doorKey' ? ' key' : '') + (r.boss ? ' boss' : '') + (r.final ? ' exit' : '') + (id === 'start' ? ' here' : '');
+    const g = mk('g', { class: cls }); g.appendChild(mk('rect', { x, y, width: S, height: S, rx: 2 }));
+    if (r.clear === 'doorKey') g.appendChild(mk('path', { d: `M${x + S / 2 - 1.5} ${y + 5}h3v4.5h4.5v3h-4.5v4.5h-3v-4.5h-4.5v-3h4.5z`, class: 'tb-plus' }));
+    g.appendChild(mk('text', { x: x + S / 2, y: y + S - 5 }, r.name));
+    rooms.appendChild(g);
+  }
+  const pts = TA_PATH.map(at), off = { north: [-4, 0], south: [4, 0] };                // 위 · 아래로 갔다 오는 길이 겹치지 않게 살짝 비켜
+  let poly = [], d = 0, seg = [];
+  TA_PATH.forEach((id, i) => { const p = at(id), o = (TA_PATH[i - 1] === 'north' || TA_PATH[i + 1] === 'north') && id === 'fork' ? [-4, 0] : (TA_PATH[i - 1] === 'south' || TA_PATH[i + 1] === 'south') && id === 'fork' ? [4, 0] : off[id] || [0, 0];
+    poly.push([p[0] + o[0], p[1] + o[1]]); });
+  poly = poly.filter((p, i) => !i || p[0] !== poly[i - 1][0] || p[1] !== poly[i - 1][1]);
+  for (let i = 1; i < poly.length; i++) d += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
+  const line = svg.querySelector('.tb-path'); line.setAttribute('points', poly.map(p => p.join(',')).join(' '));
+  line.style.strokeDasharray = d; line.style.strokeDashoffset = d;
+  const dot = svg.querySelector('.tb-dot');
+  // 길이 그려지며 점이 따라감 (4초 · 끝나면 잠깐 쉬고 다시)
+  cancelAnimationFrame(showTaBrief.raf); const T0 = performance.now(), DUR = 4200, REST = 1300;
+  const tick = now => {
+    if (el.classList.contains('hidden')) return;
+    const u = Math.min(1, ((now - T0) % (DUR + REST)) / DUR), want = u * d;
+    let acc = 0, pos = poly[0];
+    for (let i = 1; i < poly.length; i++) { const L = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
+      if (acc + L >= want) { const k = (want - acc) / L; pos = [poly[i - 1][0] + (poly[i][0] - poly[i - 1][0]) * k, poly[i - 1][1] + (poly[i][1] - poly[i - 1][1]) * k]; break; } acc += L; pos = poly[i]; }
+    line.style.strokeDashoffset = d - want; dot.setAttribute('cx', pos[0]); dot.setAttribute('cy', pos[1]);
+    showTaBrief.raf = requestAnimationFrame(tick);
+  };
+  showTaBrief.raf = requestAnimationFrame(tick);
+  ['modesel', 'diffsel', 'startbtn'].forEach(id => $(id).classList.add('hidden'));
+  const fe = $('fest-entry'); if (fe) fe.classList.add('hidden');
+  el.classList.remove('hidden'); $('title').classList.add('picking');
+  G.mode = 'tabrief';
+  setTimeout(() => $('tbgo').focus(), 30);
+}
+function closeTaBrief(go) {
+  if ($('tabrief').classList.contains('hidden')) return;                      // 두 번 눌려도 한 번만
+  $('tabrief').classList.add('hidden'); cancelAnimationFrame(showTaBrief.raf);
+  if (go) { startGame(true); return; }
+  if (window.Festival && Festival.clearPlayer) Festival.clearPlayer();
+  closeModeSelect();
 }
 
 /* 일반 모드는 한 단계 더 — 쉬움 / 보통 / 어려움을 고릅니다.
@@ -732,6 +787,8 @@ document.querySelectorAll('#startbtn .tm-item').forEach(b => {
 });
 if (window.Festival && Festival.on) document.querySelector('#startbtn [data-act="board"]').classList.remove('hidden');
 $('msback').addEventListener('click', closeModeSelect);
+$('tbgo').addEventListener('click', e => { e.stopPropagation(); closeTaBrief(true); });
+$('tbback').addEventListener('click', e => { e.stopPropagation(); closeTaBrief(false); });
 $('dsback').addEventListener('click', closeDiffSelect);
 document.querySelectorAll('.modebtn').forEach(b =>
   b.addEventListener('click', () =>
