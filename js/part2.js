@@ -333,10 +333,10 @@ const CSS = `
 #p2{ position:fixed; inset:0; z-index:1500; background:#000; overflow:hidden; font-family:'DungGeunMo', ui-monospace, monospace; color:#e9eef2; user-select:none; -webkit-user-select:none; touch-action:none; }
 #p2 canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
 #p2 .dot{ position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; border-radius:50%; background:rgba(233,238,242,.55); pointer-events:none; }
-#p2 .prompt{ position:absolute; left:50%; top:58%; transform:translateX(-50%); padding:6px 14px; font-size:clamp(13px,1.5vw,19px); background:rgba(8,12,15,.72); border:1px solid rgba(125,227,200,.6); pointer-events:none; white-space:nowrap; }
-#p2 .prompt b{ color:#7de3c8; font-weight:400; margin-right:.5em; }
+#p2 .prompt{ position:absolute; left:50%; top:58%; transform:translateX(-50%); padding:6px 14px; font-size:clamp(13px,1.5vw,19px); background:rgba(8,12,15,.72); border:1px solid rgba(227,178,60,.6); pointer-events:none; white-space:nowrap; }
+#p2 .prompt b{ color:#e3b23c; font-weight:400; margin-right:.5em; }
 #p2 .obj{ position:absolute; left:2.2vw; top:2.4vh; font-size:clamp(12px,1.25vw,17px); color:rgba(233,238,242,.75); letter-spacing:.04em; pointer-events:none; text-shadow:0 1px 3px #000; }
-#p2 .obj small{ display:block; margin-bottom:4px; font-size:.72em; letter-spacing:.3em; color:rgba(125,227,200,.7); }
+#p2 .obj small{ display:block; margin-bottom:4px; font-size:.72em; letter-spacing:.3em; color:rgba(227,178,60,.7); }
 #p2 .inv{ position:absolute; right:2.2vw; top:2.4vh; display:flex; gap:8px; pointer-events:none; }
 #p2 .inv span{ padding:5px 10px; font-size:clamp(11px,1.1vw,15px); border:1px solid rgba(233,238,242,.3); background:rgba(8,12,15,.6); }
 #p2 .inv span.on{ border-color:#e3b23c; color:#e3b23c; }

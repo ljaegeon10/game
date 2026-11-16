@@ -4686,11 +4686,16 @@ function renderLanding() {
 /* 이야기의 빠르기 — 숫자 세기 전의 대화는 OP_SLOW 배로 늘려 들려줍니다.
    아래 표들은 "기준 시간"으로 적고, opT() 로 실제 프레임에 옮깁니다.
    (대화 구간은 배로 늘고, 그 뒤는 늘어난 만큼 통째로 밀립니다) */
-const OP_SLOW = 2, OP_STORY_END = 1190;
+const OP_SLOW = 1.3, OP_STORY_END = 1190;   // 축제판 — 대화를 덜 늘려 짧게 (예전 2)
 const opT = t => t < OP_STORY_END ? t * OP_SLOW : t + OP_STORY_END * (OP_SLOW - 1);
 const OP = { LAB: opT(1570), DARK: opT(1690), LINES: opT(1920), END: opT(2000),
              CR0: opT(552), CR1: opT(694),                   // 각성 위기 — 눈이 번쩍 뜨이고 약이 들어갈 때까지
              SINK0: opT(1190), SINK1: opT(1556), DROP: opT(1522) };   // 우물 아래로 가라앉음 · 툭 떨어짐
+/* 줄여 보기 — 기준 시간의 [여기서, 여기로] 건너뜀 (축제판 : 꿈과 현실만 느껴지게 약 25초)
+   · 140→400  : 펜라이트 · 조수의 말 건너뜀 (…들리세요? 다음 바로 「141번째예요」)
+   · 720→1080 : 우물 이야기 세 줄 건너뜀 (「용량 올려」 다음 바로 「다시 우물로 내려가요」)
+   · 1368→1452 : 숫자 하나 줄임 (10 · 9 · 8…) */
+const OP_JUMPS = [[140, 400], [720, 1080], [1368, 1452]].map(([a, b]) => [opT(a), opT(b)]);
 const OP_EYE = [
   [0, 0], [30, .58], [90, .62], [118, .14], [140, .55],
   [200, .5], [212, .62], [220, .16], [244, .46],                 // 펜라이트에 움찔
@@ -4719,9 +4724,9 @@ const OP_TEXT = [
   [720, 830, '자, 오늘은 우물 이야기를 해 드릴게요.', 'near'],
   [840, 950, '숲 끝에, 오래된 우물이 하나 있어요.', 'near'],
   [960, 1060, '그 아래로… 천천히 내려가 보는 거예요.', 'near'],
-  [1080, 1180, '숫자를 거꾸로 세어 보세요.', 'near'],
+  [1080, 1180, '다시 우물로 내려가요. 숫자를 세면서.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
-  [1200, 1284, '10.', 'near'], [1284, 1368, '9.', 'near'], [1368, 1452, '8.', 'near'], [1452, 1552, '7…', 'near']
+  [1200, 1284, '10.', 'near'], [1284, 1368, '9.', 'near'], [1368, 1452, '8.', 'near'], [1452, 1552, '8…', 'near']
 ].map(([a, b, s, who]) => [opT(a), opT(b), s, who]);
 /* 모니터 비프 — 평소엔 고르게, "용량 올려" 뒤로 느려지고, 셀 때는 점점 벌어집니다 */
 const OP_BEEPS = (() => {
@@ -4772,7 +4777,9 @@ function finishOpening() {
   say(FOREST_HINT);
 }
 function tickOpening() {
-  const O = G.opening, t = ++O.t;
+  const O = G.opening; ++O.t;
+  for (const [a, b] of OP_JUMPS) if (O.t === a) O.t = b;               // 줄여 보기
+  const t = O.t;
   if (skipHeld()) { O.skip = (O.skip || 0) + 1; O.skipShow = 120; }
   else { O.skip = Math.max(0, (O.skip || 0) - 3); O.skipShow = Math.max(0, (O.skipShow || 0) - 1); }
   if (O.skip >= OP_SKIP_T && t > 30) { Sfx.ambient('forest'); finishOpening(); return; }
@@ -6301,7 +6308,7 @@ $('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
 $('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { part2: () => part2Scene, enterDungeon, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEXT, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,
