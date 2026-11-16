@@ -1268,33 +1268,28 @@ body.escfull #ending{ overflow:hidden; }
 #fe-skip{ margin:0; padding:8px 0; font-size:11px; letter-spacing:.12em; color:var(--baek); background:rgba(15,14,20,.5); border:1px solid rgba(241,236,224,.35); box-shadow:none; }
 
 /* ── 휴대폰 · 태블릿 (game.js 의 TOUCH) — 손가락이 닿으면 body.touch ──────────────
-   조이스틱은 왼쪽 빈 곳을 누른 자리에 생기고, 조사 버튼은 오른쪽 아래. 둘 다 걷고 싸울 때만 (body.tplay) */
+   이동 조이스틱은 왼쪽 아래 · 공격 조이스틱은 오른쪽 아래에 고정, 조사 버튼은 그 위. 걷고 싸울 때만 (body.tplay · body.tfight) */
 body.touch{ touch-action:none; overscroll-behavior:none; }
-#tjoy{
-  position:fixed; z-index:50; width:116px; height:116px; margin:-58px 0 0 -58px; border-radius:50%;
-  border:2px solid rgba(241,236,224,.35); background:radial-gradient(circle, rgba(241,236,224,.08), rgba(241,236,224,.02) 70%);
-  pointer-events:none; opacity:0; transition:opacity .12s;
+/* 고정 조이스틱 — 왼쪽 아래 이동 · 오른쪽 아래 공격. 걷고 싸울 때 늘 보이고, 잡으면 밝아짐 */
+#tjoy, #tfire{
+  position:fixed; z-index:50; width:120px; height:120px; border-radius:50%; display:none;
+  bottom:max(7vh, calc(env(safe-area-inset-bottom) + 10px));
+  border:2px solid rgba(241,236,224,.28); background:radial-gradient(circle, rgba(241,236,224,.07), rgba(241,236,224,.015) 70%);
+  pointer-events:none; opacity:.55; transition:opacity .12s, border-color .12s, box-shadow .12s;
 }
-#tjoy.on{ opacity:1; }
-#tjoy i{
-  position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%;
-  background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35);
-}
-/* 공격 조이스틱 — 오른쪽 빈 곳을 누른 자리, 붉은 손잡이. 쏘는 중엔 테두리가 밝아짐 */
-#tfire{ position:fixed; z-index:50; width:116px; height:116px; margin:-58px 0 0 -58px; border-radius:50%;
-  border:2px solid rgba(224,72,60,.45); background:radial-gradient(circle, rgba(224,72,60,.1), rgba(224,72,60,.02) 70%); pointer-events:none; opacity:0; transition:opacity .12s; }
-#tfire.on{ opacity:1; }
+#tjoy{ left:max(6vw, calc(env(safe-area-inset-left) + 14px)); }
+#tfire{ right:max(6vw, calc(env(safe-area-inset-right) + 14px)); border-color:rgba(224,72,60,.38); background:radial-gradient(circle, rgba(224,72,60,.09), rgba(224,72,60,.02) 70%); }
+body.touch.tplay #tjoy{ display:block; } body.touch.tfight #tfire{ display:block; }
+#tjoy.on, #tfire.on{ opacity:1; }
 #tfire.shoot{ border-color:rgba(255,120,100,.95); box-shadow:0 0 18px rgba(224,72,60,.45); }
-#tfire i{ position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; border-radius:50%;
-  background:rgba(224,72,60,.6); border:2px solid rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
-/* 엄지를 둘 자리 — 왼쪽 아래 「이동」 · 오른쪽 아래 「공격」 (그 조이스틱을 쓰는 동안은 숨김) */
-#tjhintL, #tjhintR{ position:fixed; z-index:49; bottom:max(9vh, env(safe-area-inset-bottom)); width:88px; height:88px; border-radius:50%; display:none; align-items:center; justify-content:center;
-  pointer-events:none; font-size:12px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.45); border:2px dashed rgba(241,236,224,.2); transition:opacity .2s; }
-#tjhintL{ left:max(7vw, env(safe-area-inset-left)); }
-#tjhintR{ right:max(7vw, env(safe-area-inset-right)); color:rgba(255,150,130,.55); border-color:rgba(224,72,60,.28); }
-body.touch.tplay #tjhintL{ display:flex; } body.touch.tfight #tjhintR{ display:flex; }
+#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; z-index:1;
+  background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35); }
+#tfire i{ background:rgba(224,72,60,.6); border-color:rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
+#tjoy span, #tfire span{ position:absolute; left:0; right:0; top:-22px; text-align:center; font-size:11px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.5); }
+#tfire span{ color:rgba(255,150,130,.6); }
+#tjoy.on span, #tfire.on span{ opacity:0; }
 #tbtn{
-  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:max(28vh, env(safe-area-inset-bottom));   /* 미니맵(오른쪽 아래)을 가리지 않게 조금 위로 */
+  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 150px);   /* 공격 조이스틱 위 */
   width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
   background:rgba(15,14,20,.55); border:2px solid rgba(125,227,200,.6); color:var(--glow);
   font-size:15px; letter-spacing:.06em; touch-action:none; -webkit-user-select:none; user-select:none;
@@ -16195,9 +16190,9 @@ cv.addEventListener('mousedown', e => { e.preventDefault(); if (performance.now(
 
 /* ═══════════ 휴대폰 · 태블릿 — 이동 조이스틱(왼쪽) + 공격 조이스틱(오른쪽) ═══════════════
    손가락이 한 번 닿으면 터치 모드가 켜집니다 (화면을 꽉 채우고, 조작 버튼이 나옴).
-   · 화면 왼쪽 절반을 누르고 끌면 → 그 자리에 이동 조이스틱
-   · 오른쪽 절반을 누르고 끌면 → 그 자리에 공격 조이스틱 (끈 쪽으로 계속 쏨 · 그 방향 가까이 적이 있으면 그쪽으로 살짝 맞춰 줌)
-     (숲에선 쏠 일이 없어 어디든 이동 조이스틱)
+   · 왼쪽 아래 고정 이동 조이스틱 — 걷는 동안 늘 보임
+   · 오른쪽 아래 고정 공격 조이스틱 (끈 쪽으로 계속 쏨 · 그 방향 가까이 적이 있으면 그쪽으로 살짝 맞춰 줌) — 던전에서만
+   · 연사 간격은 PC 와 같음 (실제 시간 기준)
    · 오른쪽 아래 [조사] = SPACE, 대화 · 쪽지는 화면 아무 데나 톡 */
 const TOUCH = { on: false, last: 0, joy: null, aim: null, fire: null };
 const JOY_R = 46;                                       // 조이스틱이 움직이는 반지름 (CSS 픽셀)
@@ -16209,7 +16204,7 @@ function touchSetup() {
   const mk = (id, html) => { const d = document.createElement('div'); d.id = id; if (html) d.innerHTML = html; document.body.appendChild(d); return d; };
   tEl.joy = mk('tjoy', '<i></i>'); tEl.knob = tEl.joy.firstChild;
   tEl.fire = mk('tfire', '<i></i>'); tEl.fknob = tEl.fire.firstChild;                       // 공격 조이스틱
-  tEl.hintL = mk('tjhintL', '<span>이동</span>'); tEl.hintR = mk('tjhintR', '<span>공격</span>');   // 엄지를 둘 자리 — 흐리게
+  tEl.joy.insertAdjacentHTML('beforeend', '<span>이동</span>'); tEl.fire.insertAdjacentHTML('beforeend', '<span>공격</span>');   // 고정 자리 — 늘 보임
   tEl.btn = mk('tbtn', '<b>조사</b>');
   tEl.rot = mk('trot', '화면을 가로로 돌리면 더 크게 보여요');
   tEl.btn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); Sfx.unlock(); onConfirm(); });
@@ -16298,48 +16293,41 @@ addEventListener('pointerdown', e => {
   if (G.mode === 'talk' || G.mode === 'note' || G.mode === 'doc') { e.preventDefault(); onConfirm(); return; }
   if (!touchPlayMode()) return;
   e.preventDefault();                                   // 뒤따르는 마우스 흉내(mousedown) 막기 — 엉뚱한 곳으로 한 발 나가지 않게
-  const left = e.clientX < innerWidth / 2;
-  if ((left || G.inForest) && !TOUCH.joy) {                                     // 이동
-    TOUCH.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
-    tEl.joy.style.left = e.clientX + 'px'; tEl.joy.style.top = e.clientY + 'px';
-    tEl.joy.classList.add('on'); tEl.knob.style.transform = ''; tEl.hintL.style.opacity = 0;
-    return;
-  }
-  if (!left && !G.inForest && !TOUCH.fire) {                                   // 공격
-    TOUCH.fire = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
-    tEl.fire.style.left = e.clientX + 'px'; tEl.fire.style.top = e.clientY + 'px';
-    tEl.fire.classList.add('on'); tEl.fknob.style.transform = ''; tEl.hintR.style.opacity = 0;
-  }
+  /* 조이스틱은 자리 고정 — 그 둘레(반지름의 2.4배)를 누르면 잡힘, 방향은 고정된 가운데에서 손가락 쪽 */
+  const near = el => { const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    return r.width && Math.hypot(e.clientX - cx, e.clientY - cy) < r.width / 2 * 2.4 ? [cx, cy] : null; };
+  let c;
+  if (!TOUCH.joy && (c = near(tEl.joy))) { TOUCH.joy = { id: e.pointerId, x0: c[0], y0: c[1], dx: 0, dy: 0 }; tEl.joy.classList.add('on'); touchStick(TOUCH.joy, tEl.knob, e); return; }
+  if (!TOUCH.fire && !G.inForest && (c = near(tEl.fire))) { TOUCH.fire = { id: e.pointerId, x0: c[0], y0: c[1], dx: 0, dy: 0 }; tEl.fire.classList.add('on'); touchStick(TOUCH.fire, tEl.fknob, e); }
 }, { passive: false });
+function touchStick(st, knob, e) {
+  let dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+  const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
+  st.dx = dx; st.dy = dy; knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  if (st === TOUCH.fire) tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);
+}
 addEventListener('pointermove', e => {
   if (e.pointerType !== 'touch') return;
-  const j = TOUCH.joy;
-  if (j && e.pointerId === j.id) {
-    let dx = e.clientX - j.x0, dy = e.clientY - j.y0;
-    const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
-    j.dx = dx; j.dy = dy; tEl.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-  }
-  const f = TOUCH.fire;
-  if (f && e.pointerId === f.id) {
-    let dx = e.clientX - f.x0, dy = e.clientY - f.y0;
-    const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
-    f.dx = dx; f.dy = dy; tEl.fknob.style.transform = `translate(${dx}px, ${dy}px)`;
-    tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);
-  }
+  if (TOUCH.joy && e.pointerId === TOUCH.joy.id) touchStick(TOUCH.joy, tEl.knob, e);
+  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) touchStick(TOUCH.fire, tEl.fknob, e);
 }, { passive: true });
 ['pointerup', 'pointercancel'].forEach(n => addEventListener(n, e => {
   if (e.pointerType !== 'touch') return;
-  if (TOUCH.joy && e.pointerId === TOUCH.joy.id) { TOUCH.joy = null; tEl.joy.classList.remove('on'); tEl.hintL.style.opacity = ''; }
-  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) { TOUCH.fire = null; tEl.fire.classList.remove('on', 'shoot'); tEl.hintR.style.opacity = ''; }
+  if (TOUCH.joy && e.pointerId === TOUCH.joy.id) { TOUCH.joy = null; tEl.joy.classList.remove('on'); tEl.knob.style.transform = ''; }
+  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) { TOUCH.fire = null; tEl.fire.classList.remove('on', 'shoot'); tEl.fknob.style.transform = ''; }
 }));
-addEventListener('blur', () => { TOUCH.joy = null; TOUCH.fire = null; if (tEl.joy) { tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); } });
+const touchRelease = () => { TOUCH.joy = null; TOUCH.fire = null; if (tEl.joy) { tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); tEl.knob.style.transform = tEl.fknob.style.transform = ''; } };
+addEventListener('blur', touchRelease);
 /* 조사 버튼 · 조이스틱은 걷고 싸울 때만 */
 setInterval(() => {
   if (!TOUCH.on) return;
   const play = touchPlayMode() || G.mode === 'talk';
   document.body.classList.toggle('tplay', play);
   document.body.classList.toggle('tfight', play && !G.inForest);                          // 공격 자리 표시는 던전에서만
-  if (!touchPlayMode()) { TOUCH.joy = null; TOUCH.fire = null; tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); }
+  if (!touchPlayMode() && (TOUCH.joy || TOUCH.fire)) touchRelease();
+  /* 미니맵이 공격 조이스틱에 가리지 않게 — 조이스틱 왼쪽 끝을 화면(VW) 좌표로 */
+  const fr = document.body.classList.contains('tfight') && tEl.fire.getBoundingClientRect(), cr = cvMain.getBoundingClientRect();
+  TOUCH.mapR = fr && fr.width && cr.width ? (fr.left - cr.left) * VW / cr.width - 8 : 0;
 }, 120);
 addEventListener('mouseup', () => { mouse.down = false; });
 /* once:true 였던 걸 뺐습니다 — 아티팩트(iframe)처럼 삽입된 페이지는
@@ -16493,7 +16481,7 @@ function parseShock(raw) {
   return { plain, ranges };
 }
 
-const TOUCH_HINT = { '이동 — W A S D': '이동 — 화면 왼쪽을 누르고 끌기', '공격 — 방향키 / 마우스': '공격 — 화면 오른쪽을 누르고 쏠 방향으로 끌기' };
+const TOUCH_HINT = { '이동 — W A S D': '이동 — 왼쪽 아래 조이스틱', '공격 — 방향키 / 마우스': '공격 — 오른쪽 아래 조이스틱을 쏠 방향으로' };
 /* 대사가 나오는 동안 위아래로 검은 띠가 내려오고 HUD 는 물러남 (css body.cine) */
 new MutationObserver(() => document.body.classList.toggle('cine', !$('subtitle').classList.contains('hidden')))
   .observe($('subtitle'), { attributes: true, attributeFilter: ['class'] });
@@ -17212,7 +17200,7 @@ function shoot(dx, dy) {
     vx: dx / l * BALANCE.bulletSpeed, vy: dy / l * BALANCE.bulletSpeed,
     life: BALANCE.bulletLife, r: 4, mine: true
   });
-  P.fireCd = BALANCE.playerFireCd;
+  P.fireCd = BALANCE.playerFireCd; P.fireAt = performance.now() + BALANCE.playerFireCd * STEP;
   Sfx.shoot();
 }
 function foeShot(x, y, dx, dy, sp) {
@@ -17744,7 +17732,8 @@ function update() {
   checkDoze();                                   // 이스터에그 ④ — 가만히 있으면 꿈속에서 졸기 시작
 
   if (P.inv > 0) P.inv--;
-  if (P.fireCd > 0) P.fireCd--;
+  /* 연사 간격은 실제 시간으로 — 휴대폰처럼 프레임이 밀려도 PC 와 같은 초당 발 수 */
+  if (P.fireCd > 0) P.fireCd = Math.max(0, Math.min(P.fireCd - 1, ((P.fireAt || 0) - performance.now()) / STEP));
 
   /* ── 사격 ─────────────────────────────────────────── */
   if (!forest && P.fireCd <= 0) {
@@ -19077,7 +19066,8 @@ function drawFinalLock() {
 
 /* ── 미니맵 ────────────────────────────────────────── */
 function drawMinimap() {
-  const cell = 9, gap = 2, ox = W - 15, oy = H - 14;   // 모니터 베젤(7px) 안쪽으로
+  const cell = 9, gap = 2, oy = H - 14;   // 모니터 베젤(7px) 안쪽으로
+  const ox = TOUCH.mapR > 60 ? Math.min(W - 15, TOUCH.mapR) : W - 15;   // 휴대폰 — 공격 조이스틱 왼쪽으로
   const ids = Object.keys(MAP);
   const maxX = Math.max(...ids.map(i => MAP[i].gx));
   const maxY = Math.max(...ids.map(i => MAP[i].gy));
