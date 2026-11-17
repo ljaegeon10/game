@@ -1188,7 +1188,7 @@ function shoot(dx, dy) {
     vx: dx / l * BALANCE.bulletSpeed, vy: dy / l * BALANCE.bulletSpeed,
     life: BALANCE.bulletLife, r: 4, mine: true
   });
-  P.fireCd = BALANCE.playerFireCd; P.fireAt = performance.now() + BALANCE.playerFireCd * STEP;
+  P.fireCd = BALANCE.playerFireCd;
   Sfx.shoot();
 }
 function foeShot(x, y, dx, dy, sp) {
@@ -1720,8 +1720,9 @@ function update() {
   checkDoze();                                   // 이스터에그 ④ — 가만히 있으면 꿈속에서 졸기 시작
 
   if (P.inv > 0) P.inv--;
-  /* 연사 간격은 실제 시간으로 — 휴대폰처럼 프레임이 밀려도 PC 와 같은 초당 발 수 */
-  if (P.fireCd > 0) P.fireCd = Math.max(0, Math.min(P.fireCd - 1, ((P.fireAt || 0) - performance.now()) / STEP));
+  /* 연사 간격은 게임 시간(1/60초 칸) 기준 — 렉으로 게임이 멈칫해도 적 · 탄과 같은 시계라 PC · 휴대폰이 똑같음
+     (실제 시간으로 세면 멈칫한 동안에도 쿨다운이 흘러 휴대폰에서 더 빨리 나갔음) */
+  if (P.fireCd > 0) P.fireCd--;
 
   /* ── 사격 ─────────────────────────────────────────── */
   /* 겨누는 방향은 매 장 — 쏘는 쪽 가이드 선(drawAimGuide)이 쿨다운 사이에도 따라오게 */
