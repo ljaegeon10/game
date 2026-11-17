@@ -117,7 +117,7 @@ addEventListener('keydown', e => {
   if (k === ' ') onConfirm();
   if (k === 'r' && G.mode === 'dead') retry();
   if (k === 'n' && G.mode === 'dead' && !$('fest-next').classList.contains('hidden')) nextPlayer();
-  if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on')) restartFromEnd();   // 엔드 카드 — 처음부터 다시
+  if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on') && !document.querySelector('#fest-entry.fe-float:not(.hidden)')) restartFromEnd();   // 엔드 카드 — 처음부터 다시 (명예의 전당 창이 떠 있을 땐 말고)
   if (G.mode === 'title' && $('devpanel').classList.contains('hidden')) {       // 시작 화면 메뉴
     if (k === 'arrowup' || k === 'w') menuMove(-1);
     if (k === 'arrowdown' || k === 's') menuMove(1);
@@ -752,7 +752,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
   if (G.konami && !G.timeAttack) { BALANCE.playerHp += 1; BALANCE.abomPlayerMax += 1; }   // 이스터에그 ③
-  G.diff = d.id; G.diffName = d.name;
+  G.diff = d.id; G.diffName = d.name; G.normF = 0;
   P.max = BALANCE.playerHp; P.hp = P.max; P.inv = 0; P.slow = 0;
   $('modesel').classList.add('hidden');
   $('diffsel').classList.add('hidden');
@@ -868,6 +868,10 @@ $('retrybtn').addEventListener('click', retry);
 function nextPlayer() { if (window.Festival) Festival.clearPlayer(); resetRun(); }
 $('fest-next').addEventListener('click', nextPlayer);
 $('againbtn').addEventListener('click', () => restartFromEnd());
+$('hardfame').addEventListener('click', e => {
+  e.stopPropagation(); const hb = $('hardfame'); if (hb.disabled) return;
+  Festival.askHard(G.hardMs || 0, who => { if (who) { hb.disabled = true; hb.textContent = `🏆 ${who.name} 님 — 명예의 전당에 올렸어요!`; } });
+});
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
 function loadForest(opening) {
@@ -5793,6 +5797,10 @@ function beginEnding() {
 
   // 타임어택으로 깬 판만 기록에 남깁니다 (일반 모드는 시계 자체가 없습니다)
   $('endcard').classList.toggle('casual', !G.timeAttack);
+  // 축제판 · 일반 모드 '어려움' 클리어 — 엔드 카드에 명예의 전당 단추 (순위판 '어려움 클리어' 칸)
+  { const hb = $('hardfame'), on = !G.timeAttack && G.diff === 'hard' && !G.dev && !!(window.Festival && Festival.on && Festival.askHard);
+    hb.classList.toggle('hidden', !on); hb.disabled = false; hb.textContent = '🏆 어려움 클리어! 명예의 전당에 이름 남기기';
+    G.hardMs = Math.round((G.normF || 0) * STEP); }
   if (G.timeAttack) {
     const ms = RUN.elapsed;
     const prevBest = loadRecords()[0];
@@ -6305,7 +6313,7 @@ function loop(now) {
 
   if (PAUSE.on) { acc = 0; return; }              // 일시정지 — 멈춘 그 장 그대로 (다시 그리지도 않음)
   let steps = 0;
-  while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
+  while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; if (!G.timeAttack) G.normF = (G.normF || 0) + 1; }   // normF : 일반 모드 플레이 시간(칸) — 어려움 클리어 기록용
   if (acc > STEP * 5) acc = 0;
   if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
   if (window.Perf) Perf.frame(now);

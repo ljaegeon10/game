@@ -21,7 +21,7 @@ const BOARD_PIN = '';
    script.google.com 에서 따로 만든 프로젝트(아이패드 등)면 꼭 넣어야 합니다 */
 const SHEET_ID = '1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE';
 
-const RUNS = '기록', CONTACTS = '연락처', SETTINGS = '순위판 설정', TOP = 'TOP 3';
+const RUNS = '기록', CONTACTS = '연락처', SETTINGS = '순위판 설정', TOP = 'TOP 3', HARD = '어려움 클리어';
 /* 순위판 설정 — [항목, 처음 값, 설명]. 시트에 없으면 이대로 만들어 둡니다 (항목 이름은 바꾸지 마세요) */
 const SETTING_ROWS = [
   ['동아리 이름', 'DITC 동아리 축제 부스', '맨 위 빨간 띠'],
@@ -44,6 +44,7 @@ const PRIVATE = ['순위판 PIN', '관리 PIN'];                  // 순위판�
 const sameKey_ = (a, b) => { const n = v => String(v == null ? '' : v).trim().replace(/^0+(?=.)/, ''); return !!n(a) && n(a) === n(b); };
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
+const HARD_HEAD = ['id', '시각', '이름', '뒷자리', '플레이 시간(ms)', '플레이 시간'];   // 일반 모드 '어려움' 을 깬 사람 — 타임어택 순위와 따로
 
 /* 처음 한 번 — 편집기에서 setup 을 골라 ▶ 실행 (시트 두 장과 제목 줄을 만듭니다) */
 function setup() {
@@ -90,6 +91,7 @@ function doPost(e) {
     if (b.op === 'live') return out_(saveLive_(b.body || {}));
     if (b.op === 'run') return out_(saveRun_(b));
     if (b.op === 'delete') return out_(deleteRuns_(b));
+    if (b.op === 'hard') return out_(saveHard_(b));
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }
@@ -130,6 +132,29 @@ function saveRun_(b) {
   const list = best_(all);
   const i = list.findIndex(x => x.name === name && x.tail === tail);
   return { ok: true, rank: i < 0 ? null : i + 1 };
+}
+
+/* 일반 모드 '어려움' 클리어 — '어려움 클리어' 탭에 한 줄, 연락처는 '연락처' 탭에 (같은 id 는 한 번만) */
+function saveHard_(b) {
+  const id = str_(b.id, 40), r = b.run || {}, c = b.contact || {};
+  const name = str_(r.name, 10), tail = str_(r.tail, 4).replace(/\D/g, ''), contact = String(c.contact || '').replace(/\D/g, ''), ms = Math.round(Number(r.ms));
+  if (!/^[a-z0-9-]{6,40}$/.test(id) || !name || tail.length !== 4 || contact.length < 10 || contact.length > 11 ||
+      contact.slice(-4) !== tail || !(ms >= 60000 && ms < 6 * 3600000)) return { ok: false, error: 'invalid' };
+  const sh = sheet_(HARD, HARD_HEAD);
+  const ids = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(x => String(x[0])) : [];
+  if (ids.indexOf(id) < 0) {
+    const now = new Date();
+    sh.appendRow([id, now, name, "'" + tail, ms, fmt_(ms)]);
+    sheet_(CONTACTS, CONTACT_HEAD).appendRow([id, now, name + ' (어려움)', "'" + contact]);
+  }
+  return { ok: true, hard: readHard_().length };
+}
+function readHard_() {
+  const sh = sheet_(HARD, HARD_HEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return [];
+  const rng = sh.getRange(2, 1, n, HARD_HEAD.length), v = rng.getValues(), d = rng.getDisplayValues();
+  return v.map((x, i) => ({ id: String(x[0]), at: new Date(x[1]).getTime() || 0, name: String(x[2]), tail: String(d[i][3] || x[3]).padStart(4, '0'), ms: Number(x[4]) || parseT_(d[i][5]) }))
+          .filter(x => x.id && x.name);
 }
 
 /* 순위판 🗑 — 관리 PIN 이 맞으면 그 사람(이름 + 뒷자리)의 기록을 전부 지움 ('기록' · '연락처' 의 줄 모두). id 만 주면 그 한 판만 */
@@ -200,7 +225,8 @@ function doGet(e) {
   const runs = readRuns_();
   const lk = LockService.getScriptLock();
   if (lk.tryLock(0)) { try { markTop_(runs, false, set); } catch (err) {} finally { lk.releaseLock(); } }             // 시트에서 줄을 지웠어도 1 · 2 · 3등 표시가 따라감
-  return out_({ ok: true, runs: runs, live: live, settings: board, admin: true });
+  let hard = []; try { hard = readHard_(); } catch (err) {}
+  return out_({ ok: true, runs: runs, hard: hard, live: live, settings: board, admin: true });
 }
 /* '1:35.89' → 95890 (못 읽으면 0) */
 const parseT_ = t => { const m = String(t == null ? '' : t).match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/); return m ? (+m[1] * 60 + +m[2]) * 1000 + (m[3] ? +m[3].padEnd(3, '0') : 0) : 0; };

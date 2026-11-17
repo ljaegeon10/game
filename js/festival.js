@@ -130,6 +130,11 @@ async function flush() {
       for (const raw of getQ().slice()) {
         const it = norm(raw);
         try {
+          if (it.op === 'hard') {                                   // 일반 모드 어려움 클리어 — 순위 계산 없이 저장만
+            try { await post({ op: 'hard', id: it.id, run: it.run, contact: it.contact }); dropQ(it.id); }
+            catch (e3) { if (e3.code !== 'invalid') throw e3; }      // 서버가 아직 옛 버전(새 버전 배포 전) — 지우지 않고 다음에 다시
+            continue;
+          }
           const j = await post({ op: 'run', id: it.id, run: it.run, contact: it.contact }); ranks[it.id] = j.rank || null; dropQ(it.id);
           // 서버가 센 등수엔 개발자 판이 섞여 있을 수 있으니 — 순위판을 받아 개발자를 뺀 등수로 다시 셈
           try { const b = await fetchBoard(getPin()); if (b && b.ok) bumpDev(b.runs); if (b && b.ok && Array.isArray(b.runs)) ranks[it.id] = rankOf(bestPerPerson(b.runs), it.run.name, tailOf(it.run)) || ranks[it.id]; } catch (e2) {}
@@ -144,7 +149,7 @@ async function flush() {
   try {
     for (const raw of getQ().slice()) {
       const it = norm(raw);
-      try { if (!it.runDone) { await d.collection('runs').doc(it.id).set(it.run); it.runDone = true; } }
+      try { if (!it.runDone) { await d.collection(it.op === 'hard' ? 'hard' : 'runs').doc(it.id).set(it.run); it.runDone = true; } }
       catch (e) { putQ(it); break; }                                 // 끊겼으면 다음에 다시
       try { await d.collection('contacts').doc(it.id).set(it.contact); dropQ(it.id); }
       catch (e) { it.tries = (it.tries || 0) + 1; if (it.tries >= 5) dropQ(it.id); else putQ(it); }   // 다섯 번까지
@@ -246,6 +251,20 @@ function go(p) {
   const cb = entryCb; entryCb = null; if (cb) cb.onGo(player);
 }
 function closeEntry() { const b = $('fest-entry'); if (b) b.classList.add('hidden'); }
+/* ── 일반 모드 '어려움' 클리어 — 명예의 전당에 이름 남기기 (엔드 카드의 단추) ──
+   타임어택 참가 등록 창을 그대로 빌려 화면 위에 띄움 (전에 한 사람 칩 · 뒷자리 확인 그대로). 순위와는 따로 '어려움 클리어' 탭에 */
+function askHard(ms, done) {
+  const box = $('fest-entry'); if (!box) { done && done(null); return; }
+  const prev = player, home = { p: box.parentNode, n: box.nextSibling };
+  ($('ending') || document.body).appendChild(box); box.classList.add('fe-float', 'hardmode');   // 엔딩 화면 안 — 게임 화면 배율 그대로
+  const q = box.querySelector('.ms-q'), goB = $('fe-go'), keep = { q: q.textContent, go: goB.textContent };
+  q.textContent = `어려움 클리어 — 명예의 전당 (${fmt(ms)})`; goB.textContent = '이름 남기기';
+  const restore = () => { home.p.insertBefore(box, home.n); box.classList.remove('fe-float', 'hardmode'); q.textContent = keep.q; goB.textContent = keep.go; };
+  ask(p => { restore(); const who = p; player = prev;
+                if (who) { memQ = getQ().concat({ op: 'hard', id: rid(), run: { name: who.name, tail: who.contact.slice(-4), ms: Math.round(ms), at: Date.now() }, contact: { name: who.name, contact: who.contact } }); saveQ(memQ); flush(); }
+                done && done(who); },
+      () => { restore(); player = prev; done && done(null); });
+}
 function submitEntry() {
   const name = $('fe-name').value.trim().replace(/\s+/g, ' '), d = digits($('fe-contact').value);
   const err = t => { $('fe-err').textContent = t; };
@@ -507,5 +526,5 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();

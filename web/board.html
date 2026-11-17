@@ -64,6 +64,16 @@ li.new{ animation:pop 1.2s ease-out 1, glow 2.4s ease-in-out 3; }
 @keyframes pop{ from{ transform:translateX(-24px); opacity:0; } to{ transform:none; opacity:1; } }
 @keyframes glow{ 50%{ background:rgba(125,227,200,.16); } }
 li.empty{ justify-content:center; display:flex; color:var(--dim); font-size:clamp(14px, 1.8vw, 26px); border:none; }
+.tabs{ display:flex; gap:clamp(6px, .8vw, 12px); margin:0 0 12px; }
+.tabs button{ font:inherit; font-size:clamp(12px, 1.25vw, 20px); letter-spacing:.06em; padding:clamp(5px, .6vw, 9px) clamp(10px, 1.2vw, 18px); color:var(--dim);
+  background:rgba(241,236,224,.04); border:1px solid var(--line); cursor:pointer; position:relative; overflow:hidden; }
+.tabs button.on{ color:var(--ink); background:var(--hwang); border-color:var(--hwang); }
+.tabs button.on::after{ content:''; position:absolute; left:0; bottom:0; height:3px; width:100%; background:rgba(10,9,16,.35); transform-origin:left; animation:tabT var(--rot, 15s) linear 1; }
+body.tabhold .tabs button.on::after{ display:none; }
+@keyframes tabT{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+li .cnt{ text-align:right; font-variant-numeric:tabular-nums; color:var(--hwang); }
+li .cnt small{ display:block; font-size:.5em; color:var(--dim); }
+li .when{ display:block; margin-top:2px; font-size:.42em; color:var(--dim); letter-spacing:.04em; }
 .rule{ margin:10px 0 0; font-size:clamp(11px, 1vw, 15px); color:rgba(241,236,224,.3); }
 li .nm small{ display:block; margin-top:2px; font-size:.45em; color:var(--hwang); letter-spacing:.04em; opacity:.85; }   /* 1~3등 상품 */
 .prizes{ display:block; margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--hwang); line-height:1.6; }
@@ -185,9 +195,14 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
 
   <section class="rank" aria-label="순위">
     <div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
-    <div class="rank-head"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
+    <div class="tabs" role="tablist" aria-label="보기">
+      <button type="button" role="tab" data-tab="ta" class="on">⏱ 타임어택 순위</button>
+      <button type="button" role="tab" data-tab="count">🔁 도전왕</button>
+      <button type="button" role="tab" data-tab="hard">🏆 어려움 클리어</button>
+    </div>
+    <div class="rank-head" id="rankHead"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
     <ol id="list"></ol>
-    <p class="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
+    <p class="rule" id="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
   </section>
 
   <aside>
@@ -268,8 +283,51 @@ $('gameUrl').textContent = gameUrl.replace(/^https?:\/\//, '');
 try { const q = qrcode(0, 'M'); q.addData(gameUrl); q.make(); $('qr').innerHTML = q.createImgTag(6, 0, '게임 주소 QR'); }
 catch (e) { $('qr').hidden = true; }
 
-let runs = [], live = null, seen = null, busy = false, lastOk = 0;
+let runs = [], hard = [], live = null, seen = null, busy = false, lastOk = 0;
+/* ── 탭 : 타임어택 순위 · 도전왕(가장 많이 한 사람) · 어려움 클리어(일반 모드) — 15초마다 돌아감, 누르면 1분 멈춤 ── */
+let tab = 'ta', tabHoldUntil = 0;
+const ROT = 15000;
+document.documentElement.style.setProperty('--rot', ROT / 1000 + 's');
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => { tabHoldUntil = Date.now() + 60000; setTab(b.dataset.tab); }));
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll('.tabs button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', false); if (on) { void b.offsetWidth; b.classList.add('on'); } b.setAttribute('aria-selected', on); });
+  document.body.classList.toggle('tabhold', Date.now() < tabHoldUntil);
+  render();
+}
+setInterval(() => { if (Date.now() < tabHoldUntil || document.body.classList.contains('admin')) return; const order = ['ta', 'count'].concat(hard.length ? ['hard'] : []); setTab(order[(order.indexOf(tab) + 1) % order.length]); }, ROT);
+const HEADS = {
+  ta:    ['순위', '이름', '', '기록', '클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나'],
+  count: ['순위', '이름', '', '도전', '타임어택을 가장 많이 한 사람 — 판 수가 같으면 많이 깬 순 · 개발자 판은 빠짐'],
+  hard:  ['#', '이름', '', '플레이 시간', '일반 모드 「어려움」을 끝까지 깬 사람 — 빨리 깬 순 · 타임어택 순위 · 상품과는 따로']
+};
+function head(t) { const h = HEADS[t]; $('rankHead').innerHTML = ''; h.slice(0, 4).forEach((x, i) => { const sp = mk('span', null, x); if (i === 3) sp.style.textAlign = 'right'; $('rankHead').appendChild(sp); }); $('rule').textContent = h[4]; }
+const dayTime = at => { if (!at) return ''; const d = new Date(at); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+function renderCount(ol) {
+  const m = new Map();
+  runs.forEach(r => { const k = r.name + '|' + (r.tail || ''); const o = m.get(k) || { name: r.name, tail: r.tail, n: 0, c: 0, best: 0 }; o.n++; if (isClear(r)) { o.c++; if (!o.best || r.ms < o.best) o.best = r.ms; } m.set(k, o); });
+  const list = [...m.values()].sort((a, b) => b.n - a.n || b.c - a.c || (a.best || 1e12) - (b.best || 1e12));
+  list.slice(0, TOP).forEach((o, i) => {
+    const li = mk('li', i < 3 ? 'p' + (i + 1) : ''), nm = mk('span', 'nm', String(o.name || ''));
+    nm.appendChild(mk('small', null, o.best ? `최고 ${fmt(o.best)}` : '아직 클리어 없음'));
+    const cn = mk('span', 'cnt', o.n + '판'); cn.appendChild(mk('small', null, `클리어 ${o.c}`));
+    li.append(mk('span', 'no', String(i + 1)), nm, mk('span', 'tl', o.tail ? '···' + o.tail : ''), cn); ol.appendChild(li);
+  });
+  if (!list.length) ol.appendChild(mk('li', 'empty', '아직 도전한 사람이 없어요'));
+}
+function renderHard(ol) {
+  const list = hard.slice().sort((a, b) => (a.ms || 1e12) - (b.ms || 1e12) || (a.at || 0) - (b.at || 0));
+  list.slice(0, TOP).forEach((r, i) => {
+    const li = mk('li', i < 3 ? 'p' + (i + 1) : ''), nm = mk('span', 'nm', String(r.name || ''));
+    nm.appendChild(mk('span', 'when', dayTime(r.at) + ' 클리어'));
+    li.append(mk('span', 'no', String(i + 1)), nm, mk('span', 'tl', r.tail ? '···' + r.tail : ''), mk('span', 'tm', r.ms ? fmt(r.ms) : '—')); ol.appendChild(li);
+  });
+  if (!list.length) ol.appendChild(mk('li', 'empty', '아직 어려움을 깬 사람이 없어요 — 첫 번째가 되어 보세요!'));
+}
 function render() {
+  head(tab);
+  $('dev').hidden = true;
+  if (tab !== 'ta') { const ol = $('list'); ol.textContent = ''; (tab === 'count' ? renderCount : renderHard)(ol); renderSide(); return; }
   const list = best(runs), ol = $('list');
   ol.textContent = '';
   const fresh = seen ? new Set(runs.filter(r => !seen.has(r.id)).map(r => r.id)) : new Set();
@@ -294,6 +352,10 @@ function render() {
     $('devTime').textContent = fmt(dev.ms);
   }
   if (!list.length) ol.appendChild(mk('li', 'empty', '아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!'));
+  renderSide();
+}
+function renderSide() {
+  const list = best(runs);
   $('sPeople').textContent = list.length;
   $('sClear').textContent = list.filter(isClear).length;
   $('sRuns').textContent = runs.length;
@@ -346,7 +408,7 @@ async function poll() {
     const j = await r.json();
     if (!j.ok && j.error === 'pin') { askPin(!!store.get()); return; }
     if (!j.ok) throw new Error('server');
-    runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null; lastOk = Date.now();
+    runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; hard = Array.isArray(j.hard) ? j.hard : []; live = j.live || null; lastOk = Date.now();
     bumpDev(j.runs);   // 개발자 판은 순위 · 최근 기록 · 수에서 빠짐
     if (j.settings) applySettings(j.settings);
     bumpDev(j.runs);                                                          // 시트 값보다 개발자가 더 빨랐으면 그 기록
@@ -372,7 +434,7 @@ addEventListener('keydown', e => { if ((e.key === 'f' || e.key === 'F') && $('ga
 /* 🗑 관리 — 시트 '순위판 설정' 의 '관리 PIN' 을 넣으면 줄마다 ✕ 지우기. 그 사람(이름 + 뒷자리)의 기록이 시트에서도 지워짐 */
 const AKEY = 'wellbelow.board.admin';
 const adminKey = { get: () => { try { return sessionStorage.getItem(AKEY) || ''; } catch (e) { return ''; } }, set: v => { try { v ? sessionStorage.setItem(AKEY, v) : sessionStorage.removeItem(AKEY); } catch (e) {} } };
-function adminOn(on) { document.body.classList.toggle('admin', on); if (!on) adminKey.set(''); }
+function adminOn(on) { document.body.classList.toggle('admin', on); if (!on) adminKey.set(''); if (on && tab !== 'ta') setTab('ta'); }   // 지우기는 타임어택 순위에서만
 /* 알림창(prompt · confirm · alert) 대신 페이지 안의 창 — 브라우저에서 '대화상자 차단'을 눌러도 그대로 됨 */
 let admMode = null, admRun = null;
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = bad ? 'on bad' : 'on'; clearTimeout(toast.t); toast.t = setTimeout(() => t.className = '', 3200); }

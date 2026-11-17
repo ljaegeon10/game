@@ -1654,3 +1654,11 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 
 /* 공격 조이스틱 — 자동 조준(누른 채 안 끎)일 땐 손잡이 테가 청록 */
 #tfire.on.auto i{ border-color:#7de3c8; box-shadow:0 0 14px rgba(125,227,200,.5); }
+
+/* 일반 모드 어려움 클리어 — 엔드 카드 단추 · 화면 위로 띄운 등록 창 (festival.js 의 askHard) */
+#hardfame{ display:block; margin:10px auto 0; padding:9px 18px; font:inherit; font-size:12px; letter-spacing:.06em; color:#0a0910; background:var(--hwang); border:none; cursor:pointer; box-shadow:0 0 18px rgba(227,178,60,.35); }
+#hardfame.hidden{ display:none; } #hardfame:disabled{ background:rgba(227,178,60,.25); color:var(--baek); cursor:default; box-shadow:none; }
+#fest-entry.fe-float{ position:absolute; z-index:60; left:50%; top:50%; transform:translate(-50%, -50%); margin:0; max-height:96%; overflow:auto;
+  background:#07070b; box-shadow:0 0 0 2000px rgba(3,3,6,.86), 0 10px 40px rgba(0,0,0,.6); }
+#fest-entry.fe-float .ms-q{ line-height:1.5; }
+#fest-entry.hardmode .fe-tanote, #fest-entry.hardmode .fe-dev{ display:none !important; }
