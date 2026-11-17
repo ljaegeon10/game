@@ -1243,7 +1243,7 @@ body.escfull #ending{ overflow:hidden; }
 body.touch{ touch-action:none; overscroll-behavior:none; }
 /* 고정 조이스틱 — 왼쪽 아래 이동 · 오른쪽 아래 공격. 걷고 싸울 때 늘 보이고, 잡으면 밝아짐 */
 #tjoy, #tfire{
-  position:fixed; z-index:50; width:calc(120px * var(--joy, 1)); height:calc(120px * var(--joy, 1)); border-radius:50%; display:none;
+  position:fixed; z-index:50; width:calc(120px * var(--s, 1)); height:calc(120px * var(--s, 1)); border-radius:50%; display:none;
   bottom:max(7vh, calc(env(safe-area-inset-bottom) + 10px));
   border:2px solid rgba(241,236,224,.28); background:radial-gradient(circle, rgba(241,236,224,.07), rgba(241,236,224,.015) 70%);
   pointer-events:none; opacity:.55; transition:opacity .12s, border-color .12s, box-shadow .12s;
@@ -1253,14 +1253,14 @@ body.touch{ touch-action:none; overscroll-behavior:none; }
 body.touch.tplay #tjoy{ display:block; } body.touch.tfight #tfire{ display:block; }
 #tjoy.on, #tfire.on{ opacity:1; }
 #tfire.shoot{ border-color:rgba(255,120,100,.95); box-shadow:0 0 18px rgba(224,72,60,.45); }
-#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:calc(52px * var(--joy, 1)); height:calc(52px * var(--joy, 1)); margin:calc(-26px * var(--joy, 1)) 0 0 calc(-26px * var(--joy, 1)); border-radius:50%; z-index:1;
+#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:calc(52px * var(--s, 1)); height:calc(52px * var(--s, 1)); margin:calc(-26px * var(--s, 1)) 0 0 calc(-26px * var(--s, 1)); border-radius:50%; z-index:1;
   background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35); }
 #tfire i{ background:rgba(224,72,60,.6); border-color:rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
 #tjoy span, #tfire span{ position:absolute; left:0; right:0; top:-22px; text-align:center; font-size:11px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.5); }
 #tfire span{ color:rgba(255,150,130,.6); }
 #tjoy.on span, #tfire.on span{ opacity:0; }
 #tbtn{
-  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 120px * var(--joy, 1) + 30px);   /* 공격 조이스틱 위 (크기 설정 따라) */
+  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 150px);   /* 공격 조이스틱 위 (조작 배치를 바꾸면 그 자리) */
   width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
   background:rgba(15,14,20,.55); border:2px solid rgba(125,227,200,.6); color:var(--glow);
   font-size:15px; letter-spacing:.06em; touch-action:none; -webkit-user-select:none; user-select:none;
@@ -1614,5 +1614,27 @@ html{ touch-action:manipulation; }
 #fest-entry.newform #fe-recent{ display:none; }                   /* 새로 등록을 골랐으면 칩은 접고 입력 칸만 */
 @media (max-height:520px){ #fest-entry{ margin-top:6px; padding:8px 14px 8px; gap:5px; } #fest-entry .fe-tanote{ margin-bottom:2px; } }
 
-/* 설정 「조이스틱 크기」 밀대를 움직이는 동안 — 설정 창 위로 두 조이스틱을 잠깐 보여 줌 (body.joyprev) */
-body.touch.joyprev #tjoy, body.touch.joyprev #tfire{ display:block; z-index:3200; opacity:.7; pointer-events:none; }
+/* 조작 배치 (settings.js 의 TL) — 예시 게임 화면 위로 진짜 조이스틱 · 조사 버튼을 끌어 올림 */
+#tbtn{ width:calc(76px * var(--s, 1)); height:calc(76px * var(--s, 1)); font-size:calc(15px * var(--s, 1)); }
+body:not(.touch) .st-layout{ display:none; }                 /* 컴퓨터에선 조이스틱이 없음 */
+body.tledit #settings{ visibility:hidden; }
+#tledit{ position:fixed; inset:0; z-index:3300; font-family:var(--font-ui); }
+#tledit.hidden{ display:none; }
+#tledit .tl-bg{ position:absolute; inset:0; background:#05060a center / cover no-repeat; filter:brightness(.85); }
+body.tledit #tjoy, body.tledit #tfire{ display:block !important; z-index:3400; pointer-events:auto; opacity:1; cursor:grab; touch-action:none; }
+body.tledit #tbtn{ display:flex !important; z-index:3400; cursor:grab; }
+body.tledit .tl-on{ outline:2px dashed var(--hwang); outline-offset:6px; }
+.tl-bar{ position:absolute; z-index:3500; left:50%; top:max(10px, env(safe-area-inset-top)); transform:translateX(-50%); width:min(440px, calc(100vw - 24px));
+  display:flex; flex-direction:column; gap:8px; padding:10px 14px 12px; background:rgba(10,9,14,.92); border:1px solid rgba(241,236,224,.22); border-top:2px solid var(--hwang); }
+.tl-t{ margin:0; display:flex; flex-wrap:wrap; gap:4px 10px; align-items:baseline; font-size:12px; color:rgba(241,236,224,.6); }
+.tl-t b{ font-size:15px; font-weight:400; color:var(--baek); letter-spacing:.08em; }
+.tl-row{ display:flex; align-items:center; gap:8px; }
+.tl-sel{ flex:none; min-width:6.5em; font-size:13px; color:var(--hwang); }
+.tl-row input[type=range]{ flex:1; min-width:0; accent-color:var(--hwang); }
+.tl-row output{ width:3.2em; text-align:right; font-size:12px; color:var(--baek); font-variant-numeric:tabular-nums; }
+.tl-mini{ flex:none; width:30px; height:30px; padding:0; font:inherit; font-size:16px; color:var(--baek); background:rgba(241,236,224,.08); border:1px solid rgba(241,236,224,.3); box-shadow:none; cursor:pointer; }
+.tl-btns{ justify-content:flex-end; }
+.tl-btns button{ font:inherit; font-size:13px; padding:7px 14px; color:rgba(241,236,224,.8); background:transparent; border:1px solid rgba(241,236,224,.3); box-shadow:none; cursor:pointer; }
+.tl-btns .tl-main{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
+#tledit.tl-low .tl-bar{ top:auto; bottom:max(10px, env(safe-area-inset-bottom)); }
+.st-layout .st-btn{ grid-column:2 / 4; justify-self:start; }

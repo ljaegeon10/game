@@ -11,9 +11,10 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, joy: 1, invertY: false };
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null };   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
+if (S.layout && !(S.layout.joy && S.layout.fire && S.layout.btn)) S.layout = null;
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 
 /* ── 소리 길목 ── */
@@ -24,7 +25,6 @@ function apply() {
   const set = (node, v, ac) => { try { node.gain.setTargetAtTime(curve(v), ac.currentTime, .03); } catch (e) { node.gain.value = curve(v); } };
   for (const b of BUS) set(b.node, vol(b.kind), b.ac);
   OUTS.forEach(o => set(o.node, S.master, o.ac));
-  document.documentElement.style.setProperty('--joy', S.joy);   // 휴대폰 조이스틱 크기 (css 의 #tjoy · #tfire)
 }
 const OUTS = [];
 function out(ac) {
@@ -45,9 +45,8 @@ const ROWS = [
   { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sens',   label: '카메라 감도', sub: '1인칭에서 둘러보는 빠르기', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
-  { k: 'joy',    label: '조이스틱 크기', sub: '휴대폰 · 태블릿 — 움직이면 미리 보여요', min: .7, max: 1.6, step: .05, fmt: v => Math.round(v * 100) + '%' },
 ];
-let el = null, onClose = null, testT = 0, joyT = 0;
+let el = null, onClose = null, testT = 0;
 function build() {
   el = document.createElement('div'); el.id = 'settings'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '설정');
   el.innerHTML = `<div class="st-box">
@@ -55,6 +54,7 @@ function build() {
     <p class="pm-title">설정</p><p class="pm-sub">SETTINGS · 이 기기에 저장돼요</p>
     ${ROWS.map(r => `<label class="st-row" data-k="${r.k}"><span class="st-l"><b>${r.label}</b>${r.sub ? `<small>${r.sub}</small>` : ''}</span>
       <input type="range" min="${r.min}" max="${r.max}" step="${r.step}"><output></output></label>`).join('')}
+    <div class="st-row st-layout"><span class="st-l"><b>조작 배치</b><small>휴대폰 · 태블릿 — 조이스틱 · 조사 버튼의 위치와 크기</small></span><button class="st-btn" data-act="layout" type="button">바꾸기</button></div>
     <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>마우스를 올리면 아래를 봄</small></span><input type="checkbox" data-k="invertY"><output></output></label>
     <div class="st-btns"><button class="st-btn" data-act="reset">기본값</button><button class="st-btn st-main" data-act="close">닫기</button></div>
   </div>`;
@@ -63,14 +63,14 @@ function build() {
     const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'), o = row.querySelector('output');
     inp.addEventListener('input', () => {
       S[r.k] = +inp.value; o.textContent = r.fmt(S[r.k]); apply(); save();
-      if (r.k === 'joy') { document.body.classList.add('joyprev'); clearTimeout(joyT); joyT = setTimeout(() => document.body.classList.remove('joyprev'), 1500); }
-      if (r.k !== 'sens' && r.k !== 'joy') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
+      if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
   const ck = el.querySelector('input[data-k=invertY]');
   ck.addEventListener('change', () => { S.invertY = ck.checked; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔'; save(); });
   el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); sync(); apply(); save(); });
   el.querySelector('[data-act=close]').addEventListener('click', close);
+  el.querySelector('[data-act=layout]').addEventListener('click', () => TL.open());
   el.addEventListener('click', e => { if (e.target === el) close(); });
   ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(n => el.addEventListener(n, e => e.stopPropagation()));
 }
@@ -93,7 +93,7 @@ function close() {
 const isOpen = () => !!el && !el.classList.contains('hidden');
 /* 키 — 게임 · 일시정지 메뉴보다 먼저 (이 파일이 먼저 읽힘). 열려 있으면 여기서만 */
 addEventListener('keydown', e => {
-  if (!isOpen()) return;
+  if (!isOpen() || document.body.classList.contains('tledit')) return;
   e.stopImmediatePropagation();
   const k = e.key, f = focusables(), i = f.indexOf(document.activeElement);
   if (k === 'Escape' || e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) close(); return; }
@@ -104,11 +104,104 @@ addEventListener('keydown', e => {
   if ((k === 'ArrowLeft' || k === 'ArrowRight') && a && a.type === 'range') return;   // 밀대는 브라우저가 움직임
   if (k.length === 1 || k === 'Enter') e.preventDefault();
 }, true);
-addEventListener('keyup', e => { if (isOpen()) e.stopImmediatePropagation(); }, true);
+addEventListener('keyup', e => { if (isOpen() && !document.body.classList.contains('tledit')) e.stopImmediatePropagation(); }, true);
 
-document.documentElement.style.setProperty('--joy', S.joy);
+/* ── 조작 배치 (휴대폰) — 예시 게임 화면 위에서 이동 조이스틱 · 공격 조이스틱 · [조사] 버튼을 끌어 옮기고 크기를 바꿈 ──
+   실제 조작 요소(#tjoy · #tfire · #tbtn, game.js 가 터치 모드에서 만듦)를 그대로 끌어 올려 쓰므로 보이는 그대로 게임에 나옴.
+   S.layout = { joy|fire|btn : { x, y (화면 가운데 위치, 0~1), s (크기 배율) } } — 없으면 css 의 기본 자리 · 크기 */
+const TL_KEYS = [['joy', 'tjoy', '이동 조이스틱'], ['fire', 'tfire', '공격 조이스틱'], ['btn', 'tbtn', '조사 버튼']];
+const TL_MIN = .6, TL_MAX = 1.8;
+function applyLayout(L) {
+  L = L === undefined ? S.layout : L;
+  for (const [k, id] of TL_KEYS) {
+    const e = document.getElementById(id); if (!e) continue;
+    const p = L && L[k];
+    e.style.setProperty('--s', p ? p.s : 1);
+    if (p) Object.assign(e.style, { left: p.x * 100 + '%', top: p.y * 100 + '%', right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' });
+    else ['left', 'top', 'right', 'bottom', 'transform'].forEach(n => e.style.removeProperty(n));
+  }
+}
+const TL = (() => {
+  let box = null, draft = null, sel = 'joy', drag = null;
+  const get = id => document.getElementById(id);
+  function snapshot() {                      // 지금 화면에 놓인 그대로를 숫자로
+    const o = {};
+    for (const [k, id] of TL_KEYS) { const e = get(id), r = e.getBoundingClientRect(); o[k] = { x: (r.left + r.width / 2) / innerWidth, y: (r.top + r.height / 2) / innerHeight, s: +(e.style.getPropertyValue('--s') || 1) }; }
+    return o;
+  }
+  function build() {
+    box = document.createElement('div'); box.id = 'tledit'; box.className = 'hidden';
+    box.innerHTML = `<div class="tl-bg"></div>
+      <div class="tl-bar" role="dialog" aria-label="조작 배치">
+        <p class="tl-t"><b>조작 배치</b><span>끌어서 옮기고, 고른 것의 크기를 바꾸세요</span></p>
+        <div class="tl-row"><span class="tl-sel" id="tl-sel"></span>
+          <button type="button" class="tl-mini" data-d="-1" aria-label="작게">－</button>
+          <input type="range" id="tl-size" min="${TL_MIN}" max="${TL_MAX}" step=".05" aria-label="크기"><output id="tl-out"></output>
+          <button type="button" class="tl-mini" data-d="1" aria-label="크게">＋</button></div>
+        <div class="tl-row tl-btns"><button type="button" data-a="reset">기본값</button><button type="button" data-a="cancel">취소</button><button type="button" class="tl-main" data-a="save">저장</button></div>
+      </div>`;
+    box.querySelector('.tl-bg').style.backgroundImage = window.TL_BG ? `url(${window.TL_BG})` : '';
+    document.body.appendChild(box);
+    const size = get('tl-size');
+    size.addEventListener('input', () => setSize(+size.value));
+    box.querySelectorAll('.tl-mini').forEach(b => b.addEventListener('click', () => setSize(draft[sel].s + .1 * b.dataset.d)));
+    box.querySelector('[data-a=reset]').addEventListener('click', () => { applyLayout(null); draft = snapshot(); pick(sel); });
+    box.querySelector('[data-a=cancel]').addEventListener('click', () => close(false));
+    box.querySelector('[data-a=save]').addEventListener('click', () => close(true));
+    ['click', 'touchstart', 'touchend', 'mousedown', 'mouseup'].forEach(n => box.addEventListener(n, e => e.stopPropagation()));
+  }
+  function setSize(v) {
+    v = Math.max(TL_MIN, Math.min(TL_MAX, Math.round(v * 20) / 20));
+    draft[sel].s = v; applyLayout(draft); pick(sel);
+  }
+  function pick(k) {
+    sel = k; const name = TL_KEYS.find(x => x[0] === k)[2];
+    get('tl-sel').textContent = name; get('tl-size').value = draft[k].s; get('tl-out').textContent = Math.round(draft[k].s * 100) + '%';
+    TL_KEYS.forEach(([kk, id]) => get(id).classList.toggle('tl-on', kk === k));
+    dodge();
+  }
+  /* 편집 창이 고른 것을 가리지 않게 — 고른 것이 위쪽에 있으면 창은 아래로 */
+  const dodge = () => { if (box && draft) box.classList.toggle('tl-low', draft[sel].y < .5); };
+  function open() {
+    if (!get('tjoy')) return;                 // 터치 모드가 아니면 (컴퓨터) 조작 요소가 없음
+    if (!box) build();
+    document.body.classList.add('tledit'); box.classList.remove('hidden');
+    applyLayout(); draft = snapshot(); applyLayout(draft); pick('joy');
+  }
+  function close(save) {
+    document.body.classList.remove('tledit'); box.classList.add('hidden');
+    TL_KEYS.forEach(([, id]) => get(id).classList.remove('tl-on'));
+    if (save) { S.layout = draft; window.Settings && save_(); }
+    applyLayout(); drag = null;
+  }
+  const save_ = () => save();
+  /* 끌기 — 다른 모든 손가락 처리(게임 · 조사 버튼)보다 먼저 */
+  addEventListener('pointerdown', e => {
+    if (!document.body.classList.contains('tledit')) return;
+    const hit = TL_KEYS.find(([, id]) => { const el = get(id); return el && (e.target === el || el.contains(e.target)); });
+    if (!hit) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    pick(hit[0]);
+    const p = draft[hit[0]]; drag = { k: hit[0], id: e.pointerId, ox: p.x * innerWidth - e.clientX, oy: p.y * innerHeight - e.clientY };
+  }, true);
+  addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    const r = get(TL_KEYS.find(x => x[0] === drag.k)[1]).getBoundingClientRect(), hw = r.width / 2, hh = r.height / 2;
+    const x = Math.max(hw, Math.min(innerWidth - hw, e.clientX + drag.ox)), y = Math.max(hh, Math.min(innerHeight - hh, e.clientY + drag.oy));
+    draft[drag.k].x = x / innerWidth; draft[drag.k].y = y / innerHeight; applyLayout(draft); dodge();
+  }, true);
+  ['pointerup', 'pointercancel'].forEach(n => addEventListener(n, e => { if (drag && e.pointerId === drag.id) { drag = null; e.stopImmediatePropagation(); } }, true));
+  addEventListener('keydown', e => {
+    if (!document.body.classList.contains('tledit')) return;
+    e.stopImmediatePropagation();
+    if (e.key === 'Escape') { e.preventDefault(); close(false); }
+    else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+  }, true);
+  return { open, close };
+})();
 window.Settings = {
-  get: k => S[k], out, bus, open, close, isOpen,
+  get: k => S[k], out, bus, open, close, isOpen, applyLayout, openLayout: () => TL.open(),
   look: () => S.sens,                                  // 둘러보기 배율
   lookY: () => S.sens * (S.invertY ? -1 : 1)
 };

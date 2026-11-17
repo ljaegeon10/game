@@ -195,6 +195,7 @@ function touchSetup() {
     tEl.fs.addEventListener('pointerup', e => { e.preventDefault(); e.stopPropagation(); FS.go(); });
     tEl.fs.addEventListener('pointerdown', e => e.stopPropagation());
   } else if (!FS.standalone()) setTimeout(fsTip, 1200);   // 아이폰 — 사파리는 전체 화면이 없어서 '도구 막대 가리기' 안내
+  if (window.Settings && Settings.applyLayout) Settings.applyLayout();   // 설정 「조작 배치」
   fit();
 }
 const FS = {
@@ -281,7 +282,7 @@ addEventListener('pointerdown', e => {
 }, { passive: false });
 function touchStick(st, knob, e) {
   let dx = e.clientX - st.x0, dy = e.clientY - st.y0;
-  const JOY_R = JOY_R0 * (window.Settings ? Settings.get('joy') : 1);
+  const el = st === TOUCH.fire ? tEl.fire : tEl.joy, JOY_R = JOY_R0 * (+el.style.getPropertyValue('--s') || 1);   // 설정 「조작 배치」의 크기
   const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
   st.dx = dx; st.dy = dy; knob.style.transform = `translate(${dx}px, ${dy}px)`;
   if (st === TOUCH.fire) tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);
@@ -305,9 +306,17 @@ setInterval(() => {
   document.body.classList.toggle('tplay', play);
   document.body.classList.toggle('tfight', play && !G.inForest);                          // 공격 자리 표시는 던전에서만
   if (!touchPlayMode() && (TOUCH.joy || TOUCH.fire)) touchRelease();
-  /* 미니맵이 공격 조이스틱에 가리지 않게 — 조이스틱 왼쪽 끝을 화면(VW) 좌표로 */
-  const fr = document.body.classList.contains('tfight') && tEl.fire.getBoundingClientRect(), cr = cvMain.getBoundingClientRect();
-  TOUCH.mapR = fr && fr.width && cr.width ? (fr.left - cr.left) * VW / cr.width - 8 : 0;
+  /* 미니맵(오른쪽 아래)이 조이스틱 · 조사 버튼에 가리면 — 겹친 것들의 왼쪽 끝으로 비켜 그림 (화면 VW 좌표) */
+  const cr = cvMain.getBoundingClientRect(), k = cr.width / VW;
+  let mapR = 0;
+  if (k && document.body.classList.contains('tplay')) {
+    const mm = { l: cr.left + (VW - 110) * k, r: cr.left + (VW - 15) * k, t: cr.top + (SH - 75) * k, b: cr.top + (SH - 14) * k };
+    let left = Infinity;
+    [tEl.joy, tEl.fire, tEl.btn].forEach(e => { const r = e.getBoundingClientRect();
+      if (r.width && r.left < mm.r && r.right > mm.l && r.top < mm.b && r.bottom > mm.t) left = Math.min(left, r.left); });
+    if (left < Infinity) mapR = (left - cr.left) / k - 8;
+  }
+  TOUCH.mapR = mapR;
 }, 120);
 addEventListener('mouseup', () => { mouse.down = false; });
 /* once:true 였던 걸 뺐습니다 — 아티팩트(iframe)처럼 삽입된 페이지는
