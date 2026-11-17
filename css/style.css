@@ -1579,3 +1579,25 @@ body.cine #maplegend{ opacity:0; }
 body.touch, body.touch *{ -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
 #tbtn, #tpause, #tfs{ touch-action:none; }
 html{ touch-action:manipulation; }
+
+/* 축제판 — 전에 한 사람 (이 기기에 기억, festival.js 의 PLKEY) : 이름 칩 한 번 누르기 */
+#fe-recent{ display:flex; flex-direction:column; gap:5px; padding:7px 8px 6px; border:1px solid rgba(227,178,60,.35); background:rgba(227,178,60,.05); }
+#fe-recent.hidden, #fe-check.hidden, #fest-entry.nowrite #fe-recent{ display:none; }
+.fe-rq{ margin:0; font-size:8px; letter-spacing:.06em; color:var(--hwang); text-align:center; }
+#fe-chips{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; }
+.fe-chipw{ display:inline-flex; align-items:stretch; }
+.fe-chip, .fe-chipx{ margin:0; font:inherit; box-shadow:none; border:1px solid rgba(241,236,224,.3); background:rgba(15,14,20,.6); color:var(--baek); cursor:pointer; }
+.fe-chip{ display:inline-flex; align-items:baseline; gap:5px; padding:6px 9px; font-size:11px; letter-spacing:.04em; }
+.fe-chip b{ font-weight:400; }
+.fe-chip span{ font-size:8px; color:rgba(241,236,224,.5); font-variant-numeric:tabular-nums; }
+.fe-chip:hover, .fe-chip:focus-visible{ border-color:var(--hwang); color:#fff; background:rgba(227,178,60,.14); outline:none; }
+.fe-chipx{ padding:0 7px; font-size:9px; border-left:none; color:rgba(241,236,224,.4); }
+.fe-chipx:hover, .fe-chipx:focus-visible{ color:var(--danger); border-color:rgba(241,236,224,.5); outline:none; }
+#fe-check{ display:flex; align-items:center; gap:7px; justify-content:center; }
+#fe-checkname{ font-size:9px; color:var(--baek); }
+#fe-tail{ width:96px; padding:6px 8px; font:inherit; font-size:12px; letter-spacing:.3em; text-align:center; color:var(--baek); background:rgba(15,14,20,.7); border:1px solid rgba(227,178,60,.7); outline:none; }
+#fe-tail::placeholder{ letter-spacing:.05em; font-size:9px; color:rgba(241,236,224,.3); }
+#fe-new{ margin:2px 0 0; padding:6px 0; font:inherit; font-size:9px; letter-spacing:.08em; color:rgba(241,236,224,.7); background:transparent; border:1px dashed rgba(241,236,224,.28); box-shadow:none; cursor:pointer; }
+#fe-new:hover, #fe-new:focus-visible{ color:#fff; border-color:rgba(241,236,224,.6); outline:none; }
+#fest-entry.hasrecent:not(.newform) .fe-row, #fest-entry.hasrecent:not(.newform) .fe-agree, #fest-entry.hasrecent:not(.newform) #fe-go{ display:none; }
+#fest-entry.newform #fe-new{ display:none; }

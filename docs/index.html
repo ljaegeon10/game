@@ -1609,10 +1609,32 @@ body.touch, body.touch *{ -webkit-touch-callout:none; -webkit-tap-highlight-colo
 #tbtn, #tpause, #tfs{ touch-action:none; }
 html{ touch-action:manipulation; }
 
+/* 축제판 — 전에 한 사람 (이 기기에 기억, festival.js 의 PLKEY) : 이름 칩 한 번 누르기 */
+#fe-recent{ display:flex; flex-direction:column; gap:5px; padding:7px 8px 6px; border:1px solid rgba(227,178,60,.35); background:rgba(227,178,60,.05); }
+#fe-recent.hidden, #fe-check.hidden, #fest-entry.nowrite #fe-recent{ display:none; }
+.fe-rq{ margin:0; font-size:8px; letter-spacing:.06em; color:var(--hwang); text-align:center; }
+#fe-chips{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; }
+.fe-chipw{ display:inline-flex; align-items:stretch; }
+.fe-chip, .fe-chipx{ margin:0; font:inherit; box-shadow:none; border:1px solid rgba(241,236,224,.3); background:rgba(15,14,20,.6); color:var(--baek); cursor:pointer; }
+.fe-chip{ display:inline-flex; align-items:baseline; gap:5px; padding:6px 9px; font-size:11px; letter-spacing:.04em; }
+.fe-chip b{ font-weight:400; }
+.fe-chip span{ font-size:8px; color:rgba(241,236,224,.5); font-variant-numeric:tabular-nums; }
+.fe-chip:hover, .fe-chip:focus-visible{ border-color:var(--hwang); color:#fff; background:rgba(227,178,60,.14); outline:none; }
+.fe-chipx{ padding:0 7px; font-size:9px; border-left:none; color:rgba(241,236,224,.4); }
+.fe-chipx:hover, .fe-chipx:focus-visible{ color:var(--danger); border-color:rgba(241,236,224,.5); outline:none; }
+#fe-check{ display:flex; align-items:center; gap:7px; justify-content:center; }
+#fe-checkname{ font-size:9px; color:var(--baek); }
+#fe-tail{ width:96px; padding:6px 8px; font:inherit; font-size:12px; letter-spacing:.3em; text-align:center; color:var(--baek); background:rgba(15,14,20,.7); border:1px solid rgba(227,178,60,.7); outline:none; }
+#fe-tail::placeholder{ letter-spacing:.05em; font-size:9px; color:rgba(241,236,224,.3); }
+#fe-new{ margin:2px 0 0; padding:6px 0; font:inherit; font-size:9px; letter-spacing:.08em; color:rgba(241,236,224,.7); background:transparent; border:1px dashed rgba(241,236,224,.28); box-shadow:none; cursor:pointer; }
+#fe-new:hover, #fe-new:focus-visible{ color:#fff; border-color:rgba(241,236,224,.6); outline:none; }
+#fest-entry.hasrecent:not(.newform) .fe-row, #fest-entry.hasrecent:not(.newform) .fe-agree, #fest-entry.hasrecent:not(.newform) #fe-go{ display:none; }
+#fest-entry.newform #fe-new{ display:none; }
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794870600"></script>
+<script src="festival-config.js?v=1794875441"></script>
 
 <div id="frame">
   <div id="stage">
@@ -15649,6 +15671,8 @@ const $ = id => document.getElementById(id);
 const digits = s => String(s || '').replace(/\D/g, '');
 const phone = d => d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
                  : d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}` : d;
+const phoneLive = d => d.length < 3 ? d : d.length === 3 ? d + '-' : d.length === 10 && !d.startsWith('010') ? phone(d)    // 치는 동안에도 010-1234-5678 모양
+                     : d.length <= 7 ? `${d.slice(0, 3)}-${d.slice(3)}` : `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 const masked = d => d.length >= 4 ? `···${d.slice(-4)}` : '';
 const fmt = ms => {
   const t = Math.max(0, ms | 0), m = Math.floor(t / 60000), s = Math.floor(t % 60000 / 1000), c = Math.floor(t % 1000 / 10);
@@ -15658,6 +15682,20 @@ const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) 
 const rid = () => Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 
 let player = null;          // 지금 등록한 사람 { name, contact }
+
+/* ── 이 기기에서 한 사람 기억 — 다시 할 때 이름 · 번호를 또 치지 않게 ──
+   등록하면 { name, contact, t } 를 이 기기에만 (최대 6명 · 12시간 지나면 저절로 지움 · ✕ 로 바로 지움).
+   화면에는 이름 + 뒷자리 4개만. 기억된 사람이 한 명뿐이면(내 폰) 누르면 바로,
+   여럿이면(부스 노트북) 남이 내 이름으로 하지 않게 뒷자리 4개를 한 번 확인 */
+const PLKEY = 'wellbelow.fest.players', PTTL = 12 * 3600e3, PMAX = 6;
+function loadP() {
+  try { const a = JSON.parse(localStorage.getItem(PLKEY) || '[]'), now = Date.now();
+        return Array.isArray(a) ? a.filter(x => x && x.name && /^\d{10,11}$/.test(x.contact) && now - x.t < PTTL) : []; } catch (e) { return []; }
+}
+function saveP(a) { try { a.length ? localStorage.setItem(PLKEY, JSON.stringify(a)) : localStorage.removeItem(PLKEY); } catch (e) {} }
+const samePerson = (a, b) => a.name === b.name && a.contact === b.contact;
+function rememberP(p) { saveP([{ name: p.name, contact: p.contact, t: Date.now() }, ...loadP().filter(x => !samePerson(x, p))].slice(0, PMAX)); }
+function forgetP(p) { saveP(loadP().filter(x => !samePerson(x, p))); }
 let playing = false;
 
 /* ── 이 기기에 줄 세운 기록 → 데이터베이스로 ── */
@@ -15718,6 +15756,9 @@ function buildEntry() {
     <p class="fe-dev hidden" id="fe-dev"></p>
     <p class="fe-tanote">💡 열쇠 · 상자는 안 모아도 돼요 — 몬스터만 잡아도 클리어!<br>오른쪽 아래 지도의 <b>깜빡이는 노란 ✚</b> 방을 비우면 관문 열쇠, <b>청록 점</b>을 따라가면 가장 빠른 길</p>
     <p id="fe-nowrite" class="hidden"></p>
+    <div id="fe-recent" class="hidden"><p class="fe-rq">전에 한 사람이면 이름을 누르세요</p><div id="fe-chips"></div>
+      <div id="fe-check" class="hidden"><span id="fe-checkname"></span><input id="fe-tail" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="뒷자리 4개"></div>
+      <button type="button" id="fe-new">＋ 처음이에요 — 새로 등록</button></div>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
     <label class="fe-agree"><input type="checkbox" id="fe-agree"> 상품 연락용으로만 쓰고, 축제가 끝나면 지워요. 동의합니다</label>
@@ -15746,9 +15787,10 @@ function ask(onGo, onBack) {
   const box = $('fest-entry'); if (!box) { onGo(); return; }
   showDev();
   entryCb = { onGo, onBack };
-  $('fe-name').value = ''; $('fe-contact').value = ''; $('fe-agree').checked = false; $('fe-err').textContent = '';
+  $('fe-name').value = ''; $('fe-contact').value = '010-'; $('fe-agree').checked = false; $('fe-err').textContent = '';
   box.classList.remove('hidden'); box.classList.remove('nowrite');
-  setTimeout(() => $('fe-name').focus(), 30);
+  const has = renderRecent();
+  setTimeout(() => (has ? $('fe-chips').querySelector('.fe-chip') : $('fe-name')).focus(), 30);
   canWrite().then(ok => {                                  // 기록을 못 남기는 화면 — 등록 칸 대신 안내 + "기록 없이 도전"
     const no = ok === false;
     $('fe-nowrite').innerHTML = INSIDE ? '이 화면은 로그인하지 않아서 <b>기록이 순위판에 남지 않아요.</b><br>순위에 오르려면 부스 노트북에서 도전해 주세요.'
@@ -15757,6 +15799,40 @@ function ask(onGo, onBack) {
     ['fe-nowrite', 'fe-skip'].forEach(id => $(id).classList.toggle('hidden', !no));
   });
 }
+let picked = null;
+function renderRecent() {
+  const list = loadP(), wrap = $('fe-chips'); picked = null;
+  $('fe-recent').classList.toggle('hidden', !list.length); $('fe-check').classList.add('hidden');
+  $('fest-entry').classList.toggle('hasrecent', list.length > 0); $('fest-entry').classList.remove('newform');   // 전에 한 사람이 있으면 등록 칸은 접어 둠
+  wrap.textContent = '';
+  list.forEach(p => {
+    const c = mk('span', 'fe-chipw'), b = mk('button', 'fe-chip'), x = mk('button', 'fe-chipx', '✕');
+    b.append(mk('b', null, p.name), mk('span', null, masked(p.contact)));
+    b.type = x.type = 'button'; x.title = '이 기기에서 지우기'; x.setAttribute('aria-label', `${p.name} 이 기기에서 지우기`);
+    b.addEventListener('click', () => pickRecent(p, list.length));
+    x.addEventListener('click', e => { e.stopPropagation(); forgetP(p); const h = renderRecent(); (h ? wrap.querySelector('.fe-chip') : $('fe-name')).focus(); });
+    c.append(b, x); wrap.append(c);
+  });
+  return list.length > 0;
+}
+function pickRecent(p, n) {
+  if (n <= 1) { go(p); return; }                                  // 이 기기에 한 사람뿐 — 바로
+  picked = p; $('fe-err').textContent = '';
+  $('fe-checkname').textContent = `${p.name} 님 — 연락처 뒷자리`;
+  $('fe-check').classList.remove('hidden'); $('fe-tail').value = ''; $('fe-tail').focus();
+}
+function checkTail() {
+  const v = digits($('fe-tail').value); $('fe-tail').value = v;
+  if (!picked || v.length < 4) return;
+  if (picked.contact.endsWith(v)) go(picked);
+  else { $('fe-err').textContent = '뒷자리가 맞지 않아요.'; $('fe-tail').value = ''; }
+}
+function go(p) {
+  $('fe-err').textContent = '';
+  player = { name: p.name, contact: p.contact }; rememberP(player);
+  closeEntry();
+  const cb = entryCb; entryCb = null; if (cb) cb.onGo(player);
+}
 function closeEntry() { const b = $('fest-entry'); if (b) b.classList.add('hidden'); }
 function submitEntry() {
   const name = $('fe-name').value.trim().replace(/\s+/g, ' '), d = digits($('fe-contact').value);
@@ -15764,16 +15840,19 @@ function submitEntry() {
   if (!name) return err('이름을 적어 주세요.');
   if (d.length < 10 || d.length > 11) return err('연락처(전화번호)를 확인해 주세요.');
   if (!$('fe-agree').checked) return err('상품 연락에 동의해야 순위에 올라가요.');
-  player = { name, contact: d };
-  closeEntry();
-  const cb = entryCb; entryCb = null; if (cb) cb.onGo(player);
+  go({ name, contact: d });
 }
 function wireEntry() {
   $('fe-go').addEventListener('click', submitEntry);
   $('fe-skip').addEventListener('click', () => { player = null; closeEntry(); const cb = entryCb; entryCb = null; if (cb) cb.onGo(null); });
   $('fe-back').addEventListener('click', () => { closeEntry(); const cb = entryCb; entryCb = null; if (cb) cb.onBack(); });
-  $('fe-contact').addEventListener('input', e => { const d = digits(e.target.value).slice(0, 11); e.target.value = phone(d); });
+  $('fe-contact').addEventListener('input', e => { const d = digits(e.target.value).slice(0, 11); e.target.value = phoneLive(d); });
+  $('fe-tail').addEventListener('input', checkTail);
+  $('fe-new').addEventListener('click', () => { $('fest-entry').classList.add('newform'); $('fe-check').classList.add('hidden'); picked = null; $('fe-err').textContent = ''; $('fe-name').focus(); });
+  $('fe-name').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); e.stopPropagation(); const c = $('fe-contact'); c.focus(); c.setSelectionRange(c.value.length, c.value.length); } });   // 이름 다음엔 번호 칸으로
+  $('fe-contact').addEventListener('focus', e => { if (!digits(e.target.value)) e.target.value = '010-'; });
   $('fest-entry').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.closest && e.target.closest('.fe-chipw, #fe-back, #fe-skip, #fe-check, #fe-new')) return;   // 단추는 단추대로
     if (e.key === 'Enter') { e.preventDefault(); submitEntry(); }
     else if (e.key === 'Escape') { e.preventDefault(); $('fe-back').click(); }
   });
