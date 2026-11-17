@@ -1669,6 +1669,9 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 .st-segb.on{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
 .st-segb:focus-visible{ outline:2px solid var(--hwang); outline-offset:2px; }
 
+/* 공격 조이스틱 — 자동 조준(누른 채 안 끎)일 땐 손잡이 테가 청록 */
+#tfire.on.auto i{ border-color:#7de3c8; box-shadow:0 0 14px rgba(125,227,200,.5); }
+
 </style>
 <div id="frame">
   <div id="stage">
@@ -16536,15 +16539,35 @@ function touchAimAt() {
   return a.t ? { x: a.t.x, y: a.t.y } : { x: wx, y: wy };
 }
 /* 공격 조이스틱 — 끈 방향으로. 그 방향 ±20° · 260px 안에 적 · 보스가 있으면 그 쪽으로 맞춰 줌 */
-const FIRE_DEAD = 14;
+/* 공격 조이스틱 — 브롤스타즈처럼 두 가지
+   · 자동 조준 : 톡 하거나, 누른 채 끌지 않으면 → 가장 가까운(가리는 것 없는) 적 · 보스에게. 톡은 한 발, 누르고 있으면 연사
+   · 직접 조준 : 끌면 → 끈 방향 그대로 (보정 없음) 연사. 끌다가 가운데로 되돌리면 취소 (안 쏨)
+   어느 쪽이든 쏘는 쪽 가이드 선(drawAimGuide)이 보임 */
+const FIRE_DEAD = 18, TAP_MS = 260;
+function autoTarget() {
+  let best = null, bd = 1e9, vis = null, vd = 1e9;
+  const clear = (o) => { const dx = o.x - P.x, dy = o.y - P.y, l = Math.hypot(dx, dy) || 1;
+    for (let d = 14; d < l - (o.r || 10); d += 8) { const x = P.x + dx / l * d, y = P.y + dy / l * d; if (G.props.length && propBlocksShot(G.props, x, y)) return false; } return true; };
+  const look = (o, r = 0) => { if (!o) return; const d = Math.hypot(o.x - P.x, o.y - P.y) - r; if (d > 320) return;
+    if (d < bd) { bd = d; best = o; } if (d < vd && clear(o)) { vd = d; vis = o; } };
+  G.foes.forEach(o => !o.dead && !o.warp && look(o)); if (G.boss && !G.boss.dead) look(G.boss, G.boss.r || 30);
+  return vis || best;
+}
 function touchFireDir() {
-  const f = TOUCH.fire; if (!f || Math.hypot(f.dx, f.dy) < FIRE_DEAD) return null;
-  const a0 = Math.atan2(f.dy, f.dx); let best = null, bs = 1e9;
-  const look = (o, r = 0) => { if (!o) return; const dx = o.x - P.x, dy = o.y - P.y, d = Math.hypot(dx, dy) - r; if (d > 260) return;
-    let da = Math.abs(Math.atan2(dy, dx) - a0); if (da > Math.PI) da = 2 * Math.PI - da; if (da > .35) return;
-    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; TOUCH.lock = o; } };
-  G.foes.forEach(o => !o.dead && look(o)); if (G.boss) look(G.boss, G.boss.r || 30);
-  return best || [f.dx, f.dy];
+  const f = TOUCH.fire; if (!f) return null;
+  const l = Math.hypot(f.dx, f.dy);
+  if (l >= FIRE_DEAD) f.manual = true;                       // 한 번이라도 끌었으면 직접 조준
+  if (f.manual) return l >= FIRE_DEAD ? [f.dx, f.dy] : null; // 가운데로 되돌리면 취소
+  if (performance.now() - f.t0 < 120) return null;          // 톡인지 누르고 있기인지 — 아주 잠깐은 기다림 (톡은 뗄 때 한 발)
+  const t = autoTarget(); if (!t) return null;
+  TOUCH.lock = t; return [t.x - P.x, t.y - P.y];
+}
+/* 톡 — 뗄 때 자동 조준 한 발 (쿨다운 중이면 풀리는 대로, 0.4초 안에) · 적이 없으면 보는 쪽으로 */
+function touchTapShot() {
+  if (!TOUCH.tap || performance.now() > TOUCH.tap) { TOUCH.tap = 0; return null; }
+  const t = autoTarget();
+  if (t) { TOUCH.lock = t; return [t.x - P.x, t.y - P.y]; }
+  return ({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })[P.dir] || [0, 1];
 }
 const touchPlayMode = () => G.mode === 'play' || G.mode === 'forest';
 // 휴대폰 · 태블릿이면 처음부터 — 첫 톡에서 켜면 화면이 그 순간 바뀌어 누른 버튼이 빗나가기 때문
@@ -16562,14 +16585,14 @@ addEventListener('pointerdown', e => {
     return r.width && Math.hypot(e.clientX - cx, e.clientY - cy) < r.width / 2 * 2.4 ? [cx, cy] : null; };
   let c;
   if (!TOUCH.joy && (c = near(tEl.joy))) { TOUCH.joy = { id: e.pointerId, x0: c[0], y0: c[1], dx: 0, dy: 0 }; tEl.joy.classList.add('on'); touchStick(TOUCH.joy, tEl.knob, e); return; }
-  if (!TOUCH.fire && !G.inForest && (c = near(tEl.fire))) { TOUCH.fire = { id: e.pointerId, x0: c[0], y0: c[1], dx: 0, dy: 0 }; tEl.fire.classList.add('on'); touchStick(TOUCH.fire, tEl.fknob, e); }
+  if (!TOUCH.fire && !G.inForest && (c = near(tEl.fire))) { TOUCH.fire = { id: e.pointerId, x0: c[0], y0: c[1], dx: 0, dy: 0, t0: performance.now(), manual: false }; tEl.fire.classList.add('on'); touchStick(TOUCH.fire, tEl.fknob, e); }
 }, { passive: false });
 function touchStick(st, knob, e) {
   let dx = e.clientX - st.x0, dy = e.clientY - st.y0;
   const el = st === TOUCH.fire ? tEl.fire : tEl.joy, JOY_R = JOY_R0 * (+el.style.getPropertyValue('--s') || 1);   // 설정 「조작 배치」의 크기
   const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
   st.dx = dx; st.dy = dy; knob.style.transform = `translate(${dx}px, ${dy}px)`;
-  if (st === TOUCH.fire) tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);
+  if (st === TOUCH.fire) { if (l >= FIRE_DEAD) st.manual = true; tEl.fire.classList.toggle('shoot', st.manual && l >= FIRE_DEAD); tEl.fire.classList.toggle('auto', !st.manual); }
 }
 addEventListener('pointermove', e => {
   if (e.pointerType !== 'touch') return;
@@ -16579,7 +16602,10 @@ addEventListener('pointermove', e => {
 ['pointerup', 'pointercancel'].forEach(n => addEventListener(n, e => {
   if (e.pointerType !== 'touch') return;
   if (TOUCH.joy && e.pointerId === TOUCH.joy.id) { TOUCH.joy = null; tEl.joy.classList.remove('on'); tEl.knob.style.transform = ''; }
-  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) { TOUCH.fire = null; tEl.fire.classList.remove('on', 'shoot'); tEl.fknob.style.transform = ''; }
+  if (TOUCH.fire && e.pointerId === TOUCH.fire.id) {
+    const f = TOUCH.fire; if (!f.manual && !f.fired && performance.now() - f.t0 < TAP_MS) TOUCH.tap = performance.now() + 400;   // 톡 = 자동 조준 한 발
+    TOUCH.fire = null; tEl.fire.classList.remove('on', 'shoot', 'auto'); tEl.fknob.style.transform = '';
+  }
 }));
 const touchRelease = () => { TOUCH.joy = null; TOUCH.fire = null; if (tEl.joy) { tEl.joy.classList.remove('on'); tEl.fire.classList.remove('on', 'shoot'); tEl.knob.style.transform = tEl.fknob.style.transform = ''; } };
 addEventListener('blur', touchRelease);
@@ -16754,7 +16780,7 @@ function parseShock(raw) {
   return { plain, ranges };
 }
 
-const TOUCH_HINT = { '이동 — W A S D': '이동 — 왼쪽 아래 조이스틱', '공격 — 방향키 / 마우스': '공격 — 오른쪽 아래 조이스틱을 쏠 방향으로' };
+const TOUCH_HINT = { '이동 — W A S D': '이동 — 왼쪽 아래 조이스틱', '공격 — 방향키 / 마우스': '공격 — 오른쪽 아래 : 톡 = 자동 조준 · 끌기 = 직접 조준' };
 /* 대사가 나오는 동안 위아래로 검은 띠가 내려오고 HUD 는 물러남 (css body.cine) */
 new MutationObserver(() => document.body.classList.toggle('cine', !$('subtitle').classList.contains('hidden')))
   .observe($('subtitle'), { attributes: true, attributeFilter: ['class'] });
@@ -18014,12 +18040,14 @@ function update() {
   if (!forest) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
-    if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱
+    if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱 (자동 · 직접 조준)
+    if (!ax && !ay && TOUCH.tap && P.fireCd <= 0) { const d = touchTapShot(); if (d) { ax = d[0]; ay = d[1]; P.tapShot = true; } }   // 톡 한 발
     if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
     if (ax || ay) P.aim = [ax, ay];
   }
   if (!forest && P.fireCd <= 0 && P.aim) {
     const [ax, ay] = P.aim;
+    if (P.tapShot) { P.tapShot = false; TOUCH.tap = 0; } else if (TOUCH.fire) TOUCH.fire.fired = true;   // 누르는 동안 이미 쐈으면 뗄 때 또 쏘지 않음
     {
       shoot(ax, ay);
       if (!ml) P.dir = Math.abs(ax) > Math.abs(ay)

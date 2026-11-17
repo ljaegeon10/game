@@ -1651,3 +1651,6 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 .st-segb{ flex:1; margin:0; padding:7px 0; font:inherit; font-size:14px; color:rgba(241,236,224,.75); background:rgba(241,236,224,.05); border:1px solid rgba(241,236,224,.28); box-shadow:none; cursor:pointer; }
 .st-segb.on{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
 .st-segb:focus-visible{ outline:2px solid var(--hwang); outline-offset:2px; }
+
+/* 공격 조이스틱 — 자동 조준(누른 채 안 끎)일 땐 손잡이 테가 청록 */
+#tfire.on.auto i{ border-color:#7de3c8; box-shadow:0 0 14px rgba(125,227,200,.5); }
