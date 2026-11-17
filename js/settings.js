@@ -11,7 +11,7 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false };
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, joy: 1, invertY: false };
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -24,6 +24,7 @@ function apply() {
   const set = (node, v, ac) => { try { node.gain.setTargetAtTime(curve(v), ac.currentTime, .03); } catch (e) { node.gain.value = curve(v); } };
   for (const b of BUS) set(b.node, vol(b.kind), b.ac);
   OUTS.forEach(o => set(o.node, S.master, o.ac));
+  document.documentElement.style.setProperty('--joy', S.joy);   // 휴대폰 조이스틱 크기 (css 의 #tjoy · #tfire)
 }
 const OUTS = [];
 function out(ac) {
@@ -44,8 +45,9 @@ const ROWS = [
   { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sens',   label: '카메라 감도', sub: '1인칭에서 둘러보는 빠르기', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
+  { k: 'joy',    label: '조이스틱 크기', sub: '휴대폰 · 태블릿 — 움직이면 미리 보여요', min: .7, max: 1.6, step: .05, fmt: v => Math.round(v * 100) + '%' },
 ];
-let el = null, onClose = null, testT = 0;
+let el = null, onClose = null, testT = 0, joyT = 0;
 function build() {
   el = document.createElement('div'); el.id = 'settings'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '설정');
   el.innerHTML = `<div class="st-box">
@@ -61,7 +63,8 @@ function build() {
     const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'), o = row.querySelector('output');
     inp.addEventListener('input', () => {
       S[r.k] = +inp.value; o.textContent = r.fmt(S[r.k]); apply(); save();
-      if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
+      if (r.k === 'joy') { document.body.classList.add('joyprev'); clearTimeout(joyT); joyT = setTimeout(() => document.body.classList.remove('joyprev'), 1500); }
+      if (r.k !== 'sens' && r.k !== 'joy') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
   const ck = el.querySelector('input[data-k=invertY]');
@@ -103,6 +106,7 @@ addEventListener('keydown', e => {
 }, true);
 addEventListener('keyup', e => { if (isOpen()) e.stopImmediatePropagation(); }, true);
 
+document.documentElement.style.setProperty('--joy', S.joy);
 window.Settings = {
   get: k => S[k], out, bus, open, close, isOpen,
   look: () => S.sens,                                  // 둘러보기 배율

@@ -174,7 +174,7 @@ cv.addEventListener('mousedown', e => { e.preventDefault(); if (performance.now(
    · 연사 간격은 PC 와 같음 (실제 시간 기준)
    · 오른쪽 아래 [조사] = SPACE, 대화 · 쪽지는 화면 아무 데나 톡 */
 const TOUCH = { on: false, last: 0, joy: null, aim: null, fire: null };
-const JOY_R = 46;                                       // 조이스틱이 움직이는 반지름 (CSS 픽셀)
+const JOY_R0 = 46;                                      // 조이스틱이 움직이는 반지름 (CSS 픽셀) — 설정 「조이스틱 크기」 배율을 곱함
 const tEl = {};
 function touchSetup() {
   if (TOUCH.on) return;
@@ -281,6 +281,7 @@ addEventListener('pointerdown', e => {
 }, { passive: false });
 function touchStick(st, knob, e) {
   let dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+  const JOY_R = JOY_R0 * (window.Settings ? Settings.get('joy') : 1);
   const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
   st.dx = dx; st.dy = dy; knob.style.transform = `translate(${dx}px, ${dy}px)`;
   if (st === TOUCH.fire) tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);

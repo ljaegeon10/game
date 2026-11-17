@@ -1260,7 +1260,7 @@ body.escfull #ending{ overflow:hidden; }
 body.touch{ touch-action:none; overscroll-behavior:none; }
 /* 고정 조이스틱 — 왼쪽 아래 이동 · 오른쪽 아래 공격. 걷고 싸울 때 늘 보이고, 잡으면 밝아짐 */
 #tjoy, #tfire{
-  position:fixed; z-index:50; width:120px; height:120px; border-radius:50%; display:none;
+  position:fixed; z-index:50; width:calc(120px * var(--joy, 1)); height:calc(120px * var(--joy, 1)); border-radius:50%; display:none;
   bottom:max(7vh, calc(env(safe-area-inset-bottom) + 10px));
   border:2px solid rgba(241,236,224,.28); background:radial-gradient(circle, rgba(241,236,224,.07), rgba(241,236,224,.015) 70%);
   pointer-events:none; opacity:.55; transition:opacity .12s, border-color .12s, box-shadow .12s;
@@ -1270,14 +1270,14 @@ body.touch{ touch-action:none; overscroll-behavior:none; }
 body.touch.tplay #tjoy{ display:block; } body.touch.tfight #tfire{ display:block; }
 #tjoy.on, #tfire.on{ opacity:1; }
 #tfire.shoot{ border-color:rgba(255,120,100,.95); box-shadow:0 0 18px rgba(224,72,60,.45); }
-#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; z-index:1;
+#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:calc(52px * var(--joy, 1)); height:calc(52px * var(--joy, 1)); margin:calc(-26px * var(--joy, 1)) 0 0 calc(-26px * var(--joy, 1)); border-radius:50%; z-index:1;
   background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35); }
 #tfire i{ background:rgba(224,72,60,.6); border-color:rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
 #tjoy span, #tfire span{ position:absolute; left:0; right:0; top:-22px; text-align:center; font-size:11px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.5); }
 #tfire span{ color:rgba(255,150,130,.6); }
 #tjoy.on span, #tfire.on span{ opacity:0; }
 #tbtn{
-  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 150px);   /* 공격 조이스틱 위 */
+  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 120px * var(--joy, 1) + 30px);   /* 공격 조이스틱 위 (크기 설정 따라) */
   width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
   background:rgba(15,14,20,.55); border:2px solid rgba(125,227,200,.6); color:var(--glow);
   font-size:15px; letter-spacing:.06em; touch-action:none; -webkit-user-select:none; user-select:none;
@@ -1630,6 +1630,9 @@ html{ touch-action:manipulation; }
 #fest-entry{ position:relative; z-index:2; padding:14px 16px 12px; background:rgba(6,6,10,.82); border:1px solid rgba(241,236,224,.14); border-top:2px solid var(--hwang); box-shadow:0 10px 40px rgba(0,0,0,.6); }
 #fest-entry.newform #fe-recent{ display:none; }                   /* 새로 등록을 골랐으면 칩은 접고 입력 칸만 */
 @media (max-height:520px){ #fest-entry{ margin-top:6px; padding:8px 14px 8px; gap:5px; } #fest-entry .fe-tanote{ margin-bottom:2px; } }
+
+/* 설정 「조이스틱 크기」 밀대를 움직이는 동안 — 설정 창 위로 두 조이스틱을 잠깐 보여 줌 (body.joyprev) */
+body.touch.joyprev #tjoy, body.touch.joyprev #tfire{ display:block; z-index:3200; opacity:.7; pointer-events:none; }
 
 </style>
 <script>window.WB_FESTIVAL = true;</script>
@@ -2059,7 +2062,7 @@ function loadAssets() {
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false };
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, joy: 1, invertY: false };
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
@@ -2072,6 +2075,7 @@ function apply() {
   const set = (node, v, ac) => { try { node.gain.setTargetAtTime(curve(v), ac.currentTime, .03); } catch (e) { node.gain.value = curve(v); } };
   for (const b of BUS) set(b.node, vol(b.kind), b.ac);
   OUTS.forEach(o => set(o.node, S.master, o.ac));
+  document.documentElement.style.setProperty('--joy', S.joy);   // 휴대폰 조이스틱 크기 (css 의 #tjoy · #tfire)
 }
 const OUTS = [];
 function out(ac) {
@@ -2092,8 +2096,9 @@ const ROWS = [
   { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sens',   label: '카메라 감도', sub: '1인칭에서 둘러보는 빠르기', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
+  { k: 'joy',    label: '조이스틱 크기', sub: '휴대폰 · 태블릿 — 움직이면 미리 보여요', min: .7, max: 1.6, step: .05, fmt: v => Math.round(v * 100) + '%' },
 ];
-let el = null, onClose = null, testT = 0;
+let el = null, onClose = null, testT = 0, joyT = 0;
 function build() {
   el = document.createElement('div'); el.id = 'settings'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '설정');
   el.innerHTML = `<div class="st-box">
@@ -2109,7 +2114,8 @@ function build() {
     const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'), o = row.querySelector('output');
     inp.addEventListener('input', () => {
       S[r.k] = +inp.value; o.textContent = r.fmt(S[r.k]); apply(); save();
-      if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
+      if (r.k === 'joy') { document.body.classList.add('joyprev'); clearTimeout(joyT); joyT = setTimeout(() => document.body.classList.remove('joyprev'), 1500); }
+      if (r.k !== 'sens' && r.k !== 'joy') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
   const ck = el.querySelector('input[data-k=invertY]');
@@ -2151,6 +2157,7 @@ addEventListener('keydown', e => {
 }, true);
 addEventListener('keyup', e => { if (isOpen()) e.stopImmediatePropagation(); }, true);
 
+document.documentElement.style.setProperty('--joy', S.joy);
 window.Settings = {
   get: k => S[k], out, bus, open, close, isOpen,
   look: () => S.sens,                                  // 둘러보기 배율
@@ -16273,7 +16280,7 @@ cv.addEventListener('mousedown', e => { e.preventDefault(); if (performance.now(
    · 연사 간격은 PC 와 같음 (실제 시간 기준)
    · 오른쪽 아래 [조사] = SPACE, 대화 · 쪽지는 화면 아무 데나 톡 */
 const TOUCH = { on: false, last: 0, joy: null, aim: null, fire: null };
-const JOY_R = 46;                                       // 조이스틱이 움직이는 반지름 (CSS 픽셀)
+const JOY_R0 = 46;                                      // 조이스틱이 움직이는 반지름 (CSS 픽셀) — 설정 「조이스틱 크기」 배율을 곱함
 const tEl = {};
 function touchSetup() {
   if (TOUCH.on) return;
@@ -16380,6 +16387,7 @@ addEventListener('pointerdown', e => {
 }, { passive: false });
 function touchStick(st, knob, e) {
   let dx = e.clientX - st.x0, dy = e.clientY - st.y0;
+  const JOY_R = JOY_R0 * (window.Settings ? Settings.get('joy') : 1);
   const l = Math.hypot(dx, dy); if (l > JOY_R) { dx *= JOY_R / l; dy *= JOY_R / l; }
   st.dx = dx; st.dy = dy; knob.style.transform = `translate(${dx}px, ${dy}px)`;
   if (st === TOUCH.fire) tEl.fire.classList.toggle('shoot', l >= FIRE_DEAD);

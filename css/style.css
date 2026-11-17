@@ -1243,7 +1243,7 @@ body.escfull #ending{ overflow:hidden; }
 body.touch{ touch-action:none; overscroll-behavior:none; }
 /* 고정 조이스틱 — 왼쪽 아래 이동 · 오른쪽 아래 공격. 걷고 싸울 때 늘 보이고, 잡으면 밝아짐 */
 #tjoy, #tfire{
-  position:fixed; z-index:50; width:120px; height:120px; border-radius:50%; display:none;
+  position:fixed; z-index:50; width:calc(120px * var(--joy, 1)); height:calc(120px * var(--joy, 1)); border-radius:50%; display:none;
   bottom:max(7vh, calc(env(safe-area-inset-bottom) + 10px));
   border:2px solid rgba(241,236,224,.28); background:radial-gradient(circle, rgba(241,236,224,.07), rgba(241,236,224,.015) 70%);
   pointer-events:none; opacity:.55; transition:opacity .12s, border-color .12s, box-shadow .12s;
@@ -1253,14 +1253,14 @@ body.touch{ touch-action:none; overscroll-behavior:none; }
 body.touch.tplay #tjoy{ display:block; } body.touch.tfight #tfire{ display:block; }
 #tjoy.on, #tfire.on{ opacity:1; }
 #tfire.shoot{ border-color:rgba(255,120,100,.95); box-shadow:0 0 18px rgba(224,72,60,.45); }
-#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; z-index:1;
+#tjoy i, #tfire i{ position:absolute; left:50%; top:50%; width:calc(52px * var(--joy, 1)); height:calc(52px * var(--joy, 1)); margin:calc(-26px * var(--joy, 1)) 0 0 calc(-26px * var(--joy, 1)); border-radius:50%; z-index:1;
   background:rgba(227,178,60,.55); border:2px solid rgba(227,178,60,.9); box-shadow:0 0 14px rgba(227,178,60,.35); }
 #tfire i{ background:rgba(224,72,60,.6); border-color:rgba(255,140,120,.95); box-shadow:0 0 14px rgba(224,72,60,.4); }
 #tjoy span, #tfire span{ position:absolute; left:0; right:0; top:-22px; text-align:center; font-size:11px; letter-spacing:.2em; text-indent:.2em; color:rgba(241,236,224,.5); }
 #tfire span{ color:rgba(255,150,130,.6); }
 #tjoy.on span, #tfire.on span{ opacity:0; }
 #tbtn{
-  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 150px);   /* 공격 조이스틱 위 */
+  position:fixed; z-index:50; right:max(18px, env(safe-area-inset-right)); bottom:calc(max(7vh, calc(env(safe-area-inset-bottom) + 10px)) + 120px * var(--joy, 1) + 30px);   /* 공격 조이스틱 위 (크기 설정 따라) */
   width:76px; height:76px; border-radius:50%; display:none; align-items:center; justify-content:center;
   background:rgba(15,14,20,.55); border:2px solid rgba(125,227,200,.6); color:var(--glow);
   font-size:15px; letter-spacing:.06em; touch-action:none; -webkit-user-select:none; user-select:none;
@@ -1613,3 +1613,6 @@ html{ touch-action:manipulation; }
 #fest-entry{ position:relative; z-index:2; padding:14px 16px 12px; background:rgba(6,6,10,.82); border:1px solid rgba(241,236,224,.14); border-top:2px solid var(--hwang); box-shadow:0 10px 40px rgba(0,0,0,.6); }
 #fest-entry.newform #fe-recent{ display:none; }                   /* 새로 등록을 골랐으면 칩은 접고 입력 칸만 */
 @media (max-height:520px){ #fest-entry{ margin-top:6px; padding:8px 14px 8px; gap:5px; } #fest-entry .fe-tanote{ margin-bottom:2px; } }
+
+/* 설정 「조이스틱 크기」 밀대를 움직이는 동안 — 설정 창 위로 두 조이스틱을 잠깐 보여 줌 (body.joyprev) */
+body.touch.joyprev #tjoy, body.touch.joyprev #tfire{ display:block; z-index:3200; opacity:.7; pointer-events:none; }
