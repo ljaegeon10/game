@@ -18051,14 +18051,14 @@ function update() {
 
   /* ── 사격 ─────────────────────────────────────────── */
   /* 겨누는 방향은 매 장 — 쏘는 쪽 가이드 선(drawAimGuide)이 쿨다운 사이에도 따라오게 */
-  P.aim = null; TOUCH.lock = null;
+  P.aim = null; P.aimGuide = false; TOUCH.lock = null;
   if (!forest) {
-    let ax = 0, ay = 0;
+    let ax = 0, ay = 0, fromTouch = false;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
-    if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱 (자동 · 직접 조준)
-    if (!ax && !ay && TOUCH.tap && P.fireCd <= 0) { const d = touchTapShot(); if (d) { ax = d[0]; ay = d[1]; P.tapShot = true; } }   // 톡 한 발
+    if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; fromTouch = true; } }   // 휴대폰 — 공격 조이스틱 (자동 · 직접 조준)
+    if (!ax && !ay && TOUCH.tap && P.fireCd <= 0) { const d = touchTapShot(); if (d) { ax = d[0]; ay = d[1]; P.tapShot = true; fromTouch = true; } }   // 톡 한 발
     if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
-    if (ax || ay) P.aim = [ax, ay];
+    if (ax || ay) { P.aim = [ax, ay]; P.aimGuide = fromTouch; }   // 가이드 선 · 자동 조준은 휴대폰 조이스틱만 — PC(방향키 · 마우스)는 기존 그대로
   }
   if (!forest && P.fireCd <= 0 && P.aim) {
     const [ax, ay] = P.aim;
@@ -19552,7 +19552,7 @@ function heroArt() {
 /* 쏘는 쪽 가이드 — 겨누는 동안(방향키 · 공격 조이스틱 · 마우스 누름) 주인공에서 탄이 날아갈 거리만큼 점선.
    벽 앞에서 끊기고, 휴대폰 조준 보정이 붙은 적에겐 모서리 표시 */
 function drawAimGuide() {
-  if (!P.aim || P.dead || G.mode !== 'play') return;
+  if (!P.aim || !P.aimGuide || P.dead || G.mode !== 'play') return;
   const l = Math.hypot(P.aim[0], P.aim[1]) || 1, ux = P.aim[0] / l, uy = P.aim[1] / l;
   const x0 = P.x + ux * 12, y0 = P.y - 3 + uy * 12, t = TOUCH.lock && !TOUCH.lock.dead ? TOUCH.lock : null;
   const range = t ? Math.min(BALANCE.bulletSpeed * BALANCE.bulletLife, Math.hypot(t.x - x0, t.y - y0) - (t.r || 10)) : BALANCE.bulletSpeed * BALANCE.bulletLife;   // 조준 보정이 붙으면 그 적까지
