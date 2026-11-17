@@ -677,7 +677,8 @@ function startTimeAttack() {
   if (!(window.Festival && Festival.on)) { showTaBrief(); return; }
   $('modesel').classList.add('hidden');
   G.mode = 'entry';
-  Festival.ask(() => showTaBrief(), () => closeModeSelect());
+  // 등록 → 결제(한 판마다 부스 승인, festival.js 의 pay) → 공략 화면. 개발자 모드는 결제 없이
+  Festival.ask(() => (G.dev || !Festival.pay) ? showTaBrief() : Festival.pay(() => showTaBrief(), () => closeModeSelect()), () => closeModeSelect());
 }
 /* 타임어택 공략 — 시계가 돌기 전에, 지도 위로 가장 빠른 길이 그려짐.
    가운데 복도 → 갈림길에서 위(북쪽 방) · 아래(남쪽 방) 들러 관문 열쇠 2개 → 다시 가운데로 쭉 오른쪽 (관문 → 심층 → 탈출구) */
@@ -772,7 +773,11 @@ function startGame(timeAttack = true, diffId = 'normal') {
 
 /* 사망 처리 — 모드에 따라 갈립니다 */
 function retry() {
-  if (G.timeAttack && window.Festival && Festival.on && Festival.player) { resetRun(); startGame(true); }   // 축제판 — 등록한 그 사람 그대로 바로 다시
+  if (G.timeAttack && window.Festival && Festival.on && Festival.player) {   // 축제판 — 등록한 그 사람 그대로 다시 (한 판 더 = 결제 한 번 더)
+    if (Festival.isPaying && Festival.isPaying()) return;
+    const go = () => { resetRun(); startGame(true); };
+    if (G.dev || !Festival.pay) go(); else Festival.pay(go, () => {});
+  }
   else if (G.timeAttack) resetRun();
   else if (abomCheckpoint()) respawnAbom();
   else respawn();

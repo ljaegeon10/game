@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>우물 아래 · 결제 승인</title>
+<!--
+  부스 결제 승인 — 타임어택 한 판마다 손님 게임에 뜬 「요청 번호」를 보고 돈을 받은 뒤 승인.
+  같은 festival-config.js 의 기록 서버(WB_SERVER)와 이야기함. 들어올 때 관리 코드(시트 '순위판 설정' 의 관리 PIN).
+  서버 쪽 : server/apps_script.gs 의 payList_ · paySet_ ('결제' 탭)
+-->
+<script src="festival-config.js"></script>
+<style>
+@font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
+/* 폰 한 손으로 — 위에 오늘 합계, 가운데 대기 카드(번호 크게 · 승인 / 거절), 아래 처리한 목록 */
+:root{
+  --bg:#0c0b10; --panel:#16151c; --line:rgba(241,236,224,.12); --fg:#f1ece0; --dim:rgba(241,236,224,.5);
+  --hwang:#e3b23c; --ok:#3fbf8a; --no:#e0483c; --glow:#7de3c8;
+  color-scheme:dark;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; min-height:100%; }
+body{ background:var(--bg); color:var(--fg); font-family:'DungGeunMo','Galmuri11',monospace; -webkit-font-smoothing:antialiased;
+  padding-left:max(14px, env(safe-area-inset-left, 0px)); padding-right:max(14px, env(safe-area-inset-right, 0px)); padding-block:max(14px, env(safe-area-inset-top, 0px)) 40px; }
+.wrap{ max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+header{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:10px; }
+h1{ margin:0; font-weight:400; font-size:22px; letter-spacing:.04em; }
+h1 small{ display:block; font-size:11px; letter-spacing:.24em; color:var(--dim); margin-bottom:4px; }
+.stats{ display:flex; gap:14px; text-align:right; }
+.stats div b{ display:block; font-weight:400; font-size:24px; color:var(--hwang); font-variant-numeric:tabular-nums; }
+.stats div span{ font-size:11px; color:var(--dim); letter-spacing:.1em; }
+.off{ padding:10px 12px; border:1px dashed var(--hwang); color:var(--hwang); font-size:13px; line-height:1.5; }
+.off[hidden]{ display:none; }
+h2{ margin:0 0 8px; font-weight:400; font-size:13px; letter-spacing:.2em; color:var(--dim); }
+#pend{ display:flex; flex-direction:column; gap:10px; }
+.card{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; padding:14px; background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--hwang); }
+.card.new{ animation:pop 1.6s ease-out 1; }
+@keyframes pop{ 0%{ background:rgba(227,178,60,.32); } 100%{ background:var(--panel); } }
+.no{ grid-row:span 2; font-size:46px; line-height:1; color:var(--hwang); min-width:2.2ch; text-align:center; font-variant-numeric:tabular-nums; }
+.who{ min-width:0; font-size:20px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.who small{ font-size:12px; color:var(--dim); margin-left:8px; letter-spacing:.08em; }
+.ago{ font-size:12px; color:var(--dim); }
+.btns{ grid-column:1 / -1; display:grid; grid-template-columns:2fr 1fr; gap:8px; margin-top:4px; }
+.btns button{ font:inherit; font-size:18px; padding:14px 0; border:none; cursor:pointer; color:#08130e; background:var(--ok); }
+.btns button.rej{ color:var(--fg); background:transparent; border:1px solid rgba(224,72,60,.6); font-size:15px; }
+.btns button:disabled{ opacity:.45; cursor:default; }
+button:focus-visible{ outline:3px solid var(--fg); outline-offset:2px; }
+.empty{ padding:22px; text-align:center; color:var(--dim); border:1px dashed var(--line); font-size:14px; }
+#recent{ list-style:none; margin:0; padding:0; }
+#recent li{ display:grid; grid-template-columns:3ch 1fr auto auto; gap:10px; align-items:center; padding:9px 4px; border-bottom:1px solid var(--line); font-size:14px; }
+#recent .n{ color:var(--dim); text-align:right; }
+#recent .t{ color:var(--dim); font-size:12px; font-variant-numeric:tabular-nums; }
+.chip{ font-size:11px; padding:3px 7px 2px; letter-spacing:.08em; }
+.chip.s승인{ color:#08130e; background:var(--ok); } .chip.s사용{ color:var(--ok); border:1px solid var(--ok); }
+.chip.s거절{ color:#fff; background:var(--no); } .chip.s취소{ color:var(--dim); border:1px solid var(--line); }
+footer{ display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--dim); }
+footer button{ font:inherit; font-size:12px; color:var(--dim); background:none; border:1px solid var(--line); padding:4px 10px; cursor:pointer; }
+#net i{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--glow); margin-right:6px; vertical-align:middle; }
+#net.bad i{ background:var(--no); }
+/* 관리 코드 */
+#gate{ position:fixed; inset:0; z-index:9; display:flex; align-items:center; justify-content:center; background:var(--bg); padding:20px; }
+#gate[hidden]{ display:none; }
+#gate .gbox{ width:min(340px, 100%); display:flex; flex-direction:column; gap:12px; text-align:center; }
+#gate p{ margin:0; font-size:14px; line-height:1.6; color:var(--dim); }
+#gate p b{ color:var(--fg); font-weight:400; font-size:18px; display:block; margin-bottom:4px; }
+#key{ font:inherit; font-size:26px; letter-spacing:.3em; text-align:center; padding:12px; color:var(--fg); background:var(--panel); border:1px solid var(--line); }
+#gate button{ font:inherit; font-size:16px; padding:12px; color:#0a0910; background:var(--hwang); border:none; cursor:pointer; }
+#gateErr{ min-height:16px; color:var(--no); font-size:13px; }
+#toast{ position:fixed; left:50%; bottom:max(20px, env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); padding:10px 16px; background:#000; border:1px solid var(--line); font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; }
+#toast.on{ opacity:1; }
+@media (prefers-reduced-motion:reduce){ .card.new{ animation:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><small>THE WELL BELOW · BOOTH</small>타임어택 결제 승인</h1>
+    <div class="stats"><div><b id="sWait">0</b><span>대기</span></div><div><b id="sPaid">0</b><span>오늘 승인</span></div><div><b id="sWon">0</b><span>받은 돈</span></div></div>
+  </header>
+  <p class="off" id="off" hidden>지금 시트 「순위판 설정」의 <b>결제 승인</b>이 <b>끔</b>이라 손님 게임은 승인 없이 바로 시작해요. 다시 받으려면 그 칸을 「켬」으로.</p>
+  <section><h2>기다리는 요청 · 돈 받고 번호 확인 → 승인</h2><div id="pend"><div class="empty">아직 요청이 없어요</div></div></section>
+  <section><h2>오늘 처리한 것</h2><ul id="recent"></ul></section>
+  <footer><span id="net"><i></i><span id="netText">연결 중…</span></span><button type="button" id="logout">관리 코드 지우기</button></footer>
+</div>
+<form id="gate" hidden autocomplete="off"></form>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+const SERVER = String(window.WB_SERVER || '').trim();
+const $ = id => document.getElementById(id);
+const mk = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+const KEY = 'wb.approve.key';
+const store = { get: () => { try { return sessionStorage.getItem(KEY) || ''; } catch (e) { return ''; } }, set: v => { try { v ? sessionStorage.setItem(KEY, v) : sessionStorage.removeItem(KEY); } catch (e) {} } };
+async function post(body) {
+  const r = await fetch(SERVER, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
+  return r.json();
+}
+let toastT = 0;
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
+
+/* ── 관리 코드 ── */
+const gate = $('gate');
+gate.innerHTML = `<div class="gbox"><p><b>부스 결제 승인</b>순위판 ⚙ 관리와 같은 관리 코드를 넣어 주세요</p>
+  <input id="key" inputmode="numeric" maxlength="12" placeholder="••••••" aria-label="관리 코드">
+  <div id="gateErr" role="alert"></div><button type="submit">들어가기</button></div>`;
+gate.addEventListener('submit', async e => {
+  e.preventDefault(); unlockSound();
+  const k = $('key').value.trim(); if (!k) return;
+  $('gateErr').textContent = '확인하는 중…';
+  try { const j = await post({ op: 'check', key: k });
+    if (j.ok) { store.set(k); gate.hidden = true; poll(); }
+    else $('gateErr').textContent = j.error === 'key' ? '관리 코드가 맞지 않아요' : '서버가 옛 버전이에요 — 새 버전으로 배포해 주세요';
+  } catch (err) { $('gateErr').textContent = '서버에 연결하지 못했어요'; }
+});
+$('logout').addEventListener('click', () => { store.set(''); location.reload(); });
+
+/* ── 새 요청 알림음 (처음 누른 뒤부터) ── */
+let ac = null;
+function unlockSound() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); } catch (e) {} }
+function ding() {
+  try { if (navigator.vibrate) navigator.vibrate([60, 40, 60]); } catch (e) {}
+  if (!ac) return;
+  const t = ac.currentTime; [880, 1320].forEach((f, i) => { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; o.type = 'square';
+    g.gain.setValueAtTime(.0001, t + i * .12); g.gain.exponentialRampToValueAtTime(.08, t + i * .12 + .01); g.gain.exponentialRampToValueAtTime(.0001, t + i * .12 + .16);
+    o.connect(g); g.connect(ac.destination); o.start(t + i * .12); o.stop(t + i * .12 + .2); });
+}
+document.addEventListener('pointerdown', unlockSound, { once: true });
+
+/* ── 목록 ── */
+let seen = null, busy = false, data = null, acting = new Set();
+const ago = (now, at) => { const s = Math.max(0, Math.round((now - at) / 1000)); return s < 60 ? s + '초 전' : Math.floor(s / 60) + '분 전'; };
+const hm = at => { const d = new Date(at); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const won = (price, n) => { const v = parseInt(String(price || '').replace(/[^\d]/g, ''), 10); return v ? (v * n).toLocaleString('ko-KR') + '원' : n + '판'; };
+function render() {
+  const j = data; if (!j) return;
+  const pend = j.pending.filter(p => !acting.has(p.id));
+  $('sWait').textContent = pend.length; $('sPaid').textContent = j.paid + '판'; $('sWon').textContent = won(j.price, j.paid);
+  $('off').hidden = j.on !== false;
+  document.title = (pend.length ? `(${pend.length}) ` : '') + '우물 아래 · 결제 승인';
+  const box = $('pend'); box.textContent = '';
+  const fresh = seen ? pend.filter(p => !seen.has(p.id)) : [];
+  if (fresh.length) ding();
+  seen = new Set(j.pending.map(p => p.id));
+  pend.sort((a, b) => a.no - b.no).forEach(p => {
+    const c = mk('div', 'card' + (fresh.includes(p) ? ' new' : ''));
+    const who = mk('div', 'who', p.name); who.appendChild(mk('small', null, '···' + p.tail));
+    const b = mk('div', 'btns'), ok = mk('button', null, `✓ 승인 (${j.price || '100원'} 받음)`), no = mk('button', 'rej', '거절');
+    ok.type = no.type = 'button';
+    ok.addEventListener('click', () => act(p, '승인', ok, no)); no.addEventListener('click', () => act(p, '거절', ok, no));
+    b.append(ok, no);
+    c.append(mk('div', 'no', String(p.no)), who, mk('div', 'ago', ago(j.now, p.at) + ' 요청'), b);
+    box.appendChild(c);
+  });
+  if (!pend.length) box.appendChild(mk('div', 'empty', '아직 요청이 없어요 — 손님 게임에 번호가 뜨면 여기 나와요'));
+  const ul = $('recent'); ul.textContent = '';
+  j.recent.forEach(r => { const li = mk('li');
+    const nm = mk('span', null, r.name); nm.appendChild(mk('small', null, ' ···' + r.tail));
+    li.append(mk('span', 'n', String(r.no)), nm, mk('span', 'chip s' + r.status, r.status), mk('span', 't', hm(r.done || r.at))); ul.appendChild(li); });
+  if (!j.recent.length) ul.appendChild(mk('li', null, '—'));
+}
+async function act(p, status, ok, no) {
+  ok.disabled = no.disabled = true; acting.add(p.id); render();
+  try {
+    const j = await post({ op: 'payset', key: store.get(), id: p.id, status });
+    if (!j.ok) throw new Error(j.error || 'server');
+    toast(j.same ? `${p.no}번은 이미 「${j.status}」` : `${p.no}번 ${p.name} — ${status}`);
+    await poll(true);
+  } catch (e) { toast(e.message === 'key' ? '관리 코드가 바뀌었어요 — 다시 들어와 주세요' : '처리하지 못했어요 — 다시 눌러 주세요'); }
+  finally { acting.delete(p.id); render(); }
+}
+function net(ok, t) { $('net').classList.toggle('bad', !ok); $('netText').textContent = t; }
+async function poll(force) {
+  if ((busy && !force) || !gate.hidden) return;
+  busy = true;
+  try {
+    const j = await post({ op: 'paylist', key: store.get() });
+    if (!j.ok && j.error === 'key') { store.set(''); gate.hidden = false; $('gateErr').textContent = '관리 코드를 다시 넣어 주세요'; return; }
+    if (!j.ok) throw new Error(j.error || 'server');
+    data = j; render();
+    net(true, '실시간 · ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  } catch (e) { net(false, e.message === 'invalid' ? '서버가 옛 버전이에요 — Apps Script 를 새 버전으로 배포해 주세요' : '연결이 끊겼어요 — 다시 시도하는 중'); }
+  finally { busy = false; }
+}
+if (!SERVER) { gate.hidden = false; $('gateErr').textContent = 'festival-config.js 에 기록 서버 주소(WB_SERVER)가 없어요'; }
+else if (store.get()) { gate.hidden = true; poll(); } else gate.hidden = false;
+setInterval(() => poll(), 2000);
+setInterval(render, 5000);                                      // '몇 초 전' 갱신
+</script>
+</body>
+</html>

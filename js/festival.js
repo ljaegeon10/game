@@ -135,7 +135,7 @@ async function flush() {
             catch (e3) { if (e3.code !== 'invalid') throw e3; }      // 서버가 아직 옛 버전(새 버전 배포 전) — 지우지 않고 다음에 다시
             continue;
           }
-          const j = await post({ op: 'run', id: it.id, run: it.run, contact: it.contact }); ranks[it.id] = j.rank || null; dropQ(it.id);
+          const j = await post({ op: 'run', id: it.id, run: it.run, contact: it.contact, ticket: it.ticket }); ranks[it.id] = j.rank || null; dropQ(it.id);
           // 서버가 센 등수엔 개발자 판이 섞여 있을 수 있으니 — 순위판을 받아 개발자를 뺀 등수로 다시 셈
           try { const b = await fetchBoard(getPin()); if (b && b.ok) bumpDev(b.runs); if (b && b.ok && Array.isArray(b.runs)) ranks[it.id] = rankOf(bestPerPerson(b.runs), it.run.name, tailOf(it.run)) || ranks[it.id]; } catch (e2) {}
         }
@@ -291,6 +291,7 @@ function wireEntry() {
 
 /* ── 게임에서 부르는 곳 ── */
 function begin() {                       // 타임어택 시작
+  unspent = false;                                                   // 승인받은 한 판을 이제 씀
   if (!ON || !player) return;
   canWrite().then(ok => { if (ok === false) playing = false; });
   playing = true;
@@ -308,7 +309,8 @@ async function record(ms, res) {
   if ((await canWrite()) === false) { playing = false; return null; }   // 남길 수 없는 화면 — 줄 세우지도 않음
   playing = false;
   const tail = player.contact.slice(-4), at = Date.now();
-  const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at, ...res }, contact: { name: player.name, contact: player.contact } };
+  const item = { id: rid(), run: { name: player.name, tail, ms: Math.round(ms), at, ...res }, contact: { name: player.name, contact: player.contact }, ticket: ticket || undefined };
+  ticket = null;                                                     // 한 판에 한 장
   memQ = getQ().concat(item); saveQ(memQ);
   bumpDev([item.run]);                                               // 개발자 본인 판 — 깨면 바로 개발자 기록으로
   setLive({ state: 'idle', name: player.name, ms: Math.round(ms), ...res });
@@ -509,6 +511,79 @@ function status() {
 }
 
 /* ── 시작 ── */
+/* ── 타임어택 결제 — 한 판마다 부스 승인 (서버 'req' → 번호를 크게 · 승인되면 시작) ──
+   부스는 docs/approve.html 에서 승인. 서버 설정 '결제 승인' 이 끔이면 바로 시작(free). 기록 서버가 없는 판(아티팩트)은 그냥 시작 */
+let ticket = null, unspent = false, payEl = null, payState = null;   // unspent — 승인받고 아직 시작 안 한 판 (안내 화면에서 뒤로 가도 100원은 안 날아감)
+function buildPay() {
+  const el = mk('div'); el.id = 'fest-pay'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-live', 'polite');
+  el.innerHTML = `<div class="fp-box">
+    <p class="fp-q">타임어택 한 판</p>
+    <p class="fp-no"><small>요청 번호</small><b id="fp-no">—</b></p>
+    <p class="fp-msg" id="fp-msg">요청을 보내는 중…</p>
+    <p class="fp-sub" id="fp-sub"></p>
+    <div class="fp-btns"><button type="button" id="fp-retry" class="hidden">다시 요청</button><button type="button" id="fp-cancel">← 취소</button></div>
+  </div>`;
+  ($('stage') || document.body).appendChild(el);
+  $('fp-cancel').addEventListener('click', () => payClose(false));
+  $('fp-retry').addEventListener('click', () => { const st = payState; if (st) payStart(st.onOk, st.onCancel); });
+  ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(n => el.addEventListener(n, e => e.stopPropagation()));
+  return el;
+}
+const isPaying = () => !!payState;
+addEventListener('keydown', e => {                                   // 결제 창이 떠 있으면 게임 키는 막고 ESC = 취소
+  if (!payState) return;
+  e.stopImmediatePropagation();
+  if (e.key === 'Escape') { e.preventDefault(); payClose(false); }
+}, true);
+function payView(no, msg, sub, cls, retry) {
+  $('fp-no').textContent = no == null ? '—' : String(no);
+  $('fp-msg').textContent = msg; $('fp-sub').textContent = sub || '';
+  payEl.className = cls || ''; $('fp-retry').classList.toggle('hidden', !retry);
+}
+function payClose(ok) {
+  const st = payState; if (!st) return;
+  payState = null; clearTimeout(st.t); payEl.classList.add('hidden');
+  if (!ok && st.id && !st.done) post({ op: 'reqcancel', id: st.id }).catch(() => {});   // 기다리다 그만둠 — 부스 목록에서 빠지게
+  (ok ? st.onOk : st.onCancel)();
+}
+async function payStart(onOk, onCancel) {
+  if (!payEl) payEl = buildPay();
+  if (payState) clearTimeout(payState.t);
+  const st = payState = { onOk, onCancel, id: null, t: 0, done: false };
+  payEl.classList.remove('hidden'); payView(null, '요청을 보내는 중…', '', 'wait');
+  let j;
+  const who = player || { name: '손님', contact: '0000' };          // '기록 없이 그냥 도전' 이어도 한 판은 한 판
+  try { j = await post({ op: 'req', name: who.name, tail: who.contact.replace(/\D/g, '').slice(-4) }); }
+  catch (e) {
+    if (payState !== st) return;
+    if (e.code === 'invalid' && !st.tried) { st.tried = true; payView(null, '기록 서버가 아직 옛 버전이에요', '부스에 알려 주세요 — 서버를 새 버전으로 배포해야 결제를 받을 수 있어요', 'err', true); return; }
+    payView(null, '연결이 안 돼요', '인터넷을 확인하고 다시 요청해 주세요', 'err', true); return;
+  }
+  if (payState !== st) return;
+  if (j.free) { st.done = true; ticket = null; payClose(true); return; }             // 결제 승인을 끈 날 — 그냥 시작
+  st.id = j.id;
+  payView(j.no, `부스에 ${j.price || '100원'}을 내고 「${j.no}번」이라고 말해 주세요`, '승인되면 바로 시작해요', 'wait');
+  const tick = async () => {
+    if (payState !== st) return;
+    try {
+      const r = await fetch(SERVER + '?' + new URLSearchParams({ op: 'pay', id: st.id }), { redirect: 'follow', cache: 'no-store' }).then(x => x.json());
+      if (payState !== st) return;
+      if (r.ok && (r.status === '승인' || r.status === '사용')) { st.done = true; ticket = st.id; unspent = true; payView(j.no, '승인됐어요! 시작합니다', '', 'ok'); st.t = setTimeout(() => payClose(true), 700); return; }
+      if (r.ok && r.status === '거절') { st.done = true; payView(j.no, '승인되지 않았어요', '부스에 물어봐 주세요', 'err', true); return; }
+      if (r.ok && r.status === '취소') { st.done = true; payView(j.no, '요청이 취소됐어요', '', 'err', true); return; }
+    } catch (e) {}
+    st.t = setTimeout(tick, 2500);
+  };
+  st.t = setTimeout(tick, 1500);
+}
+/* 게임이 부름 — 결제를 받아야 하는 판이면 창을 띄우고, 승인되면 onOk. 취소하면 onCancel */
+function pay(onOk, onCancel) {
+  onCancel = onCancel || (() => {});
+  if (!ON || !HTTP) { ticket = null; onOk(); return; }
+  if (unspent && ticket) { onOk(); return; }                         // 이미 낸 판 — 다시 안 받음
+  payStart(onOk, onCancel);
+}
+
 function init() {
   if (!ON) return;
   document.body.classList.add('festival');
@@ -526,5 +601,5 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, askHard, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();

@@ -1662,3 +1662,23 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
   background:#07070b; box-shadow:0 0 0 2000px rgba(3,3,6,.86), 0 10px 40px rgba(0,0,0,.6); }
 #fest-entry.fe-float .ms-q{ line-height:1.5; }
 #fest-entry.hardmode .fe-tanote, #fest-entry.hardmode .fe-dev{ display:none !important; }
+
+/* 타임어택 결제 대기 (festival.js 의 pay) — 무대 위로, 요청 번호를 크게 */
+#fest-pay{ position:absolute; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center; background:rgba(3,3,6,.86); font-family:var(--font-ui); }
+#fest-pay.hidden{ display:none; }
+.fp-box{ width:min(320px, 86%); padding:16px 18px 14px; display:flex; flex-direction:column; align-items:center; gap:7px; text-align:center;
+  background:#07070b; border:1px solid rgba(241,236,224,.16); border-top:2px solid var(--hwang); box-shadow:0 10px 40px rgba(0,0,0,.6); }
+.fp-q{ margin:0; font-size:9px; letter-spacing:.24em; text-indent:.24em; color:rgba(241,236,224,.55); }
+.fp-no{ margin:0; display:flex; flex-direction:column; align-items:center; line-height:1; }
+.fp-no small{ font-size:8px; letter-spacing:.2em; color:rgba(241,236,224,.45); margin-bottom:4px; }
+.fp-no b{ font-weight:400; font-size:58px; color:var(--hwang); text-shadow:0 0 18px rgba(227,178,60,.35); font-variant-numeric:tabular-nums; }
+.fp-msg{ margin:2px 0 0; font-size:11px; line-height:1.55; color:var(--baek); }
+.fp-sub{ margin:0; min-height:10px; font-size:8px; color:rgba(241,236,224,.5); }
+#fest-pay.wait .fp-sub::after{ content:''; display:inline-block; width:6px; height:6px; margin-left:6px; border-radius:50%; background:var(--hwang); animation:fpBlink 1s steps(2) infinite; vertical-align:middle; }
+@keyframes fpBlink{ 50%{ opacity:.15; } }
+#fest-pay.ok .fp-no b{ color:#7de3c8; text-shadow:0 0 18px rgba(125,227,200,.45); }
+#fest-pay.err .fp-msg{ color:var(--danger); }
+.fp-btns{ display:flex; gap:8px; margin-top:4px; }
+.fp-btns button{ font:inherit; font-size:11px; padding:7px 16px; color:rgba(241,236,224,.8); background:transparent; border:1px solid rgba(241,236,224,.3); box-shadow:none; cursor:pointer; }
+#fp-retry{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
+#fp-retry.hidden{ display:none; }

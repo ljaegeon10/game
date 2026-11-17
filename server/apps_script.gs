@@ -21,7 +21,7 @@ const BOARD_PIN = '';
    script.google.com 에서 따로 만든 프로젝트(아이패드 등)면 꼭 넣어야 합니다 */
 const SHEET_ID = '1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE';
 
-const RUNS = '기록', CONTACTS = '연락처', SETTINGS = '순위판 설정', TOP = 'TOP 3', HARD = '어려움 클리어';
+const RUNS = '기록', CONTACTS = '연락처', SETTINGS = '순위판 설정', TOP = 'TOP 3', HARD = '어려움 클리어', PAY = '결제';
 /* 순위판 설정 — [항목, 처음 값, 설명]. 시트에 없으면 이대로 만들어 둡니다 (항목 이름은 바꾸지 마세요) */
 const SETTING_ROWS = [
   ['동아리 이름', 'DITC 동아리 축제 부스', '맨 위 빨간 띠'],
@@ -37,7 +37,9 @@ const SETTING_ROWS = [
   ['개발자 기록', '', '예: 장도우 1:43.75 — 순위와 따로 위에 나옴 (비우면 festival-config.js 의 WB_DEV)'],
   ['순위판 PIN', '', '숫자를 넣으면 그 PIN 을 알아야 순위판을 봄 (비우면 누구나)'],
   ['관리 PIN', '', '순위판의 ⚙ 관리 코드 — 기록 지우기 · 글 고치기 (처음에 저절로 만들어짐 · 순위판에는 안 나감)'],
-  ['개발자 이름', '장도우', '이 이름의 판은 순위 · TOP 3 에서 빠짐']
+  ['개발자 이름', '장도우', '이 이름의 판은 순위 · TOP 3 에서 빠짐'],
+  ['결제 승인', '켬', '켬 — 타임어택 한 판마다 부스에서 승인해야 시작 (docs/approve.html) · 끔 — 그냥 시작'],
+  ['도전 비용', '100원', '결제 대기 화면 · 승인 페이지에 나오는 한 판 값 (숫자만 세어 오늘 합계를 냄)']
 ];
 const PRIVATE = ['순위판 PIN', '관리 PIN'];                  // 순위판으로 안 보내는 항목
 /* 관리 코드 견주기 — 시트가 069211 을 숫자 69211 로 바꿔 적어도 맞게 (앞의 0 · 빈칸 무시) */
@@ -45,6 +47,7 @@ const sameKey_ = (a, b) => { const n = v => String(v == null ? '' : v).trim().re
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
 const HARD_HEAD = ['id', '시각', '이름', '뒷자리', '플레이 시간(ms)', '플레이 시간'];   // 일반 모드 '어려움' 을 깬 사람 — 타임어택 순위와 따로
+const PAY_HEAD = ['id', '번호', '요청 시각', '이름', '뒷자리', '상태', '처리 시각'];     // 타임어택 한 판 결제 — 대기 → 승인 / 거절 / 취소 → (승인된 판을 끝내면) 사용
 
 /* 처음 한 번 — 편집기에서 setup 을 골라 ▶ 실행 (시트 두 장과 제목 줄을 만듭니다) */
 function setup() {
@@ -85,6 +88,7 @@ function doPost(e) {
   let b;
   try { b = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'invalid' }); }
   if (b.op === 'check') return out_(sameKey_(settings_()['관리 PIN'], b.key) ? { ok: true } : { ok: false, error: 'key' });   // 읽기만 — 잠금 없이 바로
+  if (b.op === 'paylist') return out_(payList_(b));                                                                           // 승인 페이지 — 읽기만
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(25000)) return out_({ ok: false, error: 'busy' });
   try {
@@ -92,6 +96,10 @@ function doPost(e) {
     if (b.op === 'run') return out_(saveRun_(b));
     if (b.op === 'delete') return out_(deleteRuns_(b));
     if (b.op === 'hard') return out_(saveHard_(b));
+    if (b.op === 'req') return out_(payReq_(b));
+    if (b.op === 'reqcancel') return out_(paySet_(b.id, '취소', ['대기']));
+    if (b.op === 'payset') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });
+      return out_(paySet_(b.id, b.status === '승인' ? '승인' : '거절', ['대기'])); }
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }
@@ -127,11 +135,61 @@ function saveRun_(b) {
     runs.appendRow([id, now, name, "'" + tail, clear ? '클리어' : '실패', clear ? '클리어' : stage, clear ? 9999 : score, ms, fmt_(ms)]);
     contacts.appendRow([id, now, name, "'" + contact]);     // ' — 앞자리 0 이 숫자로 사라지지 않게
   }
+  if (b.ticket) try { paySet_(b.ticket, '사용', ['승인']); } catch (err) {}   // 승인받은 판을 끝냄
   const all = readRuns_();
   markTop_(all, true);
   const list = best_(all);
   const i = list.findIndex(x => x.name === name && x.tail === tail);
   return { ok: true, rank: i < 0 ? null : i + 1 };
+}
+
+/* ── 타임어택 결제 (한 판마다 부스 승인) ──
+   게임이 'req' → 번호를 받아 크게 띄우고 GET ?op=pay&id= 로 상태를 물어봄. 부스는 docs/approve.html 에서 관리 PIN 으로 승인 · 거절.
+   '결제 승인' 이 끔이면 바로 free:true */
+const payOn_ = set => String((set || settings_())['결제 승인'] || '켬').trim() !== '끔';
+const sameDay_ = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+function payRows_() {
+  const sh = sheet_(PAY, PAY_HEAD), n = sh.getLastRow() - 1;
+  if (n < 1) return { sh, rows: [] };
+  const v = sh.getRange(2, 1, n, PAY_HEAD.length).getValues(), d = sh.getRange(2, 5, n, 1).getDisplayValues();
+  return { sh, rows: v.map((x, i) => ({ row: i + 2, id: String(x[0]), no: Number(x[1]) || 0, at: new Date(x[2]), name: String(x[3]), tail: String(d[i][0] || x[4]).padStart(4, '0'), status: String(x[5]), done: x[6] ? new Date(x[6]) : null })).filter(r => r.id) };
+}
+function payReq_(b) {
+  const set = settings_();
+  if (!payOn_(set)) return { ok: true, free: true };
+  const name = str_(b.name, 10), tail = str_(b.tail, 4).replace(/\D/g, '');
+  if (!name || tail.length !== 4) return { ok: false, error: 'invalid' };
+  const { sh, rows } = payRows_(), now = new Date();
+  // 같은 사람이 30분 안에 낸 '대기' 요청이 있으면 그걸 그대로 (새로 고침 · 두 번 누름)
+  const same = rows.filter(r => r.status === '대기' && r.name === name && r.tail === tail && now - r.at < 30 * 60000).pop();
+  if (same) return { ok: true, id: same.id, no: same.no, price: str_(set['도전 비용'], 20) };
+  const no = rows.filter(r => sameDay_(r.at, now)).length + 1;
+  const id = 'p' + now.getTime().toString(36) + Math.random().toString(36).slice(2, 6);
+  sh.appendRow([id, no, now, name, "'" + tail, '대기', '']);
+  return { ok: true, id, no, price: str_(set['도전 비용'], 20) };
+}
+function payStatus_(id) {
+  id = str_(id, 40); if (!id) return { ok: false, error: 'invalid' };
+  const r = payRows_().rows.find(x => x.id === id);
+  return r ? { ok: true, status: r.status, no: r.no } : { ok: false, error: 'none' };
+}
+function paySet_(id, status, from) {
+  id = str_(id, 40);
+  const { sh, rows } = payRows_(), r = rows.find(x => x.id === id);
+  if (!r) return { ok: false, error: 'none' };
+  if (from.indexOf(r.status) < 0) return { ok: true, status: r.status, no: r.no, same: true };   // 이미 처리됨 — 그대로 알려 줌
+  sh.getRange(r.row, 6, 1, 2).setValues([[status, new Date()]]);
+  return { ok: true, status, no: r.no };
+}
+function payList_(b) {
+  const set = settings_();
+  if (!sameKey_(set['관리 PIN'], b.key)) return { ok: false, error: 'key' };
+  const now = new Date(), rows = payRows_().rows.filter(r => sameDay_(r.at, now));
+  const pend = rows.filter(r => r.status === '대기').map(r => ({ id: r.id, no: r.no, at: r.at.getTime(), name: r.name, tail: r.tail }));
+  const recent = rows.filter(r => r.status !== '대기').sort((a, b) => (b.done || b.at) - (a.done || a.at)).slice(0, 40)
+                     .map(r => ({ id: r.id, no: r.no, at: r.at.getTime(), done: r.done ? r.done.getTime() : 0, name: r.name, tail: r.tail, status: r.status }));
+  const paid = rows.filter(r => r.status === '승인' || r.status === '사용').length;
+  return { ok: true, on: payOn_(set), price: str_(set['도전 비용'], 20), pending: pend, recent, paid, used: rows.filter(r => r.status === '사용').length, now: now.getTime() };
 }
 
 /* 일반 모드 '어려움' 클리어 — '어려움 클리어' 탭에 한 줄, 연락처는 '연락처' 탭에 (같은 id 는 한 번만) */
@@ -217,6 +275,7 @@ function refreshTop() { markTop_(readRuns_(), true); }
 /* ── 보내기 : 순위판이 받아 감 (연락처는 없음) ── */
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  if (p.op === 'pay') return out_(payStatus_(p.id));             // 결제 상태 — 게임이 2~3초마다 물어봄 (순위판 PIN 과 상관없이)
   const set = settings_(), pin = String(set['순위판 PIN'] || BOARD_PIN || '').trim();
   if (pin && String(p.pin || '') !== pin) return out_({ ok: false, error: 'pin' });
   const live = JSON.parse(PropertiesService.getScriptProperties().getProperty('live') || 'null');

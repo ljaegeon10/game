@@ -14,6 +14,7 @@ CSS·JS·이미지가 전부 한 파일에 들어가므로 인터넷/서버 없�
                                기록은 config 의 WB_SERVER(구글 앱스 스크립트, server/) 로 보냅니다.
                                config 는 처음 한 번만 만들고 덮어쓰지 않습니다 (GitHub 웹에서 주소만 고치면 됨).
       docs/board.html          실시간 순위판 (web/board.html 그대로 + 글꼴) — 부스 옆 모니터 · TV 용
+      docs/approve.html        부스 결제 승인 (web/approve.html) — 타임어택 한 판마다 요청 번호를 보고 승인
 """
 import re, pathlib
 
@@ -87,3 +88,6 @@ shutil.copyfile(ROOT / "web" / "qrcode.js", DOCS / "qrcode.js")              # Q
 (DOCS / "fonts").mkdir(exist_ok=True)
 shutil.copyfile(ROOT / "assets" / "fonts" / "DungGeunMo.woff2", DOCS / "fonts" / "DungGeunMo.woff2")
 print(f"✔  {DOCS / 'board.html'}  — 실시간 순위판")
+(DOCS / "approve.html").write_text((ROOT / "web" / "approve.html").read_text(encoding="utf-8")
+                                    .replace('src="festival-config.js"', f'src="festival-config.js?v={VER}"'), encoding="utf-8")
+print(f"✔  {DOCS / 'approve.html'}  — 부스 결제 승인")
