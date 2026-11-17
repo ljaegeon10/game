@@ -1631,6 +1631,18 @@ html{ touch-action:manipulation; }
 #fest-entry.hasrecent:not(.newform) .fe-row, #fest-entry.hasrecent:not(.newform) .fe-agree, #fest-entry.hasrecent:not(.newform) #fe-go{ display:none; }
 #fest-entry.newform #fe-new{ display:none; }
 
+/* 축제판 참가 등록 · 타임어택 공략 화면이 떠 있을 땐 뒤(로고 · 메뉴 · 방호복)를 어둡게 — 글이 겹쳐 보이지 않게 */
+#title > h1, #title #startbtn, #title #t-log, #title #besttimes, #titlecv, #t-frame{ transition:opacity .25s, filter .25s; }
+#title:has(#fest-entry:not(.hidden)) > h1, #title:has(#tabrief:not(.hidden)) > h1,
+#title:has(#fest-entry:not(.hidden)) #startbtn, #title:has(#tabrief:not(.hidden)) #startbtn,
+#title:has(#fest-entry:not(.hidden)) #t-log, #title:has(#tabrief:not(.hidden)) #t-log,
+#title:has(#fest-entry:not(.hidden)) #besttimes, #title:has(#tabrief:not(.hidden)) #besttimes{ opacity:0; visibility:hidden; pointer-events:none; }
+#title:has(#fest-entry:not(.hidden)) #titlecv, #title:has(#tabrief:not(.hidden)) #titlecv{ filter:brightness(.28) blur(1.5px); }
+#title:has(#fest-entry:not(.hidden)) #t-frame, #title:has(#tabrief:not(.hidden)) #t-frame{ opacity:.35; }
+#fest-entry{ position:relative; z-index:2; padding:14px 16px 12px; background:rgba(6,6,10,.82); border:1px solid rgba(241,236,224,.14); border-top:2px solid var(--hwang); box-shadow:0 10px 40px rgba(0,0,0,.6); }
+#fest-entry.newform #fe-recent{ display:none; }                   /* 새로 등록을 골랐으면 칩은 접고 입력 칸만 */
+@media (max-height:520px){ #fest-entry{ margin-top:6px; padding:8px 14px 8px; gap:5px; } #fest-entry .fe-tanote{ margin-bottom:2px; } }
+
 </style>
 </head>
 <body>
