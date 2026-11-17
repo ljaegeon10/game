@@ -16756,8 +16756,7 @@ function showTaBrief() {
     const r = MAP[id], x = r.gx * C, y = r.gy * C, on = TA_PATH.includes(id);
     const cls = 'tb-room' + (on ? ' on' : ' off') + (r.clear === 'doorKey' ? ' key' : '') + (r.boss ? ' boss' : '') + (r.final ? ' exit' : '') + (id === 'start' ? ' here' : '');
     const g = mk('g', { class: cls }); g.appendChild(mk('rect', { x, y, width: S, height: S, rx: 2 }));
-    if (r.clear === 'doorKey') g.appendChild(mk('path', { d: `M${x + S / 2 - 1.5} ${y + 5}h3v4.5h4.5v3h-4.5v4.5h-3v-4.5h-4.5v-3h4.5z`, class: 'tb-plus' }));
-    g.appendChild(mk('text', { x: x + S / 2, y: y + S - 5 }, r.name));
+    if (r.clear === 'doorKey') g.appendChild(mk('path', { d: `M${x + S / 2 - 1.5} ${y + S / 2 - 6}h3v4.5h4.5v3h-4.5v4.5h-3v-4.5h-4.5v-3h4.5z`, class: 'tb-plus' }));   // 방 이름은 안 씀 — 칸 색 · ✚ 만
     rooms.appendChild(g);
   }
   const pts = TA_PATH.map(at), off = { north: [-4, 0], south: [4, 0] };                // 위 · 아래로 갔다 오는 길이 겹치지 않게 살짝 비켜
