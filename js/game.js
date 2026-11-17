@@ -79,7 +79,8 @@ addEventListener('gesturestart', e => e.preventDefault());
 { let lastEnd = 0;
   addEventListener('touchend', e => {
     const now = performance.now();
-    if (now - lastEnd < 350 && !(e.target.closest && e.target.closest('input, textarea, select'))) e.preventDefault();
+    // 단추 · 로고(세 번 톡 = 개발자 모드)는 막지 않음 — 막으면 빠른 톡의 click 이 사라짐. 확대는 viewport · touch-action 이 막아 줌
+    if (now - lastEnd < 350 && !(e.target.closest && e.target.closest('input, textarea, select, button, a, label, h1, [role=button], .tm-item'))) e.preventDefault();
     lastEnd = now;
   }, { passive: false });
   addEventListener('dblclick', e => e.preventDefault(), { passive: false });
