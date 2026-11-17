@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>우물 아래 포스터</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="../docs/qrcode.js"></script>
+<style>
+/* A3 세로 (297 × 420mm) — 위 반 : 방호복 + 제목 · 가운데 : 타임어택 · 상품 · 아래 : 게임 화면 · QR */
+@font-face{ font-family:'DungGeunMo'; src:url('../docs/fonts/DungGeunMo.woff2') format('woff2'); }
+:root{ --muk:#08090c; --muk2:#111218; --baek:#f1ece0; --dim:#9a9486; --hwang:#e3b23c; --red:#e0483c; --cheong:#7de3c8;
+  --pix:'DungGeunMo', monospace; --ui:'IBM Plex Sans KR', sans-serif; --mono:'IBM Plex Mono', monospace; }
+@page{ size:297mm 420mm; margin:0; }
+*{ box-sizing:border-box; margin:0; }
+html,body{ background:var(--muk); }
+.poster{ width:1123px; height:1587px; position:relative; overflow:hidden; color:var(--baek); font-family:var(--ui); background:var(--muk); }
+/* 위 — 방호복 */
+.hero{ position:absolute; inset:0 0 auto 0; height:800px; }
+.hero img{ width:100%; height:100%; object-fit:cover; object-position:22% 30%; filter:saturate(1.05) contrast(1.05); }
+.hero::after{ content:''; position:absolute; inset:0; background:
+  linear-gradient(to bottom, rgba(8,9,12,.55) 0%, rgba(8,9,12,0) 18%, rgba(8,9,12,0) 55%, var(--muk) 98%),
+  linear-gradient(to right, rgba(8,9,12,0) 40%, rgba(8,9,12,.65) 100%); }
+.scan{ position:absolute; inset:0; height:800px; background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 3px, rgba(0,0,0,.18) 3px 4px); pointer-events:none; }
+.topbar{ position:absolute; left:56px; right:56px; top:46px; display:flex; justify-content:space-between; align-items:center; font-family:var(--pix); font-size:22px; letter-spacing:.18em; color:var(--baek); z-index:2; }
+.topbar .tag{ padding:8px 14px 6px; border:2px solid var(--hwang); color:var(--hwang); }
+.topbar .rec{ display:flex; align-items:center; gap:10px; color:var(--dim); font-size:18px; }
+.topbar .rec i{ width:12px; height:12px; border-radius:50%; background:var(--red); box-shadow:0 0 10px var(--red); }
+.titleblock{ position:absolute; right:56px; top:250px; width:540px; z-index:2; text-align:right; }
+.logo{ width:540px; height:auto; overflow:visible; }
+.logo #t-logo-g{ stroke:#eef7ff; }
+.logo .tl-glow{ stroke:#58d8ff; opacity:.55; filter:blur(7px); }
+.logo .tl-cut{ stroke:#04070a; stroke-width:1.2; fill:none; opacity:.9; }
+.en{ margin-top:18px; font-family:var(--pix); font-size:26px; letter-spacing:.62em; margin-right:-.62em; color:var(--dim); }
+.hook{ margin-top:40px; font-size:30px; line-height:1.6; font-weight:500; color:var(--baek); }
+.hook b{ color:var(--hwang); font-weight:600; }
+/* 가운데 — 타임어택 */
+.ta{ position:absolute; left:56px; right:56px; top:712px; z-index:3; }
+.ta-head{ display:flex; align-items:baseline; justify-content:space-between; gap:20px; border-bottom:3px solid var(--hwang); padding-bottom:16px; }
+.ta-head h2{ font-family:var(--pix); font-weight:400; font-size:96px; line-height:1; color:var(--hwang); letter-spacing:.04em; }
+.ta-head p{ font-size:24px; color:var(--baek); text-align:right; line-height:1.45; }
+.ta-head p small{ display:block; font-family:var(--pix); font-size:20px; color:var(--dim); letter-spacing:.06em; margin-top:4px; }
+.prizes{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; margin-top:24px; }
+.prize{ position:relative; padding:20px 22px 22px; background:var(--muk2); border:2px solid #2a2a33; }
+.prize .rk{ font-family:var(--pix); font-size:34px; letter-spacing:.06em; }
+.prize .it{ margin-top:10px; font-size:27px; font-weight:700; line-height:1.3; }
+.prize.g{ border-color:var(--hwang); box-shadow:0 0 0 1px rgba(227,178,60,.35), 0 0 40px rgba(227,178,60,.18); }
+.prize.g .rk{ color:var(--hwang); } .prize.s .rk{ color:#d6d9e0; } .prize.b .rk{ color:#c98a5a; }
+.prize .px{ position:absolute; right:18px; top:18px; width:34px; height:34px; display:grid; grid-template-columns:repeat(5, 1fr); }
+.limit{ margin-top:18px; display:flex; align-items:center; gap:16px; font-size:21px; color:var(--dim); }
+.limit b{ font-family:var(--pix); font-weight:400; font-size:30px; color:var(--cheong); letter-spacing:.04em; }
+/* 아래 — 게임 화면 */
+.shots{ position:absolute; left:56px; right:56px; top:1112px; display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; }
+.shot{ position:relative; }
+.shot img{ width:100%; aspect-ratio:16/9; object-fit:cover; display:block; border:2px solid #23232b; image-rendering:auto; filter:brightness(1.25) contrast(1.05); }
+.shot span{ display:block; margin-top:8px; font-family:var(--pix); font-size:17px; color:var(--dim); letter-spacing:.06em; }
+.shot span b{ color:var(--baek); font-weight:400; }
+/* 맨 아래 — QR · 조작 */
+.foot{ position:absolute; left:56px; right:56px; bottom:52px; display:flex; gap:30px; align-items:stretch; }
+.qr{ flex:none; background:#fff; padding:12px; line-height:0; }
+.qr img{ width:150px; height:150px; image-rendering:pixelated; }
+.howto{ flex:1; display:flex; flex-direction:column; justify-content:space-between; }
+.howto .go{ font-size:30px; font-weight:700; }
+.howto .go em{ font-style:normal; color:var(--hwang); }
+.howto .url{ font-family:var(--mono); font-size:20px; color:var(--cheong); margin-top:4px; }
+.keys{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:18px; color:var(--dim); }
+.keys b{ font-family:var(--pix); font-weight:400; color:var(--baek); letter-spacing:.06em; }
+.credit{ position:absolute; right:56px; bottom:52px; text-align:right; font-family:var(--pix); font-size:15px; letter-spacing:.08em; color:#5d5a52; line-height:1.7; }
+.credit b{ color:var(--dim); font-weight:400; }
+</style></head>
+<body>
+<div class="poster">
+  <div class="hero"><img src="img/title.png" alt=""></div><div class="scan"></div>
+  <div class="topbar"><span class="tag">DITC 동아리 축제 부스</span><span class="rec"><i></i>SUBJECT 07 · REC</span></div>
+  <div class="titleblock">
+    <svg class="logo" viewBox="-8 -8 300 96" aria-label="우물 아래">
+          <g class="tl-glow"><use href="#t-logo-g"/></g>
+          <g id="t-logo-g" fill="none" stroke-width="9" stroke-linejoin="miter" stroke-linecap="butt">
+            <!-- 우 -->
+            <path d="M8,4.5 H42 L45.5,8 V28 L42,31.5 H8 L4.5,28 V8 Z"/>
+            <path d="M-4,48.5 H54"/><path d="M25,48.5 V80"/>
+            <!-- 물 -->
+            <g transform="translate(68,0)">
+              <path d="M4.5,4.5 H45.5 V22.5 H4.5 Z"/>
+              <path d="M-4,35 H54"/><path d="M25,35 V44"/>
+              <path d="M0,52.5 H45.5 V64 H4.5 V75.5 H50" stroke-width="7"/>
+            </g>
+            <!-- 아 -->
+            <g transform="translate(152,0)">
+              <path d="M8,14.5 H26 L29.5,18 V62 L26,65.5 H8 L4.5,62 V18 Z"/>
+              <path d="M44.5,0 V80"/><path d="M44.5,38 H58"/>
+            </g>
+            <!-- 래 -->
+            <g transform="translate(224,0)">
+              <path d="M0,10.5 H25.5 V40 H4.5 V69.5 H30" stroke-width="8"/>
+              <path d="M40.5,0 V80"/><path d="M56.5,0 V80"/><path d="M40.5,38 H56.5" stroke-width="7"/>
+            </g>
+          </g>
+          <path class="tl-cut" d="M-8,58 H300"/>
+        </svg>
+    <p class="en">THE WELL BELOW</p>
+    <p class="hook">숲 끝의 우물에 빠졌다.<br>몬스터를 뚫고 <b>가장 빨리</b> 빠져나와라.</p>
+  </div>
+
+  <section class="ta">
+    <div class="ta-head"><h2>타임어택</h2><p>클리어 기록 TOP 3 상품 증정<small>부스 화면에서 실시간 순위 확인</small></p></div>
+    <div class="prizes">
+      <div class="prize g"><p class="rk">1등</p><p class="it">배달의민족<br>2만원권</p></div>
+      <div class="prize s"><p class="rk">2등</p><p class="it">치이카와<br>피규어</p></div>
+      <div class="prize b"><p class="rk">3등</p><p class="it">간식<br>세트</p></div>
+    </div>
+    <p class="limit">봇이 계산한 이론상 한계 <b>1:25</b> — 깰 수 있을까?</p>
+  </section>
+
+  <div class="shots">
+    <figure class="shot"><img src="img/dungeon.png" alt=""><span><b>1부</b> · 우물 아래 던전</span></figure>
+    <figure class="shot"><img src="img/boss.png" alt=""><span><b>보스</b> · 관찰자</span></figure>
+    <figure class="shot"><img src="img/lab.png" alt=""><span><b>2부</b> · 연구동 (3D)</span></figure>
+  </div>
+
+  <div class="foot">
+    <div class="qr" id="qr"></div>
+    <div class="howto">
+      <div><p class="go">폰으로 찍고 <em>바로 도전</em></p><p class="url">ljaegeon10.github.io/game</p></div>
+      <div class="keys">
+        <b>PC</b><span>WASD 이동 · 방향키 / 마우스 공격 · SPACE 조사</span>
+        <b>폰</b><span>왼쪽 조이스틱 이동 · 오른쪽 톡 = 자동 조준</span>
+      </div>
+    </div>
+  </div>
+  <p class="credit">MADE BY <b>이재건 · 장도우 · 박하늘 · 문서혁</b><br>DITC · 2026</p>
+</div>
+<script>
+try { const q = qrcode(0, 'M'); q.addData('https://ljaegeon10.github.io/game/'); q.make(); document.getElementById('qr').innerHTML = q.createImgTag(6, 0, '게임 주소 QR'); } catch (e) {}
+</script>
+</body></html>
