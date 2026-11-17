@@ -2,7 +2,7 @@
 // 쓰는 법 : python3 build.py && node tools/ta_bot.js [immortal|mortal] [다가갈 거리 px, 기본 120 · 45 가 가장 빠름] [조준 앞서기 0~1] [insta = 던전 적 즉시 처치(걷기만의 하한)]
 // 봇은 피하지 않으므로 immortal(안 죽음)로 돌림 — '이론상 기록' 분석용
 const { chromium } = require('playwright');
-const INSTA = process.argv[5] === 'insta', MODE = process.argv[6] || 'chase', HOLD = +process.argv[7] || 150, SEED = +process.argv[8] || 0, IMMORTAL = process.argv[2] !== 'mortal', APPROACH = +process.argv[3] || 120, LEAD = process.argv[4] != null ? +process.argv[4] : 1;
+const BOSSLEFT = process.env.BOSSLEFT === '1', INSTA = process.argv[5] === 'insta', MODE = process.argv[6] || 'chase', HOLD = +process.argv[7] || 150, SEED = +process.argv[8] || 0, IMMORTAL = process.argv[2] !== 'mortal', APPROACH = +process.argv[3] || 120, LEAD = process.argv[4] != null ? +process.argv[4] : 1;
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
   const p = await b.newPage({ viewport: { width: 640, height: 360 } });
@@ -35,7 +35,7 @@ const INSTA = process.argv[5] === 'insta', MODE = process.argv[6] || 'chase', HO
     };
   });
   await p.goto('file://' + require('path').resolve(__dirname, '../dist/우물아래.html'));
-  await p.evaluate(([a, l, i, m, h]) => { window.__APPROACH = a; window.__LEAD = l; window.__INSTAKILL = i; window.__MODE = m; window.__HOLD = h; window.__OVERKILL = true; }, [APPROACH, LEAD, INSTA, MODE, HOLD]);
+  await p.evaluate(([a, l, i, m, h, bl]) => { window.__APPROACH = a; window.__LEAD = l; window.__INSTAKILL = i; window.__MODE = m; window.__HOLD = h; window.__OVERKILL = true; window.__BOSSLEFT = !!bl; }, [APPROACH, LEAD, INSTA, MODE, HOLD, BOSSLEFT]);
   await p.evaluate(() => __step(90));
   await p.evaluate(IMMORTAL => {
     const g = __game, G = g.G, P = g.P, MAP = g.MAP, BALANCE = g.BALANCE, I = () => g.bot();
@@ -133,6 +133,7 @@ const INSTA = process.argv[5] === 'insta', MODE = process.argv[6] || 'chase', HO
         if (t && (atDoor || !t[2]) && (t[1] > ap || !t[2])) { gx = t[0].x; gy = t[0].y; }
       } else if (t && (t[1] > (window.__APPROACH || 120) || !t[2])) { gx = t[0].x; gy = t[0].y; }   // 적이 남으면 문이 막힘 — 멀거나 가려 있으면 다가감
       else if (t && G.boss) { gx = P.x; gy = P.y; }                       // 보스 — 제자리에서 쏨
+      if (window.__BOSSLEFT && G.boss) { gx = P.x; gy = P.y; }            // 비교용 — 보스방에서 제자리
       if (!plan || --planT <= 0 || planRoom !== G.room) { plan = bfs(gx, gy); planT = 8; planRoom = G.room; }
       while (plan.length && Math.hypot(plan[0][0] - P.x, plan[0][1] - P.y) < 5) plan.shift();
       const wp = plan[0] || [gx, gy], dx = wp[0] - P.x, dy = wp[1] - P.y, l = Math.hypot(dx, dy);
