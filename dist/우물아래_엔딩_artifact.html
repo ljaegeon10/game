@@ -1441,12 +1441,13 @@ class EndingScene {
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last);
     this.last = now;
+    let n = 0;
     while (this.acc >= STEP && this.running) {
       this.update();
-      this.acc -= STEP;
+      this.acc -= STEP; n++;
     }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('ending', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
   update() {
@@ -6943,9 +6944,10 @@ class EscapeScene {
     if (!this.running) return;
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last); this.last = now;
-    while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; }
+    let n = 0;
+    while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; n++; }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('escape', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
   update() {
@@ -6957,7 +6959,7 @@ class EscapeScene {
     const c = this.ctx;
     this.canvas.style.cursor = this.gun || (this.stateName === 'wake' && this.wk === 'roam' && !this.touch) ? 'none' : '';
     // 보이는 크기만큼 선명하게 — 창 전체로 커지면 캔버스도 키워 그림 (좌표는 그대로 960×540)
-    const want = Math.max(1, Math.min(2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
+    const want = Math.max(1, Math.min(window.Perf && Perf.low ? 1 : 2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
     if (want !== this.k) { this.k = want; this.canvas.width = Math.round(W * want); this.canvas.height = Math.round(H * want); }
     if (this.lab && this.lab.ok && this.lab.k !== this.k) this.lab.setScale(this.k);
     c.setTransform(this.k, 0, 0, this.k, 0, 0);

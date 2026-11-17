@@ -1638,3 +1638,16 @@ body.tledit .tl-on{ outline:2px dashed var(--hwang); outline-offset:6px; }
 .tl-btns .tl-main{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
 #tledit.tl-low .tl-bar{ top:auto; bottom:max(10px, env(safe-area-inset-bottom)); }
 .st-layout .st-btn{ grid-column:2 / 4; justify-self:start; }
+
+/* 가벼운 화면 (settings.js 의 Perf) — 끊기는 기기에서 화면 효과를 걷어냄 */
+html.lowfx body.topview #game{ filter:none; }
+html.lowfx #crt, html.lowfx #crt::after{ display:none !important; }
+html.lowfx body.topview #stage{ box-shadow:none; }
+html.lowfx .tl-glow{ filter:none; animation:none; }
+html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(#tabrief:not(.hidden)) #titlecv{ filter:brightness(.28); }
+
+/* 설정 「프레임」 — 30 · 60 · 최대 */
+.st-segs{ grid-column:2 / 4; display:flex; gap:6px; }
+.st-segb{ flex:1; margin:0; padding:7px 0; font:inherit; font-size:14px; color:rgba(241,236,224,.75); background:rgba(241,236,224,.05); border:1px solid rgba(241,236,224,.28); box-shadow:none; cursor:pointer; }
+.st-segb.on{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
+.st-segb:focus-visible{ outline:2px solid var(--hwang); outline-offset:2px; }

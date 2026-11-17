@@ -1656,6 +1656,19 @@ body.tledit .tl-on{ outline:2px dashed var(--hwang); outline-offset:6px; }
 #tledit.tl-low .tl-bar{ top:auto; bottom:max(10px, env(safe-area-inset-bottom)); }
 .st-layout .st-btn{ grid-column:2 / 4; justify-self:start; }
 
+/* 가벼운 화면 (settings.js 의 Perf) — 끊기는 기기에서 화면 효과를 걷어냄 */
+html.lowfx body.topview #game{ filter:none; }
+html.lowfx #crt, html.lowfx #crt::after{ display:none !important; }
+html.lowfx body.topview #stage{ box-shadow:none; }
+html.lowfx .tl-glow{ filter:none; animation:none; }
+html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(#tabrief:not(.hidden)) #titlecv{ filter:brightness(.28); }
+
+/* 설정 「프레임」 — 30 · 60 · 최대 */
+.st-segs{ grid-column:2 / 4; display:flex; gap:6px; }
+.st-segb{ flex:1; margin:0; padding:7px 0; font:inherit; font-size:14px; color:rgba(241,236,224,.75); background:rgba(241,236,224,.05); border:1px solid rgba(241,236,224,.28); box-shadow:none; cursor:pointer; }
+.st-segb.on{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
+.st-segb:focus-visible{ outline:2px solid var(--hwang); outline-offset:2px; }
+
 </style>
 <script>window.WB_FESTIVAL = true;</script>
 <div id="frame">
@@ -2090,7 +2103,7 @@ window.TL_BG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null };   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null, lite: 'auto', fps: 60 };   // fps : 30 · 60 · 0(최대 = 화면 주사율)   // lite : 가벼운 화면 auto | on | off   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
 if (S.layout && !(S.layout.joy && S.layout.fire && S.layout.btn)) S.layout = null;
@@ -2133,6 +2146,9 @@ function build() {
     <p class="pm-title">설정</p><p class="pm-sub">SETTINGS · 이 기기에 저장돼요</p>
     ${ROWS.map(r => `<label class="st-row" data-k="${r.k}"><span class="st-l"><b>${r.label}</b>${r.sub ? `<small>${r.sub}</small>` : ''}</span>
       <input type="range" min="${r.min}" max="${r.max}" step="${r.step}"><output></output></label>`).join('')}
+    <div class="st-row st-seg"><span class="st-l"><b>프레임</b><small>초당 그리는 장 수 — 게임 속도는 같아요</small></span>
+      <div class="st-segs" role="radiogroup" aria-label="프레임">${[[30, '30'], [60, '60'], [0, '최대']].map(([v, l]) => `<button type="button" class="st-segb" role="radio" data-fps="${v}">${l}</button>`).join('')}</div></div>
+    <label class="st-row st-check"><span class="st-l"><b>가벼운 화면</b><small id="st-lite-sub">끊기면 저절로 켜져요 — 화면 효과를 줄여 부드럽게</small></span><input type="checkbox" data-k="lite"><output></output></label>
     <div class="st-row st-layout"><span class="st-l"><b>조작 배치</b><small>휴대폰 · 태블릿 — 조이스틱 · 조사 버튼의 위치와 크기</small></span><button class="st-btn" data-act="layout" type="button">바꾸기</button></div>
     <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>마우스를 올리면 아래를 봄</small></span><input type="checkbox" data-k="invertY"><output></output></label>
     <div class="st-btns"><button class="st-btn" data-act="reset">기본값</button><button class="st-btn st-main" data-act="close">닫기</button></div>
@@ -2145,9 +2161,12 @@ function build() {
       if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
+  el.querySelectorAll('[data-fps]').forEach(b => b.addEventListener('click', () => { S.fps = +b.dataset.fps; save(); sync(); }));
+  const lk = el.querySelector('input[data-k=lite]');
+  lk.addEventListener('change', () => { S.lite = lk.checked ? 'on' : 'off'; Perf.set(lk.checked); save(); sync(); });
   const ck = el.querySelector('input[data-k=invertY]');
   ck.addEventListener('change', () => { S.invertY = ck.checked; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔'; save(); });
-  el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); sync(); apply(); save(); });
+  el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); Perf.set(false); sync(); apply(); save(); applyLayout(); });
   el.querySelector('[data-act=close]').addEventListener('click', close);
   el.querySelector('[data-act=layout]').addEventListener('click', () => TL.open());
   el.addEventListener('click', e => { if (e.target === el) close(); });
@@ -2155,9 +2174,11 @@ function build() {
 }
 function sync() {
   el.querySelectorAll('.st-row[data-k]').forEach(row => { const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'); inp.value = S[r.k]; row.querySelector('output').textContent = r.fmt(S[r.k]); });
+  el.querySelectorAll('[data-fps]').forEach(b => { const on = +b.dataset.fps === S.fps; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+  const lk = el.querySelector('input[data-k=lite]'); lk.checked = Perf.low; lk.parentNode.querySelector('output').textContent = (Perf.low ? '켬' : '끔') + (S.lite === 'auto' ? ' · 자동' : '');
   const ck = el.querySelector('input[data-k=invertY]'); ck.checked = S.invertY; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔';
 }
-const focusables = () => [...el.querySelectorAll('input, .st-btn')];
+const focusables = () => [...el.querySelectorAll('input, .st-btn, .st-segb')];
 function open(cb) {
   if (!el) build();
   onClose = cb || null; sync();
@@ -2179,11 +2200,44 @@ addEventListener('keydown', e => {
   if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'Tab') { e.preventDefault(); const d = (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) ? -1 : 1; f[(Math.max(0, i) + d + f.length) % f.length].focus(); return; }
   const a = document.activeElement;
   if ((k === 'Enter' || k === ' ') && a && a.type === 'checkbox') { e.preventDefault(); a.click(); return; }
-  if ((k === 'Enter' || k === ' ') && a && a.classList.contains('st-btn')) { e.preventDefault(); a.click(); return; }
+  if ((k === 'Enter' || k === ' ') && a && (a.classList.contains('st-btn') || a.classList.contains('st-segb'))) { e.preventDefault(); a.click(); return; }
   if ((k === 'ArrowLeft' || k === 'ArrowRight') && a && a.type === 'range') return;   // 밀대는 브라우저가 움직임
   if (k.length === 1 || k === 'Enter') e.preventDefault();
 }, true);
 addEventListener('keyup', e => { if (isOpen() && !document.body.classList.contains('tledit')) e.stopImmediatePropagation(); }, true);
+
+/* ── 가벼운 화면 (Perf) ──
+   120 · 144Hz 화면(갤럭시탭 · 게이밍 노트북)이나 약한 그래픽에서 끊기면 — 화면 효과(색 보정 필터 · 브라운관 줄 · 베젤 그림자 ·
+   제목 번짐)를 끄고 3D 장면 해상도를 낮춤 (css body.lowfx · escape.js · part2.js 가 Perf.low 를 봄).
+   각 장면의 루프가 그릴 때마다 Perf.frame() — 2초씩 재서 세 번 연달아(6초) 초당 45장이 안 되면 저절로 켬 (설정에서 직접 켜고 끌 수도). */
+const Perf = (() => {
+  const P = { low: false, set(on) { P.low = !!on; document.documentElement.classList.toggle('lowfx', P.low); }, frame, draw };
+  /* 이번 rAF 에 그릴지 — steps : 이번에 게임이 움직인 칸 수(초당 60칸). 60 : 움직인 장만 · 30 : 두 칸마다 한 장 · 0(최대) : 매번 */
+  const accSteps = {};
+  function draw(key, now, steps) {
+    steps = +steps || 0;
+    const f = S.fps;
+    if (f === 0) { frame(now); return true; }
+    if (!steps) return false;
+    if (f === 30) { const a = Math.min(4, (accSteps[key] || 0) + steps); if (a < 2) { accSteps[key] = a; return false; } accSteps[key] = a - 2; }
+    frame(now); return true;
+  }
+  let t0 = 0, n = 0, last = 0, bad = 0;
+  function frame(now) {
+    if (S.lite !== 'auto' || P.low) return;
+    now = now || performance.now();
+    if (!t0 || now - last > 300 || document.hidden) { t0 = now; n = 0; last = now; return; }   // 멈췄다 돌아온 틈은 빼고
+    last = now; n++;
+    if (now - t0 < 2000) return;
+    const fps = n * 1000 / (now - t0); t0 = now; n = 0;
+    bad = fps < (S.fps === 30 ? 24 : 45) ? bad + 1 : 0;   // 30 으로 정했으면 그 기준
+    if (bad >= 3) { P.set(true); try { localStorage.setItem('wellbelow.lowfx', '1'); } catch (e) {} }   // 이 기기는 다음에도 가볍게 시작
+  }
+  let mem = false; try { mem = localStorage.getItem('wellbelow.lowfx') === '1'; } catch (e) {}
+  P.set(S.lite === 'on' || (S.lite === 'auto' && mem));
+  return P;
+})();
+window.Perf = Perf;
 
 /* ── 조작 배치 (휴대폰) — 예시 게임 화면 위에서 이동 조이스틱 · 공격 조이스틱 · [조사] 버튼을 끌어 옮기고 크기를 바꿈 ──
    실제 조작 요소(#tjoy · #tfire · #tbtn, game.js 가 터치 모드에서 만듦)를 그대로 끌어 올려 쓰므로 보이는 그대로 게임에 나옴.
@@ -6567,12 +6621,13 @@ class EndingScene {
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last);
     this.last = now;
+    let n = 0;
     while (this.acc >= STEP && this.running) {
       this.update();
-      this.acc -= STEP;
+      this.acc -= STEP; n++;
     }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('ending', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
   update() {
@@ -10084,7 +10139,7 @@ let preImg = null;
 if (PRE && PRE.src) { const im = new Image(); im.onload = () => { preImg = im; }; im.onerror = () => { preImg = false; }; im.src = PRE.src; }
 const dust = Array.from({ length: 70 }, () => ({ x: rnd() * W, y: rnd() * H, r: (.5 + rnd() * 1.3) * K * .5, v: .08 + rnd() * .25, p: rnd() * 6.28, a: .15 + rnd() * .5 }));
 function draw() {
-  t++;
+  t += 2;                                  // 초당 30장 그리므로 2씩 (예전 60fps 의 t 와 같은 빠르기)
   const fl = .86 + .14 * Math.sin(t * .013) - (t % 311 > 300 ? .35 * rnd() : 0);       // 제목 빛의 숨 · 가끔 깜빡
   c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   c.drawImage(wall, 0, 0);
@@ -10121,6 +10176,7 @@ function draw() {
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
 }
+let lastDraw = 0;
 function loop() {
   raf = 0;
   if (title.classList.contains('hidden') || document.hidden) return;          // 안 보이면 쉼 — sync() 가 다시 깨움
@@ -10128,7 +10184,7 @@ function loop() {
   // 인물 — 없으면 굽기. 실패하면(3D 가 아직 준비 안 됨 등) 1초 간격으로 몇 번 더 해 봄. 창 크기를 끄는 동안엔 멈출 때까지 기다림
   const now = performance.now();
   if (!fig && (!PRE || preImg === false) && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
-  if (!(t & 1) || t < 3) draw(); else t++;                                     // 한 장 건너 한 장 (30fps)
+  if (t < 3 || now - lastDraw >= 31) { draw(); lastDraw = now; }               // 초당 30장 — 화면이 60 · 120 · 144Hz 여도 같게
   raf = requestAnimationFrame(loop);
 }
 const sync = () => { if (!raf && !title.classList.contains('hidden') && !document.hidden) raf = requestAnimationFrame(loop); };
@@ -13551,9 +13607,10 @@ class EscapeScene {
     if (!this.running) return;
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last); this.last = now;
-    while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; }
+    let n = 0;
+    while (this.acc >= STEP && this.running) { this.update(); this.acc -= STEP; n++; }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('escape', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
   update() {
@@ -13565,7 +13622,7 @@ class EscapeScene {
     const c = this.ctx;
     this.canvas.style.cursor = this.gun || (this.stateName === 'wake' && this.wk === 'roam' && !this.touch) ? 'none' : '';
     // 보이는 크기만큼 선명하게 — 창 전체로 커지면 캔버스도 키워 그림 (좌표는 그대로 960×540)
-    const want = Math.max(1, Math.min(2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
+    const want = Math.max(1, Math.min(window.Perf && Perf.low ? 1 : 2, Math.round((this.canvas.clientWidth || W) * (window.devicePixelRatio || 1) / W * 4) / 4));
     if (want !== this.k) { this.k = want; this.canvas.width = Math.round(W * want); this.canvas.height = Math.round(H * want); }
     if (this.lab && this.lab.ok && this.lab.k !== this.k) this.lab.setScale(this.k);
     c.setTransform(this.k, 0, 0, this.k, 0, 0);
@@ -14518,7 +14575,7 @@ class Part2 {
   }
   draw() {
     const gl = this.gl, cv = this.el.cv, un = this.un, c = this.cam, S = this.S, LV = this.lv;
-    const dpr = Math.min(1.5, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+    const dpr = Math.min(window.Perf && Perf.low ? 1 : 1.5, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);   // 가벼운 화면(Perf.low)이면 1배
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
     gl.useProgram(this.pr);
@@ -14559,9 +14616,10 @@ class Part2 {
     if (!this.running) return;
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }
     this.acc += Math.min(100, now - this.last); this.last = now;
-    while (this.acc >= 1000 / 60 && this.running) { this.update(); this.acc -= 1000 / 60; }
+    let n = 0;
+    while (this.acc >= 1000 / 60 && this.running) { this.update(); this.acc -= 1000 / 60; n++; }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('part2', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
 }
@@ -16485,7 +16543,7 @@ function touchFireDir() {
   const a0 = Math.atan2(f.dy, f.dx); let best = null, bs = 1e9;
   const look = (o, r = 0) => { if (!o) return; const dx = o.x - P.x, dy = o.y - P.y, d = Math.hypot(dx, dy) - r; if (d > 260) return;
     let da = Math.abs(Math.atan2(dy, dx) - a0); if (da > Math.PI) da = 2 * Math.PI - da; if (da > .35) return;
-    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; } };
+    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; TOUCH.lock = o; } };
   G.foes.forEach(o => !o.dead && look(o)); if (G.boss) look(G.boss, G.boss.r || 30);
   return best || [f.dx, f.dy];
 }
@@ -17951,12 +18009,18 @@ function update() {
   if (P.fireCd > 0) P.fireCd = Math.max(0, Math.min(P.fireCd - 1, ((P.fireAt || 0) - performance.now()) / STEP));
 
   /* ── 사격 ─────────────────────────────────────────── */
-  if (!forest && P.fireCd <= 0) {
+  /* 겨누는 방향은 매 장 — 쏘는 쪽 가이드 선(drawAimGuide)이 쿨다운 사이에도 따라오게 */
+  P.aim = null; TOUCH.lock = null;
+  if (!forest) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
     if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱
     if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
-    if (ax || ay) {
+    if (ax || ay) P.aim = [ax, ay];
+  }
+  if (!forest && P.fireCd <= 0 && P.aim) {
+    const [ax, ay] = P.aim;
+    {
       shoot(ax, ay);
       if (!ml) P.dir = Math.abs(ax) > Math.abs(ay)
         ? (ax > 0 ? 'right' : 'left') : (ay > 0 ? 'down' : 'up');
@@ -19111,6 +19175,7 @@ function renderDungeon() {
   if (G.boss) (G.boss.kind === 'abom' ? drawAbom : drawBoss)();
   if (G.mode === 'morph' && G.morphPre < MORPH_PRE) drawEyeMorph();
   if (G.corpse && R.boss) drawCorpse();
+  drawAimGuide();
   drawPlayer();
   drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
   drawRings();
@@ -19441,6 +19506,30 @@ function heroArt() {
   return heroArtCache;
 }
 
+/* 쏘는 쪽 가이드 — 겨누는 동안(방향키 · 공격 조이스틱 · 마우스 누름) 주인공에서 탄이 날아갈 거리만큼 점선.
+   벽 앞에서 끊기고, 휴대폰 조준 보정이 붙은 적에겐 모서리 표시 */
+function drawAimGuide() {
+  if (!P.aim || P.dead || G.mode !== 'play') return;
+  const l = Math.hypot(P.aim[0], P.aim[1]) || 1, ux = P.aim[0] / l, uy = P.aim[1] / l;
+  const x0 = P.x + ux * 12, y0 = P.y - 3 + uy * 12, t = TOUCH.lock && !TOUCH.lock.dead ? TOUCH.lock : null;
+  const range = t ? Math.min(BALANCE.bulletSpeed * BALANCE.bulletLife, Math.hypot(t.x - x0, t.y - y0) - (t.r || 10)) : BALANCE.bulletSpeed * BALANCE.bulletLife;   // 조준 보정이 붙으면 그 적까지
+  const lo = TS - 2;
+  g.save();
+  for (let d = 0, i = 0; d < range; d += 7, i++) {
+    const x = x0 + ux * d, y = y0 + uy * d;
+    if (x < lo || x > W - lo || y < lo || y > H - lo || (G.props.length && propBlocksShot(G.props, x, y))) break;
+    const k = 1 - d / range;
+    g.globalAlpha = .18 + .5 * k * k;
+    g.fillStyle = '#7de3c8'; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+  }
+  if (t) {                                                   // 조준 보정 — 붙은 적에 네 모서리
+    const r = (t.r || 10) + 5, cx = Math.round(t.x), cy = Math.round(t.y), a = 5;
+    g.globalAlpha = .85; g.strokeStyle = '#7de3c8'; g.lineWidth = 1.5; g.beginPath();
+    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const px = cx + sx * r, py = cy + sy * r; g.moveTo(px, py - sy * a); g.lineTo(px, py); g.lineTo(px - sx * a, py); }
+    g.stroke();
+  }
+  g.restore();
+}
 function drawPlayer() {
   if (G.hideHero) return;                               // 엔딩 — 주인공을 뺀 방 그림을 뜰 때
   // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
@@ -22477,6 +22566,8 @@ function loop(now) {
   let steps = 0;
   while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
   if (acc > STEP * 5) acc = 0;
+  if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
+  if (window.Perf) Perf.frame(now);
 
   if (G.mode !== 'ending') render();
   if (RUN.running) updateTimer();

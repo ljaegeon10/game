@@ -1362,12 +1362,13 @@ class EndingScene {
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }   // 일시정지 (game.js 의 ESC 메뉴) — 그대로 멈춤
     this.acc += Math.min(100, now - this.last);
     this.last = now;
+    let n = 0;
     while (this.acc >= STEP && this.running) {
       this.update();
-      this.acc -= STEP;
+      this.acc -= STEP; n++;
     }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('ending', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
   update() {

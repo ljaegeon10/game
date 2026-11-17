@@ -721,7 +721,7 @@ class Part2 {
   }
   draw() {
     const gl = this.gl, cv = this.el.cv, un = this.un, c = this.cam, S = this.S, LV = this.lv;
-    const dpr = Math.min(1.5, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);
+    const dpr = Math.min(window.Perf && Perf.low ? 1 : 1.5, window.devicePixelRatio || 1), w = Math.round(cv.clientWidth * dpr), h = Math.round(cv.clientHeight * dpr);   // 가벼운 화면(Perf.low)이면 1배
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
     gl.useProgram(this.pr);
@@ -762,9 +762,10 @@ class Part2 {
     if (!this.running) return;
     if (this.paused) { this.last = now; this.raf = requestAnimationFrame(this.loop); return; }
     this.acc += Math.min(100, now - this.last); this.last = now;
-    while (this.acc >= 1000 / 60 && this.running) { this.update(); this.acc -= 1000 / 60; }
+    let n = 0;
+    while (this.acc >= 1000 / 60 && this.running) { this.update(); this.acc -= 1000 / 60; n++; }
     if (!this.running) return;
-    this.draw();
+    if (window.Perf ? Perf.draw('part2', now, n) : n) this.draw();   // 설정 「프레임」 — 바뀐 게 없으면 안 그림 (120 · 144Hz 화면에서도 초당 60장)
     this.raf = requestAnimationFrame(this.loop);
   }
 }

@@ -258,7 +258,7 @@ function touchFireDir() {
   const a0 = Math.atan2(f.dy, f.dx); let best = null, bs = 1e9;
   const look = (o, r = 0) => { if (!o) return; const dx = o.x - P.x, dy = o.y - P.y, d = Math.hypot(dx, dy) - r; if (d > 260) return;
     let da = Math.abs(Math.atan2(dy, dx) - a0); if (da > Math.PI) da = 2 * Math.PI - da; if (da > .35) return;
-    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; } };
+    const sc = da * 200 + d * .4; if (sc < bs) { bs = sc; best = [dx, dy]; TOUCH.lock = o; } };
   G.foes.forEach(o => !o.dead && look(o)); if (G.boss) look(G.boss, G.boss.r || 30);
   return best || [f.dx, f.dy];
 }
@@ -1724,12 +1724,18 @@ function update() {
   if (P.fireCd > 0) P.fireCd = Math.max(0, Math.min(P.fireCd - 1, ((P.fireAt || 0) - performance.now()) / STEP));
 
   /* ── 사격 ─────────────────────────────────────────── */
-  if (!forest && P.fireCd <= 0) {
+  /* 겨누는 방향은 매 장 — 쏘는 쪽 가이드 선(drawAimGuide)이 쿨다운 사이에도 따라오게 */
+  P.aim = null; TOUCH.lock = null;
+  if (!forest) {
     let ax = 0, ay = 0;
     for (const k in AIM) if (key[k]) { ax += AIM[k][0]; ay += AIM[k][1]; }
     if (!ax && !ay && TOUCH.fire) { const d = touchFireDir(); if (d) { ax = d[0]; ay = d[1]; } }   // 휴대폰 — 공격 조이스틱
     if (!ax && !ay && mouse.down) { ax = mouse.x + CAM.x - P.x; ay = mouse.y + CAM.y - P.y; }
-    if (ax || ay) {
+    if (ax || ay) P.aim = [ax, ay];
+  }
+  if (!forest && P.fireCd <= 0 && P.aim) {
+    const [ax, ay] = P.aim;
+    {
       shoot(ax, ay);
       if (!ml) P.dir = Math.abs(ax) > Math.abs(ay)
         ? (ax > 0 ? 'right' : 'left') : (ay > 0 ? 'down' : 'up');
@@ -2884,6 +2890,7 @@ function renderDungeon() {
   if (G.boss) (G.boss.kind === 'abom' ? drawAbom : drawBoss)();
   if (G.mode === 'morph' && G.morphPre < MORPH_PRE) drawEyeMorph();
   if (G.corpse && R.boss) drawCorpse();
+  drawAimGuide();
   drawPlayer();
   drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
   drawRings();
@@ -3214,6 +3221,30 @@ function heroArt() {
   return heroArtCache;
 }
 
+/* 쏘는 쪽 가이드 — 겨누는 동안(방향키 · 공격 조이스틱 · 마우스 누름) 주인공에서 탄이 날아갈 거리만큼 점선.
+   벽 앞에서 끊기고, 휴대폰 조준 보정이 붙은 적에겐 모서리 표시 */
+function drawAimGuide() {
+  if (!P.aim || P.dead || G.mode !== 'play') return;
+  const l = Math.hypot(P.aim[0], P.aim[1]) || 1, ux = P.aim[0] / l, uy = P.aim[1] / l;
+  const x0 = P.x + ux * 12, y0 = P.y - 3 + uy * 12, t = TOUCH.lock && !TOUCH.lock.dead ? TOUCH.lock : null;
+  const range = t ? Math.min(BALANCE.bulletSpeed * BALANCE.bulletLife, Math.hypot(t.x - x0, t.y - y0) - (t.r || 10)) : BALANCE.bulletSpeed * BALANCE.bulletLife;   // 조준 보정이 붙으면 그 적까지
+  const lo = TS - 2;
+  g.save();
+  for (let d = 0, i = 0; d < range; d += 7, i++) {
+    const x = x0 + ux * d, y = y0 + uy * d;
+    if (x < lo || x > W - lo || y < lo || y > H - lo || (G.props.length && propBlocksShot(G.props, x, y))) break;
+    const k = 1 - d / range;
+    g.globalAlpha = .18 + .5 * k * k;
+    g.fillStyle = '#7de3c8'; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, i % 2 ? 2 : 3, i % 2 ? 2 : 3);
+  }
+  if (t) {                                                   // 조준 보정 — 붙은 적에 네 모서리
+    const r = (t.r || 10) + 5, cx = Math.round(t.x), cy = Math.round(t.y), a = 5;
+    g.globalAlpha = .85; g.strokeStyle = '#7de3c8'; g.lineWidth = 1.5; g.beginPath();
+    for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const px = cx + sx * r, py = cy + sy * r; g.moveTo(px, py - sy * a); g.lineTo(px, py); g.lineTo(px - sx * a, py); }
+    g.stroke();
+  }
+  g.restore();
+}
 function drawPlayer() {
   if (G.hideHero) return;                               // 엔딩 — 주인공을 뺀 방 그림을 뜰 때
   // 실제 걸음 사이클(발이 땅에 닿는 타이밍)에 맞춘 통통 튀는 움직임.
@@ -6250,6 +6281,8 @@ function loop(now) {
   let steps = 0;
   while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; }
   if (acc > STEP * 5) acc = 0;
+  if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
+  if (window.Perf) Perf.frame(now);
 
   if (G.mode !== 'ending') render();
   if (RUN.running) updateTimer();

@@ -11,7 +11,7 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null };   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
+const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null, lite: 'auto', fps: 60 };   // fps : 30 · 60 · 0(최대 = 화면 주사율)   // lite : 가벼운 화면 auto | on | off   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
 if (S.layout && !(S.layout.joy && S.layout.fire && S.layout.btn)) S.layout = null;
@@ -54,6 +54,9 @@ function build() {
     <p class="pm-title">설정</p><p class="pm-sub">SETTINGS · 이 기기에 저장돼요</p>
     ${ROWS.map(r => `<label class="st-row" data-k="${r.k}"><span class="st-l"><b>${r.label}</b>${r.sub ? `<small>${r.sub}</small>` : ''}</span>
       <input type="range" min="${r.min}" max="${r.max}" step="${r.step}"><output></output></label>`).join('')}
+    <div class="st-row st-seg"><span class="st-l"><b>프레임</b><small>초당 그리는 장 수 — 게임 속도는 같아요</small></span>
+      <div class="st-segs" role="radiogroup" aria-label="프레임">${[[30, '30'], [60, '60'], [0, '최대']].map(([v, l]) => `<button type="button" class="st-segb" role="radio" data-fps="${v}">${l}</button>`).join('')}</div></div>
+    <label class="st-row st-check"><span class="st-l"><b>가벼운 화면</b><small id="st-lite-sub">끊기면 저절로 켜져요 — 화면 효과를 줄여 부드럽게</small></span><input type="checkbox" data-k="lite"><output></output></label>
     <div class="st-row st-layout"><span class="st-l"><b>조작 배치</b><small>휴대폰 · 태블릿 — 조이스틱 · 조사 버튼의 위치와 크기</small></span><button class="st-btn" data-act="layout" type="button">바꾸기</button></div>
     <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>마우스를 올리면 아래를 봄</small></span><input type="checkbox" data-k="invertY"><output></output></label>
     <div class="st-btns"><button class="st-btn" data-act="reset">기본값</button><button class="st-btn st-main" data-act="close">닫기</button></div>
@@ -66,9 +69,12 @@ function build() {
       if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
+  el.querySelectorAll('[data-fps]').forEach(b => b.addEventListener('click', () => { S.fps = +b.dataset.fps; save(); sync(); }));
+  const lk = el.querySelector('input[data-k=lite]');
+  lk.addEventListener('change', () => { S.lite = lk.checked ? 'on' : 'off'; Perf.set(lk.checked); save(); sync(); });
   const ck = el.querySelector('input[data-k=invertY]');
   ck.addEventListener('change', () => { S.invertY = ck.checked; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔'; save(); });
-  el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); sync(); apply(); save(); });
+  el.querySelector('[data-act=reset]').addEventListener('click', () => { Object.assign(S, DEF); Perf.set(false); sync(); apply(); save(); applyLayout(); });
   el.querySelector('[data-act=close]').addEventListener('click', close);
   el.querySelector('[data-act=layout]').addEventListener('click', () => TL.open());
   el.addEventListener('click', e => { if (e.target === el) close(); });
@@ -76,9 +82,11 @@ function build() {
 }
 function sync() {
   el.querySelectorAll('.st-row[data-k]').forEach(row => { const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'); inp.value = S[r.k]; row.querySelector('output').textContent = r.fmt(S[r.k]); });
+  el.querySelectorAll('[data-fps]').forEach(b => { const on = +b.dataset.fps === S.fps; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+  const lk = el.querySelector('input[data-k=lite]'); lk.checked = Perf.low; lk.parentNode.querySelector('output').textContent = (Perf.low ? '켬' : '끔') + (S.lite === 'auto' ? ' · 자동' : '');
   const ck = el.querySelector('input[data-k=invertY]'); ck.checked = S.invertY; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔';
 }
-const focusables = () => [...el.querySelectorAll('input, .st-btn')];
+const focusables = () => [...el.querySelectorAll('input, .st-btn, .st-segb')];
 function open(cb) {
   if (!el) build();
   onClose = cb || null; sync();
@@ -100,11 +108,44 @@ addEventListener('keydown', e => {
   if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'Tab') { e.preventDefault(); const d = (k === 'ArrowUp' || (k === 'Tab' && e.shiftKey)) ? -1 : 1; f[(Math.max(0, i) + d + f.length) % f.length].focus(); return; }
   const a = document.activeElement;
   if ((k === 'Enter' || k === ' ') && a && a.type === 'checkbox') { e.preventDefault(); a.click(); return; }
-  if ((k === 'Enter' || k === ' ') && a && a.classList.contains('st-btn')) { e.preventDefault(); a.click(); return; }
+  if ((k === 'Enter' || k === ' ') && a && (a.classList.contains('st-btn') || a.classList.contains('st-segb'))) { e.preventDefault(); a.click(); return; }
   if ((k === 'ArrowLeft' || k === 'ArrowRight') && a && a.type === 'range') return;   // 밀대는 브라우저가 움직임
   if (k.length === 1 || k === 'Enter') e.preventDefault();
 }, true);
 addEventListener('keyup', e => { if (isOpen() && !document.body.classList.contains('tledit')) e.stopImmediatePropagation(); }, true);
+
+/* ── 가벼운 화면 (Perf) ──
+   120 · 144Hz 화면(갤럭시탭 · 게이밍 노트북)이나 약한 그래픽에서 끊기면 — 화면 효과(색 보정 필터 · 브라운관 줄 · 베젤 그림자 ·
+   제목 번짐)를 끄고 3D 장면 해상도를 낮춤 (css body.lowfx · escape.js · part2.js 가 Perf.low 를 봄).
+   각 장면의 루프가 그릴 때마다 Perf.frame() — 2초씩 재서 세 번 연달아(6초) 초당 45장이 안 되면 저절로 켬 (설정에서 직접 켜고 끌 수도). */
+const Perf = (() => {
+  const P = { low: false, set(on) { P.low = !!on; document.documentElement.classList.toggle('lowfx', P.low); }, frame, draw };
+  /* 이번 rAF 에 그릴지 — steps : 이번에 게임이 움직인 칸 수(초당 60칸). 60 : 움직인 장만 · 30 : 두 칸마다 한 장 · 0(최대) : 매번 */
+  const accSteps = {};
+  function draw(key, now, steps) {
+    steps = +steps || 0;
+    const f = S.fps;
+    if (f === 0) { frame(now); return true; }
+    if (!steps) return false;
+    if (f === 30) { const a = Math.min(4, (accSteps[key] || 0) + steps); if (a < 2) { accSteps[key] = a; return false; } accSteps[key] = a - 2; }
+    frame(now); return true;
+  }
+  let t0 = 0, n = 0, last = 0, bad = 0;
+  function frame(now) {
+    if (S.lite !== 'auto' || P.low) return;
+    now = now || performance.now();
+    if (!t0 || now - last > 300 || document.hidden) { t0 = now; n = 0; last = now; return; }   // 멈췄다 돌아온 틈은 빼고
+    last = now; n++;
+    if (now - t0 < 2000) return;
+    const fps = n * 1000 / (now - t0); t0 = now; n = 0;
+    bad = fps < (S.fps === 30 ? 24 : 45) ? bad + 1 : 0;   // 30 으로 정했으면 그 기준
+    if (bad >= 3) { P.set(true); try { localStorage.setItem('wellbelow.lowfx', '1'); } catch (e) {} }   // 이 기기는 다음에도 가볍게 시작
+  }
+  let mem = false; try { mem = localStorage.getItem('wellbelow.lowfx') === '1'; } catch (e) {}
+  P.set(S.lite === 'on' || (S.lite === 'auto' && mem));
+  return P;
+})();
+window.Perf = Perf;
 
 /* ── 조작 배치 (휴대폰) — 예시 게임 화면 위에서 이동 조이스틱 · 공격 조이스틱 · [조사] 버튼을 끌어 옮기고 크기를 바꿈 ──
    실제 조작 요소(#tjoy · #tfire · #tbtn, game.js 가 터치 모드에서 만듦)를 그대로 끌어 올려 쓰므로 보이는 그대로 게임에 나옴.

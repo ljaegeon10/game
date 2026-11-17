@@ -104,7 +104,7 @@ let preImg = null;
 if (PRE && PRE.src) { const im = new Image(); im.onload = () => { preImg = im; }; im.onerror = () => { preImg = false; }; im.src = PRE.src; }
 const dust = Array.from({ length: 70 }, () => ({ x: rnd() * W, y: rnd() * H, r: (.5 + rnd() * 1.3) * K * .5, v: .08 + rnd() * .25, p: rnd() * 6.28, a: .15 + rnd() * .5 }));
 function draw() {
-  t++;
+  t += 2;                                  // 초당 30장 그리므로 2씩 (예전 60fps 의 t 와 같은 빠르기)
   const fl = .86 + .14 * Math.sin(t * .013) - (t % 311 > 300 ? .35 * rnd() : 0);       // 제목 빛의 숨 · 가끔 깜빡
   c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
   c.drawImage(wall, 0, 0);
@@ -141,6 +141,7 @@ function draw() {
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
 }
+let lastDraw = 0;
 function loop() {
   raf = 0;
   if (title.classList.contains('hidden') || document.hidden) return;          // 안 보이면 쉼 — sync() 가 다시 깨움
@@ -148,7 +149,7 @@ function loop() {
   // 인물 — 없으면 굽기. 실패하면(3D 가 아직 준비 안 됨 등) 1초 간격으로 몇 번 더 해 봄. 창 크기를 끄는 동안엔 멈출 때까지 기다림
   const now = performance.now();
   if (!fig && (!PRE || preImg === false) && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
-  if (!(t & 1) || t < 3) draw(); else t++;                                     // 한 장 건너 한 장 (30fps)
+  if (t < 3 || now - lastDraw >= 31) { draw(); lastDraw = now; }               // 초당 30장 — 화면이 60 · 120 · 144Hz 여도 같게
   raf = requestAnimationFrame(loop);
 }
 const sync = () => { if (!raf && !title.classList.contains('hidden') && !document.hidden) raf = requestAnimationFrame(loop); };
