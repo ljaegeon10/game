@@ -67,6 +67,11 @@ function settings_() {
   }
   return have;
 }
+function setSetting_(name, val) {                                    // 순위판 설정 탭의 한 칸 값만 바꿈 (없으면 settings_ 가 먼저 만들어 둠)
+  settings_();
+  const sh = sheet_(SETTINGS, ['항목', '값', '설명']), all = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+  const i = all.findIndex(r => String(r[0]).trim() === name); if (i >= 0) sh.getRange(i + 2, 2).setValue(val);
+}
 function sheet_(name, head) {
   const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
@@ -100,6 +105,10 @@ function doPost(e) {
     if (b.op === 'reqcancel') return out_(paySet_(b.id, '취소', ['대기']));
     if (b.op === 'payset') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });
       return out_(paySet_(b.id, b.status === '승인' ? '승인' : '거절', ['대기'])); }
+    if (b.op === 'payon') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });   // 승인 페이지의 유료 켬 / 끔 스위치
+      setSetting_('결제 승인', b.on ? '켬' : '끔');
+      if (!b.on) payRows_().rows.filter(r => r.status === '대기').forEach(r => paySet_(r.id, '무료', ['대기']));   // 기다리던 손님은 바로 시작
+      return out_({ ok: true, on: !!b.on }); }
     return out_({ ok: false, error: 'invalid' });
   } finally { lock.releaseLock(); }
 }

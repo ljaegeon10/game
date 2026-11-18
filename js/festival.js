@@ -569,6 +569,7 @@ async function payStart(onOk, onCancel) {
       const r = await fetch(SERVER + '?' + new URLSearchParams({ op: 'pay', id: st.id }), { redirect: 'follow', cache: 'no-store' }).then(x => x.json());
       if (payState !== st) return;
       if (r.ok && (r.status === '승인' || r.status === '사용')) { st.done = true; ticket = st.id; unspent = true; payView(j.no, '승인됐어요! 시작합니다', '', 'ok'); st.t = setTimeout(() => payClose(true), 700); return; }
+      if (r.ok && r.status === '무료') { st.done = true; ticket = null; payView(j.no, '지금은 무료예요! 시작합니다', '', 'ok'); st.t = setTimeout(() => payClose(true), 700); return; }   // 부스가 유료를 끔
       if (r.ok && r.status === '거절') { st.done = true; payView(j.no, '승인되지 않았어요', '부스에 물어봐 주세요', 'err', true); return; }
       if (r.ok && r.status === '취소') { st.done = true; payView(j.no, '요청이 취소됐어요', '', 'err', true); return; }
     } catch (e) {}

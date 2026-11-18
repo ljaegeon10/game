@@ -32,6 +32,17 @@ h1 small{ display:block; font-size:11px; letter-spacing:.24em; color:var(--dim);
 .stats div span{ font-size:11px; color:var(--dim); letter-spacing:.1em; }
 .off{ padding:10px 12px; border:1px dashed var(--hwang); color:var(--hwang); font-size:13px; line-height:1.5; }
 .off[hidden]{ display:none; }
+/* 유료 켬 / 끔 스위치 */
+.mode{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; background:var(--panel); border:1px solid var(--line); }
+.mode b{ display:block; font-weight:400; font-size:17px; }
+.mode span{ font-size:12px; color:var(--dim); }
+.mode.free b{ color:var(--glow); }
+#sw{ position:relative; flex:none; width:64px; height:34px; border:none; border-radius:17px; background:rgba(241,236,224,.18); cursor:pointer; transition:background .15s; }
+#sw i{ position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:var(--fg); transition:transform .15s; }
+#sw[aria-checked="true"]{ background:var(--ok); }
+#sw[aria-checked="true"] i{ transform:translateX(30px); }
+#sw:disabled{ opacity:.5; cursor:default; }
+@media (prefers-reduced-motion:reduce){ #sw, #sw i{ transition:none; } }
 h2{ margin:0 0 8px; font-weight:400; font-size:13px; letter-spacing:.2em; color:var(--dim); }
 #pend{ display:flex; flex-direction:column; gap:10px; }
 .card{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; padding:14px; background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--hwang); }
@@ -53,7 +64,7 @@ button:focus-visible{ outline:3px solid var(--fg); outline-offset:2px; }
 #recent .t{ color:var(--dim); font-size:12px; font-variant-numeric:tabular-nums; }
 .chip{ font-size:11px; padding:3px 7px 2px; letter-spacing:.08em; }
 .chip.s승인{ color:#08130e; background:var(--ok); } .chip.s사용{ color:var(--ok); border:1px solid var(--ok); }
-.chip.s거절{ color:#fff; background:var(--no); } .chip.s취소{ color:var(--dim); border:1px solid var(--line); }
+.chip.s무료{ color:var(--glow); border:1px solid var(--glow); } .chip.s거절{ color:#fff; background:var(--no); } .chip.s취소{ color:var(--dim); border:1px solid var(--line); }
 footer{ display:flex; justify-content:space-between; gap:10px; font-size:12px; color:var(--dim); }
 footer button{ font:inherit; font-size:12px; color:var(--dim); background:none; border:1px solid var(--line); padding:4px 10px; cursor:pointer; }
 #net i{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--glow); margin-right:6px; vertical-align:middle; }
@@ -78,7 +89,9 @@ footer button{ font:inherit; font-size:12px; color:var(--dim); background:none; 
     <h1><small>THE WELL BELOW · BOOTH</small>타임어택 결제 승인</h1>
     <div class="stats"><div><b id="sWait">0</b><span>대기</span></div><div><b id="sPaid">0</b><span>오늘 승인</span></div><div><b id="sWon">0</b><span>받은 돈</span></div></div>
   </header>
-  <p class="off" id="off" hidden>지금 시트 「순위판 설정」의 <b>결제 승인</b>이 <b>끔</b>이라 손님 게임은 승인 없이 바로 시작해요. 다시 받으려면 그 칸을 「켬」으로.</p>
+  <div class="mode" id="mode"><div><b id="modeT">유료 · 한 판 100원</b><span id="modeS">손님은 부스 승인을 받아야 시작해요</span></div>
+    <button type="button" id="sw" role="switch" aria-checked="true" aria-label="타임어택 유료"><i></i></button></div>
+  <p class="off" id="off" hidden>지금은 <b>무료</b> — 손님 게임은 승인 없이 바로 시작해요. 다시 돈을 받으려면 위 스위치를 켜세요.</p>
   <section><h2>기다리는 요청 · 돈 받고 번호 확인 → 승인</h2><div id="pend"><div class="empty">아직 요청이 없어요</div></div></section>
   <section><h2>오늘 처리한 것</h2><ul id="recent"></ul></section>
   <footer><span id="net"><i></i><span id="netText">연결 중…</span></span><button type="button" id="logout">관리 코드 지우기</button></footer>
@@ -136,7 +149,7 @@ function render() {
   const j = data; if (!j) return;
   const pend = j.pending.filter(p => !acting.has(p.id));
   $('sWait').textContent = pend.length; $('sPaid').textContent = j.paid + '판'; $('sWon').textContent = won(j.price, j.paid);
-  $('off').hidden = j.on !== false;
+  showMode(j.on !== false, j.price);
   document.title = (pend.length ? `(${pend.length}) ` : '') + '우물 아래 · 결제 승인';
   const box = $('pend'); box.textContent = '';
   const fresh = seen ? pend.filter(p => !seen.has(p.id)) : [];
@@ -159,6 +172,28 @@ function render() {
     li.append(mk('span', 'n', String(r.no)), nm, mk('span', 'chip s' + r.status, r.status), mk('span', 't', hm(r.done || r.at))); ul.appendChild(li); });
   if (!j.recent.length) ul.appendChild(mk('li', null, '—'));
 }
+/* ── 유료 켬 / 끔 — 시트 '순위판 설정' 의 '결제 승인' 칸을 바꿈 (게임은 다음 요청부터 따름) ── */
+let modeBusy = false;
+function showMode(on, price) {
+  if (modeBusy) return;
+  const sw = $('sw'); sw.setAttribute('aria-checked', String(on));
+  $('mode').classList.toggle('free', !on); $('off').hidden = on;
+  $('modeT').textContent = on ? `유료 · 한 판 ${price || '100원'}` : '무료 · 누구나 바로';
+  $('modeS').textContent = on ? '손님은 부스 승인을 받아야 시작해요' : '승인 없이 바로 시작 — 요청이 안 들어와요';
+}
+$('sw').addEventListener('click', async () => {
+  const sw = $('sw'), on = sw.getAttribute('aria-checked') !== 'true';
+  if (!on && data && data.pending.length && !confirm(`기다리는 요청 ${data.pending.length}개가 있어요. 그래도 무료로 바꿀까요?\n(기다리던 손님은 바로 시작돼요)`)) return;
+  sw.disabled = true; modeBusy = false; showMode(on, data && data.price); modeBusy = true;
+  try {
+    const j = await post({ op: 'payon', key: store.get(), on });
+    if (!j.ok) throw new Error(j.error || 'server');
+    toast(on ? '유료로 바꿨어요 — 다음 판부터 승인 필요' : '무료로 바꿨어요 — 승인 없이 바로 시작');
+  } catch (e) {
+    toast(e.message === 'invalid' ? '서버가 옛 버전이에요 — Apps Script 를 새 버전으로 배포해 주세요' : e.message === 'key' ? '관리 코드가 바뀌었어요' : '바꾸지 못했어요 — 다시 눌러 주세요');
+    modeBusy = false; showMode(!on, data && data.price);
+  } finally { sw.disabled = false; modeBusy = false; await poll(true); }
+});
 async function act(p, status, ok, no) {
   ok.disabled = no.disabled = true; acting.add(p.id); render();
   try {
