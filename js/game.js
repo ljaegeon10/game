@@ -751,6 +751,7 @@ function openDiffSelect() {
   $('modesel').classList.add('hidden');
   $('diffsel').classList.remove('hidden');
   G.mode = 'diffsel';
+  warmOpening(0);                               // 오프닝 3D 는 일반 모드를 고른 이때부터 미리 지음 (타임어택은 안 씀)
 }
 function closeDiffSelect() {                    // 메뉴에서 바로 들어왔으니 뒤로도 시작 화면으로
   $('diffsel').classList.add('hidden');
@@ -762,7 +763,8 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
    diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
-  if (window.WellShaft) WellShaft.prebake();    // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
+  if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
+  else if (window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
@@ -846,7 +848,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmOpening(2000);
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -5849,6 +5851,10 @@ function beginEnding() {
   $('subtitle').classList.add('hidden');
   $('ending').classList.remove('hidden');
   Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll();
+  if (G.timeAttack) {                           // 타임어택 — 엔딩 연출(입체로 일어서는 방 · 실험실 깨어남 3D) 없이 바로 기록 카드
+    const ec = $('endcv'), x = ec.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, ec.width, ec.height);
+    showEndCard(); return;
+  }
 
   const world = endingWorld();                  // 마지막 방 — 입체로 일어설 재료 (그리기 전에 떠 둠)
   endingScene = new EndingScene($('endcv'), {
@@ -6481,7 +6487,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
   }, 1000);
 })();
 
-onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); warmOpening(800); } };
-loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); warmOpening(1500); });
+onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); if (G.mode === 'diffsel') warmOpening(800); } };
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
 
 })();

@@ -17,19 +17,23 @@ const D = window.HAZMAT_DATA;
 if (!D) return;
 const NB = D.bones.length;
 
-/* ── 자료 풀기 ── */
-const raw = atob(D.bin), bytes = new Uint8Array(raw.length);
-for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-const f32 = k => new Float32Array(bytes.buffer, D.lay[k][0], D.lay[k][1]);
-const G = { pos: f32('pos'), nor: f32('nor'), uv: f32('uv'), tan: f32('tan'), jn: f32('jn'), wt: f32('wt'), ibm: f32('ibm'), anim: f32('anim'),
-            idx: new Uint16Array(bytes.buffer.slice(D.lay.idx[0], D.lay.idx[0] + D.lay.idx[1] * 2)) };
+/* ── 자료 풀기 — 처음 그릴 때(attach) 한 번만. 페이지를 열 때 1MB 넘게 풀던 것을 미뤄서
+      시작화면 · 타임어택(방호복 3D 를 안 씀)은 이 일을 아예 안 함 ── */
+let G = null, IMG = null, loaded = 0;
+function unpack() {
+  if (G) return;
+  const raw = atob(D.bin), bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const f32 = k => new Float32Array(bytes.buffer, D.lay[k][0], D.lay[k][1]);
+  G = { pos: f32('pos'), nor: f32('nor'), uv: f32('uv'), tan: f32('tan'), jn: f32('jn'), wt: f32('wt'), ibm: f32('ibm'), anim: f32('anim'),
+        idx: new Uint16Array(bytes.buffer.slice(D.lay.idx[0], D.lay.idx[0] + D.lay.idx[1] * 2)) };
+  /* 텍스처 — 다 풀리기 전엔 그리지 않고 false 를 돌려줘 예전 방식으로 */
+  IMG = {};
+  for (const k of ['base', 'normal', 'orm']) { const im = new Image(); im.onload = () => { loaded++; }; im.src = D.tex[k]; IMG[k] = im; }
+}
 const BI = {}; D.bones.forEach((b, i) => BI[b.name] = i);
-
-/* 텍스처 — 미리 풀어 둠 (다 풀리기 전엔 그리지 않고 false 를 돌려줘 예전 방식으로) */
-const IMG = {}; let loaded = 0;
-for (const k of ['base', 'normal', 'orm']) { const im = new Image(); im.onload = () => { loaded++; }; im.src = D.tex[k]; IMG[k] = im; }
-const ready = () => loaded === 3;
-const whenReady = () => Promise.all(Object.values(IMG).map(im => im.decode ? im.decode().catch(() => {}) : Promise.resolve()));
+const ready = () => { unpack(); return loaded === 3; };
+const whenReady = () => { unpack(); return Promise.all(Object.values(IMG).map(im => im.decode ? im.decode().catch(() => {}) : Promise.resolve())); };
 
 /* ── 사원수 · 행렬 ── */
 const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
@@ -174,6 +178,7 @@ void main(){
 }`;
 
 function attach(gl) {
+  unpack();
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   let pr;
   try {

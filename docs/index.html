@@ -1720,7 +1720,7 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1794960882"></script>
+<script src="festival-config.js?v=1794961247"></script>
 
 <div id="frame">
   <div id="stage">
@@ -8839,19 +8839,23 @@ const D = window.HAZMAT_DATA;
 if (!D) return;
 const NB = D.bones.length;
 
-/* ── 자료 풀기 ── */
-const raw = atob(D.bin), bytes = new Uint8Array(raw.length);
-for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-const f32 = k => new Float32Array(bytes.buffer, D.lay[k][0], D.lay[k][1]);
-const G = { pos: f32('pos'), nor: f32('nor'), uv: f32('uv'), tan: f32('tan'), jn: f32('jn'), wt: f32('wt'), ibm: f32('ibm'), anim: f32('anim'),
-            idx: new Uint16Array(bytes.buffer.slice(D.lay.idx[0], D.lay.idx[0] + D.lay.idx[1] * 2)) };
+/* ── 자료 풀기 — 처음 그릴 때(attach) 한 번만. 페이지를 열 때 1MB 넘게 풀던 것을 미뤄서
+      시작화면 · 타임어택(방호복 3D 를 안 씀)은 이 일을 아예 안 함 ── */
+let G = null, IMG = null, loaded = 0;
+function unpack() {
+  if (G) return;
+  const raw = atob(D.bin), bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const f32 = k => new Float32Array(bytes.buffer, D.lay[k][0], D.lay[k][1]);
+  G = { pos: f32('pos'), nor: f32('nor'), uv: f32('uv'), tan: f32('tan'), jn: f32('jn'), wt: f32('wt'), ibm: f32('ibm'), anim: f32('anim'),
+        idx: new Uint16Array(bytes.buffer.slice(D.lay.idx[0], D.lay.idx[0] + D.lay.idx[1] * 2)) };
+  /* 텍스처 — 다 풀리기 전엔 그리지 않고 false 를 돌려줘 예전 방식으로 */
+  IMG = {};
+  for (const k of ['base', 'normal', 'orm']) { const im = new Image(); im.onload = () => { loaded++; }; im.src = D.tex[k]; IMG[k] = im; }
+}
 const BI = {}; D.bones.forEach((b, i) => BI[b.name] = i);
-
-/* 텍스처 — 미리 풀어 둠 (다 풀리기 전엔 그리지 않고 false 를 돌려줘 예전 방식으로) */
-const IMG = {}; let loaded = 0;
-for (const k of ['base', 'normal', 'orm']) { const im = new Image(); im.onload = () => { loaded++; }; im.src = D.tex[k]; IMG[k] = im; }
-const ready = () => loaded === 3;
-const whenReady = () => Promise.all(Object.values(IMG).map(im => im.decode ? im.decode().catch(() => {}) : Promise.resolve()));
+const ready = () => { unpack(); return loaded === 3; };
+const whenReady = () => { unpack(); return Promise.all(Object.values(IMG).map(im => im.decode ? im.decode().catch(() => {}) : Promise.resolve())); };
 
 /* ── 사원수 · 행렬 ── */
 const qmul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
@@ -8996,6 +9000,7 @@ void main(){
 }`;
 
 function attach(gl) {
+  unpack();
   const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
   let pr;
   try {
@@ -17183,6 +17188,7 @@ function openDiffSelect() {
   $('modesel').classList.add('hidden');
   $('diffsel').classList.remove('hidden');
   G.mode = 'diffsel';
+  warmOpening(0);                               // 오프닝 3D 는 일반 모드를 고른 이때부터 미리 지음 (타임어택은 안 씀)
 }
 function closeDiffSelect() {                    // 메뉴에서 바로 들어왔으니 뒤로도 시작 화면으로
   $('diffsel').classList.add('hidden');
@@ -17194,7 +17200,8 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
    diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
-  if (window.WellShaft) WellShaft.prebake();    // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
+  if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
+  else if (window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
@@ -17278,7 +17285,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmOpening(2000);
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -22281,6 +22288,10 @@ function beginEnding() {
   $('subtitle').classList.add('hidden');
   $('ending').classList.remove('hidden');
   Sfx.ambientStop(); Sfx.dungeonBgm(false); Sfx.bossBgmStopAll();
+  if (G.timeAttack) {                           // 타임어택 — 엔딩 연출(입체로 일어서는 방 · 실험실 깨어남 3D) 없이 바로 기록 카드
+    const ec = $('endcv'), x = ec.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, ec.width, ec.height);
+    showEndCard(); return;
+  }
 
   const world = endingWorld();                  // 마지막 방 — 입체로 일어설 재료 (그리기 전에 떠 둠)
   endingScene = new EndingScene($('endcv'), {
@@ -22913,8 +22924,8 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
   }, 1000);
 })();
 
-onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); warmOpening(800); } };
-loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); warmOpening(1500); });
+onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); if (G.mode === 'diffsel') warmOpening(800); } };
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
 
 })();
 
