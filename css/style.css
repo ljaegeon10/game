@@ -50,7 +50,7 @@ html,body{
   -webkit-tap-highlight-color:transparent;
   -webkit-touch-callout:none;
   -webkit-user-select:none; user-select:none;
-  touch-action:manipulation;
+  touch-action:pan-x pan-y;                 /* manipulation 은 두 손가락 확대를 허락해서 — 끌기(목록 넘기기)만 */
 }
 /* 게임 화면(캔버스)은 손가락 움직임을 전부 게임이 받도록 — 끌어도 화면이 밀리거나 확대되지 않게 */
 canvas, #stage, #ending{ touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -1578,7 +1578,12 @@ body.cine #maplegend{ opacity:0; }
 /* 휴대폰 — 버튼 · 조이스틱 자리에서 두 번 톡 확대 · 길게 눌러 선택 막기 */
 body.touch, body.touch *{ -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
 #tbtn, #tpause, #tfs{ touch-action:none; }
-html{ touch-action:manipulation; }
+html{ touch-action:pan-x pan-y; }
+/* 그래도 확대됐을 때(삼성 인터넷 · '모든 페이지 확대' 설정 · iOS) — 게임 화면도 두 손가락으로 오므릴 수 있게 열고 안내 */
+body.zoomed, body.zoomed *{ touch-action:pinch-zoom !important; }
+#unzoom{ position:fixed; left:50%; top:max(10px, env(safe-area-inset-top, 0px)); transform:translateX(-50%); z-index:9999; display:none;
+  padding:8px 14px; font:inherit; font-size:14px; color:var(--baek, #f1ece0); background:rgba(10,9,14,.92); border:1px solid rgba(241,236,224,.35); white-space:nowrap; }
+body.zoomed #unzoom{ display:block; }
 
 /* 축제판 — 전에 한 사람 (이 기기에 기억, festival.js 의 PLKEY) : 이름 칩 한 번 누르기 */
 #fe-recent{ display:flex; flex-direction:column; gap:5px; padding:7px 8px 6px; border:1px solid rgba(227,178,60,.35); background:rgba(227,178,60,.05); }

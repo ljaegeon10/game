@@ -67,7 +67,7 @@ html,body{
   -webkit-tap-highlight-color:transparent;
   -webkit-touch-callout:none;
   -webkit-user-select:none; user-select:none;
-  touch-action:manipulation;
+  touch-action:pan-x pan-y;                 /* manipulation 은 두 손가락 확대를 허락해서 — 끌기(목록 넘기기)만 */
 }
 /* 게임 화면(캔버스)은 손가락 움직임을 전부 게임이 받도록 — 끌어도 화면이 밀리거나 확대되지 않게 */
 canvas, #stage, #ending{ touch-action:none; -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
@@ -1595,7 +1595,12 @@ body.cine #maplegend{ opacity:0; }
 /* 휴대폰 — 버튼 · 조이스틱 자리에서 두 번 톡 확대 · 길게 눌러 선택 막기 */
 body.touch, body.touch *{ -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent; }
 #tbtn, #tpause, #tfs{ touch-action:none; }
-html{ touch-action:manipulation; }
+html{ touch-action:pan-x pan-y; }
+/* 그래도 확대됐을 때(삼성 인터넷 · '모든 페이지 확대' 설정 · iOS) — 게임 화면도 두 손가락으로 오므릴 수 있게 열고 안내 */
+body.zoomed, body.zoomed *{ touch-action:pinch-zoom !important; }
+#unzoom{ position:fixed; left:50%; top:max(10px, env(safe-area-inset-top, 0px)); transform:translateX(-50%); z-index:9999; display:none;
+  padding:8px 14px; font:inherit; font-size:14px; color:var(--baek, #f1ece0); background:rgba(10,9,14,.92); border:1px solid rgba(241,236,224,.35); white-space:nowrap; }
+body.zoomed #unzoom{ display:block; }
 
 /* 축제판 — 전에 한 사람 (이 기기에 기억, festival.js 의 PLKEY) : 이름 칩 한 번 누르기 */
 #fe-recent{ display:flex; flex-direction:column; gap:5px; padding:7px 8px 6px; border:1px solid rgba(227,178,60,.35); background:rgba(227,178,60,.05); }
@@ -16484,7 +16489,10 @@ addEventListener('load', reclaimFocus);
    (CSS 의 user-select · touch-callout 만으로는 iPadOS Safari 가 가끔 선택 영역을 띄워서 이벤트에서도 한 번 더) */
 const notField = e => !(e.target && e.target.closest && e.target.closest('input, textarea'));
 ['contextmenu', 'selectstart', 'dragstart'].forEach(n => addEventListener(n, e => { if (notField(e)) e.preventDefault(); }, { capture: true }));
-addEventListener('gesturestart', e => e.preventDefault());
+const zoomed = () => !!(window.visualViewport && visualViewport.scale > 1.01);
+['gesturestart', 'gesturechange'].forEach(n => addEventListener(n, e => { if (!zoomed()) e.preventDefault(); }, { passive: false }));   // iOS 두 손가락 확대 (확대돼 있으면 오므리는 건 허락)
+/* 두 손가락이 같이 움직이면(조이스틱 둘을 함께 · 메뉴 위에서 엄지 둘) 확대로 넘어가지 않게 — 게임 쪽 입력은 그대로 받음 */
+addEventListener('touchmove', e => { if (e.touches.length > 1 && e.cancelable && !zoomed()) e.preventDefault(); }, { passive: false });
 /* 휴대폰 — 두 번 톡(조사 버튼 연타 등)에 화면이 확대되고, touch-action:none 때문에 되돌릴 수도 없던 것 :
    ① 빠른 두 번째 톡의 기본 동작(두 번 톡 확대)을 막고 ② 그래도 확대돼 있으면 배율 1 로 되돌림 */
 { let lastEnd = 0;
@@ -16496,14 +16504,25 @@ addEventListener('gesturestart', e => e.preventDefault());
   }, { passive: false });
   addEventListener('dblclick', e => e.preventDefault(), { passive: false });
   const vp = document.querySelector('meta[name=viewport]'), base = vp && vp.getAttribute('content');
+  let hint = null;
+  const mark = () => {                                    // 확대돼 있는 동안 body.zoomed — 게임 화면도 오므릴 수 있게 열고 안내 띄움
+    const z = zoomed(); document.body.classList.toggle('zoomed', z);
+    if (z && !hint) { hint = document.createElement('button'); hint.id = 'unzoom'; hint.type = 'button'; hint.textContent = '화면이 확대됐어요 — 두 손가락으로 오므리거나 여기를 누르세요';
+      hint.addEventListener('click', () => { unzoom(); setTimeout(mark, 300); }); document.body.appendChild(hint); }
+    if (z && hint) { const v = visualViewport;               // 확대된 화면에선 fixed 가 보이는 곳 밖에 있을 수 있어 — 지금 보이는 곳 위쪽 가운데에 원래 크기로
+      hint.style.left = (v.offsetLeft + v.width / 2) + 'px'; hint.style.top = (v.offsetTop + 10 / v.scale) + 'px';
+      hint.style.transformOrigin = '50% 0'; hint.style.transform = `translateX(-50%) scale(${1 / v.scale})`; }
+  };
   const unzoom = () => {
-    if (!vp || !window.visualViewport || visualViewport.scale <= 1.01) return;
+    mark();
+    if (!vp || !zoomed()) return;
     vp.setAttribute('content', base.replace('maximum-scale=1', 'maximum-scale=1.0001'));   // 같은 값을 다시 넣으면 무시하는 브라우저가 있어 살짝 바꿔 넣었다가
     setTimeout(() => vp.setAttribute('content', base), 60);
     window.scrollTo(0, 0);
   };
-  if (window.visualViewport) visualViewport.addEventListener('resize', () => setTimeout(unzoom, 120));
-  setInterval(unzoom, 1500);
+  if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(unzoom, 120)); visualViewport.addEventListener('scroll', mark); }
+  addEventListener('focusout', e => { if (e.target && e.target.matches && e.target.matches('input, textarea')) setTimeout(() => { window.scrollTo(0, 0); unzoom(); }, 150); });   // 글자 입력 뒤 밀린 · 커진 화면
+  setInterval(unzoom, 1000);
 }           // 두 손가락 확대로 화면이 흐려지며 커지는 것도
 
 const key = {};
