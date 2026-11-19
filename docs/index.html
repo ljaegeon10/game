@@ -1721,7 +1721,7 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795083996"></script>
+<script src="festival-config.js?v=1795084693"></script>
 
 <div id="frame">
   <div id="stage">
@@ -16557,7 +16557,9 @@ let mouse = { x: 0, y: 0, down: false };
 addEventListener('keydown', e => {
   if (!notField(e)) return;                         // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
-  if (e.repeat) return;
+  const code = physCode(e);
+  if (code && !e.code) Object.defineProperty(e, 'code', { value: code });   // 한글 입력기가 자리를 빼먹은 키 — keyCode 로 채움
+  if (e.repeat) { if (code) codeDown[code] = true; return; }
   // 같은 자리(물리 키)를 누를 때와 뗄 때 글자가 다를 수 있음 — Shift · Caps Lock · 한/영 전환(w → W · ㅈ).
   // 그래서 "이 키 자리로 누른 글자"를 기억해 두었다가 뗄 때 그 글자를 놓습니다 (예전엔 여기서 키가 눌린 채로 굳었음)
   if (keyOfCode[e.code] && keyOfCode[e.code] !== e.key) key[keyOfCode[e.code]] = false;
@@ -16596,11 +16598,28 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => {
   key[e.key] = false;
-  if (keyOfCode[e.code]) key[keyOfCode[e.code]] = false;
-  delete keyOfCode[e.code]; codeDown[e.code] = false;
+  const code = physCode(e);
+  if (keyOfCode[code]) key[keyOfCode[code]] = false;
+  (ALIAS[code] || []).forEach(k => { key[k] = false; });          // 그 자리의 글자는 모두 (a · A · ㅁ · 입력기 'Process')
+  delete keyOfCode[code]; codeDown[code] = false;
+  if (!code) releaseMoves();                                         // 어느 키인지 끝내 모르는 뗌 (한글 입력기 229) — 이동 키를 다 놓음 (아직 누르고 있으면 다음 반복 입력에 다시 잡힘)
 });
 /* 창을 벗어나면(알트탭 · 다른 창 클릭 · 탭 전환) 그 사이 뗀 키는 keyup 이 안 옴 — 전부 놓은 걸로 */
 const keyOfCode = {}, codeDown = {};
+/* 키의 물리 자리 — 윈도우 한글 입력기(한/영 '한' 상태)는 가끔 e.code 를 비우고 keyCode 229 · key 'Process' 로 보냄.
+   그럼 뗄 때 어느 키인지 몰라 이동 키가 눌린 채로 굳어 한쪽으로 계속 걸었음 (갤럭시북 등) → keyCode 로 자리를 되찾음 */
+const KC_CODE = { 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown', 32: 'Space', 13: 'Enter', 27: 'Escape' };
+function physCode(e) {
+  if (e.code) return e.code;
+  const c = e.keyCode || e.which;
+  if (c >= 65 && c <= 90) return 'Key' + String.fromCharCode(c);
+  if (c >= 48 && c <= 57) return 'Digit' + (c - 48);
+  return KC_CODE[c] || '';
+}
+const ALIAS = { KeyW: ['w', 'W', 'ㅈ', 'ㅉ', 'Process'], KeyA: ['a', 'A', 'ㅁ', 'Process'], KeyS: ['s', 'S', 'ㄴ', 'Process'], KeyD: ['d', 'D', 'ㅇ', 'Process'] };
+function releaseMoves() {
+  ['KeyW', 'KeyA', 'KeyS', 'KeyD'].forEach(c => { codeDown[c] = false; delete keyOfCode[c]; ALIAS[c].forEach(k => { key[k] = false; }); });
+}
 function releaseAll() {
   for (const k in key) key[k] = false;
   for (const c in codeDown) codeDown[c] = false;
@@ -16608,6 +16627,7 @@ function releaseAll() {
   mouse.down = false;
 }
 addEventListener('blur', releaseAll);
+addEventListener('focus', releaseAll);                                // 돌아왔을 때도 — 다른 창(입력기 후보 창 · 알림)에 키를 뺏겼다 온 경우
 document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
 addEventListener('contextmenu', releaseAll);
 /* 화면을 누르고 있는지 — 컷신 "길게 눌러 건너뛰기" (터치 · 마우스) */
