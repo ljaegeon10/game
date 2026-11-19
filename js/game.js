@@ -6317,6 +6317,21 @@ $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
    그래서 논리 갱신은 항상 초당 60번으로 고정하고, 화면만 주사율대로 그립니다. */
 const STEP = 1000 / 60;
 let lastT = 0, acc = 0;
+/* 화면 박자에 맞춰 dt 를 다듬음 — 120Hz(갤럭시북 · 갤럭시탭) 화면은 한 장이 8.33ms 인데 실제 값이 7 · 9.5 처럼 흔들려서,
+   게임 한 칸(16.67ms)이 「두 장에 한 번」이 아니라 0 · 2 · 1 · 0 … 처럼 들쭉날쭉 → 움직임이 툭툭 끊겨 보였음.
+   그래서 화면 한 장의 길이(vs)를 계속 재 두고(흔한 주사율에 가까우면 그 값), 이번 장이 몇 장 분인지(k)만 세어 k × vs 로 셈.
+   시뮬레이션(120Hz · ±1.2ms 흔들림) : 고르지 않은 장 51번 → 2번 */
+const VSYNC = [60, 120, 144, 90, 75, 165, 240, 100].map(hz => 1000 / hz);
+let vsMs = 0;
+function snapDt(dt) {
+  if (dt < 3 || dt > 120) return dt;
+  if (!vsMs) vsMs = dt;
+  const k = Math.max(1, Math.round(dt / vsMs));
+  if (Math.abs(dt - k * vsMs) > vsMs * .4) { vsMs = dt; return dt; }   // 주사율이 바뀜 (다른 화면으로 창을 옮김 등)
+  vsMs += (dt / k - vsMs) * .05;
+  let r = vsMs; for (const q of VSYNC) if (Math.abs(vsMs - q) < q * .03) { r = q; break; }
+  return k * r;
+}
 
 let _topview = null;
 function loop(now) {
@@ -6328,11 +6343,12 @@ function loop(now) {
 
   // 탭을 잠깐 벗어났다 돌아온 경우엔 밀린 시간을 한꺼번에 몰아 돌리지 않습니다
   if (dt > 250) dt = STEP;
-  acc += dt;
+  acc += snapDt(dt);
 
   if (PAUSE.on) { acc = 0; return; }              // 일시정지 — 멈춘 그 장 그대로 (다시 그리지도 않음)
   let steps = 0;
-  while (acc >= STEP && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; if (!G.timeAttack) G.normF = (G.normF || 0) + 1; }   // normF : 일반 모드 플레이 시간(칸) — 어려움 클리어 기록용
+  // 4ms 여유 — 칸 경계에서 이번 장 / 다음 장을 오가며 흔들리지 않게
+  while (acc >= STEP * .75 && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; if (!G.timeAttack) G.normF = (G.normF || 0) + 1; }   // normF : 일반 모드 플레이 시간(칸) — 어려움 클리어 기록용
   if (acc > STEP * 5) acc = 0;
   if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
   if (window.Perf) Perf.frame(now);

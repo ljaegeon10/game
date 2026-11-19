@@ -130,16 +130,18 @@ const Perf = (() => {
     if (f === 30) { const a = Math.min(4, (accSteps[key] || 0) + steps); if (a < 2) { accSteps[key] = a; return false; } accSteps[key] = a - 2; }
     frame(now); return true;
   }
-  let t0 = 0, n = 0, last = 0, bad = 0;
+  let t0 = 0, n = 0, last = 0, bad = 0, hitch = 0;
   function frame(now) {
     if (S.lite !== 'auto' || P.low) return;
     now = now || performance.now();
-    if (!t0 || now - last > 300 || document.hidden) { t0 = now; n = 0; last = now; return; }   // 멈췄다 돌아온 틈은 빼고
+    if (!t0 || now - last > 300 || document.hidden) { t0 = now; n = 0; hitch = 0; last = now; return; }   // 멈췄다 돌아온 틈은 빼고
+    if (now - last > (S.fps === 30 ? 75 : 40)) hitch++;  // 툭 멈춘 장 (60 기준 두 장 반 넘게 걸림) — 평균은 괜찮아도 끊겨 보이는 것
     last = now; n++;
     if (now - t0 < 2000) return;
     const fps = n * 1000 / (now - t0); t0 = now; n = 0;
-    bad = fps < (S.fps === 30 ? 24 : 45) ? bad + 1 : 0;   // 30 으로 정했으면 그 기준
-    if (bad >= 3) { P.set(true); try { localStorage.setItem('wellbelow.lowfx', '1'); } catch (e) {} }   // 이 기기는 다음에도 가볍게 시작
+    bad = fps < (S.fps === 30 ? 24 : 45) || hitch >= 6 ? bad + 1 : 0;   // 30 으로 정했으면 그 기준 · 2초에 6번 넘게 툭툭 멈춰도
+    hitch = 0;
+    if (bad >= 2) { P.set(true); try { localStorage.setItem('wellbelow.lowfx', '1'); } catch (e) {} }   // 이 기기는 다음에도 가볍게 시작
   }
   let mem = false; try { mem = localStorage.getItem('wellbelow.lowfx') === '1'; } catch (e) {}
   P.set(S.lite === 'on' || (S.lite === 'auto' && mem));

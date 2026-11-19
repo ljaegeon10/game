@@ -66,6 +66,7 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
 /* ── 겹 하나 (탑뷰 화면 전체) — 탄 · 고리 · 예고선 ── */
 let lCv = null, lX = null, lHost = null, lUsed = false;
 function layerBegin(g) {
+  if (window.Perf && Perf.low && !lUsed) return g;             // 가벼운 화면 — 화면 전체를 픽셀마다 다시 칠하는 정리를 건너뛰고 바로 그림
   const cv = g.canvas;
   if (!lCv) { lCv = document.createElement('canvas'); lX = lCv.getContext('2d', { willReadFrequently: true }); }
   if (lCv.width !== cv.width || lCv.height !== cv.height) { lCv.width = cv.width; lCv.height = cv.height; }

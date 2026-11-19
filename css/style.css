@@ -104,7 +104,8 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
     to bottom,
     rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
     rgba(0,0,0,.20) 3px, rgba(0,0,0,.20) 4px);
-  mix-blend-mode:multiply;
+  /* mix-blend-mode:multiply 였음 — 검은 줄을 곱하는 건 그냥 반투명 검정을 얹는 것과 같은데,
+     곱하기 섞기는 화면 전체를 매 장 한 번 더 따로 그려야 해서 고해상도 노트북(갤럭시북 3K)에서 무거웠음 */
   opacity:.22;
 }
 #vignette{
@@ -1646,7 +1647,7 @@ body.tledit .tl-on{ outline:2px dashed var(--hwang); outline-offset:6px; }
 
 /* 가벼운 화면 (settings.js 의 Perf) — 끊기는 기기에서 화면 효과를 걷어냄 */
 html.lowfx body.topview #game{ filter:none; }
-html.lowfx #crt, html.lowfx #crt::after{ display:none !important; }
+html.lowfx #crt, html.lowfx #crt::after, html.lowfx #scanlines, html.lowfx #vignette{ display:none !important; }
 html.lowfx body.topview #stage{ box-shadow:none; }
 html.lowfx .tl-glow{ filter:none; animation:none; }
 html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(#tabrief:not(.hidden)) #titlecv{ filter:brightness(.28); }
