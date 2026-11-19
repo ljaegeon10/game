@@ -22819,20 +22819,30 @@ $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });
    그래서 논리 갱신은 항상 초당 60번으로 고정하고, 화면만 주사율대로 그립니다. */
 const STEP = 1000 / 60;
 let lastT = 0, acc = 0;
-/* 화면 박자에 맞춰 dt 를 다듬음 — 120Hz(갤럭시북 · 갤럭시탭) 화면은 한 장이 8.33ms 인데 실제 값이 7 · 9.5 처럼 흔들려서,
-   게임 한 칸(16.67ms)이 「두 장에 한 번」이 아니라 0 · 2 · 1 · 0 … 처럼 들쭉날쭉 → 움직임이 툭툭 끊겨 보였음.
-   그래서 화면 한 장의 길이(vs)를 계속 재 두고(흔한 주사율에 가까우면 그 값), 이번 장이 몇 장 분인지(k)만 세어 k × vs 로 셈.
-   시뮬레이션(120Hz · ±1.2ms 흔들림) : 고르지 않은 장 51번 → 2번 */
-const VSYNC = [60, 120, 144, 90, 75, 165, 240, 100].map(hz => 1000 / hz);
-let vsMs = 0;
+/* 화면 박자에 맞춰 dt 를 다듬음 — 120Hz · 240Hz 화면은 한 장 간격이 조금씩 흔들려서, 게임 한 칸(16.67ms)이
+   「n 장에 한 번」이 아니라 들쭉날쭉 → 움직임이 툭툭 끊겨 보였음.
+   ① 최근 60장의 간격 중앙값으로 화면 주사율(R)을 잼 (흔한 값 60 · 120 · 144 · 240 … 에 가까우면 그 값)
+   ② 간격들이 R 의 배수에 잘 맞을 때만(85%↑) 맞춤 — 가변 주사율(G-Sync · FreeSync · 갤럭시북 화면)은 간격이 제멋대로라 그대로 씀
+   ③ 맞춘 시간과 실제 시간의 차(debt)가 반 장을 넘으면 바로 되돌림 → 게임 속도가 실제와 절대 벌어지지 않음
+   (예전 판은 ②③ 이 없어 가변 주사율에서 기준을 자꾸 새로 잡다 게임 시간이 최대 0.34초 앞서고 속도가 출렁였음 — 240Hz 렉) */
+const VSYNC = [60, 75, 90, 100, 120, 144, 165, 180, 200, 240, 280, 360].map(hz => 1000 / hz);
+let vsR = 0, vsOk = false, vsDebt = 0, vsN = 0;
+const vsBuf = [];
 function snapDt(dt) {
-  if (dt < 3 || dt > 120) return dt;
-  if (!vsMs) vsMs = dt;
-  const k = Math.max(1, Math.round(dt / vsMs));
-  if (Math.abs(dt - k * vsMs) > vsMs * .4) { vsMs = dt; return dt; }   // 주사율이 바뀜 (다른 화면으로 창을 옮김 등)
-  vsMs += (dt / k - vsMs) * .05;
-  let r = vsMs; for (const q of VSYNC) if (Math.abs(vsMs - q) < q * .03) { r = q; break; }
-  return k * r;
+  if (dt <= 0 || dt > 120) return dt;
+  vsBuf.push(dt); if (vsBuf.length > 60) vsBuf.shift();
+  if (vsBuf.length >= 30 && ++vsN % 15 === 0) {                      // 15장마다 다시 잼
+    const srt = vsBuf.slice().sort((a, b) => a - b), med = srt[srt.length >> 1];
+    let r = med; for (const q of VSYNC) if (Math.abs(med - q) < q * .04) { r = q; break; }
+    const fit = vsBuf.filter(d => { const k = Math.max(1, Math.round(d / r)); return Math.abs(d - k * r) < r * .15; }).length / vsBuf.length;
+    vsR = r; vsOk = fit > .85;
+  }
+  if (!vsOk) { vsDebt = 0; return dt; }
+  const k = Math.max(1, Math.round(dt / vsR));
+  let out = Math.abs(dt - k * vsR) > vsR * .3 ? dt : k * vsR;      // 박자를 벗어난 장은 그대로
+  vsDebt += dt - out;
+  if (Math.abs(vsDebt) > vsR * .5) { out += vsDebt; vsDebt = 0; }   // 실제 시간과 반 장 넘게 벌어지면 바로 맞춤
+  return out;
 }
 
 let _topview = null;
