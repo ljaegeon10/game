@@ -95,6 +95,7 @@ function open(cb) {
 }
 function close() {
   if (!el || el.classList.contains('hidden')) return;
+  if (el.contains(document.activeElement)) document.activeElement.blur();   // 체크박스 · 슬라이더에 포커스가 남아 게임 키를 먹지 않게
   el.classList.add('hidden'); document.body.classList.remove('settings-open');
   const f = onClose; onClose = null; if (f) f();
 }

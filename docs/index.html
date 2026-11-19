@@ -1721,7 +1721,7 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795087121"></script>
+<script src="festival-config.js?v=1795087435"></script>
 
 <div id="frame">
   <div id="stage">
@@ -2240,6 +2240,7 @@ function open(cb) {
 }
 function close() {
   if (!el || el.classList.contains('hidden')) return;
+  if (el.contains(document.activeElement)) document.activeElement.blur();   // 체크박스 · 슬라이더에 포커스가 남아 게임 키를 먹지 않게
   el.classList.add('hidden'); document.body.classList.remove('settings-open');
   const f = onClose; onClose = null; if (f) f();
 }
@@ -16596,16 +16597,23 @@ const key = {};
 const AIM = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 let mouse = { x: 0, y: 0, down: false };
 
+/* 지금 글자를 적는 중인지 — 보이는 글자 칸(이름 · 연락처 · 관리 코드)만. 예전엔 input 이면 다 그래서,
+   설정의 체크박스(가벼운 화면) · 슬라이더(감도)를 누른 뒤 포커스가 거기 남으면 게임 키가 통째로 씹혔음 */
+const TEXT_FIELD = 'textarea, input:not([type]), input[type=text], input[type=tel], input[type=number], input[type=search], input[type=email], input[type=password], [contenteditable=""], [contenteditable=true]';
+const typing = e => { const t = e.target; return !!(t && t.closest && t.closest(TEXT_FIELD) && t.getClientRects().length && !t.closest('.hidden')); };
 addEventListener('keydown', e => {
-  if (!notField(e)) return;                         // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
+  if (typing(e)) return;                            // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
+  { const a = document.activeElement;               // 게임 중인데 단추 · 체크박스 · 슬라이더에 포커스가 남았으면 놓음 (스페이스가 그걸 또 누르지 않게)
+    if (a && a !== document.body && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   const code = physCode(e);
   if (code && !e.code) Object.defineProperty(e, 'code', { value: code });   // 한글 입력기가 자리를 빼먹은 키 — keyCode 로 채움
   if (e.repeat) { if (code) codeDown[code] = true; return; }
+  for (let i = pendingUp.length; i--;) if (physCode(pendingUp[i]) === code) pendingUp.splice(i, 1);   // 톡 뗐다 바로 또 누름 — 미뤄 둔 뗌은 버림
   // 같은 자리(물리 키)를 누를 때와 뗄 때 글자가 다를 수 있음 — Shift · Caps Lock · 한/영 전환(w → W · ㅈ).
   // 그래서 "이 키 자리로 누른 글자"를 기억해 두었다가 뗄 때 그 글자를 놓습니다 (예전엔 여기서 키가 눌린 채로 굳었음)
   if (keyOfCode[e.code] && keyOfCode[e.code] !== e.key) key[keyOfCode[e.code]] = false;
-  if (e.code) { keyOfCode[e.code] = e.key; codeDown[e.code] = true; }
+  if (e.code) { keyOfCode[e.code] = e.key; codeDown[e.code] = true; downTick[e.code] = tickN; }
   key[e.key] = true;
   const k = e.key.toLowerCase();
   konamiKey(e.code);
@@ -16639,13 +16647,25 @@ addEventListener('keydown', e => {
   }
 });
 addEventListener('keyup', e => {
+  const code = physCode(e);
+  if (code && downTick[code] === tickN) { pendingUp.push(e); return; }   // 누르고 아직 게임이 한 칸도 안 움직였음 — 한 칸 뒤에 뗌 (짧은 톡이 씹히지 않게)
+  keyRelease(e);
+});
+function keyRelease(e) {
   key[e.key] = false;
   const code = physCode(e);
   if (keyOfCode[code]) key[keyOfCode[code]] = false;
   (ALIAS[code] || []).forEach(k => { key[k] = false; });          // 그 자리의 글자는 모두 (a · A · ㅁ · 입력기 'Process')
   delete keyOfCode[code]; codeDown[code] = false;
   if (!code) releaseMoves();                                         // 어느 키인지 끝내 모르는 뗌 (한글 입력기 229) — 이동 키를 다 놓음 (아직 누르고 있으면 다음 반복 입력에 다시 잡힘)
-});
+}
+/* 게임 한 칸(update)마다 tickN++ — 그 사이에 누르고 뗀 키는 다음 칸 뒤에 놓음 */
+let tickN = 0;
+const downTick = {}, pendingUp = [];
+function afterTick() {
+  tickN++;
+  if (pendingUp.length) pendingUp.splice(0).forEach(keyRelease);
+}
 /* 창을 벗어나면(알트탭 · 다른 창 클릭 · 탭 전환) 그 사이 뗀 키는 keyup 이 안 옴 — 전부 놓은 걸로 */
 const keyOfCode = {}, codeDown = {};
 /* 키의 물리 자리 — 윈도우 한글 입력기(한/영 '한' 상태)는 가끔 e.code 를 비우고 keyCode 229 · key 'Process' 로 보냄.
@@ -16663,6 +16683,7 @@ function releaseMoves() {
   ['KeyW', 'KeyA', 'KeyS', 'KeyD'].forEach(c => { codeDown[c] = false; delete keyOfCode[c]; ALIAS[c].forEach(k => { key[k] = false; }); });
 }
 function releaseAll() {
+  pendingUp.length = 0;
   for (const k in key) key[k] = false;
   for (const c in codeDown) codeDown[c] = false;
   for (const c in keyOfCode) delete keyOfCode[c];
@@ -22861,7 +22882,7 @@ function loop(now) {
   if (PAUSE.on) { acc = 0; return; }              // 일시정지 — 멈춘 그 장 그대로 (다시 그리지도 않음)
   let steps = 0;
   // 4ms 여유 — 칸 경계에서 이번 장 / 다음 장을 오가며 흔들리지 않게
-  while (acc >= STEP * .75 && steps < 5) { update(); updateCamera(false); acc -= STEP; steps++; if (!G.timeAttack) G.normF = (G.normF || 0) + 1; }   // normF : 일반 모드 플레이 시간(칸) — 어려움 클리어 기록용
+  while (acc >= STEP * .75 && steps < 5) { update(); afterTick(); updateCamera(false); acc -= STEP; steps++; if (!G.timeAttack) G.normF = (G.normF || 0) + 1; }   // normF : 일반 모드 플레이 시간(칸) — 어려움 클리어 기록용
   if (acc > STEP * 5) acc = 0;
   if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
   if (window.Perf) Perf.frame(now);
