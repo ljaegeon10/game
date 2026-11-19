@@ -19685,10 +19685,8 @@ let heroArtCache = null, heroRigT = -1, heroBurst = false, heroStage = null;
 const heroGl = {};
 function heroArt() {
   if (!heroArtCache && HERO_G && IMG.hero) heroArtCache = {
-    sheet: HeroArt.bakeOriginal(IMG.hero, HERO, true),     // 관자놀이 커넥터 있음
     bare: HeroArt.bakeOriginal(IMG.hero, HERO, false),     // 없음 (숲)
-    real: HeroArt.bakeSheet(HeroArt.LOOKS.A),          // 깨진 틈으로 비치는 진짜 사람
-    rig: new HeroArt.CableRig(HERO_G.cables, HERO_G.rig)
+    real: HeroArt.bakeSheet({ ...HeroArt.LOOKS.A, cables: null })   // 깨진 틈으로 비치는 진짜 사람 (뒤통수 커넥터 없이)
   };
   return heroArtCache;
 }
@@ -19750,15 +19748,12 @@ function drawPlayer() {
       // 깊이 — 숲 0 · 던전 방 1~5 · 심연(보스 마지막 페이즈) 6
       const depth = G.inForest ? 0 : (G.boss && G.boss.kind === 'abom') ? 6 : G.depth;
       const stage = HeroArt.originalStage(depth, false);
-      art.rig.update(P.x, feet - 1, 17 - bob, P.dir, 0);
       heroBurst = HeroArt.glitchTick(heroGl, stage, HERO_REDUCE);
       heroStage = HeroArt.originalStage(depth, heroBurst);
       heroRigT = G.t;
     }
-    const st = heroStage, sheet = st.jacks ? art.sheet : art.bare;
-    const glow = heroBurst ? .45 : st.glow;
-    const behind = n => n.z > 2 || n.y <= feet + 1;      // 매달린 부분은 몸 뒤
-    if (P.dir !== 'up') art.rig.draw(g, glow, G.t, behind, st.vis);
+    // 몸에 붙는 전극선 · 관자놀이 커넥터는 뺌 — 늘 맨몸 그림 (art.bare), 선(art.rig)은 그리지 않음
+    const st = heroStage, sheet = art.bare;
     g.save();
     g.translate(P.x, P.y + bob - FH / 2 + 12);
     g.rotate(tilt);
@@ -19772,7 +19767,6 @@ function drawPlayer() {
       }
     }
     g.restore();
-    art.rig.draw(g, glow, G.t, P.dir === 'up' ? null : n => !behind(n), st.vis);   // 뒷모습이면 전부 몸 앞
   } else if (IMG.hero) {
     const seq = HERO[P.dir] || HERO.down;
     const idx = seq[Math.floor(P.anim) % seq.length];
