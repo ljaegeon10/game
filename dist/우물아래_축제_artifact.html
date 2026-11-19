@@ -4387,10 +4387,10 @@ const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v
 /* ── 몸 하나 ── */
 let sCv = null, sX = null;
 function spriteCtx(w, h) {
-  if (!sCv) { sCv = document.createElement('canvas'); sX = sCv.getContext('2d', { willReadFrequently: true }); }
+  if (!sCv) { sCv = document.createElement('canvas'); sX = sCv.getContext('2d', { willReadFrequently: true }); trackCtx(sX); }
   if (sCv.width < w || sCv.height < h) { sCv.width = Math.max(sCv.width, w); sCv.height = Math.max(sCv.height, h); }
   sX.setTransform(1, 0, 0, 1, 0, 0); sX.globalAlpha = 1; sX.globalCompositeOperation = 'source-over'; sX.filter = 'none';
-  sX.clearRect(0, 0, w, h);
+  sX.clearRect(0, 0, w, h); bbReset(sX);
   return sX;
 }
 const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
@@ -4401,7 +4401,12 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
   w = Math.ceil(w); h = Math.ceil(h);
   const c = spriteCtx(w, h);
   c.save(); c.translate(ox, oy); draw(c); c.restore();
-  const id = c.getImageData(0, 0, w, h), d = id.data, n = w * h;
+  // 그린 곳 상자만 (+1 외곽선 자리) — 큰 몸(심연)은 넉넉히 잡은 칸의 절반 넘게 비어 있었음
+  const bb = c._bb, sx = Math.max(0, Math.floor(bb[0]) - 1), sy = Math.max(0, Math.floor(bb[1]) - 1);
+  const ex = Math.min(w, Math.ceil(bb[2]) + 1), ey = Math.min(h, Math.ceil(bb[3]) + 1);
+  if (ex <= sx || ey <= sy) return;
+  x += sx; y += sy; w = ex - sx; h = ey - sy;
+  const id = c.getImageData(sx, sy, w, h), d = id.data, n = w * h;
   const cut = opt.cut == null ? 96 : opt.cut;
   const m = new Uint8Array(n);
   for (let i = 0; i < n; i++) m[i] = d[i * 4 + 3] >= cut ? 1 : 0;
@@ -4421,42 +4426,79 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
       else d[p + 3] = 0;
     }
   }
-  c.putImageData(id, 0, 0);
+  c.putImageData(id, sx, sy);
   const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
-  g.drawImage(sCv, 0, 0, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
+  g.drawImage(sCv, sx, sy, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
   g.imageSmoothingEnabled = sm;
 }
 
-/* ── 겹 하나 (탑뷰 화면 전체) — 탄 · 고리 · 예고선 ── */
+/* ── 겹 하나 (탑뷰 화면 전체) — 탄 · 고리 · 예고선 ──
+   예전엔 매 장 화면 전체(576×360 ≈ 20만 점)를 읽어 다시 칠했음 — 탄 몇 개뿐이어도. 프로파일에서 한 장 시간의 절반.
+   이제 겹에 그린 곳의 테두리 상자(bbox)를 그리는 함수에서 바로 모아(현재 변환 · 선 굵기 · 그림자 포함) 그 상자만 처리.
+   상자 밖에 무언가 그려졌더라도(모르는 그리기 함수) 겹은 통째로 얹으므로 사라지지 않음 — 그 부분만 도트 정리가 빠질 뿐 */
 let lCv = null, lX = null, lHost = null, lUsed = false;
+const bbReset = c => { c._bb[0] = c._bb[1] = 1e9; c._bb[2] = c._bb[3] = -1e9; };
+function addBox(c, x0, y0, x1, y1) {                              // c 에 그린 곳을 화면(캔버스) 좌표 상자 c._bb 에 더함
+  const m = c.getTransform(), sc = Math.hypot(m.a, m.b) || 1, b = c._bb;
+  const pad = ((c.lineWidth || 1) / 2 + (c.shadowBlur || 0) * 2) * sc + 2;
+  for (let k = 0; k < 4; k++) {
+    const x = k & 1 ? x1 : x0, y = k & 2 ? y1 : y0, X = m.a * x + m.c * y + m.e, Y = m.b * x + m.d * y + m.f;
+    if (X - pad < b[0]) b[0] = X - pad; if (X + pad > b[2]) b[2] = X + pad;
+    if (Y - pad < b[1]) b[1] = Y - pad; if (Y + pad > b[3]) b[3] = Y + pad;
+  }
+}
+const TRACK = {
+  arc: (c, a) => addBox(c, a[0] - a[2], a[1] - a[2], a[0] + a[2], a[1] + a[2]),
+  ellipse: (c, a) => { const r = Math.max(a[2], a[3]); addBox(c, a[0] - r, a[1] - r, a[0] + r, a[1] + r); },
+  rect: (c, a) => addBox(c, a[0], a[1], a[0] + a[2], a[1] + a[3]), fillRect: (c, a) => addBox(c, a[0], a[1], a[0] + a[2], a[1] + a[3]),
+  strokeRect: (c, a) => addBox(c, a[0], a[1], a[0] + a[2], a[1] + a[3]), roundRect: (c, a) => addBox(c, a[0], a[1], a[0] + a[2], a[1] + a[3]),
+  moveTo: (c, a) => addBox(c, a[0], a[1], a[0], a[1]), lineTo: (c, a) => addBox(c, a[0], a[1], a[0], a[1]),
+  arcTo: (c, a) => addBox(c, Math.min(a[0], a[2]) - a[4], Math.min(a[1], a[3]) - a[4], Math.max(a[0], a[2]) + a[4], Math.max(a[1], a[3]) + a[4]),
+  quadraticCurveTo: (c, a) => addBox(c, Math.min(a[0], a[2]), Math.min(a[1], a[3]), Math.max(a[0], a[2]), Math.max(a[1], a[3])),
+  bezierCurveTo: (c, a) => addBox(c, Math.min(a[0], a[2], a[4]), Math.min(a[1], a[3], a[5]), Math.max(a[0], a[2], a[4]), Math.max(a[1], a[3], a[5])),
+  drawImage: (c, a) => { const n = a.length, im = a[0], w = im.width || 0, h = im.height || 0;
+    if (n === 3) addBox(c, a[1], a[2], a[1] + w, a[2] + h); else if (n === 5) addBox(c, a[1], a[2], a[1] + a[3], a[2] + a[4]); else addBox(c, a[5], a[6], a[5] + a[7], a[6] + a[8]); },
+  fillText: (c, a) => { const w = a[3] || c.measureText(a[0]).width, f = parseFloat(c.font) || 12; addBox(c, a[1] - w, a[2] - f * 1.5, a[1] + w, a[2] + f); },
+  strokeText: (c, a) => TRACK.fillText(c, a)
+};
+function trackCtx(x) {
+  x._bb = [1e9, 1e9, -1e9, -1e9];
+  for (const k in TRACK) { if (typeof x[k] !== 'function') continue; const orig = x[k], f = TRACK[k];
+    x[k] = function () { f(x, arguments); return orig.apply(this, arguments); }; }
+  // 모르는 그리기(채우기 패턴으로 전체 칠하기 등)를 놓치지 않게 — 경로 없이 칠하는 함수는 위에서 다 잡음
+}
 function layerBegin(g) {
-  if (window.Perf && Perf.low && !lUsed) return g;             // 가벼운 화면 — 화면 전체를 픽셀마다 다시 칠하는 정리를 건너뛰고 바로 그림
+  if (window.Perf && Perf.low && !lUsed) return g;             // 가벼운 화면 — 정리를 건너뛰고 바로 그림
   const cv = g.canvas;
-  if (!lCv) { lCv = document.createElement('canvas'); lX = lCv.getContext('2d', { willReadFrequently: true }); }
+  if (!lCv) { lCv = document.createElement('canvas'); lX = lCv.getContext('2d', { willReadFrequently: true }); trackCtx(lX); }
   if (lCv.width !== cv.width || lCv.height !== cv.height) { lCv.width = cv.width; lCv.height = cv.height; }
-  if (!lUsed) { lX.setTransform(1, 0, 0, 1, 0, 0); lX.clearRect(0, 0, lCv.width, lCv.height); }
+  if (!lUsed) bbReset(lX);
   lX.setTransform(g.getTransform()); lX.globalAlpha = 1; lX.globalCompositeOperation = 'source-over'; lX.lineCap = 'butt';
   lHost = g; lUsed = true;
   return lX;
 }
-/* 모아 둔 겹을 도트로 정리해 g 에 얹습니다 (한 프레임에 한 번) */
+/* 모아 둔 겹을 도트로 정리해 g 에 얹습니다 (한 프레임에 한 번) — 그린 상자만 */
 function layerFlush(g) {
   if (!lUsed) return;
   lUsed = false;
-  const W = lCv.width, H = lCv.height, id = lX.getImageData(0, 0, W, H), d = id.data;
+  const b = lX._bb, x0 = Math.max(0, Math.floor(b[0])), y0 = Math.max(0, Math.floor(b[1]));
+  const x1 = Math.min(lCv.width, Math.ceil(b[2])), y1 = Math.min(lCv.height, Math.ceil(b[3]));
+  if (x1 <= x0 || y1 <= y0) { lX.setTransform(1, 0, 0, 1, 0, 0); lX.clearRect(0, 0, lCv.width, lCv.height); return; }   // 아무것도 안 그림
+  const W = x1 - x0, H = y1 - y0, id = lX.getImageData(x0, y0, W, H), d = id.data;
   for (let y = 0; y < H; y++) {
-    const row = (y & 3) * 4;
+    const row = ((y + y0) & 3) * 4;                                  // 체크 무늬는 화면 자리 기준 — 상자가 움직여도 무늬는 그대로
     for (let x = 0; x < W; x++) {
       const p = (y * W + x) * 4, a = d[p + 3];
       if (!a) continue;
       const k = (a / 255 - .2) / .6;                                // 아주 옅은 건 버리고(점 무늬로 지저분해짐), 짙은 건 꽉 채움
-      d[p + 3] = k > BAYER[row + (x & 3)] ? 255 : 0;                // 그 사이 반투명 → 체크 디더, 가장자리 → 계단
+      d[p + 3] = k > BAYER[row + ((x + x0) & 3)] ? 255 : 0;         // 그 사이 반투명 → 체크 디더, 가장자리 → 계단
     }
   }
-  lX.putImageData(id, 0, 0);
+  lX.putImageData(id, x0, y0);
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.imageSmoothingEnabled = false; g.drawImage(lCv, 0, 0);
   g.restore();
+  lX.setTransform(1, 0, 0, 1, 0, 0); lX.clearRect(0, 0, lCv.width, lCv.height);   // 다음 장을 위해 비움 (상자 밖에 그린 것까지)
 }
 
 /* 도트 타원 — 그림자처럼 바닥에 깔리는 것. 줄마다 정수 폭으로 채워 가장자리가 계단 (반투명은 고르게) */
