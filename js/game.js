@@ -116,11 +116,28 @@ let mouse = { x: 0, y: 0, down: false };
 /* 지금 글자를 적는 중인지 — 보이는 글자 칸(이름 · 연락처 · 관리 코드)만. 예전엔 input 이면 다 그래서,
    설정의 체크박스(가벼운 화면) · 슬라이더(감도)를 누른 뒤 포커스가 거기 남으면 게임 키가 통째로 씹혔음 */
 const TEXT_FIELD = 'textarea, input:not([type]), input[type=text], input[type=tel], input[type=number], input[type=search], input[type=email], input[type=password], [contenteditable=""], [contenteditable=true]';
-const typing = e => { const t = e.target; return !!(t && t.closest && t.closest(TEXT_FIELD) && t.getClientRects().length && !t.closest('.hidden')); };
+const typing = e => { const t = e.target; return !!(t && t !== keyGuard && t.closest && t.closest(TEXT_FIELD) && t.getClientRects().length && !t.closest('.hidden')); };
+/* 크롬 + 윈도우 한글 입력기 — 한/영이 '한' 이면 크롬은 글자 칸이 아닌 곳에서도 키를 입력기에 먼저 보냄.
+   입력기가 ㅈ · ㅁ · ㄴ · ㅇ(W A S D)을 글자로 엮는 동안 키가 늦거나 씹힘 (파이어폭스는 글자 칸 밖에선 입력기를 꺼서 멀쩡).
+   크롬은 비밀번호 칸에선 입력기를 끔 → 게임하는 동안 안 보이는 비밀번호 칸(keyGuard)이 키를 받게 함. 쳐진 글자는 바로 지움.
+   휴대폰 · 태블릿(손가락)에선 안 씀 — 화면 키보드가 뜨면 안 되니까 */
+const keyGuard = document.createElement('input');
+Object.assign(keyGuard, { type: 'password', id: 'keyguard', autocomplete: 'off', tabIndex: -1 });
+keyGuard.setAttribute('aria-hidden', 'true'); keyGuard.setAttribute('data-lpignore', 'true');
+keyGuard.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;z-index:-1';
+keyGuard.addEventListener('input', () => { keyGuard.value = ''; });
+document.body.appendChild(keyGuard);
+function guardKeys() {
+  const want = !TOUCH.on && PLAYING() && !PAUSE.on && document.hasFocus();
+  const a = document.activeElement;
+  if (want) { if (a !== keyGuard && (!a || a === document.body || !a.closest || !a.closest(TEXT_FIELD + ', #pause, #settings, #devpanel'))) keyGuard.focus({ preventScroll: true }); }
+  else if (a === keyGuard) keyGuard.blur();
+}
+setInterval(guardKeys, 250);
 addEventListener('keydown', e => {
   if (typing(e)) return;                            // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
   { const a = document.activeElement;               // 게임 중인데 단추 · 체크박스 · 슬라이더에 포커스가 남았으면 놓음 (스페이스가 그걸 또 누르지 않게)
-    if (a && a !== document.body && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
+    if (a && a !== document.body && a !== keyGuard && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   const code = physCode(e);
   if (code && !e.code) Object.defineProperty(e, 'code', { value: code });   // 한글 입력기가 자리를 빼먹은 키 — keyCode 로 채움
@@ -6482,7 +6499,7 @@ function pmGo(act) {
 addEventListener('keydown', e => {
   const k = e.key;
   if (!PAUSE.on) {
-    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && !e.target.closest?.('input, textarea')) {
+    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && (e.target === keyGuard || !e.target.closest?.('input, textarea'))) {
       e.preventDefault(); e.stopImmediatePropagation(); pauseGame();
     }
     return;

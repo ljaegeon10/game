@@ -20,6 +20,18 @@
 (() => {
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 
+/* ── 화면으로 옮길 작은 캔버스 ──
+   크롬은 CPU 캔버스(getImageData 를 쓰는 작업 캔버스)를 GPU 화면 캔버스에 그릴 때 「원본 캔버스 전체」를 매번 올림.
+   작업 캔버스는 가장 큰 몸(심연 ≈ 400×450)에 맞춰 커져 있어서, 작은 몹 하나를 찍어도 큰 그림을 통째로 올렸음 (파이어폭스는 괜찮고 크롬만 렉).
+   그래서 결과는 32px 단위 크기의 작은 캔버스에 옮겨 그것만 올림 */
+const blits = new Map();
+function blitCtx(w, h) {
+  const bw = Math.ceil(w / 32) * 32, bh = Math.ceil(h / 32) * 32, k = bw * 8192 + bh;
+  let c = blits.get(k);
+  if (!c) { const cv = document.createElement('canvas'); cv.width = bw; cv.height = bh; c = cv.getContext('2d'); blits.set(k, c); }
+  return c;
+}
+
 /* ── 몸 하나 ── */
 let sCv = null, sX = null;
 function spriteCtx(w, h) {
@@ -62,9 +74,9 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
       else d[p + 3] = 0;
     }
   }
-  c.putImageData(id, sx, sy);
+  const bc = blitCtx(w, h); bc.putImageData(id, 0, 0);
   const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
-  g.drawImage(sCv, sx, sy, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
+  g.drawImage(bc.canvas, 0, 0, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
   g.imageSmoothingEnabled = sm;
 }
 
@@ -76,7 +88,8 @@ let lCv = null, lX = null, lHost = null, lUsed = false;
 const bbReset = c => { c._bb[0] = c._bb[1] = 1e9; c._bb[2] = c._bb[3] = -1e9; };
 function addBox(c, x0, y0, x1, y1) {                              // c 에 그린 곳을 화면(캔버스) 좌표 상자 c._bb 에 더함
   const m = c.getTransform(), sc = Math.hypot(m.a, m.b) || 1, b = c._bb;
-  const pad = ((c.lineWidth || 1) / 2 + (c.shadowBlur || 0) * 2) * sc + 2;
+  const lw = (c.lineWidth || 1) / 2 * (c.lineJoin === 'miter' ? Math.min(c.miterLimit || 10, 10) : 1.5);   // 뾰족한 이음(miter)은 선 굵기보다 멀리 튀어나옴
+  const pad = (lw + (c.shadowBlur || 0) * 2 + Math.abs(c.shadowOffsetX || 0) + Math.abs(c.shadowOffsetY || 0)) * sc + 2;
   for (let k = 0; k < 4; k++) {
     const x = k & 1 ? x1 : x0, y = k & 2 ? y1 : y0, X = m.a * x + m.c * y + m.e, Y = m.b * x + m.d * y + m.f;
     if (X - pad < b[0]) b[0] = X - pad; if (X + pad > b[2]) b[2] = X + pad;
@@ -130,9 +143,9 @@ function layerFlush(g) {
       d[p + 3] = k > BAYER[row + ((x + x0) & 3)] ? 255 : 0;         // 그 사이 반투명 → 체크 디더, 가장자리 → 계단
     }
   }
-  lX.putImageData(id, x0, y0);
+  const bc = blitCtx(W, H); bc.putImageData(id, 0, 0);               // 상자만 올림 (예전엔 화면 크기 겹을 통째로)
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  g.imageSmoothingEnabled = false; g.drawImage(lCv, 0, 0);
+  g.imageSmoothingEnabled = false; g.drawImage(bc.canvas, 0, 0, W, H, x0, y0, W, H);
   g.restore();
   lX.setTransform(1, 0, 0, 1, 0, 0); lX.clearRect(0, 0, lCv.width, lCv.height);   // 다음 장을 위해 비움 (상자 밖에 그린 것까지)
 }

@@ -257,7 +257,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   background:rgba(30,32,46,.88);
   border:1px solid rgba(227,178,60,.7);
   padding:3px 9px; font-size:10px; white-space:nowrap;
-  animation:bob 1.4s ease-in-out infinite;
+  animation:bob 1.4s steps(2) infinite;   /* 부드럽게(ease) 돌면 크롬이 화면을 매 장 다시 합성 — 240Hz 에서 렉. 도트답게 두 칸으로 */
 }
 #prompt b{ color:var(--hwang); }
 @keyframes bob{ 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,-3px)} }
@@ -287,7 +287,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   color:#f2c4c4; font-size:17px; letter-spacing:.08em;
   text-shadow:0 0 16px rgba(226,31,31,.65), 0 0 4px rgba(0,0,0,.95),
               0 2px 0 rgba(0,0,0,.9);
-  animation:abyssWaver 2.4s ease-in-out infinite;
+  animation:abyssWaver 2.4s steps(3) infinite;
 }
 #morphsys.abyss .caret{ display:none; }   /* 기계가 찍는 글씨가 아닙니다 */
 @keyframes abyssWaver{
@@ -317,7 +317,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 #subtitle.whisper p{ color:#b3c6d8; font-style:italic; }
 #subnext{
   position:absolute; right:8px; bottom:4px; font-size:9px; color:var(--hwang);
-  animation:bob 1s ease-in-out infinite;
+  animation:bob 1s steps(2) infinite;
 }
 
 /* 시스템 문구 : 인물의 말이 아니라 화면에 뜨는 안내/판독값이라는 것을
@@ -1325,7 +1325,8 @@ body.topview #bezel{ display:block; }
 #bezel::after{ content:''; position:absolute; inset:0; z-index:1;                                  /* 틀 바깥 모서리 */
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), inset 0 0 0 2px rgba(0,0,0,.6); }
 #bezel .led{ position:absolute; z-index:2; right:calc(var(--bz) * 2.4); bottom:calc(var(--bz) * .5 - 1.5px); width:3px; height:3px; border-radius:50%;
-  background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); animation:ledBreath 3.2s ease-in-out infinite; }
+  background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); }   /* 숨 쉬는 깜빡임(ledBreath)은 뺌 — 늘 도는 부드러운 애니메이션이 하나라도 있으면
+     크롬은 모니터 주사율(240Hz)마다 색 보정 필터가 걸린 3K 화면 전체를 다시 합성했음 (게임은 초당 60장인데). 파이어폭스는 괜찮았던 이유 */
 @keyframes ledBreath{ 50%{ opacity:.45; } }
 #bezel .model{ position:absolute; z-index:2; left:0; right:0; bottom:calc(var(--bz) * .5 - 2.5px); text-align:center; line-height:1;
   font-size:3.6px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
@@ -1522,7 +1523,7 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 #maplegend .ml-key::before, #maplegend .ml-key::after{ content:''; position:absolute; background:#e3b23c; animation:mlBlink .9s steps(2) infinite; }
 #maplegend .ml-key::before{ left:3px; top:1px; width:2px; height:6px; } #maplegend .ml-key::after{ left:1px; top:3px; width:6px; height:2px; }
 #maplegend .ml-route{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(125,227,200,.7); }
-#maplegend .ml-route::before{ content:''; position:absolute; left:2px; top:2px; width:4px; height:4px; border-radius:50%; background:#7de3c8; animation:mlBlink .7s ease-in-out infinite alternate; }
+#maplegend .ml-route::before{ content:''; position:absolute; left:2px; top:2px; width:4px; height:4px; border-radius:50%; background:#7de3c8; animation:mlBlink .7s steps(2) infinite alternate; }
 #maplegend .ml-boss{ background:rgba(160,172,192,.55); } #maplegend .ml-boss::before{ content:''; position:absolute; left:3px; top:3px; width:3px; height:3px; background:#c2352c; }
 #maplegend .ml-exit{ width:7px; height:7px; margin:0 1px; background:rgba(160,172,192,.55); vertical-align:-1px; } #maplegend .ml-exit::before{ content:''; position:absolute; left:2px; top:2px; width:3px; height:3px; background:#7de3c8; }
 @keyframes mlBlink{ 0%{ opacity:1; } 100%{ opacity:.3; } }
@@ -1688,3 +1689,8 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 .fp-btns button{ font:inherit; font-size:11px; padding:7px 16px; color:rgba(241,236,224,.8); background:transparent; border:1px solid rgba(241,236,224,.3); box-shadow:none; cursor:pointer; }
 #fp-retry{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
 #fp-retry.hidden{ display:none; }
+
+/* 안 보일 때(투명하게 숨긴 것)는 깜빡임도 멈춤 — 숨겨 둔 채로 늘 돌던 애니메이션이 크롬의 화면 합성을 계속 깨웠음 */
+#maplegend:not(.on) .ml-key::before, #maplegend:not(.on) .ml-key::after, #maplegend:not(.on) .ml-route::before,
+body.cine #maplegend .ml-key::before, body.cine #maplegend .ml-key::after, body.cine #maplegend .ml-route::before,
+#morphsys:not(.on) .caret, #morphsys:not(.on).abyss{ animation:none; }

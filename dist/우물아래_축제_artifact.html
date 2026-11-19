@@ -274,7 +274,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   background:rgba(30,32,46,.88);
   border:1px solid rgba(227,178,60,.7);
   padding:3px 9px; font-size:10px; white-space:nowrap;
-  animation:bob 1.4s ease-in-out infinite;
+  animation:bob 1.4s steps(2) infinite;   /* 부드럽게(ease) 돌면 크롬이 화면을 매 장 다시 합성 — 240Hz 에서 렉. 도트답게 두 칸으로 */
 }
 #prompt b{ color:var(--hwang); }
 @keyframes bob{ 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,-3px)} }
@@ -304,7 +304,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
   color:#f2c4c4; font-size:17px; letter-spacing:.08em;
   text-shadow:0 0 16px rgba(226,31,31,.65), 0 0 4px rgba(0,0,0,.95),
               0 2px 0 rgba(0,0,0,.9);
-  animation:abyssWaver 2.4s ease-in-out infinite;
+  animation:abyssWaver 2.4s steps(3) infinite;
 }
 #morphsys.abyss .caret{ display:none; }   /* 기계가 찍는 글씨가 아닙니다 */
 @keyframes abyssWaver{
@@ -334,7 +334,7 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 #subtitle.whisper p{ color:#b3c6d8; font-style:italic; }
 #subnext{
   position:absolute; right:8px; bottom:4px; font-size:9px; color:var(--hwang);
-  animation:bob 1s ease-in-out infinite;
+  animation:bob 1s steps(2) infinite;
 }
 
 /* 시스템 문구 : 인물의 말이 아니라 화면에 뜨는 안내/판독값이라는 것을
@@ -1342,7 +1342,8 @@ body.topview #bezel{ display:block; }
 #bezel::after{ content:''; position:absolute; inset:0; z-index:1;                                  /* 틀 바깥 모서리 */
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), inset 0 0 0 2px rgba(0,0,0,.6); }
 #bezel .led{ position:absolute; z-index:2; right:calc(var(--bz) * 2.4); bottom:calc(var(--bz) * .5 - 1.5px); width:3px; height:3px; border-radius:50%;
-  background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); animation:ledBreath 3.2s ease-in-out infinite; }
+  background:#7de3c8; box-shadow:0 0 4px #7de3c8, 0 0 8px rgba(125,227,200,.6); }   /* 숨 쉬는 깜빡임(ledBreath)은 뺌 — 늘 도는 부드러운 애니메이션이 하나라도 있으면
+     크롬은 모니터 주사율(240Hz)마다 색 보정 필터가 걸린 3K 화면 전체를 다시 합성했음 (게임은 초당 60장인데). 파이어폭스는 괜찮았던 이유 */
 @keyframes ledBreath{ 50%{ opacity:.45; } }
 #bezel .model{ position:absolute; z-index:2; left:0; right:0; bottom:calc(var(--bz) * .5 - 2.5px); text-align:center; line-height:1;
   font-size:3.6px; letter-spacing:.42em; color:rgba(241,236,224,.22); font-family:var(--font-ui); }
@@ -1539,7 +1540,7 @@ body.cine #hud, body.cine #prompt, body.cine #tanotice{ opacity:0; transform:tra
 #maplegend .ml-key::before, #maplegend .ml-key::after{ content:''; position:absolute; background:#e3b23c; animation:mlBlink .9s steps(2) infinite; }
 #maplegend .ml-key::before{ left:3px; top:1px; width:2px; height:6px; } #maplegend .ml-key::after{ left:1px; top:3px; width:6px; height:2px; }
 #maplegend .ml-route{ width:8px; height:8px; border-radius:50%; box-shadow:inset 0 0 0 1px rgba(125,227,200,.7); }
-#maplegend .ml-route::before{ content:''; position:absolute; left:2px; top:2px; width:4px; height:4px; border-radius:50%; background:#7de3c8; animation:mlBlink .7s ease-in-out infinite alternate; }
+#maplegend .ml-route::before{ content:''; position:absolute; left:2px; top:2px; width:4px; height:4px; border-radius:50%; background:#7de3c8; animation:mlBlink .7s steps(2) infinite alternate; }
 #maplegend .ml-boss{ background:rgba(160,172,192,.55); } #maplegend .ml-boss::before{ content:''; position:absolute; left:3px; top:3px; width:3px; height:3px; background:#c2352c; }
 #maplegend .ml-exit{ width:7px; height:7px; margin:0 1px; background:rgba(160,172,192,.55); vertical-align:-1px; } #maplegend .ml-exit::before{ content:''; position:absolute; left:2px; top:2px; width:3px; height:3px; background:#7de3c8; }
 @keyframes mlBlink{ 0%{ opacity:1; } 100%{ opacity:.3; } }
@@ -1705,6 +1706,11 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 .fp-btns button{ font:inherit; font-size:11px; padding:7px 16px; color:rgba(241,236,224,.8); background:transparent; border:1px solid rgba(241,236,224,.3); box-shadow:none; cursor:pointer; }
 #fp-retry{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); }
 #fp-retry.hidden{ display:none; }
+
+/* 안 보일 때(투명하게 숨긴 것)는 깜빡임도 멈춤 — 숨겨 둔 채로 늘 돌던 애니메이션이 크롬의 화면 합성을 계속 깨웠음 */
+#maplegend:not(.on) .ml-key::before, #maplegend:not(.on) .ml-key::after, #maplegend:not(.on) .ml-route::before,
+body.cine #maplegend .ml-key::before, body.cine #maplegend .ml-key::after, body.cine #maplegend .ml-route::before,
+#morphsys:not(.on) .caret, #morphsys:not(.on).abyss{ animation:none; }
 
 </style>
 <script>window.WB_FESTIVAL = true;</script>
@@ -4385,6 +4391,18 @@ function drawFoeBody(g, f, s, t) {
 (() => {
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
 
+/* ── 화면으로 옮길 작은 캔버스 ──
+   크롬은 CPU 캔버스(getImageData 를 쓰는 작업 캔버스)를 GPU 화면 캔버스에 그릴 때 「원본 캔버스 전체」를 매번 올림.
+   작업 캔버스는 가장 큰 몸(심연 ≈ 400×450)에 맞춰 커져 있어서, 작은 몹 하나를 찍어도 큰 그림을 통째로 올렸음 (파이어폭스는 괜찮고 크롬만 렉).
+   그래서 결과는 32px 단위 크기의 작은 캔버스에 옮겨 그것만 올림 */
+const blits = new Map();
+function blitCtx(w, h) {
+  const bw = Math.ceil(w / 32) * 32, bh = Math.ceil(h / 32) * 32, k = bw * 8192 + bh;
+  let c = blits.get(k);
+  if (!c) { const cv = document.createElement('canvas'); cv.width = bw; cv.height = bh; c = cv.getContext('2d'); blits.set(k, c); }
+  return c;
+}
+
 /* ── 몸 하나 ── */
 let sCv = null, sX = null;
 function spriteCtx(w, h) {
@@ -4427,9 +4445,9 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
       else d[p + 3] = 0;
     }
   }
-  c.putImageData(id, sx, sy);
+  const bc = blitCtx(w, h); bc.putImageData(id, 0, 0);
   const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
-  g.drawImage(sCv, sx, sy, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
+  g.drawImage(bc.canvas, 0, 0, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
   g.imageSmoothingEnabled = sm;
 }
 
@@ -4441,7 +4459,8 @@ let lCv = null, lX = null, lHost = null, lUsed = false;
 const bbReset = c => { c._bb[0] = c._bb[1] = 1e9; c._bb[2] = c._bb[3] = -1e9; };
 function addBox(c, x0, y0, x1, y1) {                              // c 에 그린 곳을 화면(캔버스) 좌표 상자 c._bb 에 더함
   const m = c.getTransform(), sc = Math.hypot(m.a, m.b) || 1, b = c._bb;
-  const pad = ((c.lineWidth || 1) / 2 + (c.shadowBlur || 0) * 2) * sc + 2;
+  const lw = (c.lineWidth || 1) / 2 * (c.lineJoin === 'miter' ? Math.min(c.miterLimit || 10, 10) : 1.5);   // 뾰족한 이음(miter)은 선 굵기보다 멀리 튀어나옴
+  const pad = (lw + (c.shadowBlur || 0) * 2 + Math.abs(c.shadowOffsetX || 0) + Math.abs(c.shadowOffsetY || 0)) * sc + 2;
   for (let k = 0; k < 4; k++) {
     const x = k & 1 ? x1 : x0, y = k & 2 ? y1 : y0, X = m.a * x + m.c * y + m.e, Y = m.b * x + m.d * y + m.f;
     if (X - pad < b[0]) b[0] = X - pad; if (X + pad > b[2]) b[2] = X + pad;
@@ -4495,9 +4514,9 @@ function layerFlush(g) {
       d[p + 3] = k > BAYER[row + ((x + x0) & 3)] ? 255 : 0;         // 그 사이 반투명 → 체크 디더, 가장자리 → 계단
     }
   }
-  lX.putImageData(id, x0, y0);
+  const bc = blitCtx(W, H); bc.putImageData(id, 0, 0);               // 상자만 올림 (예전엔 화면 크기 겹을 통째로)
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  g.imageSmoothingEnabled = false; g.drawImage(lCv, 0, 0);
+  g.imageSmoothingEnabled = false; g.drawImage(bc.canvas, 0, 0, W, H, x0, y0, W, H);
   g.restore();
   lX.setTransform(1, 0, 0, 1, 0, 0); lX.clearRect(0, 0, lCv.width, lCv.height);   // 다음 장을 위해 비움 (상자 밖에 그린 것까지)
 }
@@ -16585,11 +16604,28 @@ let mouse = { x: 0, y: 0, down: false };
 /* 지금 글자를 적는 중인지 — 보이는 글자 칸(이름 · 연락처 · 관리 코드)만. 예전엔 input 이면 다 그래서,
    설정의 체크박스(가벼운 화면) · 슬라이더(감도)를 누른 뒤 포커스가 거기 남으면 게임 키가 통째로 씹혔음 */
 const TEXT_FIELD = 'textarea, input:not([type]), input[type=text], input[type=tel], input[type=number], input[type=search], input[type=email], input[type=password], [contenteditable=""], [contenteditable=true]';
-const typing = e => { const t = e.target; return !!(t && t.closest && t.closest(TEXT_FIELD) && t.getClientRects().length && !t.closest('.hidden')); };
+const typing = e => { const t = e.target; return !!(t && t !== keyGuard && t.closest && t.closest(TEXT_FIELD) && t.getClientRects().length && !t.closest('.hidden')); };
+/* 크롬 + 윈도우 한글 입력기 — 한/영이 '한' 이면 크롬은 글자 칸이 아닌 곳에서도 키를 입력기에 먼저 보냄.
+   입력기가 ㅈ · ㅁ · ㄴ · ㅇ(W A S D)을 글자로 엮는 동안 키가 늦거나 씹힘 (파이어폭스는 글자 칸 밖에선 입력기를 꺼서 멀쩡).
+   크롬은 비밀번호 칸에선 입력기를 끔 → 게임하는 동안 안 보이는 비밀번호 칸(keyGuard)이 키를 받게 함. 쳐진 글자는 바로 지움.
+   휴대폰 · 태블릿(손가락)에선 안 씀 — 화면 키보드가 뜨면 안 되니까 */
+const keyGuard = document.createElement('input');
+Object.assign(keyGuard, { type: 'password', id: 'keyguard', autocomplete: 'off', tabIndex: -1 });
+keyGuard.setAttribute('aria-hidden', 'true'); keyGuard.setAttribute('data-lpignore', 'true');
+keyGuard.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;z-index:-1';
+keyGuard.addEventListener('input', () => { keyGuard.value = ''; });
+document.body.appendChild(keyGuard);
+function guardKeys() {
+  const want = !TOUCH.on && PLAYING() && !PAUSE.on && document.hasFocus();
+  const a = document.activeElement;
+  if (want) { if (a !== keyGuard && (!a || a === document.body || !a.closest || !a.closest(TEXT_FIELD + ', #pause, #settings, #devpanel'))) keyGuard.focus({ preventScroll: true }); }
+  else if (a === keyGuard) keyGuard.blur();
+}
+setInterval(guardKeys, 250);
 addEventListener('keydown', e => {
   if (typing(e)) return;                            // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
   { const a = document.activeElement;               // 게임 중인데 단추 · 체크박스 · 슬라이더에 포커스가 남았으면 놓음 (스페이스가 그걸 또 누르지 않게)
-    if (a && a !== document.body && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
+    if (a && a !== document.body && a !== keyGuard && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   const code = physCode(e);
   if (code && !e.code) Object.defineProperty(e, 'code', { value: code });   // 한글 입력기가 자리를 빼먹은 키 — keyCode 로 채움
@@ -22951,7 +22987,7 @@ function pmGo(act) {
 addEventListener('keydown', e => {
   const k = e.key;
   if (!PAUSE.on) {
-    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && !e.target.closest?.('input, textarea')) {
+    if ((k === 'Escape' || e.code === 'KeyP') && !e.repeat && canPause() && (e.target === keyGuard || !e.target.closest?.('input, textarea'))) {
       e.preventDefault(); e.stopImmediatePropagation(); pauseGame();
     }
     return;
