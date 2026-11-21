@@ -2470,6 +2470,30 @@ const Sfx = (() => {
     } catch (e) { mediaMode = 'none'; }
   }
 
+  /* base64 음원 → ArrayBuffer, 화면을 멈추지 않게.
+     예전엔 atob + 한 글자씩 옮기는 반복을 그 자리에서 돌려(던전 2.3MB · 보스 1.8MB · 2.3MB) 시작 · 첫 방 · 보스방에서 덜컥했음.
+     (data: 주소 fetch 도 써 봤지만 2MB 주소를 만드는 데만 40ms 를 잡아먹었음)
+     → 64KB 씩, 한 번에 4ms 까지만 풀고 쉬었다가 — 프레임 사이사이에 조금씩 */
+  function b64Buf(b64) {
+    return new Promise(res => {
+      const n = b64.length, pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+      const out = new Uint8Array(n / 4 * 3 - pad), CH = 64 * 1024;          // CH 는 4 의 배수
+      let i = 0, o = 0;
+      const step = () => {
+        const t0 = performance.now();
+        while (i < n && performance.now() - t0 < 4) {
+          const bin = atob(b64.slice(i, i + CH)); i += CH;
+          for (let k = 0; k < bin.length; k++) out[o++] = bin.charCodeAt(k);
+        }
+        if (i < n) setTimeout(step, 10); else res(out.buffer);
+      };
+      setTimeout(step, 0);
+    });
+  }
+  function decodeB64(b64, ok, fail) {
+    b64Buf(b64).then(buf => ctx().decodeAudioData(buf, ok, fail)).catch(fail);
+  }
+
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
     // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
@@ -2986,11 +3010,7 @@ const Sfx = (() => {
     preloadDungeonBgm() {
       if (api._dgBuf || api._dgLoading || typeof DUNGEON_BGM_B64 === 'undefined') return;
       api._dgLoading = true;
-      const c = ctx();
-      const bin = atob(DUNGEON_BGM_B64);
-      const u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      c.decodeAudioData(u8.buffer,
+      decodeB64(DUNGEON_BGM_B64,
         buf => { api._dgBuf = buf; api._dgLoading = false; if (api._dgWant) api.dungeonBgm(true); },
         ()  => { api._dgLoading = false; });
     },
@@ -3047,11 +3067,7 @@ const Sfx = (() => {
       const b64 = cfg.src();
       if (!b64) return;
       st.loading = true;
-      const c = ctx();
-      const bin = atob(b64);
-      const u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      c.decodeAudioData(u8.buffer,
+      decodeB64(b64,
         buf => { st.buf = buf; st.loading = false; if (st.want) api.bossBgm(which, true); },
         ()  => { st.loading = false; });
     },
@@ -3660,7 +3676,10 @@ function drawWell(g, x, y, t, glow) {
   g.save();
   if (window.PixFX) {
     PixFX.ellipse(g, x, y + 7, 41, 15, 'rgba(0,0,0,.32)');
-    PixFX.sprite(g, x, y, 112, 100, 56, 70, c => drawWellBody(c, 0, 0), { outline: '#0b0a0d', hi: .22, lo: .25 });
+    // 우물은 움직이지 않으니 도트 정리한 그림을 한 번만 구워 둠 (예전엔 숲에 있는 내내 매 장 픽셀마다 다시 정리)
+    if (!drawWell.img) { const c = document.createElement('canvas'); c.width = 112; c.height = 100;
+      PixFX.sprite(c.getContext('2d'), 56, 70, 112, 100, 56, 70, q => drawWellBody(q, 0, 0), { outline: '#0b0a0d', hi: .22, lo: .25 }); drawWell.img = c; }
+    g.drawImage(drawWell.img, Math.round(x - 56), Math.round(y - 70));
   } else {
     g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x, y + 6, 40, 15, 0, 0, Math.PI * 2); g.fill();
     drawWellBody(g, x, y);
@@ -16912,6 +16931,7 @@ addEventListener('mouseup', () => { mouse.down = false; });
    사실상 "들어오기만 해도" 로 느껴지게 합니다. */
 function kickAudio() {
   Sfx.unlock();
+  if (!kickAudio.pre) { kickAudio.pre = true; setTimeout(() => Sfx.preloadDungeonBgm(), 400); }   // 던전 음악은 시작화면에서 미리 (멈춤 없이 풂)
   // 아직 타이틀 · 모드 선택 화면이라면 여기서 바로 틀어 둡니다.
   // startGame() 이 이어서 다시 ambient('forest') 를 걸어도 Sfx.started() 가
   // 이미 true 라 겹쳐 울리지 않고 그대로 이어집니다.
@@ -17393,7 +17413,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmPlay(1500);   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -21691,6 +21711,23 @@ function op3d() {
 /* 시작화면에 있는 동안 오프닝 3D 를 미리 — 시작 버튼을 누르는 순간 한꺼번에 지으면 1~2초 멈췄음.
    한 번에 하나씩, 화면이 쉬는 틈에 (사람 메시 → 실험실 · 숲 → 셰이더 데우기 · 우물 굽기) */
 let warmT = 0;
+/* 시작화면에서 쉬는 동안 — 판에 쓰는 것(숲 · 방 바닥 10장 · 주인공 그림)을 미리 굽고, 던전 음악을 미리 풂.
+   예전엔 이걸 시작 버튼을 누른 뒤 숲 · 첫 방에서 하느라 초반에 덜컥덜컥(느린 기기에서 한 번에 0.1~0.2초씩, 합 0.9초).
+   한 번에 하나씩, 화면이 쉬는 틈(requestIdleCallback)에만. 컷신 3D 는 여기서 안 지음 (일반 모드를 고를 때) */
+let warmPT = 0;
+function warmPlay(delay = 800) {
+  clearTimeout(warmPT);
+  const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 0));
+  const steps = [() => { heroArt(); }, () => { if (W === VW && H === VH) forestFloor(); },
+                 () => { try { drawWell(document.createElement('canvas').getContext('2d'), 0, 0, 0, 0); } catch (e) {} },   // 우물 도트 그림 한 장
+                 ...Object.keys(MAP).map(id => () => roomFloor(id))];
+  const next = () => {
+    if (!titleUp()) return;                                     // 판이 시작되면 멈춤 (남은 건 startGame 의 prebakeFloors 가 이어서)
+    while (steps.length) { const f = steps.shift(); f(); break; }
+    if (steps.length) warmPT = setTimeout(() => idle(next), 60);
+  };
+  warmPT = setTimeout(() => idle(next), delay);
+}
 function warmOpening(delay = 1200) {
   clearTimeout(warmT);
   const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 800 }) : setTimeout(fn, 0));
@@ -23053,7 +23090,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
 })();
 
 onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); if (G.mode === 'diffsel') warmOpening(800); } };
-loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); warmPlay(1200); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
 
 })();
 

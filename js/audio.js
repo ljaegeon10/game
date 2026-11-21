@@ -79,6 +79,30 @@ const Sfx = (() => {
     } catch (e) { mediaMode = 'none'; }
   }
 
+  /* base64 음원 → ArrayBuffer, 화면을 멈추지 않게.
+     예전엔 atob + 한 글자씩 옮기는 반복을 그 자리에서 돌려(던전 2.3MB · 보스 1.8MB · 2.3MB) 시작 · 첫 방 · 보스방에서 덜컥했음.
+     (data: 주소 fetch 도 써 봤지만 2MB 주소를 만드는 데만 40ms 를 잡아먹었음)
+     → 64KB 씩, 한 번에 4ms 까지만 풀고 쉬었다가 — 프레임 사이사이에 조금씩 */
+  function b64Buf(b64) {
+    return new Promise(res => {
+      const n = b64.length, pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+      const out = new Uint8Array(n / 4 * 3 - pad), CH = 64 * 1024;          // CH 는 4 의 배수
+      let i = 0, o = 0;
+      const step = () => {
+        const t0 = performance.now();
+        while (i < n && performance.now() - t0 < 4) {
+          const bin = atob(b64.slice(i, i + CH)); i += CH;
+          for (let k = 0; k < bin.length; k++) out[o++] = bin.charCodeAt(k);
+        }
+        if (i < n) setTimeout(step, 10); else res(out.buffer);
+      };
+      setTimeout(step, 0);
+    });
+  }
+  function decodeB64(b64, ok, fail) {
+    b64Buf(b64).then(buf => ctx().decodeAudioData(buf, ok, fail)).catch(fail);
+  }
+
   function ctx() {
     // 오디오 초기화가 (드물게) 막히거나 던지더라도, 이 때문에 게임 입력 자체가
     // 멈춰서는 안 됩니다 — 방어적으로 감싸 둡니다.
@@ -595,11 +619,7 @@ const Sfx = (() => {
     preloadDungeonBgm() {
       if (api._dgBuf || api._dgLoading || typeof DUNGEON_BGM_B64 === 'undefined') return;
       api._dgLoading = true;
-      const c = ctx();
-      const bin = atob(DUNGEON_BGM_B64);
-      const u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      c.decodeAudioData(u8.buffer,
+      decodeB64(DUNGEON_BGM_B64,
         buf => { api._dgBuf = buf; api._dgLoading = false; if (api._dgWant) api.dungeonBgm(true); },
         ()  => { api._dgLoading = false; });
     },
@@ -656,11 +676,7 @@ const Sfx = (() => {
       const b64 = cfg.src();
       if (!b64) return;
       st.loading = true;
-      const c = ctx();
-      const bin = atob(b64);
-      const u8 = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      c.decodeAudioData(u8.buffer,
+      decodeB64(b64,
         buf => { st.buf = buf; st.loading = false; if (st.want) api.bossBgm(which, true); },
         ()  => { st.loading = false; });
     },

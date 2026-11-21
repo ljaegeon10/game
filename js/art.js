@@ -476,7 +476,10 @@ function drawWell(g, x, y, t, glow) {
   g.save();
   if (window.PixFX) {
     PixFX.ellipse(g, x, y + 7, 41, 15, 'rgba(0,0,0,.32)');
-    PixFX.sprite(g, x, y, 112, 100, 56, 70, c => drawWellBody(c, 0, 0), { outline: '#0b0a0d', hi: .22, lo: .25 });
+    // 우물은 움직이지 않으니 도트 정리한 그림을 한 번만 구워 둠 (예전엔 숲에 있는 내내 매 장 픽셀마다 다시 정리)
+    if (!drawWell.img) { const c = document.createElement('canvas'); c.width = 112; c.height = 100;
+      PixFX.sprite(c.getContext('2d'), 56, 70, 112, 100, 56, 70, q => drawWellBody(q, 0, 0), { outline: '#0b0a0d', hi: .22, lo: .25 }); drawWell.img = c; }
+    g.drawImage(drawWell.img, Math.round(x - 56), Math.round(y - 70));
   } else {
     g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(x, y + 6, 40, 15, 0, 0, Math.PI * 2); g.fill();
     drawWellBody(g, x, y);

@@ -424,6 +424,7 @@ addEventListener('mouseup', () => { mouse.down = false; });
    사실상 "들어오기만 해도" 로 느껴지게 합니다. */
 function kickAudio() {
   Sfx.unlock();
+  if (!kickAudio.pre) { kickAudio.pre = true; setTimeout(() => Sfx.preloadDungeonBgm(), 400); }   // 던전 음악은 시작화면에서 미리 (멈춤 없이 풂)
   // 아직 타이틀 · 모드 선택 화면이라면 여기서 바로 틀어 둡니다.
   // startGame() 이 이어서 다시 ambient('forest') 를 걸어도 Sfx.started() 가
   // 이미 true 라 겹쳐 울리지 않고 그대로 이어집니다.
@@ -905,7 +906,7 @@ function resetRun() {
   G.finalKey = false;
   G.visited = new Set(); G.st = {}; G.seenGlitch = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
-  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose();   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
+  G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmPlay(1500);   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
   G.awayMsg = null; G.awaySeen = false;
   G.morphed = false; G.morphT = 0; G.morphDark = 0; G.medpack = null;
@@ -5203,6 +5204,23 @@ function op3d() {
 /* 시작화면에 있는 동안 오프닝 3D 를 미리 — 시작 버튼을 누르는 순간 한꺼번에 지으면 1~2초 멈췄음.
    한 번에 하나씩, 화면이 쉬는 틈에 (사람 메시 → 실험실 · 숲 → 셰이더 데우기 · 우물 굽기) */
 let warmT = 0;
+/* 시작화면에서 쉬는 동안 — 판에 쓰는 것(숲 · 방 바닥 10장 · 주인공 그림)을 미리 굽고, 던전 음악을 미리 풂.
+   예전엔 이걸 시작 버튼을 누른 뒤 숲 · 첫 방에서 하느라 초반에 덜컥덜컥(느린 기기에서 한 번에 0.1~0.2초씩, 합 0.9초).
+   한 번에 하나씩, 화면이 쉬는 틈(requestIdleCallback)에만. 컷신 3D 는 여기서 안 지음 (일반 모드를 고를 때) */
+let warmPT = 0;
+function warmPlay(delay = 800) {
+  clearTimeout(warmPT);
+  const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 0));
+  const steps = [() => { heroArt(); }, () => { if (W === VW && H === VH) forestFloor(); },
+                 () => { try { drawWell(document.createElement('canvas').getContext('2d'), 0, 0, 0, 0); } catch (e) {} },   // 우물 도트 그림 한 장
+                 ...Object.keys(MAP).map(id => () => roomFloor(id))];
+  const next = () => {
+    if (!titleUp()) return;                                     // 판이 시작되면 멈춤 (남은 건 startGame 의 prebakeFloors 가 이어서)
+    while (steps.length) { const f = steps.shift(); f(); break; }
+    if (steps.length) warmPT = setTimeout(() => idle(next), 60);
+  };
+  warmPT = setTimeout(() => idle(next), delay);
+}
 function warmOpening(delay = 1200) {
   clearTimeout(warmT);
   const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 800 }) : setTimeout(fn, 0));
@@ -6565,6 +6583,6 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
 })();
 
 onSH = () => { if (OP3 && !G.opening && G.mode !== 'wakeup') { op3dDispose(); if (G.mode === 'diffsel') warmOpening(800); } };
-loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
+loadAssets().then(() => { fit(); updateHud(); renderBestTimes(); loop(); warmPlay(1200); });   // 시작화면에선 컷신 3D 를 미리 짓지 않음 — 일반 모드를 고를 때(openDiffSelect)
 
 })();
