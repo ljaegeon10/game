@@ -1727,7 +1727,7 @@ body.cine #maplegend .ml-key::before, body.cine #maplegend .ml-key::after, body.
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795223496"></script>
+<script src="festival-config.js?v=1795392988"></script>
 
 <div id="frame">
   <div id="stage">
@@ -16443,6 +16443,11 @@ function buildPay() {
   return el;
 }
 const isPaying = () => !!payState;
+addEventListener('keydown', e => {                                   // 순위판이 떠 있으면 — ESC 로 닫고, 키가 뒤의 시작 화면 메뉴로 새지 않게 (ENTER 가 뒤에서 게임을 시작했음)
+  if (!board || board.classList.contains('hidden')) return;
+  e.stopImmediatePropagation();
+  if (e.key === 'Escape') { e.preventDefault(); closeBoard(); }
+}, true);
 addEventListener('keydown', e => {                                   // 결제 창이 떠 있으면 게임 키는 막고 ESC = 취소
   if (!payState) return;
   e.stopImmediatePropagation();
@@ -16624,7 +16629,7 @@ addEventListener('touchmove', e => { if (e.touches.length > 1 && e.cancelable &&
     if (!vp || !zoomed()) return;
     vp.setAttribute('content', base.replace('maximum-scale=1', 'maximum-scale=1.0001'));   // 같은 값을 다시 넣으면 무시하는 브라우저가 있어 살짝 바꿔 넣었다가
     setTimeout(() => vp.setAttribute('content', base), 60);
-    window.scrollTo(0, 0);
+    if (window.matchMedia && matchMedia('(pointer: coarse)').matches) window.scrollTo(0, 0);   // 손가락 기기만 — 노트북 터치패드로 확대한 화면을 1초마다 왼쪽 위로 끌어가지 않게
   };
   if (window.visualViewport) { visualViewport.addEventListener('resize', () => setTimeout(unzoom, 120)); visualViewport.addEventListener('scroll', mark); }
   addEventListener('focusout', e => { if (e.target && e.target.matches && e.target.matches('input, textarea')) setTimeout(() => { window.scrollTo(0, 0); unzoom(); }, 150); });   // 글자 입력 뒤 밀린 · 커진 화면
@@ -16649,8 +16654,10 @@ keyGuard.setAttribute('aria-hidden', 'true'); keyGuard.setAttribute('data-lpigno
 keyGuard.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;z-index:-1';
 keyGuard.addEventListener('input', () => { keyGuard.value = ''; });
 document.body.appendChild(keyGuard);
+const FORMS_UP = '#fest-entry:not(.hidden), #fest-pay:not(.hidden), #fest-board:not(.hidden), #settings:not(.hidden), #devpanel:not(.hidden)';
 function guardKeys() {
-  const want = !TOUCH.on && PLAYING() && !PAUSE.on && document.hasFocus();
+  // 등록 · 결제 · 순위판 · 설정 · 개발자 창이 떠 있으면 가져가지 않음 — Tab 으로 간 동의 체크 · 단추가 0.25초 만에 포커스를 뺏겨 키보드로 못 눌렀음
+  const want = !TOUCH.on && PLAYING() && !PAUSE.on && document.hasFocus() && !document.querySelector(FORMS_UP);
   const a = document.activeElement;
   if (want) { if (a !== keyGuard && (!a || a === document.body || !a.closest || !a.closest(TEXT_FIELD + ', #pause, #settings, #devpanel'))) keyGuard.focus({ preventScroll: true }); }
   else if (a === keyGuard) keyGuard.blur();
@@ -16658,8 +16665,11 @@ function guardKeys() {
 setInterval(guardKeys, 250);
 addEventListener('keydown', e => {
   if (typing(e)) return;                            // 이름 · 연락처를 적는 중 — 게임 단축키로 쓰지 않음 (축제판 참가 등록)
-  { const a = document.activeElement;               // 게임 중인데 단추 · 체크박스 · 슬라이더에 포커스가 남았으면 놓음 (스페이스가 그걸 또 누르지 않게)
-    if (a && a !== document.body && a !== keyGuard && PLAYING() && a.matches && a.matches('button, input, select, [tabindex]') && !a.closest('#pause:not(.hidden), #settings:not(.hidden)')) a.blur(); }
+  const active = (G.mode === 'play' || G.mode === 'forest') && !PAUSE.on && !document.querySelector(FORMS_UP);   // 실제로 걷고 싸우는 중
+  { const t = e.target;                             // 등록 · 설정 화면에서 보이는 체크박스 · 슬라이더에 포커스가 있으면 그 칸이 키를 씀 (스페이스 = 체크)
+    if (!active && t !== keyGuard && t.closest && t.closest('input, select') && t.getClientRects().length) return; }
+  { const a = document.activeElement;               // 걷고 싸우는 중인데 단추 · 체크박스 · 슬라이더에 포커스가 남았으면 놓음 (스페이스가 그걸 또 누르지 않게)
+    if (active && a && a !== document.body && a !== keyGuard && a.matches && a.matches('button, input, select, a[href]')) a.blur(); }
   if ([' ', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
   const code = physCode(e);
   if (code && !e.code) Object.defineProperty(e, 'code', { value: code });   // 한글 입력기가 자리를 빼먹은 키 — keyCode 로 채움
@@ -16671,6 +16681,7 @@ addEventListener('keydown', e => {
   if (e.code) { keyOfCode[e.code] = e.key; codeDown[e.code] = true; downTick[e.code] = tickN; }
   key[e.key] = true;
   const k = e.key.toLowerCase();
+  const m0 = G.mode;                                // 이 키를 누른 순간의 화면 — 아래에서 화면이 바뀌어도 같은 키가 새 화면까지 누르지 않게
   konamiKey(e.code);
   if (G.dev) {                                      // 개발자 모드 단축키
     if (e.code === 'Backquote') { devReturn(); return; }
@@ -16679,22 +16690,24 @@ addEventListener('keydown', e => {
   if (k === ' ') onConfirm();
   if (k === 'r' && G.mode === 'dead') retry();
   if (k === 'n' && G.mode === 'dead' && !$('fest-next').classList.contains('hidden')) nextPlayer();
-  if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on') && !document.querySelector('#fest-entry.fe-float:not(.hidden)')) restartFromEnd();   // 엔드 카드 — 처음부터 다시 (명예의 전당 창이 떠 있을 땐 말고)
-  if (G.mode === 'title' && $('devpanel').classList.contains('hidden')) {       // 시작 화면 메뉴
+  if ((k === 'r' || k === 'enter') && $('endcard').classList.contains('on') && !document.querySelector('#fest-entry.fe-float:not(.hidden)')) {   // 엔드 카드 — 처음부터 다시 (명예의 전당 창이 떠 있을 땐 말고)
+    restartFromEnd(); return;                       // 여기서 끝 — 안 그러면 같은 ENTER 가 방금 돌아온 시작 화면의 메뉴까지 눌러 버림 (등록 창 · 난이도 창이 바로 열렸음)
+  }
+  if (m0 === 'title' && $('devpanel').classList.contains('hidden')) {       // 시작 화면 메뉴
     if (k === 'arrowup' || k === 'w') menuMove(-1);
     if (k === 'arrowdown' || k === 's') menuMove(1);
     if (k === 'enter') menuGo();
   }
-  if (G.mode === 'tabrief') {                       // 타임어택 공략 — SPACE · ENTER 로 시작, ESC 뒤로
+  if (m0 === 'tabrief') {                           // 타임어택 공략 — SPACE · ENTER 로 시작, ESC 뒤로 (메뉴에서 고른 그 키로는 안 넘어감 — 안내를 못 보고 바로 시작됐음)
     if (k === ' ' || k === 'enter') { e.preventDefault(); closeTaBrief(true); }
     if (k === 'escape' || k === 'backspace') closeTaBrief(false);
   }
-  else if (G.mode === 'modesel') {                  // 모드 선택은 1 / 2 로도 고를 수 있습니다
+  else if (m0 === 'modesel') {                      // 모드 선택은 1 / 2 로도 고를 수 있습니다
     if (k === '1') startTimeAttack();
     if (k === '2') openDiffSelect();
     if (k === 'escape' || k === 'backspace') closeModeSelect();
   }
-  else if (G.mode === 'diffsel') {                  // 난이도는 1 / 2 / 3
+  else if (m0 === 'diffsel') {                      // 난이도는 1 / 2 / 3
     if (k === '1') startGame(false, 'easy');
     if (k === '2') startGame(false, 'normal');
     if (k === '3') startGame(false, 'hard');
@@ -23074,7 +23087,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
                   endingScene: () => endingScene, escapeScene: () => escapeScene, beginEscape,
                   killBoss, MORPH_PRE, AD, AD_DONE,
-                  taRoute, devJump, openDevPanel, devKillAll, OP, opT, beginDoze, DOZE_AFTER,
+                  taRoute, devJump, openDevPanel, devKillAll, opT, beginDoze, DOZE_AFTER,
                   bot: () => ({ W, H, TS, CAM, TOUCH, mouse, doorCenter, onConfirm, runTime }),   // 타임어택 자동 플레이 봇(기록 분석)용
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 

@@ -530,6 +530,11 @@ function buildPay() {
   return el;
 }
 const isPaying = () => !!payState;
+addEventListener('keydown', e => {                                   // 순위판이 떠 있으면 — ESC 로 닫고, 키가 뒤의 시작 화면 메뉴로 새지 않게 (ENTER 가 뒤에서 게임을 시작했음)
+  if (!board || board.classList.contains('hidden')) return;
+  e.stopImmediatePropagation();
+  if (e.key === 'Escape') { e.preventDefault(); closeBoard(); }
+}, true);
 addEventListener('keydown', e => {                                   // 결제 창이 떠 있으면 게임 키는 막고 ESC = 취소
   if (!payState) return;
   e.stopImmediatePropagation();
