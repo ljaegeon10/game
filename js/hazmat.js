@@ -89,6 +89,9 @@ function pose(fig) {
     [T, Q] = st < .5 ? mix(iT, iQ, wT, wQ, st * 2) : mix(wT, wQ, rT, rQ, st * 2 - 2 + 1);
   }
   const H = BI.Hips; T[H] = [D.bones[H].t[0], T[H][1], D.bones[H].t[2]];           // 제자리에서 (앞으로 가는 건 게임이 옮김)
+  // 몸 비율 (fig.shape — 게임 안 주인공 그림을 구울 때 : 작게 찍혀도 알아보게 머리를 키우고 다리를 줄임). 없으면 원래 비율
+  const shp = fig.shape || null, headK = shp && shp.head || 1, legK = shp && shp.legs || 1;
+  if (legK !== 1) T[H] = [T[H][0], T[H][1] - (1 - legK) * (shp.hip || .86), T[H][2]];   // 다리가 짧아진 만큼 골반을 내림 (발이 땅에)
   // 얹는 값 — 모델 기준 축으로 돌리는 회전을 그 뼈의 부모 기준으로 바꿔 끼움
   const extra = (fig.lean != null ? fig.lean - .16 * st : 0) + reach * .06;
   const world = {};                                                               // 뼈 → 모델 기준으로 더 돌릴 회전
@@ -111,6 +114,8 @@ function pose(fig) {
     LQ[b] = q; LT[b] = T[b];
     GQ[b] = qmul(pq, q);
     trs(TMP, 0, T[b], q);
+    if (headK !== 1 && b === BI.Head) for (let k = 0; k < 12; k++) TMP[k] *= headK;                       // 머리 — 고르게 키움
+    if (legK !== 1 && (b === BI.LeftUpperLeg || b === BI.RightUpperLeg)) for (let k = 4; k < 8; k++) TMP[k] *= legK;   // 다리 — 뼈가 뻗은 쪽(Y)만 줄임
     if (p < 0) GM.set(TMP, b * 16); else mmul(GM, b * 16, GM, p * 16, TMP, 0);
     mmul(SK, b * 16, GM, b * 16, G.ibm, b * 16);
   }

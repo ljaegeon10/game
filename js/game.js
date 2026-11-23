@@ -2728,7 +2728,9 @@ function render() {
   // 컷신 — 16:9 그림을 세로에 맞춰 키움(좌우만 조금 잘림) · 방 — 위아래로 OY 만큼 내려 가운데에
   if (isCine()) { BK = SH / VH; BX = (VW - VW * BK) / 2; BY = 0; } else { BK = 1; BX = 0; BY = OY; }
   baseXf();
+  heroHi.used = false;
   renderFrame();
+  heroHiEnd();
   BK = 1; BX = 0; BY = 0;
   g.setTransform(SR, 0, 0, SR, 0, 0);
   if (hi) { cv = cvMain; g = gMain; SR = 1; }
@@ -3010,6 +3012,7 @@ function renderDungeon() {
   drawAimGuide();
   drawPlayer();
   drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
+  heroHiOcclude(c => drawPropsPass(c, G.props, G.t, P.y, true));   // 4배 층의 주인공도 그 모양대로 가림
   drawRings();
 
   const g0 = g; if (window.PixFX) g = PixFX.layerBegin(g0);    // 탄 — 도트 겹에 모아 (계단 가장자리 · 디더 빛무리)
@@ -3378,11 +3381,13 @@ function drawPlayer() {
   g.save();
   g.fillStyle = 'rgba(0,0,0,.5)';
   const shadowSquish = 1 + lift * 0.14;                 // 뜰 때 그림자가 살짝 좁아짐
-  if (window.PixFX) PixFX.ellipse(g, P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 'rgba(0,0,0,.5)');
+  if (suitReady()) PixFX.ellipse(g, P.x, P.y + 14, 13, 4.5, 'rgba(0,0,0,.5)');             // 방호복 — 걸음은 그림에 들어 있어 그림자는 그대로
+  else if (window.PixFX) PixFX.ellipse(g, P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 'rgba(0,0,0,.5)');
   else { g.beginPath(); g.ellipse(P.x, P.y + 15, 12 / shadowSquish, 4.5 / shadowSquish, 0, 0, Math.PI * 2); g.fill(); }
 
   if (P.inv > 0 && (G.t >> 2) % 2) g.globalAlpha = .35;
 
+  if (suitReady()) { drawSuit(phase, amt); g.restore(); return; }   // 방호복 (js/hero_suit.js) — 아래는 예전 노란 주인공
   const art = heroArt();
   if (art) {
     const { FW, FH } = HeroArt;
@@ -3426,6 +3431,112 @@ function drawPlayer() {
   }
   g.restore();
 }
+
+/* ═══════════ 주인공 = 방호복 (포스터 · 시작 화면의 그 모델) ═══════════
+   js/hero_suit.js (tools/make_hero_suit.js 가 3D 모델을 구운 그림 — 게임 중엔 WebGL 없이 그림 한 장 찍는 값).
+     lo : 게임 해상도 도트 그림 — 화면 효과가 덮일 때 · 깨질 때(글리치) · 컷신 · 엔딩
+     hi : 4배 해상도 — 평소엔 게임 화면 바로 위의 작은 층(#herohi)에 얹어 모델링 그대로 또렷하게.
+          게임 화면(576×324 도트)에 직접 그리면 뭉개지므로 주인공만 따로. 주인공 앞을 가리는 장애물은 그 모양대로 층에서 지워 냄 (heroHiOcclude) */
+const SUIT = window.HERO_SUIT || null;
+const suitLo = SUIT ? Object.assign(new Image(), { src: SUIT.lo }) : null, suitHi = SUIT ? Object.assign(new Image(), { src: SUIT.hi }) : null;
+const suitReady = () => !!(SUIT && suitLo.complete && suitLo.naturalWidth);
+const SUIT_FEET_Y = 13;                                     // 발바닥 줄 — 주인공 자리(P.y)에서 이만큼 아래
+function drawSuit(phase, amt) {
+  const S = SUIT, fw = S.fw, fh = S.fh;
+  const row = P.dir === 'up' ? 1 : P.dir === 'left' ? 2 : P.dir === 'right' ? 3 : 0;
+  const col = amt > .3 ? 1 + ((Math.floor(phase / (Math.PI * 2) * 4) % 8) + 8) % 8 : 0;      // 서 있기 0 · 걷기 1~8 (두 걸음 = 한 바퀴)
+  if (heroRigT !== G.t) {                                   // 글리치는 한 프레임에 한 번만 (변이 장면에선 두 번 그려짐)
+    const depth = G.inForest ? 0 : (G.boss && G.boss.kind === 'abom') ? 6 : G.depth;   // 숲 0 · 던전 방 1~5 · 심연 6
+    heroBurst = HeroArt.glitchTick(heroGl, HeroArt.originalStage(depth, false), HERO_REDUCE);
+    heroStage = HeroArt.originalStage(depth, heroBurst);
+    heroRigT = G.t;
+  }
+  const st = heroStage, top = P.y + SUIT_FEET_Y - S.feet;
+  const jit = !heroBurst && !HERO_REDUCE && Math.random() < .02 * st.power * (st.rate / .008);   // 잔떨림 — 띠 하나만 튐 (깊을수록 자주)
+  const jy = jit ? 4 + (Math.random() * (fh - 8) | 0) : 0, jh = 1 + (Math.random() * 3 | 0), jx = Math.random() < .5 ? -2 : 2;
+  if (heroHiCan()) { heroHiDraw(col, row, g.globalAlpha, jit ? [jy, jh, jx] : null); return; }
+  const dx = Math.round(P.x - fw / 2), dy = Math.round(top);
+  if (heroBurst) drawSuitGlitched(dx, dy, col, row, st.power);
+  else {
+    g.drawImage(suitLo, col * fw, row * fh, fw, fh, dx, dy, fw, fh);
+    if (jit) g.drawImage(suitLo, col * fw, row * fh + jy, fw, jh, dx + jx, dy + jy, fw, jh);
+  }
+}
+/* 시뮬레이션이 아바타를 놓치는 순간 — HeroArt.drawGlitched 와 같은 깨짐을 방호복 칸 크기로 (띠 사이로 진짜 사람이 비침) */
+function drawSuitGlitched(dx, dy, col, row, power) {
+  const S = SUIT, fw = S.fw, fh = S.fh, R = Math.random, sx = col * fw, sy = row * fh;
+  const art = heroArt(), real = art && art.real, RF = HeroArt.FW, RH = HeroArt.FH;
+  const rfi = HeroArt.frameIndex(P.dir, Math.floor(P.anim) % HeroArt.STEPS), rx = dx + (fw - RF) / 2, ry = dy + S.feet - HeroArt.FEET_Y;   // 진짜 사람 — 발바닥을 맞춰
+  const swap = real && R() < .22 * power;                    // 통째로 사람
+  g.save(); g.globalCompositeOperation = 'lighter'; g.globalAlpha = .6 * power;              // 색 분리 잔상
+  if (swap) { g.drawImage(HeroArt.tinted(real, '#ff2050'), rfi * RF, 0, RF, RH, rx - 2 - (R() * 3 | 0), ry, RF, RH); g.drawImage(HeroArt.tinted(real, '#00ffd5'), rfi * RF, 0, RF, RH, rx + 2 + (R() * 3 | 0), ry, RF, RH); }
+  else { g.drawImage(HeroArt.tinted(suitLo, '#ff2050'), sx, sy, fw, fh, dx - 2 - (R() * 3 | 0), dy, fw, fh); g.drawImage(HeroArt.tinted(suitLo, '#00ffd5'), sx, sy, fw, fh, dx + 2 + (R() * 3 | 0), dy + (R() < .3 ? 1 : 0), fw, fh); }
+  g.restore();
+  for (let y = 0; y < fh;) {                                 // 찢긴 띠
+    const h = Math.min(fh - y, 2 + (R() * 5 | 0)), off = R() < .4 ? 0 : Math.round((R() - .5) * 12 * power);
+    const useReal = swap || (real && R() < .42 * power);
+    if (R() > .07 * power) {
+      if (useReal) { const y0 = Math.max(0, dy + y - ry), y1 = Math.min(RH, dy + y + h - ry); if (y1 > y0) g.drawImage(real, rfi * RF, y0, RF, y1 - y0, rx + off, ry + y0, RF, y1 - y0); }
+      else g.drawImage(suitLo, sx, sy + y, fw, h, dx + off, dy + y, fw, h);
+    }
+    y += h;
+  }
+  const COL = ['#00ffd5', '#ffffff', '#ff2050', '#3fe08a'];     // 찢긴 줄 · 깨진 조각
+  for (let i = 0; i < 2 + power * 5; i++) {
+    const len = 4 + R() * 30 * power, yy = dy + 2 + (R() * (fh - 4) | 0);
+    g.globalAlpha = .45 + R() * .55; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(dx + fw / 2 + (R() - .5) * fw - len / 2), yy, Math.round(len), 1);
+  }
+  for (let i = 0; i < power * 7; i++) {
+    g.globalAlpha = .5 + R() * .5; g.fillStyle = COL[R() * 4 | 0];
+    g.fillRect(Math.round(dx - 8 + R() * (fw + 16)), Math.round(dy + R() * fh), 1 + (R() * 3 | 0), 1 + (R() * 2 | 0));
+  }
+  g.globalAlpha = 1;
+}
+/* ── 4배 층 (#herohi) — 주인공 둘레만 한 작은 캔버스를 게임 화면 위에서 주인공을 따라 옮김 ── */
+const heroHi = { el: null, x: null, mask: null, mx: null, used: false, shown: false, ox: 0, oy: 0, m: null, padX: 6, padT: 4, padB: 4 };
+function heroHiCan() {
+  return !!(SUIT && suitHi.complete && suitHi.naturalWidth && g === gMain && SR === 1 && !G.hideHero && !heroBurst && G.wake <= 0 && !G.endWarp && !G.opening && !G.doze && !titleUp()
+    && (G.mode === 'play' || G.mode === 'forest' || G.mode === 'talk' || G.mode === 'note' || G.mode === 'doc' || G.mode === 'boss-intro'));
+}
+function heroHiDraw(col, row, alpha, jit) {
+  const H = heroHi, S = SUIT, K = S.k, fw = S.fw, fh = S.fh, bw = fw + H.padX * 2, bh = fh + H.padT + H.padB;
+  if (!H.el) {
+    const el = H.el = document.createElement('canvas'); el.id = 'herohi'; el.width = bw * K; el.height = bh * K; el.setAttribute('aria-hidden', 'true');
+    Object.assign(el.style, { position: 'absolute', left: '0', top: '0', width: bw + 'px', height: bh + 'px', zIndex: 1, pointerEvents: 'none', display: 'none', transformOrigin: '0 0' });
+    cvMain.parentNode.insertBefore(el, cvMain.nextSibling);
+    H.x = el.getContext('2d');
+    H.mask = document.createElement('canvas'); H.mask.width = bw; H.mask.height = bh; H.mx = H.mask.getContext('2d');
+  }
+  const m = g.getTransform();                              // 방 → 화면 (카메라 · 흔들림 · 위아래 여백)
+  const fx = m.a * P.x + m.c * (P.y + SUIT_FEET_Y) + m.e, fy = m.b * P.x + m.d * (P.y + SUIT_FEET_Y) + m.f;   // 발바닥 자리 (화면)
+  const left = fx - fw / 2, top = fy - S.feet;             // 칸의 왼쪽 위 (화면)
+  H.ox = Math.floor(left) - H.padX; H.oy = Math.floor(top) - H.padT;                       // 층은 게임 픽셀 칸에 맞춰 (장애물로 지울 때 도트가 어긋나지 않게)
+  const px = Math.round((left - H.ox) * K), py = Math.round((top - H.oy) * K);             // 층 안에서의 자리 (1/4 픽셀까지 — 걸음이 매끄럽게)
+  const x = H.x;
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+  x.clearRect(0, 0, bw * K, bh * K);
+  x.globalAlpha = alpha == null ? 1 : alpha; x.imageSmoothingEnabled = true;
+  x.drawImage(suitHi, col * fw * K, row * fh * K, fw * K, fh * K, px, py, fw * K, fh * K);
+  if (jit) x.drawImage(suitHi, col * fw * K, (row * fh + jit[0]) * K, fw * K, jit[1] * K, px + jit[2] * K, py + jit[0] * K, fw * K, jit[1] * K);
+  if (G.glare > .02) { x.globalCompositeOperation = 'source-atop'; x.globalAlpha = Math.min(1, G.glare) * .5; x.fillStyle = '#fff6ec'; x.fillRect(0, 0, bw * K, bh * K); }   // 보스전 섬광 — 같이 하얗게
+  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
+  H.m = m; H.used = true;
+  H.el.style.transform = `translate(${H.ox}px,${H.oy}px)`;
+  if (!H.shown) { H.el.style.display = 'block'; H.shown = true; }
+}
+/* 주인공 앞을 가리는 것(앞쪽 장애물) — draw(ctx) 로 층 크기의 작은 화면에 그려, 그 모양대로 층에서 주인공을 지움 (아래 게임 화면의 장애물이 보임) */
+function heroHiOcclude(draw) {
+  const H = heroHi; if (!H.used) return;
+  const K = SUIT.k, bw = H.mask.width, bh = H.mask.height, m = H.m, mx = H.mx;
+  mx.setTransform(1, 0, 0, 1, 0, 0); mx.clearRect(0, 0, bw, bh);
+  mx.setTransform(m.a, m.b, m.c, m.d, m.e - H.ox, m.f - H.oy); mx.imageSmoothingEnabled = false;
+  mx.save(); try { draw(mx); } finally { mx.restore(); }
+  const x = H.x; x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.imageSmoothingEnabled = false;
+  x.drawImage(H.mask, 0, 0, bw, bh, 0, 0, bw * K, bh * K);
+  x.globalCompositeOperation = 'source-over';
+}
+function heroHiEnd() { const H = heroHi; if (!H.used && H.shown) { H.el.style.display = 'none'; H.shown = false; } }   // 이번 장에 안 썼으면 숨김
 
 /* 포자 구름 — 바닥에 낮게 깔린 누런 안개. 테두리 없이 몇 덩이가 천천히
    뒤척이고, 홀씨 알갱이가 피어올랐다 사라집니다.
@@ -5219,7 +5330,8 @@ let warmPT = 0;
 function warmPlay(delay = 800) {
   clearTimeout(warmPT);
   const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 0));
-  const steps = [() => { heroArt(); }, () => { if (W === VW && H === VH) forestFloor(); },
+  const steps = [() => { heroArt(); }, () => { if (suitHi && suitHi.decode) suitHi.decode().catch(() => {}); },   // 방호복 4배 그림 — 미리 풀어 둠
+                 () => { if (W === VW && H === VH) forestFloor(); },
                  () => { try { drawWell(document.createElement('canvas').getContext('2d'), 0, 0, 0, 0); } catch (e) {} },   // 우물 도트 그림 한 장
                  ...Object.keys(MAP).map(id => () => roomFloor(id))];
   const next = () => {
@@ -5857,15 +5969,19 @@ function renderFall() {
   g.restore();
 
   // 4) 작아지며 구르듯 떨어지는 주인공
-  if (IMG.hero) {
+  if (IMG.hero || suitReady()) {
     const scale = Math.max(.05, 1 - k * .92);
     g.save();
     g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
     g.rotate(k * 3.2);
     g.scale(scale, scale);
     g.globalAlpha = Math.min(1, 1.3 - k);
+    if (suitReady()) { const S = SUIT, im = suitHi.naturalWidth ? suitHi : suitLo, q = im === suitHi ? S.k : 1, c2 = 1 + Math.floor(t / 5) % (S.cols - 1), w = S.fw * 1.5, h = S.fh * 1.5;   // 방호복 — 허우적대며
+      g.drawImage(im, c2 * S.fw * q, 0, S.fw * q, S.fh * q, -w / 2, -h / 2, w, h); }
+    else {
     const seq = HERO.down, idx = seq[Math.floor(t / 6) % seq.length];
     g.drawImage(IMG.hero, idx * HERO.fw, 0, HERO.fw, HERO.fh, -HERO.fw / 2, -HERO.fh / 2, HERO.fw, HERO.fh);
+    }
     g.restore();
   }
 
@@ -6446,7 +6562,7 @@ function loop(now) {
   if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
   if (window.Perf) Perf.frame(now);
 
-  if (G.mode !== 'ending') render();
+  if (G.mode !== 'ending') render(); else { heroHi.used = false; heroHiEnd(); }
   if (RUN.running) updateTimer();
   // 브라운관은 탑뷰 본편에서만 (css body.topview)
   const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
