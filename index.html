@@ -30,15 +30,15 @@
     <div id="bezel" aria-hidden="true"><i class="glass"></i><i class="led"></i><span class="model">SLEEP-LAB MONITOR · CELL 07</span></div>
 
     <!-- 타임어택 — 던전에 들어서면 화면 아래에 잠깐 -->
-    <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠를 모으거나 상자를 열지 않아도 돼요 — <em>몬스터만 잡아도 클리어!</em></div>
+    <div id="tanotice" aria-live="polite"><b>TIME ATTACK</b>열쇠 · 상자는 생략 가능 <em>몬스터만 잡으면 클리어</em></div>
     <!-- 타임어택 — 오른쪽 아래 지도의 표시 설명 (던전에 들어서면 잠깐 · H 로 다시 보기) -->
     <div id="maplegend" aria-hidden="true">
-      <p class="ml-title">지도 보는 법</p>
-      <p><i class="ml-now"></i><span><b>노란 칸</b> 지금 있는 방</span></p>
-      <p><i class="ml-key"></i><span><b>깜빡이는 노란 ✚</b> 관문 열쇠가 남은 방 — 그 방 몬스터를 다 잡으면 열쇠가 나와요 (2개 필요)</span></p>
-      <p><i class="ml-route"></i><span><b>청록 점</b> 가장 빠른 길 — 크게 깜빡이는 점이 바로 다음 방</span></p>
-      <p><i class="ml-boss"></i><span><b>빨간 점</b> 심층(보스) · <i class="ml-exit"></i> <b>청록 칸</b> 탈출구</span></p>
-      <p class="ml-hint">H 를 누르면 다시 볼 수 있어요</p>
+      <p class="ml-title">MAP</p>
+      <p><i class="ml-now"></i><span><b>현재 위치</b></span></p>
+      <p><i class="ml-key"></i><span><b>열쇠 방</b> 전부 처치하면 관문 열쇠 · 2개 필요</span></p>
+      <p><i class="ml-route"></i><span><b>최단 경로</b> 큰 점이 다음 방</span></p>
+      <p><i class="ml-boss"></i><span><b>보스</b> <i class="ml-exit"></i> <b>탈출구</b></span></p>
+      <p class="ml-hint">H 다시 보기</p>
     </div>
 
     <!-- ── HUD ────────────────────────────────────────────── -->
@@ -204,7 +204,7 @@
 
       <!-- 타임어택 공략 — 시계가 돌기 전에 가장 빠른 길을 한 번 보여 줌 (js/game.js showTaBrief) -->
       <div id="tabrief" class="hidden">
-        <p class="ms-q">타임어택 · 가장 빠른 길</p>
+        <p class="ms-q">TIME ATTACK · 최단 경로</p>
         <div class="tb-body">
           <svg class="tb-map" viewBox="-4 -4 259 130" aria-label="지도">
             <g class="tb-rooms"></g>
@@ -212,12 +212,12 @@
             <circle class="tb-dot" r="4"></circle>
           </svg>
           <ol class="tb-steps">
-            <li><b>가운데 복도</b>를 따라 오른쪽으로</li>
-            <li>갈림길에서 <b class="y">위 · 아래 방</b>만 들러 몬스터를 다 잡기 → <b class="y">관문 열쇠 2개</b></li>
-            <li>다시 가운데로 <b>쭉 오른쪽</b> — 관문 → <b class="r">보스</b> → <b class="g">탈출</b></li>
+            <li><b>가운데 복도</b>로 직진</li>
+            <li>갈림길의 <b class="y">위 · 아래 방</b> 전부 처치 → <b class="y">관문 열쇠 2개</b></li>
+            <li><b>관문</b> → <b class="r">보스</b> → <b class="g">탈출</b></li>
           </ol>
         </div>
-        <p class="tb-skip">옆길(북동 · 남동 통로) · 상자 · 노란 열쇠는 <b>건너뛰어도 돼요</b> — 게임 중엔 지도의 <b class="g">청록 점</b>이 길을 알려 줘요</p>
+        <p class="tb-skip">옆 통로 · 상자 · 노란 열쇠는 <b>생략 가능</b> · 지도의 <b class="g">청록 점</b>이 다음 방</p>
         <button id="tbgo" type="button">시작 <span>SPACE</span></button>
         <button id="tbback" type="button">← 뒤로</button>
       </div>
@@ -229,7 +229,7 @@
           <button class="modebtn" data-mode="time">
             <b>타임어택 모드</b>
             <span>기록 경쟁 · 죽으면 처음부터</span>
-            <em>열쇠 · 상자 없이 몬스터만 잡아도 클리어!</em>
+            <em>몬스터만 잡으면 클리어</em>
           </button>
           <button class="modebtn" data-mode="normal">
             <b>일반 모드</b>
@@ -315,7 +315,7 @@
           <span id="recordtag" class="hidden">NEW RECORD</span>
         </div>
         <p id="fest-result" class="hidden"></p>
-        <button id="hardfame" class="hidden" type="button">🏆 어려움 클리어! 명예의 전당에 이름 남기기</button>
+        <button id="hardfame" class="hidden" type="button">어려움 클리어 · 명예의 전당에 이름 남기기</button>
         <div class="e-records">
           <span class="er-label">기록</span>
           <ol id="records"></ol>
@@ -366,6 +366,7 @@
 <script src="js/audio.js"></script>
 <script src="js/art.js"></script>
 <script src="js/foeart.js"></script>
+<script src="js/foepix.js"></script>
 <script src="js/pixfx.js"></script>
 <script src="js/floors.js"></script>
 <script src="js/roomdeco.js"></script>

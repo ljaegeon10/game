@@ -1531,7 +1531,7 @@ body.cine #maplegend{ opacity:0; }
 
 .fe-tanote b{ font-weight:400; color:#fff; }
 #maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child{ color:var(--hwang); }
-#maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child::after{ content:' —'; color:rgba(233,228,216,.5); }
+#maplegend p:not(.ml-title):not(.ml-hint) > span > b:first-child{ margin-right:4px; }
 #maplegend p:nth-of-type(4) > span > b:first-child, #maplegend p:nth-of-type(5) > span > b:last-of-type{ color:var(--glow); }
 #maplegend p:nth-of-type(5) > span > b:first-child{ color:#e0483c; }
 
@@ -1694,3 +1694,41 @@ html.lowfx #title:has(#fest-entry:not(.hidden)) #titlecv, html.lowfx #title:has(
 #maplegend:not(.on) .ml-key::before, #maplegend:not(.on) .ml-key::after, #maplegend:not(.on) .ml-route::before,
 body.cine #maplegend .ml-key::before, body.cine #maplegend .ml-key::after, body.cine #maplegend .ml-route::before,
 #morphsys:not(.on) .caret, #morphsys:not(.on).abyss{ animation:none; }
+
+/* ── 그림 글자(이모지) 대신 직접 찍은 픽셀 아이콘 — 도트 글꼴 사이에 컬러 이모지가 끼면 따로 놀았음 ── */
+#hardfame::before{ content:''; display:inline-block; width:9px; height:9px; margin-right:7px; vertical-align:-1px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges'%3E%3Crect x='1' y='0' width='7' height='1' fill='%230a0910'/%3E%3Crect x='0' y='1' width='2' height='1' fill='%230a0910'/%3E%3Crect x='2' y='1' width='5' height='1' fill='%230a0910'/%3E%3Crect x='7' y='1' width='2' height='1' fill='%230a0910'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%230a0910'/%3E%3Crect x='2' y='2' width='5' height='1' fill='%230a0910'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%230a0910'/%3E%3Crect x='0' y='3' width='2' height='1' fill='%230a0910'/%3E%3Crect x='2' y='3' width='5' height='1' fill='%230a0910'/%3E%3Crect x='7' y='3' width='2' height='1' fill='%230a0910'/%3E%3Crect x='2' y='4' width='5' height='1' fill='%230a0910'/%3E%3Crect x='3' y='5' width='3' height='1' fill='%230a0910'/%3E%3Crect x='4' y='6' width='1' height='1' fill='%230a0910'/%3E%3Crect x='3' y='7' width='3' height='1' fill='%230a0910'/%3E%3Crect x='2' y='8' width='5' height='1' fill='%230a0910'/%3E%3C/svg%3E") center/contain no-repeat; image-rendering:pixelated; }
+#hardfame:disabled::before{ filter:invert(1); }
+#tfs i{ display:block; width:11px; height:11px; margin:auto; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='3' height='1' fill='%23f1ece0'/%3E%3Crect x='6' y='0' width='3' height='1' fill='%23f1ece0'/%3E%3Crect x='0' y='1' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='8' y='1' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='8' y='2' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='0' y='6' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='8' y='6' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='0' y='7' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='8' y='7' width='1' height='1' fill='%23f1ece0'/%3E%3Crect x='0' y='8' width='3' height='1' fill='%23f1ece0'/%3E%3Crect x='6' y='8' width='3' height='1' fill='%23f1ece0'/%3E%3C/svg%3E") center/contain no-repeat; image-rendering:pixelated; }
+
+/* ═══ 도트 마감 — 번지는 빛 · 브라우저 기본 컨트롤 대신 딱 떨어지는 픽셀 모양 ═══ */
+/* 한글은 낱말 단위로 줄바꿈 ("관/문 열쇠" 처럼 낱말 가운데서 끊기지 않게) */
+body{ word-break:keep-all; overflow-wrap:break-word; }
+/* 번지는 빛(blur 그림자)을 걷고 1픽셀 단차만 남김 */
+button{ box-shadow:0 3px 0 #8a6a18; }
+.tm-item::before, .pm-item::before, .pm-item[data-act="quit"]::before, .pm-item[data-act="quit-yes"]::before,
+#subtitle::before, #subtitle.whisper::before, #subtitle.sys::before{ box-shadow:none; }
+.tm-item.sel, .tm-item:hover, .tm-item:active, .pm-item.sel{ background:linear-gradient(90deg, rgba(227,178,60,.18) 0 62%, rgba(227,178,60,.09) 62% 82%, rgba(227,178,60,0) 82%); }
+.heart{ box-shadow:0 1px 0 #2a0707; }
+#timertext{ text-shadow:1px 0 0 #1a1204, -1px 0 0 #1a1204, 0 1px 0 #1a1204, 0 -1px 0 #1a1204; }
+.fp-no b, #fest-pay.ok .fp-no b{ text-shadow:0 3px 0 rgba(0,0,0,.55); }
+.fb-dot, #fest-pay.wait .fp-sub::after{ border-radius:0; }
+.st-btn, #msback, #dsback{ border-radius:0; }
+.pm-box, .st-box{ box-shadow:0 0 0 2px #050508, 6px 6px 0 rgba(0,0,0,.55); }
+
+/* 설정 슬라이더 — 납작한 홈 + 네모 손잡이 (채워진 구간은 settings.js 가 --p 로 넘김) */
+.st-row input[type=range], .tl-row input[type=range]{ -webkit-appearance:none; appearance:none; height:28px; background:none; border-radius:0; }
+.st-row input[type=range]::-webkit-slider-runnable-track, .tl-row input[type=range]::-webkit-slider-runnable-track{
+  height:6px; border-radius:0; background:linear-gradient(var(--hwang), var(--hwang)) 0 0 / var(--p, 50%) 100% no-repeat, rgba(241,236,224,.14); box-shadow:0 0 0 1px rgba(241,236,224,.2); }
+.st-row input[type=range]::-webkit-slider-thumb, .tl-row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:10px; height:20px; margin-top:-7px; border:none; border-radius:0; background:#f6f2ea; box-shadow:0 0 0 2px #0e0d12, 0 3px 0 2px rgba(0,0,0,.5); }
+.st-row input[type=range]::-moz-range-track, .tl-row input[type=range]::-moz-range-track{ height:6px; border:none; border-radius:0; background:rgba(241,236,224,.14); box-shadow:0 0 0 1px rgba(241,236,224,.2); }
+.st-row input[type=range]::-moz-range-progress, .tl-row input[type=range]::-moz-range-progress{ height:6px; background:var(--hwang); }
+.st-row input[type=range]::-moz-range-thumb, .tl-row input[type=range]::-moz-range-thumb{ width:10px; height:20px; border:none; border-radius:0; background:#f6f2ea; box-shadow:0 0 0 2px #0e0d12; }
+.st-row:focus-within input[type=range]::-webkit-slider-thumb{ background:#fff; box-shadow:0 0 0 2px #0e0d12, 0 0 0 4px var(--hwang); }
+.st-row:focus-within input[type=range]::-moz-range-thumb{ background:#fff; box-shadow:0 0 0 2px #0e0d12, 0 0 0 4px var(--hwang); }
+/* 켬 · 끔 — 체크 상자 대신 미는 스위치 */
+.st-check input{ -webkit-appearance:none; appearance:none; position:relative; width:42px; height:22px; margin:0; border:2px solid rgba(241,236,224,.38); border-radius:0; background:#07070b; cursor:pointer; }
+.st-check input::before{ content:''; position:absolute; left:2px; top:2px; width:16px; height:14px; background:rgba(241,236,224,.45); }
+.st-check input:checked{ border-color:var(--hwang); background:rgba(227,178,60,.16); }
+.st-check input:checked::before{ left:20px; background:var(--hwang); }
+.st-check output{ justify-self:end; white-space:nowrap; }

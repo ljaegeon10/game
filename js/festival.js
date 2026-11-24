@@ -171,11 +171,11 @@ function buildEntry() {
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
     <p class="fe-dev hidden" id="fe-dev"></p>
-    <p class="fe-tanote">💡 열쇠 · 상자는 안 모아도 돼요 — 몬스터만 잡아도 클리어!<br>오른쪽 아래 지도의 <b>깜빡이는 노란 ✚</b> 방을 비우면 관문 열쇠, <b>청록 점</b>을 따라가면 가장 빠른 길</p>
+    <p class="fe-tanote">몬스터만 잡으면 클리어 · 열쇠 · 상자는 생략 가능<br>지도의 <b>노란 ✚ 방</b>에서 관문 열쇠 · <b>청록 점</b>이 최단 경로</p>
     <p id="fe-nowrite" class="hidden"></p>
     <div id="fe-recent" class="hidden"><p class="fe-rq">전에 한 사람이면 이름을 누르세요</p><div id="fe-chips"></div>
       <div id="fe-check" class="hidden"><span id="fe-checkname"></span><input id="fe-tail" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="뒷자리 4개"></div>
-      <button type="button" id="fe-new">＋ 처음이에요 — 새로 등록</button></div>
+      <button type="button" id="fe-new">＋ 새로 등록</button></div>
     <div class="fe-row"><label for="fe-name">이름</label><input id="fe-name" maxlength="10" autocomplete="off" spellcheck="false"></div>
     <div class="fe-row"><label for="fe-contact">연락처</label><input id="fe-contact" inputmode="numeric" maxlength="13" autocomplete="off" placeholder="010-0000-0000"></div>
     <label class="fe-agree"><input type="checkbox" id="fe-agree"> 상품 연락용으로만 쓰고, 축제가 끝나면 지워요. 동의합니다</label>
@@ -366,7 +366,7 @@ function buildBoard() {
     <div class="fb-dev hidden" id="fb-dev"></div>
     <div class="fb-live" id="fb-live"></div>
     <ol class="fb-list" id="fb-list"></ol>
-    <p class="fb-empty" id="fb-empty">아직 기록이 없어요 — 첫 번째 주인공이 되어 보세요!</p>
+    <p class="fb-empty" id="fb-empty">아직 기록 없음 · 첫 기록의 주인공이 되어 보세요</p>
     <p class="fb-rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래</p>
     <div class="fb-admin hidden" id="fb-admin">
       <div class="fb-admin-bar"><b>관리 — 전체 기록 (연락처 포함)</b><button id="fb-csv">CSV 저장</button></div>
@@ -400,7 +400,7 @@ async function openBoard() {
   if (board.classList.contains('hidden')) return;                     // 기다리는 사이 닫힘
   if (!d) { $('fb-net').textContent = '순위판은 claude.ai 에 로그인해야 볼 수 있어요'; return; }
   $('fb-net').textContent = '';
-  const fail = e => { $('fb-net').textContent = '순위판 연결 끊김 — 새로고침해 주세요'; console.warn('board', e && e.code); };
+  const fail = e => { $('fb-net').textContent = '연결 끊김 · 새로고침해 주세요'; console.warn('board', e && e.code); };
   unsub.push(d.collection('runs').orderBy('ms', 'asc').limit(1000).onSnapshot(s => { runs = s.docs.map(x => ({ id: x.id, ...x.data() })); bumpDev(runs); render(); }, fail));
   unsub.push(d.doc('live/now').onSnapshot(s => { live = s.exists ? s.data() : null; renderLive(); }, fail));
   tick = setInterval(renderLive, 250);
@@ -424,7 +424,7 @@ async function pollBoard() {
     bumpDev(j.runs);                                                                     // 개발자가 더 빨랐으면 개발자 기록 갱신
     runs = Array.isArray(j.runs) ? j.runs.filter(r => !isDev(r)) : []; live = j.live || null;   // 개발자 판은 빼고
     $('fb-net').textContent = ''; render(); renderLive();
-  } catch (e) { $('fb-net').textContent = '기록 서버에 연결하지 못했어요 — 잠시 뒤 다시 시도해요'; }
+  } catch (e) { $('fb-net').textContent = '서버 연결 실패 · 잠시 뒤 다시 시도합니다'; }
 }
 /* 연락처 — 관리 화면을 열었을 때만 읽음 (주인 · 편집자 계정이 아니면 아무것도 안 옴) */
 async function watchContacts(on) {
@@ -507,7 +507,7 @@ async function saveCsv() {
 function status() {
   const n = $('fb-net'); if (!n) return;
   const p = pending();
-  n.textContent = p ? `이 기기에서 아직 못 보낸 기록 ${p}개 — 인터넷이 돌아오면 자동으로 올라가요` : '';
+  n.textContent = p ? `이 기기에서 아직 못 보낸 기록 ${p}개 · 연결되면 자동으로 올라가요` : '';
 }
 
 /* ── 시작 ── */

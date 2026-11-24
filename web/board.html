@@ -57,7 +57,8 @@ li.fail .nm{ color:rgba(241,236,224,.72); }
 li.fail .tm{ color:rgba(241,236,224,.5); font-size:.62em; }
 li.p1{ font-size:clamp(20px, min(2.8vw, 4.6vh), 48px); background:linear-gradient(90deg, rgba(227,178,60,.24), rgba(227,178,60,0)); }
 li.p1 .no, li.p1 .tm{ color:var(--hwang); }
-li.p1 .no::before{ content:'👑'; display:block; font-size:.5em; line-height:1; }
+li.p1 .no::before{ content:''; display:block; width:.62em; height:.4em; margin:0 auto .08em; background:currentColor;
+  clip-path:polygon(0 100%, 0 12%, 22% 55%, 50% 0, 78% 55%, 100% 12%, 100% 100%); }   /* 왕관 — 그림 글자 대신 도형으로 (도트 글꼴과 따로 놀지 않게) */
 li.p2 .no{ color:#d8dce6; } li.p3 .no{ color:#d08a52; }
 li.p2, li.p3{ font-size:clamp(18px, min(2.5vw, 4vh), 42px); }
 li.new{ animation:pop 1.2s ease-out 1, glow 2.4s ease-in-out 3; }
@@ -196,9 +197,9 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   <section class="rank" aria-label="순위">
     <div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
     <div class="tabs" role="tablist" aria-label="보기">
-      <button type="button" role="tab" data-tab="ta" class="on">⏱ 타임어택 순위</button>
-      <button type="button" role="tab" data-tab="count">🔁 도전왕</button>
-      <button type="button" role="tab" data-tab="hard">🏆 어려움 클리어</button>
+      <button type="button" role="tab" data-tab="ta" class="on">타임어택 순위</button>
+      <button type="button" role="tab" data-tab="count">도전왕</button>
+      <button type="button" role="tab" data-tab="hard">어려움 클리어</button>
     </div>
     <div class="rank-head" id="rankHead"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
     <ol id="list"></ol>
@@ -222,8 +223,8 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   <div class="row"><button type="button" class="no" id="admNo">취소</button><button type="submit" class="ok" id="admOk">확인</button></div>
 </form></div>
 <div id="toast"></div>
-<div id="adminBar"><span>⚙ 관리 중 — 지울 기록의 ✕ 지우기</span><a id="edit" target="_blank" rel="noopener" hidden>✏️ 글 · 상품 · 공지 고치기 (시트)</a><button id="adminOff">끝내기</button></div>
-<footer id="net"><i></i><span id="netText">연결 중…</span><button id="admin" title="관리 — 기록 지우기 · 글 · 상품 고치기 (관리 코드)">⚙ 관리</button><button id="fs" title="전체 화면 (F)">⛶</button></footer>
+<div id="adminBar"><span>관리 중 · 지울 기록의 「지우기」를 누르세요</span><a id="edit" target="_blank" rel="noopener" hidden>글 · 상품 · 공지 고치기 (시트)</a><button id="adminOff">끝내기</button></div>
+<footer id="net"><i></i><span id="netText">연결 중…</span><button id="admin" title="관리 — 기록 지우기 · 글 · 상품 고치기 (관리 코드)">관리</button><button id="fs" title="전체 화면 (F)">⛶</button></footer>
 <div class="gate" id="gate" hidden>
   <form id="pinForm">
     <div id="gateMsg">순위판 PIN 을 입력해 주세요</div>
@@ -336,10 +337,10 @@ function render() {
     const li = mk('li', (i < 3 ? 'p' + (i + 1) : '') + (isClear(r) ? '' : ' fail') + (fresh.has(r.id) ? ' new' : ''));
     const nm = mk('span', 'nm', String(r.name || ''));
     const tags = [];
-    if (i < 3 && prizes[i] && isClear(r)) tags.push('🎁 ' + prizes[i]);   // 상품은 클리어한 사람에게만
-    if (dev && isClear(r) && r.ms < dev.ms) tags.push('🔥 개발자 기록 돌파');
-    if (tags.length) nm.appendChild(mk('small', tags.length === 1 && !tags[0].startsWith('🎁') ? 'beat' : null, tags.join('  ')));
-    const del = mk('button', 'del', '✕ 지우기'); del.title = '이 사람의 기록 지우기'; del.addEventListener('click', () => delRun(r));
+    if (i < 3 && prizes[i] && isClear(r)) tags.push('상품 ' + prizes[i]);   // 상품은 클리어한 사람에게만
+    if (dev && isClear(r) && r.ms < dev.ms) tags.push('개발자 기록 돌파');
+    if (tags.length) nm.appendChild(mk('small', tags.length === 1 && !tags[0].startsWith('상품 ') ? 'beat' : null, tags.join('  ')));
+    const del = mk('button', 'del', '지우기'); del.title = '이 사람의 기록 지우기'; del.addEventListener('click', () => delRun(r));
     li.append(mk('span', 'no', String(i + 1)), nm, mk('span', 'tl', r.tail ? '···' + r.tail : ''),
               mk('span', 'tm', isClear(r) ? fmt(r.ms) : String(r.stage || '도전')), del);
     ol.appendChild(li);
@@ -441,7 +442,7 @@ function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.classNam
 function admOpen(mode, r) {
   admMode = mode; admRun = r || null;
   const pin = mode === 'pin';
-  $('admTitle').textContent = pin ? '⚙ 관리 코드' : '기록을 지울까요?';
+  $('admTitle').textContent = pin ? '관리 코드' : '기록을 지울까요?';
   $('admText').innerHTML = pin ? '기록 지우기 · 글 · 상품 고치기는 관리 코드가 있어야 해요.'
                                : `<b>${esc(r.name)} (···${esc(r.tail)})</b> 의 기록이 순위판 · 구글 시트에서 모두 지워져요.<br>되돌릴 수 없어요.`;
   $('admPin').hidden = !pin; $('admPin').value = '';
@@ -473,7 +474,7 @@ $('admForm').addEventListener('submit', async e => {
       const k = $('admPin').value.trim(); if (!k) { $('admErr').textContent = '관리 코드를 입력해 주세요'; ok.disabled = false; return; }
       $('admErr').textContent = '확인하는 중…';
       const j = await api({ op: 'check', key: k });
-      if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 — ✕ 지우기 · 위쪽 ✏️ 로 글 · 상품 고치기'); return; }
+      if (j && j.ok) { adminKey.set(k); adminOn(true); admClose(); toast('관리 모드 · 줄마다 「지우기」, 위쪽에서 글 · 상품 고치기'); return; }
       $('admErr').textContent = why(j);
     } else if (admMode === 'del') {
       const r = admRun; $('admErr').textContent = '지우는 중… (몇 초 걸려요)';

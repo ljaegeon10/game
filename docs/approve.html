@@ -10,7 +10,7 @@
   같은 festival-config.js 의 기록 서버(WB_SERVER)와 이야기함. 들어올 때 관리 코드(시트 '순위판 설정' 의 관리 PIN).
   서버 쪽 : server/apps_script.gs 의 payList_ · paySet_ ('결제' 탭)
 -->
-<script src="festival-config.js?v=1795506163"></script>
+<script src="festival-config.js?v=1795507251"></script>
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
 /* 폰 한 손으로 — 위에 오늘 합계, 가운데 대기 카드(번호 크게 · 승인 / 거절), 아래 처리한 목록 */
@@ -114,7 +114,7 @@ function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add(
 
 /* ── 관리 코드 ── */
 const gate = $('gate');
-gate.innerHTML = `<div class="gbox"><p><b>부스 결제 승인</b>순위판 ⚙ 관리와 같은 관리 코드를 넣어 주세요</p>
+gate.innerHTML = `<div class="gbox"><p><b>부스 결제 승인</b>순위판 관리와 같은 관리 코드를 넣어 주세요</p>
   <input id="key" inputmode="numeric" maxlength="12" placeholder="••••••" aria-label="관리 코드">
   <div id="gateErr" role="alert"></div><button type="submit">들어가기</button></div>`;
 gate.addEventListener('submit', async e => {
@@ -158,7 +158,7 @@ function render() {
   pend.sort((a, b) => a.no - b.no).forEach(p => {
     const c = mk('div', 'card' + (fresh.includes(p) ? ' new' : ''));
     const who = mk('div', 'who', p.name); who.appendChild(mk('small', null, '···' + p.tail));
-    const b = mk('div', 'btns'), ok = mk('button', null, `✓ 승인 (${j.price || '100원'} 받음)`), no = mk('button', 'rej', '거절');
+    const b = mk('div', 'btns'), ok = mk('button', null, `승인 (${j.price || '100원'} 받음)`), no = mk('button', 'rej', '거절');
     ok.type = no.type = 'button';
     ok.addEventListener('click', () => act(p, '승인', ok, no)); no.addEventListener('click', () => act(p, '거절', ok, no));
     b.append(ok, no);

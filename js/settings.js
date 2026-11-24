@@ -44,21 +44,23 @@ const ROWS = [
   { k: 'master', label: '전체 음량', min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
-  { k: 'sens',   label: '카메라 감도', sub: '1인칭에서 둘러보는 빠르기', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
+  { k: 'sens',   label: '카메라 감도', sub: '1인칭 시점 회전 속도', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
 ];
 let el = null, onClose = null, testT = 0;
+const fill = inp => inp.style.setProperty('--p', ((inp.value - inp.min) / ((inp.max - inp.min) || 1) * 100).toFixed(1) + '%');   // 슬라이더의 채워진 구간 (CSS 가 --p 로 그림)
+document.addEventListener('input', e => { if (e.target && e.target.type === 'range') fill(e.target); }, true);
 function build() {
   el = document.createElement('div'); el.id = 'settings'; el.className = 'hidden'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '설정');
   el.innerHTML = `<div class="st-box">
     <div class="pm-obang" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-    <p class="pm-title">설정</p><p class="pm-sub">SETTINGS · 이 기기에 저장돼요</p>
+    <p class="pm-title">설정</p><p class="pm-sub">SETTINGS</p>
     ${ROWS.map(r => `<label class="st-row" data-k="${r.k}"><span class="st-l"><b>${r.label}</b>${r.sub ? `<small>${r.sub}</small>` : ''}</span>
       <input type="range" min="${r.min}" max="${r.max}" step="${r.step}"><output></output></label>`).join('')}
-    <div class="st-row st-seg"><span class="st-l"><b>프레임</b><small>초당 그리는 장 수 — 게임 속도는 같아요</small></span>
+    <div class="st-row st-seg"><span class="st-l"><b>프레임</b><small>게임 속도는 그대로</small></span>
       <div class="st-segs" role="radiogroup" aria-label="프레임">${[[30, '30'], [60, '60'], [0, '최대']].map(([v, l]) => `<button type="button" class="st-segb" role="radio" data-fps="${v}">${l}</button>`).join('')}</div></div>
-    <label class="st-row st-check"><span class="st-l"><b>가벼운 화면</b><small id="st-lite-sub">끊기면 저절로 켜져요 — 화면 효과를 줄여 부드럽게</small></span><input type="checkbox" data-k="lite"><output></output></label>
-    <div class="st-row st-layout"><span class="st-l"><b>조작 배치</b><small>휴대폰 · 태블릿 — 조이스틱 · 조사 버튼의 위치와 크기</small></span><button class="st-btn" data-act="layout" type="button">바꾸기</button></div>
-    <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>마우스를 올리면 아래를 봄</small></span><input type="checkbox" data-k="invertY"><output></output></label>
+    <label class="st-row st-check"><span class="st-l"><b>가벼운 화면</b><small id="st-lite-sub">화면 효과 줄이기 · 끊기면 자동 전환</small></span><input type="checkbox" data-k="lite"><output></output></label>
+    <div class="st-row st-layout"><span class="st-l"><b>조작 배치</b><small>조이스틱 · 버튼 위치와 크기</small></span><button class="st-btn" data-act="layout" type="button">바꾸기</button></div>
+    <label class="st-row st-check"><span class="st-l"><b>상하 반전</b><small>1인칭 시점 위아래 뒤집기</small></span><input type="checkbox" data-k="invertY"><output></output></label>
     <div class="st-btns"><button class="st-btn" data-act="reset">기본값</button><button class="st-btn st-main" data-act="close">닫기</button></div>
   </div>`;
   document.body.appendChild(el);
@@ -81,9 +83,9 @@ function build() {
   ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend'].forEach(n => el.addEventListener(n, e => e.stopPropagation()));
 }
 function sync() {
-  el.querySelectorAll('.st-row[data-k]').forEach(row => { const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'); inp.value = S[r.k]; row.querySelector('output').textContent = r.fmt(S[r.k]); });
+  el.querySelectorAll('.st-row[data-k]').forEach(row => { const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'); inp.value = S[r.k]; fill(inp); row.querySelector('output').textContent = r.fmt(S[r.k]); });
   el.querySelectorAll('[data-fps]').forEach(b => { const on = +b.dataset.fps === S.fps; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
-  const lk = el.querySelector('input[data-k=lite]'); lk.checked = Perf.low; lk.parentNode.querySelector('output').textContent = (Perf.low ? '켬' : '끔') + (S.lite === 'auto' ? ' · 자동' : '');
+  const lk = el.querySelector('input[data-k=lite]'); lk.checked = Perf.low; lk.parentNode.querySelector('output').textContent = S.lite === 'auto' ? (Perf.low ? '자동 켬' : '자동') : (Perf.low ? '켬' : '끔');
   const ck = el.querySelector('input[data-k=invertY]'); ck.checked = S.invertY; ck.parentNode.querySelector('output').textContent = S.invertY ? '켬' : '끔';
 }
 const focusables = () => [...el.querySelectorAll('input, .st-btn, .st-segb')];
@@ -200,7 +202,7 @@ const TL = (() => {
   }
   function pick(k) {
     sel = k; const name = TL_KEYS.find(x => x[0] === k)[2];
-    get('tl-sel').textContent = name; get('tl-size').value = draft[k].s; get('tl-out').textContent = Math.round(draft[k].s * 100) + '%';
+    get('tl-sel').textContent = name; get('tl-size').value = draft[k].s; fill(get('tl-size')); get('tl-out').textContent = Math.round(draft[k].s * 100) + '%';
     TL_KEYS.forEach(([kk, id]) => get(id).classList.toggle('tl-on', kk === k));
     dodge();
   }

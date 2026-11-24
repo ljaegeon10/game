@@ -270,7 +270,7 @@ function touchSetup() {
   const pb = $('prompt').querySelector('b'); if (pb) pb.textContent = '조사';
   // 전체 화면 — 주소창 · 도구 막대 없이 (안드로이드 · 아이패드). 손가락을 뗄 때 한 번 저절로, 나간 뒤엔 ⛶ 버튼으로
   if (FS.can()) {
-    tEl.fs = mk('tfs', '⛶'); tEl.fs.title = '전체 화면';
+    tEl.fs = mk('tfs', '<i></i>'); tEl.fs.title = '전체 화면';
     tEl.fs.addEventListener('pointerup', e => { e.preventDefault(); e.stopPropagation(); FS.go(); });
     tEl.fs.addEventListener('pointerdown', e => e.stopPropagation());
   } else if (!FS.standalone()) setTimeout(fsTip, 1200);   // 아이폰 — 사파리는 전체 화면이 없어서 '도구 막대 가리기' 안내
@@ -957,7 +957,7 @@ $('fest-next').addEventListener('click', nextPlayer);
 $('againbtn').addEventListener('click', () => restartFromEnd());
 $('hardfame').addEventListener('click', e => {
   e.stopPropagation(); const hb = $('hardfame'); if (hb.disabled) return;
-  Festival.askHard(G.hardMs || 0, who => { if (who) { hb.disabled = true; hb.textContent = `🏆 ${who.name} 님 — 명예의 전당에 올렸어요!`; } });
+  Festival.askHard(G.hardMs || 0, who => { if (who) { hb.disabled = true; hb.textContent = `${who.name} 님, 명예의 전당에 올렸어요!`; } });
 });
 
 /* ═══════════ 지상 ═════════════════════════════════════ */
@@ -3517,6 +3517,7 @@ function drawFoe(f) {
   // 몸통은 종류마다 다르게 — foeart.js. 한 장의 도트 그림으로 정리해 찍습니다 (pixfx.js —
   // 계단 가장자리 · 1px 외곽선 · 위 빛 아래 그늘 · 맞으면 흰 실루엣). 조금 크게(1.15배) — 어두운 방에서도 읽히게
   const Z = 1.15, box = Math.ceil(s * 2.2 * Z) + 8, flash = f.flash > 0 ? ((G.t >> 1) % 2 ? .85 : .35) : 0;
+  if (window.FoePix) { FoePix.draw(g, f, G.t, flash); g.restore(); return; }   // 도트 그림 (js/foepix.js) — 구워 둔 층을 찍기만 함. 아래는 예전 방식
   const body = c => {
     c.scale(Z, Z);
     // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
@@ -5219,7 +5220,7 @@ let warmPT = 0;
 function warmPlay(delay = 800) {
   clearTimeout(warmPT);
   const idle = fn => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 1000 }) : setTimeout(fn, 0));
-  const steps = [() => { heroArt(); }, () => { if (W === VW && H === VH) forestFloor(); },
+  const steps = [() => { heroArt(); }, () => { if (window.FoePix) FoePix.bake(); }, () => { if (W === VW && H === VH) forestFloor(); },
                  () => { try { drawWell(document.createElement('canvas').getContext('2d'), 0, 0, 0, 0); } catch (e) {} },   // 우물 도트 그림 한 장
                  ...Object.keys(MAP).map(id => () => roomFloor(id))];
   const next = () => {
@@ -5897,7 +5898,7 @@ function beginEnding() {
   $('endcard').classList.toggle('casual', !G.timeAttack);
   // 축제판 · 일반 모드 '어려움' 클리어 — 엔드 카드에 명예의 전당 단추 (순위판 '어려움 클리어' 칸)
   { const hb = $('hardfame'), on = !G.timeAttack && G.diff === 'hard' && !G.dev && !!(window.Festival && Festival.on && Festival.askHard);
-    hb.classList.toggle('hidden', !on); hb.disabled = false; hb.textContent = '🏆 어려움 클리어! 명예의 전당에 이름 남기기';
+    hb.classList.toggle('hidden', !on); hb.disabled = false; hb.textContent = '어려움 클리어 · 명예의 전당에 이름 남기기';
     G.hardMs = Math.round((G.normF || 0) * STEP); }
   if (G.timeAttack) {
     const ms = RUN.elapsed;
@@ -5914,11 +5915,11 @@ function beginEnding() {
       Festival.finish(ms).then(rank => {
         const dev = window.WB_DEV;
         if (isDevP) {                                            // 개발자 본인 — 순위 대신 개발자 기록으로
-          fr.textContent = dev0 > 0 && ms < dev0 ? `개발자 기록 갱신! ${fmtTime(dev0)} → ${fmtTime(ms)} 🔥` : `개발자 판 — 지금 개발자 기록 ${fmtTime(dev0)} (${fmtTime(ms - dev0)} 느림)`;
+          fr.textContent = dev0 > 0 && ms < dev0 ? `개발자 기록 갱신  ${fmtTime(dev0)} → ${fmtTime(ms)}` : `개발자 판 — 지금 개발자 기록 ${fmtTime(dev0)} (${fmtTime(ms - dev0)} 느림)`;
           return;
         }
-        fr.textContent = rank ? `${me} 님, 순위판 ${rank}위!` : '기록을 이 기기에 저장했어요 — 연결되면 순위판에 올라가요';
-        if (dev && dev.ms > 0) fr.textContent += ms < dev.ms ? `  ·  개발자 ${dev.name || ''} 기록을 깼어요! 🔥` : `  ·  개발자 기록까지 ${fmtTime(ms - dev.ms)}`;
+        fr.textContent = rank ? `${me} 님, 순위판 ${rank}위!` : '이 기기에 저장 · 연결되면 순위판에 올라가요';
+        if (dev && dev.ms > 0) fr.textContent += ms < dev.ms ? `  ·  개발자 ${dev.name || ''} 기록 돌파` : `  ·  개발자 기록까지 ${fmtTime(ms - dev.ms)}`;
       });
     }
   }
@@ -6382,7 +6383,7 @@ function devFolder(id) {
   try { dvOpen ? sessionStorage.setItem('wellbelow.devfolder', dvOpen) : sessionStorage.removeItem('wellbelow.devfolder'); } catch (e) {}
   $('dv-folders').classList.toggle('hidden', !!dvOpen);
   document.querySelectorAll('#devpanel .dv-part').forEach(el => el.classList.toggle('hidden', el.dataset.folder !== dvOpen));
-  $('dv-crumb').innerHTML = dvOpen ? `<a href="#" id="dv-up">DEV</a> › 📂 ${DV_FOLDERS[dvOpen]}` : 'DEV';
+  $('dv-crumb').innerHTML = dvOpen ? `<a href="#" id="dv-up">DEV</a> › ${DV_FOLDERS[dvOpen]}` : 'DEV';
   $('dv-crumb').classList.toggle('hidden', !dvOpen);
   if (dvOpen) $('dv-up').addEventListener('click', e => { e.preventDefault(); devFolder(null); });
   $('dvback').textContent = dvOpen ? '← 폴더 목록' : '← 뒤로';
@@ -6584,7 +6585,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
       stuckCount++;
       if (stuckCount >= 3 && !warned) {
         warned = true;
-        hintEl.textContent = '🔇 소리가 막혀 있는 것 같습니다 — 화면을 한 번 더 클릭해 보세요 (브라우저가 소리를 차단했을 수 있습니다)';
+        hintEl.textContent = '소리가 꺼져 있어요 · 화면을 한 번 클릭해 주세요';
       }
     }
   }, 1000);
