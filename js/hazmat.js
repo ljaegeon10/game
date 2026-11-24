@@ -27,11 +27,27 @@ function unpack() {
   const f32 = k => new Float32Array(bytes.buffer, D.lay[k][0], D.lay[k][1]);
   G = { pos: f32('pos'), nor: f32('nor'), uv: f32('uv'), tan: f32('tan'), jn: f32('jn'), wt: f32('wt'), ibm: f32('ibm'), anim: f32('anim'),
         idx: new Uint16Array(bytes.buffer.slice(D.lay.idx[0], D.lay.idx[0] + D.lay.idx[1] * 2)) };
+  G.idx = dropOldMask(G);
   /* 텍스처 — 다 풀리기 전엔 그리지 않고 false 를 돌려줘 예전 방식으로 */
   IMG = {};
   for (const k of ['base', 'normal', 'orm']) { const im = new Image(); im.onload = () => { loaded++; }; im.src = D.tex[k]; IMG[k] = im; }
 }
 const BI = {}; D.bones.forEach((b, i) => BI[b.name] = i);
+/* 연구원 새 디자인 — 예전 방독면(둥근 렌즈 둘 · 앞 정화통 · 얼굴판)을 떼어 냄. 그 자리엔 figure3d.js 의 buildGear 가 원형 바이저 · 심전도 선 · 양쪽 정화통을 붙임.
+   모델은 한 덩어리 메시지만 방독면은 몸과 이어지지 않은 조각 다섯(전부 머리뼈에만 붙음)이라, 이어진 조각을 찾아 머리뼈에만 붙은 것을 뺌 (후드는 몸과 한 조각이라 남음) */
+function dropOldMask(G) {
+  const pos = G.pos, idx = G.idx, nv = pos.length / 3, H = BI.Head;
+  const first = new Map(), w = new Int32Array(nv);                 // 같은 자리의 꼭짓점은 하나로 (이음매에서 갈라진 것)
+  for (let i = 0; i < nv; i++) { const k = Math.round(pos[i * 3] * 5000) + ',' + Math.round(pos[i * 3 + 1] * 5000) + ',' + Math.round(pos[i * 3 + 2] * 5000); if (!first.has(k)) first.set(k, i); w[i] = first.get(k); }
+  const par = new Int32Array(nv); for (let i = 0; i < nv; i++) par[i] = i;
+  const find = x => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  for (let t = 0; t < idx.length; t += 3) { const a = find(w[idx[t]]); par[find(w[idx[t + 1]])] = a; par[find(w[idx[t + 2]])] = a; }
+  const other = new Set();                                           // 머리뼈 말고 다른 뼈에도 붙은 조각
+  for (let i = 0; i < nv; i++) for (let q = 0; q < 4; q++) if (G.wt[i * 4 + q] > .01 && G.jn[i * 4 + q] !== H) other.add(find(w[i]));
+  const keep = [];
+  for (let t = 0; t < idx.length; t += 3) if (other.has(find(w[idx[t]]))) keep.push(idx[t], idx[t + 1], idx[t + 2]);
+  return new Uint16Array(keep);
+}
 const ready = () => { unpack(); return loaded === 3; };
 const whenReady = () => { unpack(); return Promise.all(Object.values(IMG).map(im => im.decode ? im.decode().catch(() => {}) : Promise.resolve())); };
 
@@ -150,7 +166,11 @@ void main(){
   if(dot(n, V) < 0.0) n = reflect(n, V) * -1.0;
   // 렌즈 — 색 텍스처의 청록 유리 : 새까맣게 가라앉히고 천장 등이 비치게
   float lens = smoothstep(0.045, 0.1, base.b - base.r) * step(base.g, 0.5);
-  base = mix(base, vec3(dot(base, vec3(0.3, 0.59, 0.11))), 0.16)*0.94;        // 게임의 가라앉은 색조에 맞춰 살짝 덜 쨍하게
+  // 연구원 새 디자인 — 노란 천을 윤기 나는 에메랄드로 (밝고 어두운 결 · 얼룩은 그대로 두고 색만). 장갑 · 장화 · 테이프 같은 무채색은 그대로
+  float cloth = smoothstep(0.07, 0.2, min(base.r, base.g) - base.b);
+  base = mix(base, vec3(0.06, 0.36, 0.2)*(dot(base, vec3(0.35, 0.55, 0.1))/0.6), cloth);
+  rough = mix(rough, max(0.07, rough*0.42), cloth);
+  base = mix(base, vec3(dot(base, vec3(0.3, 0.59, 0.11))), 0.1)*0.96;         // 게임의 가라앉은 색조에 맞춰 살짝 덜 쨍하게
   base = mix(base, vec3(0.02, 0.028, 0.034), lens);
   rough = mix(rough, 0.06, lens);
   vec3 dif = base*(1.0 - metal*0.8);
