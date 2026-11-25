@@ -10,6 +10,7 @@ const ROOT = path.join(__dirname, '..');
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'] });
   const p = await b.newPage();
   await p.setContent('<!doctype html><meta charset="utf-8"><body></body>');
+  await p.addScriptTag({ content: 'window.FIG_NO_ECG = true;' });          // 표지에선 바이저의 심전도 선을 빼고 (심전도는 제목 글자에서 뜀)
   await p.addScriptTag({ path: path.join(ROOT, 'js/labroom.js') });
   await p.addScriptTag({ path: path.join(ROOT, 'js/hazmat_model.js') });      // 방호복 뼈대 모델 (figure3d 보다 먼저)
   await p.addScriptTag({ path: path.join(ROOT, 'js/hazmat.js') });

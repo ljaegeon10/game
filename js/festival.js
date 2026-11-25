@@ -25,7 +25,7 @@
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
 if (ON && window.WB_FAME === undefined) window.WB_FAME = [{ name: '이시형', ms: 81510 }];   // 명예의 전당 (config 에 없으면 이 값)
-if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 86980 };   // 1:26.98 (봇 기록)
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 85980 };   // 1:25.98
 /* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
 const DEVKEY = 'wellbelow.devbest.v2';             // v2 — 배포 직전 기록을 전부 비움 (경로 · 보스 패턴이 바뀌어 예전 기록과 견줄 수 없음)
 try { localStorage.removeItem('wellbelow.devbest'); } catch (e) {}

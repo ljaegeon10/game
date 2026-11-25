@@ -1774,3 +1774,21 @@ button{ box-shadow:0 3px 0 #8a6a18; }
 #startbtn.dv-leave{ opacity:0; transform:translateY(6px); transition:opacity .16s ease-in, transform .16s ease-in; pointer-events:none; }
 #startbtn.dv-back{ animation:dvIn .34s cubic-bezier(.16,.84,.3,1) both; }
 @media (prefers-reduced-motion:reduce){ #devpanel.dv-in, #devpanel.dv-in .dv-folder, #startbtn.dv-back{ animation:none; } #startbtn.dv-leave{ transition:none; } }
+
+/* dev 모드 — "우물 아래" 로고가 부드럽게 작아진 뒤(.34초) 패널이 딱 튀어나옴 */
+#title.dv-anim > h1{ transition:transform .34s cubic-bezier(.33,0,.2,1), opacity .34s ease; }
+#devpanel.dv-in{ animation:dvSnap .2s cubic-bezier(.2,1.4,.4,1) both; }
+#devpanel.dv-in .dv-folder{ animation:dvSnap .22s cubic-bezier(.2,1.5,.4,1) both; }
+#devpanel.dv-in .dv-folder:first-child{ animation-delay:.03s; }
+#devpanel.dv-in .dv-folder.f2{ animation-delay:.07s; }
+@keyframes dvSnap{ 0%{ opacity:0; transform:scale(.86); } 60%{ opacity:1; } 100%{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce){ #title.dv-anim > h1{ transition:none; } }
+
+/* 제목 글자의 심전도 — 옅은 바탕선 위로 밝은 머리가 쓸고 지나감 (index.html 의 SMIL 마스크) */
+.tl-ecg, .tl-ecg-glow, .tl-ecg-base{ fill:none; stroke-linejoin:round; stroke-linecap:round; }
+.tl-ecg-base{ stroke:#58d8ff; stroke-width:1; opacity:.14; }
+.tl-ecg{ stroke:#c9fbff; stroke-width:1.6; }
+.tl-ecg-glow{ stroke:#58d8ff; stroke-width:5; opacity:.55; filter:blur(2.5px); }
+#title.konami .tl-ecg-base, #title.konami .tl-ecg-glow{ stroke:#ff4a3c; } #title.konami .tl-ecg{ stroke:#ffd2cc; }
+html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
+@media (prefers-reduced-motion: reduce){ .tl-ecg-run{ display:none; } .tl-ecg-base{ opacity:.5; } }

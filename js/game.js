@@ -6317,18 +6317,21 @@ $('title').querySelector('h1').addEventListener('click', () => {
 function openDevPanel() {
   G.dev = true;
   document.body.classList.add('dev');          // 개발자 모드 동안엔 제작진 크레딧을 숨깁니다 (css)
-  Sfx.unlock(); Sfx.glitch();
+  Sfx.unlock();
   $('devbadge').classList.remove('hidden');
   G.mode = 'devsel';
-  const sb = $('startbtn'), dp = $('devpanel'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const show = () => {                                       // 패널이 떠오르며 아이콘이 차례로 (css dvIn · dvPop)
+  const sb = $('startbtn'), dp = $('devpanel'), tt = $('title'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  clearTimeout(openDevPanel.t); clearTimeout(closeDevPanel.t);
+  const show = () => {                                       // 로고가 다 줄어든 순간 패널이 딱 (css dvSnap)
     ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden')); sb.classList.remove('dv-leave');
-    $('title').classList.add('picking');
+    tt.classList.add('picking');
     dp.classList.remove('hidden', 'dv-in'); void dp.offsetWidth; dp.classList.add('dv-in');
+    Sfx.glitch();
   };
   if (still || sb.classList.contains('hidden') || !dp.classList.contains('hidden')) { show(); return; }
-  sb.classList.add('dv-leave');                              // 시작 메뉴는 먼저 살짝 내려가며 사라지고
-  setTimeout(() => { if (G.mode === 'devsel' && G.dev) show(); else sb.classList.remove('dv-leave'); }, 170);   // 그 사이 딴 데로 가면 그만
+  tt.classList.add('dv-anim', 'picking');                    // ① "우물 아래" 로고가 부드럽게 작아지고, 시작 메뉴는 같이 사라짐
+  sb.classList.add('dv-leave');
+  openDevPanel.t = setTimeout(() => { if (G.mode === 'devsel' && G.dev) show(); else { sb.classList.remove('dv-leave'); tt.classList.remove('picking'); } }, 340);   // ② 다 줄어들면 패널이 딱 (그 사이 딴 데로 가면 그만)
 }
 function closeDevPanel() {
   // 개발자 모드를 완전히 끕니다 — DEV 표시 · 무적 · 단축키 · 크레딧 숨김까지
@@ -6338,7 +6341,9 @@ function closeDevPanel() {
   document.body.classList.remove('dev');
   $('devpanel').classList.add('hidden'); $('devpanel').classList.remove('dv-in');
   $('startbtn').classList.remove('hidden', 'dv-leave'); $('startbtn').classList.remove('dv-back'); void $('startbtn').offsetWidth; $('startbtn').classList.add('dv-back');
-  $('title').classList.remove('picking');
+  clearTimeout(openDevPanel.t);
+  $('title').classList.add('dv-anim'); $('title').classList.remove('picking');   // 로고가 부드럽게 다시 커짐
+  clearTimeout(closeDevPanel.t); closeDevPanel.t = setTimeout(() => $('title').classList.remove('dv-anim'), 420);
   renderBestTimes();
   G.mode = 'title';
 }

@@ -250,7 +250,7 @@ let prizes = ['', '', ''];
 /* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
 if (window.WB_FAME === undefined) window.WB_FAME = [{ name: '이시형', ms: 81510 }];   // 명예의 전당 (config 에 없으면 이 값)
 const fameList = () => (Array.isArray(window.WB_FAME) ? window.WB_FAME : []).filter(f => f && f.name && f.ms > 0);
-if (window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 86980 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
+if (window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 85980 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
 let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
 function parseDev(v) {
   const t = String(v || '').trim(), m = t.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
