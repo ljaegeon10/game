@@ -1810,6 +1810,14 @@ button{ box-shadow:0 3px 0 #8a6a18; }
 html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 @media (prefers-reduced-motion: reduce){ .tl-ecg-run{ display:none; } .tl-ecg-base{ opacity:.5; } }
 
+/* 순위판(게임 안) 아래 단추 — 크게 (손가락 · 멀리서도 눌리게) */
+.fb-foot{ gap:12px; padding:14px 20px max(14px, env(safe-area-inset-bottom, 0px)); }
+#fb-net{ font-size:clamp(13px, 1.4vw, 17px); }
+.fb-foot button{ min-height:52px; padding:12px clamp(20px, 2.4vw, 34px); font-size:clamp(17px, 2vw, 24px); letter-spacing:.08em; color:rgba(241,236,224,.88); border-width:2px; }
+#fb-close{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); box-shadow:0 4px 0 #8a6a18; }
+#fb-close:hover, #fb-close:focus-visible{ color:#0a0910; background:#f2c95a; border-color:#f2c95a; }
+#fb-close:active{ transform:translateY(3px); box-shadow:0 1px 0 #8a6a18; }
+
 </style>
 <script>window.WB_FESTIVAL = true;</script>
 <div id="frame">
