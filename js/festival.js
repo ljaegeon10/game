@@ -24,6 +24,7 @@
 (() => {
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
+if (ON && window.WB_FAME === undefined) window.WB_FAME = [{ name: '이시형', ms: 81510 }];   // 명예의 전당 (config 에 없으면 이 값)
 if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 86980 };   // 1:26.98 (봇 기록)
 /* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
 const DEVKEY = 'wellbelow.devbest.v2';             // v2 — 배포 직전 기록을 전부 비움 (경로 · 보스 패턴이 바뀌어 예전 기록과 견줄 수 없음)
@@ -238,7 +239,16 @@ function buildEntry() {
 let entryCb = null;
 /* 개발자 최고 기록 — festival-config.js 의 WB_DEV ({ name, ms }). 순위와 따로 화면에만 */
 const devRec = () => { const d = window.WB_DEV; return d && d.ms > 0 ? { name: String(d.name || '개발자'), ms: +d.ms } : null; };
+/* 명예의 전당 — festival-config.js 의 WB_FAME ([{ name, ms }]) · 순위와 따로 작은 한 줄 */
+const fameList = () => (Array.isArray(window.WB_FAME) ? window.WB_FAME : []).filter(f => f && f.name && f.ms > 0);
+function fameLine(cls) {
+  const l = fameList(); if (!l.length) return null;
+  const el = mk('div', cls); el.append(mk('span', 'fe-famet', '명예의 전당'));
+  l.forEach(f => el.append(mk('b', null, String(f.name)), mk('span', 'fe-devtm', fmt(+f.ms))));
+  return el;
+}
 function showDev() {
+  ['fe-fame', 'fb-fame'].forEach(id => { const el = $(id); if (!el) return; const n = fameLine(id.replace('-fame', '-fame2')); el.textContent = ''; el.classList.toggle('hidden', !n); if (n) el.append(...n.childNodes); });
   const d = devRec();
   ['fe-dev', 'fb-dev'].forEach(id => { const el = $(id); if (el) el.classList.toggle('hidden', !d); });
   if (!d) return;
@@ -414,6 +424,7 @@ function buildBoard() {
       <div class="fb-stat" id="fb-stat"></div>
     </div>
     <div class="fb-dev hidden" id="fb-dev"></div>
+    <div class="fb-fame hidden" id="fb-fame"></div>
     <div class="fb-live" id="fb-live"></div>
     <ol class="fb-list" id="fb-list"></ol>
     <p class="fb-empty" id="fb-empty">아직 기록 없음 · 첫 기록의 주인공이 되어 보세요</p>

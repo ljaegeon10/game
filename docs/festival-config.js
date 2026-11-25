@@ -7,4 +7,6 @@ window.WB_SERVER = 'https://script.google.com/macros/s/AKfycbwQV5gWJWzZK0JzJo6af
 window.WB_SHEET = 'https://docs.google.com/spreadsheets/d/1R9yArYjZB_fnC0A_BJ6_JlggOn2QR1qAkD_f7lZ-zfE/edit#gid=518773294';
 /* 개발자 최고 기록 — 순위에는 안 들어가고 순위판 위에 '깨 보세요' 로 따로 나옴. 지우면 안 보임
    (구글 시트 '순위판 설정' 탭의 '개발자 기록' 칸이 있으면 그게 먼저) */
+/* 명예의 전당 — 순위와 따로, 순위판 개발자 기록 밑에 작게. [{ name, ms }] 를 더 넣으면 줄이 늘어남 (1:21.51 = 81510) */
+window.WB_FAME = [{ name: '이시형', ms: 81510 }];
 window.WB_DEV = { name: '이재건', ms: 86980 };   // 1:26.98 — 타임어택 봇(새 경로, 안 죽는 설정)이 깬 기록. 이 이름(이재건)의 판은 전부 순위에서 빠지고, 더 빨리 깨면 그 기록이 자동으로 개발자 기록 (tail 은 안 씀)

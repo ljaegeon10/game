@@ -9,7 +9,7 @@
      (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
      F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10).
      글 · 상품 · 공지 · 등수 · PIN 은 구글 시트의 '순위판 설정' 탭에서 고치면 몇 초 뒤 그대로 바뀝니다. -->
-<script src="festival-config.js?v=1795616135"></script>
+<script src="festival-config.js?v=1795616253"></script>
 <script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
@@ -83,6 +83,12 @@ li .nm small{ display:block; margin-top:2px; font-size:.45em; color:var(--hwang)
 .dev{ display:flex; align-items:center; gap:clamp(10px, 1.4vw, 22px); margin:0 0 clamp(8px, 1.4vh, 16px); padding:clamp(8px, 1.4vh, 14px) 18px;
   border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); font-size:clamp(14px, min(1.9vw, 3vh), 30px); }
 .dev[hidden]{ display:none; }
+/* 명예의 전당 — 순위와 따로, 아주 작은 한 줄 */
+.fame{ display:flex; align-items:baseline; justify-content:flex-end; gap:.6em; margin:-6px 2px clamp(8px, 1.4vh, 16px); font-size:clamp(11px, min(1.3vw, 2.1vh), 18px); color:var(--dim); }
+.fame[hidden]{ display:none; }
+.fame .ft{ padding:1px 7px 0; font-size:.8em; letter-spacing:.16em; color:var(--ink); background:var(--hwang); }
+.fame b{ font-weight:400; color:var(--fg); }
+.fame .tm{ color:var(--hwang); font-variant-numeric:tabular-nums; }
 .dev .tag{ flex:none; padding:3px 10px 2px; font-size:.55em; letter-spacing:.2em; color:var(--ink); background:var(--glow); }
 .dev .who{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dev .who small{ margin-left:.6em; font-size:.6em; color:var(--dim); }
@@ -196,6 +202,7 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
 
   <section class="rank" aria-label="순위">
     <div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
+    <div class="fame" id="fame" hidden></div>
     <div class="tabs" role="tablist" aria-label="보기">
       <button type="button" role="tab" data-tab="ta" class="on">타임어택 순위</button>
       <button type="button" role="tab" data-tab="count">도전왕</button>
@@ -241,6 +248,8 @@ const TOP_URL = +new URLSearchParams(location.search).get('top') || 0;   // 주�
 let TOP = Math.max(3, Math.min(30, TOP_URL || 10));
 let prizes = ['', '', ''];
 /* 개발자 최고 기록 — 시트 '순위판 설정' 의 '개발자 기록'(예: 장도우 1:43.75) 이 먼저, 없으면 festival-config.js 의 WB_DEV */
+if (window.WB_FAME === undefined) window.WB_FAME = [{ name: '이시형', ms: 81510 }];   // 명예의 전당 (config 에 없으면 이 값)
+const fameList = () => (Array.isArray(window.WB_FAME) ? window.WB_FAME : []).filter(f => f && f.name && f.ms > 0);
 if (window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 86980 };   // config 에 없으면(옛 설정 · 캐시) 이 값 — 숨기려면 config 에 WB_DEV = null
 let dev = window.WB_DEV && window.WB_DEV.ms > 0 ? { name: String(window.WB_DEV.name || ''), ms: +window.WB_DEV.ms } : null;
 function parseDev(v) {
@@ -345,6 +354,8 @@ function render() {
               mk('span', 'tm', isClear(r) ? fmt(r.ms) : String(r.stage || '도전')), del);
     ol.appendChild(li);
   });
+  { const fl = fameList(), fm = $('fame'); fm.hidden = !fl.length; fm.textContent = '';
+    if (fl.length) { fm.appendChild(mk('span', 'ft', '명예의 전당')); fl.forEach(f => { fm.appendChild(mk('b', null, String(f.name))); fm.appendChild(mk('span', 'tm', fmt(+f.ms))); }); } }
   $('dev').hidden = !dev;
   if (dev) {
     $('devName').textContent = dev.name || '개발자';

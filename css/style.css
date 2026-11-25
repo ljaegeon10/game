@@ -211,6 +211,12 @@ input, textarea{ -webkit-user-select:auto; user-select:auto; }
 .fb-dev{ display:flex; align-items:center; justify-content:center; gap:.7em; margin-top:clamp(8px, 1.6vh, 18px); padding:clamp(5px, 1vh, 9px) 20px;
   font-size:clamp(13px, min(2vw, 3vh), 24px); border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); }
 .fb-devsub{ font-size:.7em; color:rgba(241,236,224,.5); }
+/* 명예의 전당 — 개발자 기록 밑, 작게 */
+.fb-fame{ display:flex; align-items:baseline; justify-content:flex-end; gap:.6em; margin:4px 4px 0; font-size:clamp(10px, min(1.3vw, 2vh), 15px); color:rgba(241,236,224,.5); }
+.fb-fame.hidden{ display:none; }
+.fe-famet{ padding:1px 5px 0; font-size:.85em; letter-spacing:.14em; color:#0a0910; background:var(--hwang); }
+.fb-fame b{ font-weight:400; color:var(--baek); }
+.fb-fame .fe-devtm{ color:var(--hwang); }
 
 /* ── 일반 모드 탐사 진행도 ─────────────────────────────── */
 #explorebox.hidden{ display:none; }
