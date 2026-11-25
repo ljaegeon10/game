@@ -299,7 +299,7 @@ def main():
     print(f"  mob.png       {mob.size}   얼굴영역 {box} · 지운 구멍 {holes}px")
 
     # abom.png 는 tools/make_abom.py 가 따로 만들어 둡니다 (Piskel 원본이 아님)
-    embed(["hero", "mob", "eye", "brick", "abom"], hero_meta)
+    embed(["hero", "brick", "abom"], hero_meta)   # 몹 · 관측자는 이제 코드로 그림 (js/foepix.js · js/bosspix.js)
 
 
 if __name__ == "__main__":

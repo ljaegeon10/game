@@ -1695,6 +1695,10 @@ function tickFx() {
   G.fx = G.fx.filter(f => {
     f.life--;
     if (f.k === 'p') { f.x += f.vx; f.y += f.vy; f.vx *= .92; f.vy *= .92; }
+    else if (f.k === 'shard') {           // 깨진 강철 껍데기 — 튀어 올랐다 바닥에 떨어져 구름
+      if (f.y < f.floor || f.vy < 0) { f.vy += .24; f.x += f.vx; f.y += f.vy; f.rot += f.vr; }
+      else { f.y = f.floor; f.vx = f.vy = f.vr = 0; }
+    }
     else if (f.k === 'suck') {            // 눈으로 빨려 들어가는 빛 알갱이
       f.x += (f.tx - f.x) * .17;
       f.y += (f.ty - f.y) * .17;
@@ -1797,7 +1801,7 @@ function update() {
     if (G.bossIntroT === 88) {
       Sfx.bossRoar(); glare(1.3); G.shake = 26; G.flash = 1;
       shockRing(W / 2, 118, 340, '255,255,255', 8, 44);
-      shockRing(W / 2, 118, 240, '150,60,220', 6, 36);
+      shockRing(W / 2, 118, 240, '70,170,230', 6, 36);
     }
     if (G.bossIntroT > 90 && !G.boss) makeBoss();
     if (G.bossIntroT > 130) G.mode = 'play';
@@ -3051,7 +3055,7 @@ function renderDungeon() {
     g.globalCompositeOperation = 'lighter';
     const bg = g.createRadialGradient(W / 2, 118, 2, W / 2, 118, 40 + k * 130);
     bg.addColorStop(0, `rgba(255,120,90,${.5 * k})`);
-    bg.addColorStop(.5, `rgba(150,40,90,${.22 * k})`);
+    bg.addColorStop(.5, `rgba(60,120,170,${.2 * k})`);
     bg.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = bg; g.fillRect(0, 0, W, H);
     for (let i = 0; i < 6; i++) {
@@ -3062,9 +3066,10 @@ function renderDungeon() {
       g.lineTo(W / 2 + Math.cos(a) * 340, 118 + Math.sin(a) * 340);
       g.stroke();
     }
-    g.globalAlpha = k * .85; g.globalCompositeOperation = 'source-over';
-    g.fillStyle = '#c2352c';
-    g.beginPath(); g.arc(W / 2, 118, 4 + k * 30, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = k * .9; g.globalCompositeOperation = 'source-over';
+    { const sh = BossPix.shell(), sc = .25 + k * .75, w = Math.round(sh.width * sc / 2) * 2, h = Math.round(sh.height * sc / 2) * 2;   // 로봇이 떠오르며 켜짐
+      g.imageSmoothingEnabled = false; g.drawImage(sh, Math.round(W / 2 - w / 2), Math.round(118 - h / 2 + (1 - k) * 14), w, h);
+      if (k < .9 && (G.bossIntroT >> 2) % 2) { g.globalAlpha = (1 - k) * .7; g.fillStyle = '#0a0c10'; g.fillRect(Math.round(W / 2 - w / 2), Math.round(118 - h / 2 + (1 - k) * 14), w, h); } }   // 덜 켜진 동안 깜빡
     g.restore();
   }
 
@@ -3102,6 +3107,14 @@ function renderDungeon() {
       g.globalAlpha = k > .5 ? 1 : k * 2; g.fillStyle = f.c;          // 튀는 조각 — 정수 픽셀, 작아지며 사라짐
       const sz = k > .6 ? 3 : k > .3 ? 2 : 1;
       g.fillRect(Math.round(f.x) - (sz >> 1), Math.round(f.y) - (sz >> 1), sz, sz); g.globalAlpha = 1;
+    } else if (f.k === 'shard') {            // 깨진 강철 껍데기 조각
+      g.save();
+      g.globalAlpha = Math.min(1, k * 4);
+      g.translate(Math.round(f.x), Math.round(f.y)); g.rotate(f.rot);
+      g.fillStyle = f.c;
+      g.beginPath(); g.moveTo(-f.s, -f.s * .4); g.lineTo(f.s * .6, -f.s * .7); g.lineTo(f.s, f.s * .5); g.lineTo(-f.s * .3, f.s * .6); g.closePath(); g.fill();
+      g.strokeStyle = '#d5dde4'; g.lineWidth = 1; g.beginPath(); g.moveTo(-f.s, -f.s * .4); g.lineTo(f.s * .6, -f.s * .7); g.stroke();
+      g.restore();
     } else if (f.k === 'trail') {            // 보스 돌진 잔상
       g.save();
       g.globalCompositeOperation = 'lighter';
@@ -3532,7 +3545,7 @@ function drawClouds() {
 }
 
 function drawFoe(f) {
-  const C = FOE_SKIN[f.type] || FOE_SKIN.shroom;
+  const C = FoePix.SKIN[f.type] || FoePix.SKIN.shroom;
   const bob = Math.sin(f.bob) * 2;
   const s = f.type === 'mini' ? 19 : f.type === 'splitter' ? 34 : f.type === 'shroom' ? 27 : 30;
 
@@ -3550,7 +3563,7 @@ function drawFoe(f) {
   g.save();
   g.translate(f.x, f.y + 10); g.scale(1, .42);
   const ag = g.createRadialGradient(0, 0, 2, 0, 0, s * .8);
-  ag.addColorStop(0, `rgba(${C.glow},.34)`);
+  ag.addColorStop(0, `rgba(${C.glow},.26)`);
   ag.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = ag;
   g.beginPath(); g.arc(0, 0, s * .8, 0, Math.PI * 2); g.fill();
@@ -3585,19 +3598,8 @@ function drawFoe(f) {
   // 피격 중에는 주인공처럼 깜빡인다
   if (f.flash > 0 && (G.t >> 1) % 2) g.globalAlpha = .45 * warpK;
 
-  // 몸통은 종류마다 다르게 — foeart.js. 한 장의 도트 그림으로 정리해 찍습니다 (pixfx.js —
-  // 계단 가장자리 · 1px 외곽선 · 위 빛 아래 그늘 · 맞으면 흰 실루엣). 조금 크게(1.15배) — 어두운 방에서도 읽히게
-  const Z = 1.15, box = Math.ceil(s * 2.2 * Z) + 8, flash = f.flash > 0 ? ((G.t >> 1) % 2 ? .85 : .35) : 0;
-  if (window.FoePix) { FoePix.draw(g, f, G.t, flash); g.restore(); return; }   // 도트 그림 (js/foepix.js) — 구워 둔 층을 찍기만 함. 아래는 예전 방식
-  const body = c => {
-    c.scale(Z, Z);
-    // 돌진 예비 동작 때는 뒤로 움츠렸다가 튀어 나갑니다
-    if (f.wind > 0) { const k = 1 - f.wind / BALANCE.chargerWind; c.scale(1 + k * .18, 1 - k * .14); }
-    if (f.dash > 0) c.scale(1.14, .90);      // 튀어나가는 동안엔 납작하게 늘어납니다
-    drawFoeBody(c, f, s, G.t);
-  };
-  if (window.PixFX) PixFX.sprite(g, f.x, f.y + Math.round(bob), box, box, box / 2, box * .58, body, { outline: '#0a080e', flash });
-  else { g.translate(f.x, f.y + bob); body(g); }
+  // 몸통 — 도트 그림 (js/foepix.js) : 구워 둔 층을 찍기만 함. 맞으면 흰 실루엣
+  FoePix.draw(g, f, G.t, f.flash > 0 ? ((G.t >> 1) % 2 ? .85 : .35) : 0);
   g.restore();
 }
 
@@ -3630,7 +3632,7 @@ function drawBossLight() {
   const ph = B.phase;
   const pulse = .5 + Math.sin(G.t * .09) * .5;
   const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
-  const col = ph === 1 ? '150,60,220' : ph === 2 ? '200,60,150' : '224,72,60';
+  const col = ph === 1 ? '70,170,230' : ph === 2 ? '230,150,50' : '224,72,60';   // 감시 로봇 — 스캐너의 찬 빛 → 경고(호박색) → 적색
   g.save();
   // 빛은 방 안쪽(바닥)에서만 — 벽 너머로 새면 방이 뚫려 보입니다
   g.beginPath(); g.rect(TS, TS, W - TS * 2, H - TS * 2); g.clip();
@@ -3667,18 +3669,24 @@ function drawBoss() {
   else { g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(B.x, B.y + 30, 34, 10, 0, 0, Math.PI * 2); g.fill(); }
   g.globalAlpha = .25 + wind * .5;
   const ag = g.createRadialGradient(B.x, B.y, 10, B.x, B.y, 60 + wind * 26);
-  ag.addColorStop(0, 'rgba(150,60,220,.55)'); ag.addColorStop(1, 'rgba(150,60,220,0)');
+  const ac = B.phase === 1 ? '70,170,230' : B.phase === 2 ? '230,150,50' : '224,72,60';
+  ag.addColorStop(0, `rgba(${ac},.5)`); ag.addColorStop(1, `rgba(${ac},0)`);
   g.fillStyle = ag;
   g.beginPath(); g.arc(B.x, B.y, 62 + wind * 26, 0, Math.PI * 2); g.fill();
   g.globalAlpha = 1;
   // 눈 — 도트 그림 그대로, 숨 쉬는 크기는 2픽셀 단위로만 (소수 배율로 늘이면 픽셀이 일렁입니다) · 외곽선 · 맞으면 흰 실루엣
   const w = Math.round(96 * sc / 2) * 2, h = Math.round(87 * sc / 2) * 2;
-  const eye = c => {
-    if (IMG.eye) { c.imageSmoothingEnabled = false; c.drawImage(IMG.eye, -w / 2, -h / 2, w, h); }
-    else { c.fillStyle = '#c33'; c.beginPath(); c.arc(0, 0, 34, 0, 6.3); c.fill(); }
+  const pdx = P.x - B.x, pdy = P.y - B.y, pd = Math.hypot(pdx, pdy) || 1;
+  const eye = c => {                                          // 감시 로봇 (js/bosspix.js) — 렌즈 속 초점이 주인공을 따라옴
+    c.imageSmoothingEnabled = false; c.drawImage(BossPix.shell(), -w / 2, -h / 2, w, h);
+    const kx = w / BossPix.W, fx = Math.round(pdx / pd * 3 * kx), fy = Math.round((BossPix.CY - BossPix.H / 2 + pdy / pd * 3) * kx);
+    const hot = wind > 0 && (G.t >> 1) % 2;
+    c.fillStyle = hot ? '#fff3d0' : '#ff5a4a'; c.fillRect(fx - 2, fy - 2, hot ? 5 : 4, hot ? 5 : 4);
+    c.fillStyle = '#ffffff'; c.fillRect(fx - 1, fy - 1, 2, 2);
+    if ((G.t >> 4) % 2) { c.fillStyle = '#ff8a6a'; c.fillRect(Math.round((21 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); c.fillRect(Math.round((73 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); }   // 안테나 끝 등이 깜빡
   };
   const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .8 : .3) : 0;
-  if (window.PixFX) PixFX.sprite(g, B.x, B.y, w + 6, h + 6, w / 2 + 3, h / 2 + 3, eye, { outline: '#07050c', hi: .12, lo: .18, flash: fl });
+  if (window.PixFX) PixFX.sprite(g, B.x, B.y, w + 6, h + 6, w / 2 + 3, h / 2 + 3, eye, { outline: '#07080c', hi: .1, lo: .16, flash: fl });
   else { g.translate(B.x, B.y); eye(g); }
   g.restore();
 
@@ -4006,18 +4014,18 @@ function drawMedpack() {
   g.restore();
 }
 
-/* ═══════════ 변이 — 눈이 심연에게 먹히는 장면 ═══════════════
-   눈을 쓰러뜨린 순간부터 기존 변신 컷신의 암전(①)까지. 예전엔 눈이 한 번에
-   터져 사라지고 어둠 속에서 심연이 솟았는데, 그 사이를 보여 줍니다.
-   심연 가슴 한가운데의 붉은 눈이 바로 이 눈입니다.
+/* ═══════════ 변이 — 로봇 껍데기를 깨고 심연이 나오는 장면 ═══════════════
+   관측자(감시 로봇)를 쓰러뜨린 순간부터 기존 변신 컷신의 암전(①)까지.
+   로봇은 껍데기였고, 그 안에 든 것이 강철 외피를 안에서부터 깨고 나옵니다.
+   심연 가슴 한가운데의 붉은 눈이 바로 그 안에 있던 눈입니다.
 
-     0‥36    : 멈춤 — 쓰러진 눈이 그 자리에 굳고 하얗게 번쩍
-     36‥214  : 박동 — 점점 빨라지는 심장 소리, 보랏빛이 핏빛으로 번짐
-     60‥200  : 균열 — 흰자위에 붉은 금이 퍼짐
-     110‥230 : 바닥이 갈라지고 촉수가 올라와 눈을 휘감음
-     170·186 : 안쪽에서 녹슨 쇠갈고리가 뚫고 나옴 (심연의 낫·집게)
-     214     : 뿔 달린 껍데기가 산산조각 — 맨 눈알만 남음
-     236‥320 : 촉수가 눈알을 바닥 속으로 끌어내림
+     0‥36    : 멈춤 — 멈춘 로봇이 그 자리에 굳고 하얗게 번쩍
+     36‥214  : 박동 — 점점 빨라지는 심장 소리, 스캐너의 찬 빛이 핏빛으로 번짐 · 박동마다 불꽃이 튐
+     60‥200  : 균열 — 강철 외피에 안에서 비치는 붉은 금이 퍼짐
+     110‥230 : 금 간 틈으로 촉수가 비집고 나와 바닥을 짚음 · 바닥이 갈라짐
+     170·186 : 안쪽에서 녹슨 쇠갈고리가 외피를 뚫고 나옴 (심연의 낫·집게)
+     214     : 강철 껍데기가 산산조각 — 판 조각 · 나사 · 불꽃이 튀고 안에 든 맨 눈알이 드러남
+     236‥320 : 촉수가 바닥을 당겨 눈알을 구멍 속으로 끌고 들어감 (자라서 다시 솟음)
      330     : 구멍에서 빛이 터지고, 기존 암전으로 이어짐 */
 const MORPH_PRE = 330;
 const EM_BEATS = [40, 80, 114, 142, 166, 186, 202, 214];
@@ -4031,16 +4039,16 @@ const smooth01 = k => (k = clamp01g(k)) * k * (3 - 2 * k);
 
 /* 눈 그림에 색을 얹는 보조 캔버스 (tintedAbom 과 같은 방식) */
 let _eyeTintCv = null;
-function tintedEye(w, h, col, amt) {
-  if (!IMG.eye) return null;
-  if (amt <= .01) return IMG.eye;
+function tintedEye(w, h, col, amt, src) {
+  src = src || BossPix.shell();
+  if (amt <= .01) return src;
   if (!_eyeTintCv) _eyeTintCv = document.createElement('canvas');
   const c = _eyeTintCv;
   if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
   const t = c.getContext('2d');
   t.globalCompositeOperation = 'source-over'; t.globalAlpha = 1;
   t.clearRect(0, 0, w, h);
-  t.drawImage(IMG.eye, 0, 0, w, h);
+  t.imageSmoothingEnabled = false; t.drawImage(src, 0, 0, w, h);
   t.globalCompositeOperation = 'source-atop';
   t.globalAlpha = Math.min(1, amt); t.fillStyle = col; t.fillRect(0, 0, w, h);
   return c;
@@ -4090,6 +4098,12 @@ function tickEyeMorph(t) {
                   vx: (Math.random() - .5) * 1.6, vy: -.6 - Math.random() * 1.8,
                   life: 24, max: 24, c: '#5a3a30' });
   }
+  if (EM_BEATS.includes(t) && t < EM_SHATTER) {       // 박동마다 금 간 외피에서 불꽃이 튐
+    const n = 4 + EM_BEATS.indexOf(t) * 2;
+    for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = 20 + Math.random() * 12;
+      G.fx.push({ k: 'p', x: M.x + Math.cos(a) * r, y: M.y + Math.sin(a) * r * .9, vx: Math.cos(a) * (1 + Math.random() * 2.4), vy: Math.sin(a) * 2 - 1 - Math.random() * 1.6,
+                  life: 14 + (Math.random() * 10 | 0), max: 24, c: i % 3 ? '#ffd27a' : '#fff6d8' }); }
+  }
   if (EM_HOOKS.includes(t)) {                         // 쇠갈고리가 뚫고 나옵니다
     const sd = t === EM_HOOKS[0] ? -1 : 1;
     Sfx.hit(); G.shake = Math.max(G.shake, 16);
@@ -4100,18 +4114,20 @@ function tickEyeMorph(t) {
   if (t === EM_SHATTER) {                             // 껍데기가 산산조각
     Sfx.bossRoar(); Sfx.glitch();
     glare(1); G.flash = 1; G.shake = 30;
-    shockRing(M.x, M.y, 300, '150,60,220', 7, 40);
+    shockRing(M.x, M.y, 300, '255,200,120', 7, 40);
     shockRing(M.x, M.y, 200, '255,255,255', 5, 30);
     const floorY = M.y + 34;
-    for (let i = 0; i < 26; i++) {
-      const a = Math.random() * Math.PI * 2, r = 28 + Math.random() * 12, sp = 1.4 + Math.random() * 3;
+    for (let i = 0; i < 40; i++) {                    // 강철 판 조각 — 큰 판 여덟 장 + 잔 조각
+      const a = Math.random() * Math.PI * 2, r = 22 + Math.random() * 14, sp = 1.4 + Math.random() * 3.4, big = i < 8;
       M.shards.push({
         x: M.x + Math.cos(a) * r, y: M.y + Math.sin(a) * r * .9,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.4, rot: Math.random() * 6, vr: (Math.random() - .5) * .5,
-        s: 3 + Math.random() * 5, c: ['#2a1f33', '#4a2a62', '#1a1420', '#7d3fb0', '#5b2f86'][i % 5],
-        floor: floorY - 4 + Math.random() * 22, life: 0
+        vx: Math.cos(a) * sp * (big ? .8 : 1), vy: Math.sin(a) * sp - 2.6, rot: Math.random() * 6, vr: (Math.random() - .5) * .5,
+        s: big ? 7 + Math.random() * 4 : 2.5 + Math.random() * 4, c: BossPix.METAL[i % 5], big,
+        floor: floorY - 4 + Math.random() * 24, life: 0
       });
     }
+    for (let i = 0; i < 34; i++) { const a = Math.random() * 6.28, sp = 2 + Math.random() * 4.5;    // 불꽃
+      G.fx.push({ k: 'p', x: M.x, y: M.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, life: 16 + (Math.random() * 16 | 0), max: 32, c: i % 3 ? '#ffd27a' : '#fff6d8' }); }
   }
   M.shards.forEach(s => {                             // 파편은 떨어져 바닥에 흩어집니다
     s.life++;
@@ -4210,7 +4226,7 @@ function drawEyeMorph() {
   g.save();
   g.globalCompositeOperation = 'lighter';
   g.globalAlpha = (.3 + M.beat * .35) * (1 - sink * .6);
-  const cr = Math.round(150 + 74 * red), cg2 = Math.round(60 + 12 * red), cb = Math.round(220 - 168 * red);
+  const cr = Math.round(70 + 154 * red), cg2 = Math.round(170 - 98 * red), cb = Math.round(230 - 178 * red);   // 스캐너의 찬 빛 → 핏빛
   const ag = g.createRadialGradient(ex, ey, 8, ex, ey, 74 + M.beat * 20);
   ag.addColorStop(0, `rgba(${cr},${cg2},${cb},.7)`); ag.addColorStop(1, `rgba(${cr},${cg2},${cb},0)`);
   g.fillStyle = ag; g.beginPath(); g.arc(ex, ey, 96, 0, Math.PI * 2); g.fill();
@@ -4230,7 +4246,7 @@ function drawEyeMorph() {
     const cx = (x0 + x1) / 2 + out * (14 + Math.sin(G.t * .09 + i * 1.7) * 7);
     const cy = Math.min(y0, y1) - 10 + Math.cos(G.t * .07 + i) * 6;
     const grow = clamp01g(tentK * 1.5 - i * .08);
-    if (grow > 0) drawTentacle(x0, y0, cx, cy, x1, y1, grow);
+    if (grow > 0) drawTentacle(x1, y1, cx, cy, x0, y0, grow);        // 뿌리가 껍데기 쪽 — 금 간 틈에서 비집고 나와 바닥을 짚습니다
   };
 
   // 뒤쪽 촉수
@@ -4242,7 +4258,8 @@ function drawEyeMorph() {
   g.save();
   g.translate(ex, ey); g.scale(sc, sc);
   const w = 96, h = 87;
-  const im = tintedEye(w, h, '#7a0a10', red * .32 + M.beat * .18 + (bare ? .18 : 0));
+  const im = tintedEye(w, h, '#7a0a10', red * .3 + M.beat * .16 + (bare ? .1 : 0), bare ? BossPix.core() : BossPix.shell());
+  g.imageSmoothingEnabled = false;
   if (bare) {
     g.save();
     g.beginPath(); g.arc(-1, 0, 23, 0, Math.PI * 2); g.clip();
@@ -4308,13 +4325,27 @@ function drawEyeMorph() {
     g.fillStyle = s.c;
     g.beginPath(); g.moveTo(-s.s, -s.s * .4); g.lineTo(s.s * .6, -s.s * .7); g.lineTo(s.s, s.s * .5); g.lineTo(-s.s * .3, s.s * .6);
     g.closePath(); g.fill();
+    g.strokeStyle = '#d5dde4'; g.lineWidth = 1;                           // 빛 받는 모서리 — 강철 판
+    g.beginPath(); g.moveTo(-s.s, -s.s * .4); g.lineTo(s.s * .6, -s.s * .7); g.stroke();
+    if (s.big) { g.fillStyle = '#0d1116'; g.fillRect(-1, -1, 2, 2); g.fillStyle = '#e3b23c'; g.fillRect(s.s * .3 | 0, 0, 2, 1); }   // 나사 구멍 · 경고 띠 조각
     g.restore();
   });
   g.restore();
 }
 
 /* 타임어택 : 변신 컷신 없이 그 자리에서 바로 심연과 싸웁니다 */
+/* 강철 껍데기가 터져 나가는 조각 · 불꽃 (타임어택의 즉시 변이 — 컷신 쪽은 tickEyeMorph 가 따로) */
+function shellBurst(x, y) {
+  for (let i = 0; i < 34; i++) {
+    const a = Math.random() * Math.PI * 2, r = 16 + Math.random() * 16, sp = 1.6 + Math.random() * 3.6, big = i < 8;
+    G.fx.push({ k: 'shard', x: x + Math.cos(a) * r, y: y + Math.sin(a) * r * .9, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.8, rot: Math.random() * 6, vr: (Math.random() - .5) * .5,
+                s: big ? 6 + Math.random() * 4 : 2.5 + Math.random() * 3.5, c: BossPix.METAL[i % 5], floor: y + 28 + Math.random() * 26, life: 150 + (Math.random() * 60 | 0), max: 210 });
+  }
+  for (let i = 0; i < 30; i++) { const a = Math.random() * 6.28, sp = 2 + Math.random() * 4.5;
+    G.fx.push({ k: 'p', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1, life: 16 + (Math.random() * 16 | 0), max: 32, c: i % 3 ? '#ffd27a' : '#fff6d8' }); }
+}
 function quickMorph(B) {
+  shellBurst(G.morphX, G.morphY);                 // 로봇 껍데기가 깨지며 그 안에서
   glitchDeath(G.morphX, G.morphY, true);
   glare(1.2); G.shake = 26; G.flash = 1;
   shockRing(G.morphX, G.morphY, 380, '255,255,255', 9, 44);
@@ -6638,7 +6669,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,
-                  spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN,
+                  spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN: FoePix.SKIN,
                   endingScene: () => endingScene, escapeScene: () => escapeScene, beginEscape,
                   killBoss, MORPH_PRE, AD, AD_DONE,
                   taRoute, devJump, openDevPanel, devKillAll, opT, beginDoze, DOZE_AFTER,
