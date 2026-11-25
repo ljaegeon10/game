@@ -1759,6 +1759,33 @@ button{ box-shadow:0 3px 0 #8a6a18; }
 .tm-item.nudge, .modebtn.nudge{ animation:taNudge .28s steps(4) 1; }
 @keyframes taNudge{ 0%, 100%{ transform:translateX(0); } 25%{ transform:translateX(-3px); } 75%{ transform:translateX(3px); } }
 
+/* ═══ 개발자 모드 — 1부 · 2부는 폴더가 아니라 아이콘 하나씩 (글자 없음) · 들어갈 때 부드럽게 ═══ */
+.dv-folders{ gap:22px; padding:8px 0 6px; }
+.dv-folder{ width:92px; height:92px; padding:0; margin:0; display:grid; place-items:center; position:relative;
+  background:rgba(12,18,20,.72); border:1px solid rgba(125,227,200,.5); border-radius:0; box-shadow:0 0 0 2px rgba(0,0,0,.55), 4px 4px 0 rgba(0,0,0,.45);
+  transition:transform .16s cubic-bezier(.2,.7,.3,1), border-color .16s, background .16s; }
+.dv-folder.f2{ border-color:rgba(255,154,140,.55); }
+.dv-folder .dv-fic{ position:static; z-index:auto; width:56px; height:56px; background:none center / contain no-repeat; image-rendering:pixelated; border:none; border-radius:0; box-shadow:none; filter:none; transform:none; }
+.dv-folder .dv-fic::before, .dv-folder .dv-fic::after{ content:none; }
+.dv-folder[data-folder="p1"] .dv-fic{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%20shape-rendering=%27crispEdges%27%3E%3Crect%20x=%273%27%20y=%270%27%20width=%271%27%20height=%275%27%20fill=%27%23a07c46%27/%3E%3Crect%20x=%2712%27%20y=%270%27%20width=%271%27%20height=%275%27%20fill=%27%23a07c46%27/%3E%3Crect%20x=%273%27%20y=%270%27%20width=%2710%27%20height=%271%27%20fill=%27%23c29a58%27/%3E%3Crect%20x=%278%27%20y=%271%27%20width=%271%27%20height=%273%27%20fill=%27%23d9ccaa%27/%3E%3Crect%20x=%277%27%20y=%274%27%20width=%273%27%20height=%272%27%20fill=%27%236a4a28%27/%3E%3Crect%20x=%272%27%20y=%275%27%20width=%2712%27%20height=%272%27%20fill=%27%23bccbd0%27/%3E%3Crect%20x=%273%27%20y=%274%27%20width=%2710%27%20height=%271%27%20fill=%27%23bccbd0%27/%3E%3Crect%20x=%274%27%20y=%275%27%20width=%278%27%20height=%272%27%20fill=%27%2306100f%27/%3E%3Crect%20x=%275%27%20y=%276%27%20width=%275%27%20height=%271%27%20fill=%27%232fae93%27/%3E%3Crect%20x=%276%27%20y=%276%27%20width=%272%27%20height=%271%27%20fill=%27%237de3c8%27/%3E%3Crect%20x=%272%27%20y=%277%27%20width=%2712%27%20height=%277%27%20fill=%27%2374878e%27/%3E%3Crect%20x=%272%27%20y=%277%27%20width=%2712%27%20height=%271%27%20fill=%27%238fa2a8%27/%3E%3Crect%20x=%272%27%20y=%2710%27%20width=%2712%27%20height=%271%27%20fill=%27%235d7077%27/%3E%3Crect%20x=%272%27%20y=%2713%27%20width=%2712%27%20height=%271%27%20fill=%27%235d7077%27/%3E%3Crect%20x=%277%27%20y=%278%27%20width=%271%27%20height=%272%27%20fill=%27%235d7077%27/%3E%3Crect%20x=%274%27%20y=%2711%27%20width=%271%27%20height=%272%27%20fill=%27%235d7077%27/%3E%3Crect%20x=%2710%27%20y=%2711%27%20width=%271%27%20height=%272%27%20fill=%27%235d7077%27/%3E%3Crect%20x=%277%27%20y=%2714%27%20width=%271%27%20height=%270%27%20fill=%27%23000%27/%3E%3Crect%20x=%271%27%20y=%2714%27%20width=%2714%27%20height=%271%27%20fill=%27%23334046%27/%3E%3C/svg%3E"); }
+.dv-folder[data-folder="p2"] .dv-fic{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%20shape-rendering=%27crispEdges%27%3E%3Crect%20x=%275%27%20y=%270%27%20width=%276%27%20height=%271%27%20fill=%27%23e9eef2%27/%3E%3Crect%20x=%276%27%20y=%271%27%20width=%274%27%20height=%274%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%277%27%20y=%271%27%20width=%272%27%20height=%274%27%20fill=%27%230e1417%27/%3E%3Crect%20x=%275%27%20y=%275%27%20width=%276%27%20height=%271%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%274%27%20y=%276%27%20width=%278%27%20height=%271%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%273%27%20y=%277%27%20width=%2710%27%20height=%271%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%272%27%20y=%278%27%20width=%2712%27%20height=%275%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%273%27%20y=%2713%27%20width=%2710%27%20height=%271%27%20fill=%27%23cfd9de%27/%3E%3Crect%20x=%274%27%20y=%277%27%20width=%278%27%20height=%271%27%20fill=%27%230e1417%27/%3E%3Crect%20x=%273%27%20y=%278%27%20width=%2710%27%20height=%271%27%20fill=%27%230e1417%27/%3E%3Crect%20x=%273%27%20y=%279%27%20width=%2710%27%20height=%274%27%20fill=%27%230e1417%27/%3E%3Crect%20x=%274%27%20y=%2713%27%20width=%278%27%20height=%271%27%20fill=%27%230e1417%27/%3E%3Crect%20x=%273%27%20y=%279%27%20width=%2710%27%20height=%274%27%20fill=%27%23e0584a%27/%3E%3Crect%20x=%274%27%20y=%2713%27%20width=%278%27%20height=%271%27%20fill=%27%23e0584a%27/%3E%3Crect%20x=%273%27%20y=%279%27%20width=%2710%27%20height=%271%27%20fill=%27%23ff8a7a%27/%3E%3Crect%20x=%275%27%20y=%2711%27%20width=%271%27%20height=%271%27%20fill=%27%23ffd0c6%27/%3E%3Crect%20x=%279%27%20y=%2712%27%20width=%271%27%20height=%271%27%20fill=%27%23ffd0c6%27/%3E%3Crect%20x=%277%27%20y=%273%27%20width=%272%27%20height=%271%27%20fill=%27%23e0584a%27/%3E%3Crect%20x=%277%27%20y=%278%27%20width=%272%27%20height=%271%27%20fill=%27%23e0584a%27/%3E%3C/svg%3E"); }
+.dv-folder.f2 .dv-fic{ background-color:transparent; border-color:transparent; }
+.dv-folder:hover, .dv-folder:focus-visible{ transform:translateY(-3px); background:rgba(125,227,200,.1); border-color:#7de3c8; outline:none; }
+.dv-folder.f2:hover, .dv-folder.f2:focus-visible{ background:rgba(255,154,140,.1); border-color:#ff9a8c; }
+.dv-folder:active{ transform:translateY(0); }
+.dv-folder:hover .dv-fic, .dv-folder:focus-visible .dv-fic{ filter:none; transform:none; }
+/* 들어갈 때 — 메뉴는 먼저 살짝 내려가며 사라지고(JS 가 .dv-leave), 패널은 위로 떠오르며 아이콘이 차례로 */
+#devpanel{ animation:none; }
+#devpanel.dv-in{ animation:dvIn .46s cubic-bezier(.16,.84,.3,1) both; }
+#devpanel.dv-in .dv-folder{ animation:dvPop .42s cubic-bezier(.16,.84,.3,1) both; }
+#devpanel.dv-in .dv-folder.f2{ animation-delay:.07s; }
+#devpanel.dv-in .dv-folder:first-child{ animation-delay:.02s; }
+@keyframes dvIn{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+@keyframes dvPop{ from{ opacity:0; transform:translateY(8px) scale(.94); } to{ opacity:1; transform:none; } }
+#startbtn.dv-leave{ opacity:0; transform:translateY(6px); transition:opacity .16s ease-in, transform .16s ease-in; pointer-events:none; }
+#startbtn.dv-back{ animation:dvIn .34s cubic-bezier(.16,.84,.3,1) both; }
+@media (prefers-reduced-motion:reduce){ #devpanel.dv-in, #devpanel.dv-in .dv-folder, #startbtn.dv-back{ animation:none; } #startbtn.dv-leave{ transition:none; } }
+
 </style>
 <div id="frame">
   <div id="stage">
@@ -2009,11 +2036,11 @@ button{ box-shadow:0 3px 0 #8a6a18; }
       <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
       <div id="devpanel" class="hidden">
         <p class="ms-q">DEV MODE</p>
-        <!-- 폴더 — 1부 · 2부. 누르면 그 폴더만 열림 -->
+        <!-- 1부 · 2부 — 아이콘만. 누르면 그 부만 열림 -->
         <p class="dv-crumb" id="dv-crumb">DEV</p>
         <div class="dv-folders" id="dv-folders">
-          <button class="dv-folder" data-folder="p1" type="button"><i class="dv-fic" aria-hidden="true"></i><b>1부</b><span>우물 아래</span><em id="dv-n1"></em></button>
-          <button class="dv-folder f2" data-folder="p2" type="button"><i class="dv-fic" aria-hidden="true"></i><b>2부</b><span>연구동</span><em id="dv-n2"></em></button>
+          <button class="dv-folder" data-folder="p1" type="button" aria-label="1부 — 우물 아래" title="1부 · 우물 아래"><i class="dv-fic" aria-hidden="true"></i></button>
+          <button class="dv-folder f2" data-folder="p2" type="button" aria-label="2부 — 연구동" title="2부 · 연구동"><i class="dv-fic" aria-hidden="true"></i></button>
         </div>
         <div class="dv-part hidden" data-folder="p1">
           <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
@@ -16336,7 +16363,7 @@ window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, originalSta
 (() => {
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
-if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 0 };   // ms 0 — 아직 기록 없음 (개발자가 처음 깨면 그게 기록)
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '이재건', ms: 86980 };   // 1:26.98 (봇 기록)
 /* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
 const DEVKEY = 'wellbelow.devbest.v2';             // v2 — 배포 직전 기록을 전부 비움 (경로 · 보스 패턴이 바뀌어 예전 기록과 견줄 수 없음)
 try { localStorage.removeItem('wellbelow.devbest'); } catch (e) {}
@@ -23297,10 +23324,16 @@ function openDevPanel() {
   document.body.classList.add('dev');          // 개발자 모드 동안엔 제작진 크레딧을 숨깁니다 (css)
   Sfx.unlock(); Sfx.glitch();
   $('devbadge').classList.remove('hidden');
-  ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden'));
-  $('devpanel').classList.remove('hidden');
-  $('title').classList.add('picking');
   G.mode = 'devsel';
+  const sb = $('startbtn'), dp = $('devpanel'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const show = () => {                                       // 패널이 떠오르며 아이콘이 차례로 (css dvIn · dvPop)
+    ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden')); sb.classList.remove('dv-leave');
+    $('title').classList.add('picking');
+    dp.classList.remove('hidden', 'dv-in'); void dp.offsetWidth; dp.classList.add('dv-in');
+  };
+  if (still || sb.classList.contains('hidden') || !dp.classList.contains('hidden')) { show(); return; }
+  sb.classList.add('dv-leave');                              // 시작 메뉴는 먼저 살짝 내려가며 사라지고
+  setTimeout(() => { if (G.mode === 'devsel' && G.dev) show(); else sb.classList.remove('dv-leave'); }, 170);   // 그 사이 딴 데로 가면 그만
 }
 function closeDevPanel() {
   // 개발자 모드를 완전히 끕니다 — DEV 표시 · 무적 · 단축키 · 크레딧 숨김까지
@@ -23308,8 +23341,8 @@ function closeDevPanel() {
   $('dv-god').checked = false;
   $('devbadge').classList.add('hidden');
   document.body.classList.remove('dev');
-  $('devpanel').classList.add('hidden');
-  $('startbtn').classList.remove('hidden');
+  $('devpanel').classList.add('hidden'); $('devpanel').classList.remove('dv-in');
+  $('startbtn').classList.remove('hidden', 'dv-leave'); $('startbtn').classList.remove('dv-back'); void $('startbtn').offsetWidth; $('startbtn').classList.add('dv-back');
   $('title').classList.remove('picking');
   renderBestTimes();
   G.mode = 'title';
@@ -23438,8 +23471,6 @@ function devFolder(id) {
   $('dvback').textContent = dvOpen ? '← 폴더 목록' : '← 뒤로';
 }
 document.querySelectorAll('#dv-folders .dv-folder').forEach(b => b.addEventListener('click', () => { Sfx.pick && Sfx.pick(); devFolder(b.dataset.folder); }));
-$('dv-n1').textContent = `${DEV_STAGES.length + DEV_CINES.length + DEV_EGGS.length}개`;
-$('dv-n2').textContent = `${DEV_PART2.length}개`;
 devFolder(dvOpen);
 $('dvback').addEventListener('click', () => { if (dvOpen) devFolder(null); else closeDevPanel(); });
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });

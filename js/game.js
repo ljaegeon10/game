@@ -6319,10 +6319,16 @@ function openDevPanel() {
   document.body.classList.add('dev');          // 개발자 모드 동안엔 제작진 크레딧을 숨깁니다 (css)
   Sfx.unlock(); Sfx.glitch();
   $('devbadge').classList.remove('hidden');
-  ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden'));
-  $('devpanel').classList.remove('hidden');
-  $('title').classList.add('picking');
   G.mode = 'devsel';
+  const sb = $('startbtn'), dp = $('devpanel'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const show = () => {                                       // 패널이 떠오르며 아이콘이 차례로 (css dvIn · dvPop)
+    ['startbtn', 'besttimes', 'modesel', 'diffsel'].forEach(id => $(id).classList.add('hidden')); sb.classList.remove('dv-leave');
+    $('title').classList.add('picking');
+    dp.classList.remove('hidden', 'dv-in'); void dp.offsetWidth; dp.classList.add('dv-in');
+  };
+  if (still || sb.classList.contains('hidden') || !dp.classList.contains('hidden')) { show(); return; }
+  sb.classList.add('dv-leave');                              // 시작 메뉴는 먼저 살짝 내려가며 사라지고
+  setTimeout(() => { if (G.mode === 'devsel' && G.dev) show(); else sb.classList.remove('dv-leave'); }, 170);   // 그 사이 딴 데로 가면 그만
 }
 function closeDevPanel() {
   // 개발자 모드를 완전히 끕니다 — DEV 표시 · 무적 · 단축키 · 크레딧 숨김까지
@@ -6330,8 +6336,8 @@ function closeDevPanel() {
   $('dv-god').checked = false;
   $('devbadge').classList.add('hidden');
   document.body.classList.remove('dev');
-  $('devpanel').classList.add('hidden');
-  $('startbtn').classList.remove('hidden');
+  $('devpanel').classList.add('hidden'); $('devpanel').classList.remove('dv-in');
+  $('startbtn').classList.remove('hidden', 'dv-leave'); $('startbtn').classList.remove('dv-back'); void $('startbtn').offsetWidth; $('startbtn').classList.add('dv-back');
   $('title').classList.remove('picking');
   renderBestTimes();
   G.mode = 'title';
@@ -6460,8 +6466,6 @@ function devFolder(id) {
   $('dvback').textContent = dvOpen ? '← 폴더 목록' : '← 뒤로';
 }
 document.querySelectorAll('#dv-folders .dv-folder').forEach(b => b.addEventListener('click', () => { Sfx.pick && Sfx.pick(); devFolder(b.dataset.folder); }));
-$('dv-n1').textContent = `${DEV_STAGES.length + DEV_CINES.length + DEV_EGGS.length}개`;
-$('dv-n2').textContent = `${DEV_PART2.length}개`;
 devFolder(dvOpen);
 $('dvback').addEventListener('click', () => { if (dvOpen) devFolder(null); else closeDevPanel(); });
 $('dv-god').addEventListener('change', e => { G.devGod = e.target.checked; });

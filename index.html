@@ -265,11 +265,11 @@
       <!-- 개발자 모드 — 로고를 세 번 누르면 열립니다 -->
       <div id="devpanel" class="hidden">
         <p class="ms-q">DEV MODE</p>
-        <!-- 폴더 — 1부 · 2부. 누르면 그 폴더만 열림 -->
+        <!-- 1부 · 2부 — 아이콘만. 누르면 그 부만 열림 -->
         <p class="dv-crumb" id="dv-crumb">DEV</p>
         <div class="dv-folders" id="dv-folders">
-          <button class="dv-folder" data-folder="p1" type="button"><i class="dv-fic" aria-hidden="true"></i><b>1부</b><span>우물 아래</span><em id="dv-n1"></em></button>
-          <button class="dv-folder f2" data-folder="p2" type="button"><i class="dv-fic" aria-hidden="true"></i><b>2부</b><span>연구동</span><em id="dv-n2"></em></button>
+          <button class="dv-folder" data-folder="p1" type="button" aria-label="1부 — 우물 아래" title="1부 · 우물 아래"><i class="dv-fic" aria-hidden="true"></i></button>
+          <button class="dv-folder f2" data-folder="p2" type="button" aria-label="2부 — 연구동" title="2부 · 연구동"><i class="dv-fic" aria-hidden="true"></i></button>
         </div>
         <div class="dv-part hidden" data-folder="p1">
           <div class="dv-group"><span class="dv-label">스테이지</span><div class="dv-row" id="dv-stages"></div></div>
