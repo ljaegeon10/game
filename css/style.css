@@ -1800,3 +1800,7 @@ html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 #fb-close{ color:#0a0910; background:var(--hwang); border-color:var(--hwang); box-shadow:0 4px 0 #8a6a18; }
 #fb-close:hover, #fb-close:focus-visible{ color:#0a0910; background:#f2c95a; border-color:#f2c95a; }
 #fb-close:active{ transform:translateY(3px); box-shadow:0 1px 0 #8a6a18; }
+
+/* 제목 심전도 — 윤곽(바탕선 · 번지는 빛) 없이 깔끔한 선 하나만 쓸고 지나감 */
+.tl-ecg{ stroke:#bff6ff; stroke-width:1.9; }
+#title.konami .tl-ecg{ stroke:#ffd2cc; }

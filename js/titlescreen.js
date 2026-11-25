@@ -102,6 +102,35 @@ let wall = null, fig = null, raf = 0, t = 0, figTry = 0, figAt = 0, figWait = 0;
 const PRE = window.TITLE_FIG || null;
 let preImg = null;
 if (PRE && PRE.src) { const im = new Image(); im.onload = () => { preImg = im; }; im.onerror = () => { preImg = false; }; im.src = PRE.src; }
+/* 바이저 유리에 비치는 제목의 심전도 — index.html 로고의 SMIL 쓸기와 같은 시계(svg.getCurrentTime)로.
+   좌우가 뒤집히고(거울) 볼록 유리라 가장자리로 갈수록 눌리며 휘어 보임. 미리 구운 그림(바이저 심전도 없음)일 때만 */
+const ECG = [[-8, 58], [55, 58], [58.5, 55], [62, 51.5], [65.5, 55], [67, 58], [121, 58], [125, 62.5], [131.5, 5], [138.5, 77], [143.5, 58], [211, 58], [214.5, 53.5], [218, 49.5], [221.5, 53.5], [223.5, 58], [300, 58]];
+const VISOR = { x: 535, y: 242, rx: 92, ry: 114 };      // 그림(TITLE_FIG) 안의 바이저 유리 — 가운데 · 반지름
+const logoSvg = document.getElementById('t-logo-svg'), still = matchMedia('(prefers-reduced-motion: reduce)');
+const ecgPieces = (() => { const out = []; for (let i = 1; i < ECG.length; i++) { const [ax, ay] = ECG[i - 1], [bx, by] = ECG[i], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 3));
+  for (let k = 0; k < n; k++) out.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n, ax + (bx - ax) * (k + 1) / n, ay + (by - ay) * (k + 1) / n]); } return out; })();
+/* 로고 마스크(index.html)와 같은 모양 — 쓸고 가는 네모의 왼쪽 끝 x 에서 본 밝기 (0 · .8 에서 .75 · .97 에서 1 · 1 에서 0) */
+const fade = f => f <= 0 || f >= 1 ? 0 : f < .8 ? f / .8 * .75 : f < .97 ? .75 + (f - .8) / .17 * .25 : (1 - f) / .03;
+function visorEcg(ox, oy) {
+  if (still.matches) return;
+  let tm; try { tm = logoSvg && logoSvg.getCurrentTime ? logoSvg.getCurrentTime() : performance.now() / 1000; } catch (e) { tm = performance.now() / 1000; }
+  const ph = (tm % 3.4) / 3.4; if (ph >= .7) return;
+  const q = ph / .7, e = .5 - .5 * Math.cos(Math.PI * q), rx0 = -138 + 438 * e;          // 쓸고 가는 네모의 왼쪽 끝 (로고 좌표)
+  const cx = ox + VISOR.x, cy = oy + VISOR.y, RX = VISOR.rx, RY = VISOR.ry;
+  const map = (x, y) => {                                                               // 로고 좌표 → 유리 위 (거울 · 볼록)
+    const s = 1 - (x + 8) / 308 * 2, w = Math.sin(s * 1.15) / Math.sin(1.15);
+    return [cx + w * RX * .8, cy - RY * .2 + s * s * RY * .14 + (y - 58) / 50 * RY * .3 * Math.cos(s * 1.05)];
+  };
+  c.save(); c.beginPath(); c.ellipse(cx, cy, RX, RY, 0, 0, 7); c.clip();
+  c.globalCompositeOperation = 'lighter'; c.lineCap = 'round'; c.lineWidth = 2.6 * K / 3.33;
+  for (const [ax, ay, bx, by] of ecgPieces) {
+    const a = fade(((ax + bx) / 2 - rx0) / 130); if (a < .02) continue;
+    const [px, py] = map(ax, ay), [qx, qy] = map(bx, by);
+    c.strokeStyle = `rgba(150,235,255,${(a * .85).toFixed(3)})`;
+    c.beginPath(); c.moveTo(px, py); c.lineTo(qx, qy); c.stroke();
+  }
+  c.restore();
+}
 const dust = Array.from({ length: 70 }, () => ({ x: rnd() * W, y: rnd() * H, r: (.5 + rnd() * 1.3) * K * .5, v: .08 + rnd() * .25, p: rnd() * 6.28, a: .15 + rnd() * .5 }));
 function draw() {
   t += 2;                                  // 초당 30장 그리므로 2씩 (예전 60fps 의 t 와 같은 빠르기)
@@ -119,6 +148,7 @@ function draw() {
     c.globalAlpha = .9 + .1 * fl;
     c.drawImage(preImg, PRE.x, PRE.y - (PRE.fh - H) / 2 + by, PRE.w, PRE.h);
     c.globalAlpha = 1;
+    visorEcg(PRE.x, PRE.y - (PRE.fh - H) / 2 + by);                                     // 유리에 비친 제목의 심전도
   } else if (fig) {
     c.globalAlpha = .9 + .1 * fl;
     c.drawImage(fig, 0, by);
@@ -149,7 +179,7 @@ function loop() {
   // 인물 — 없으면 굽기. 실패하면(3D 가 아직 준비 안 됨 등) 1초 간격으로 몇 번 더 해 봄. 창 크기를 끄는 동안엔 멈출 때까지 기다림
   const now = performance.now();
   if (!fig && (!PRE || preImg === false) && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
-  if (t < 3 || now - lastDraw >= 31) { draw(); lastDraw = now; }               // 초당 30장 — 화면이 60 · 120 · 144Hz 여도 같게
+  if (t < 3 || now - lastDraw >= 31) { draw(); lastDraw = now; }               // (바이저에 비친 심전도도 이 30장 안에서)               // 초당 30장 — 화면이 60 · 120 · 144Hz 여도 같게
   raf = requestAnimationFrame(loop);
 }
 const sync = () => { if (!raf && !title.classList.contains('hidden') && !document.hidden) raf = requestAnimationFrame(loop); };

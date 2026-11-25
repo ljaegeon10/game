@@ -159,7 +159,7 @@
       <div id="t-frame" aria-hidden="true"><i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i></div>
       <!-- 제목 — 네모 획으로 짠 글자 (로고를 세 번 누르면 개발자 모드) -->
       <h1 aria-label="우물 아래">
-        <svg viewBox="-8 -8 300 96" aria-hidden="true">
+        <svg id="t-logo-svg" viewBox="-8 -8 300 96" aria-hidden="true">
           <g class="tl-glow"><use href="#t-logo-g"/></g>
           <g id="t-logo-g" fill="none" stroke-width="9" stroke-linejoin="miter" stroke-linecap="butt">
             <!-- 우 -->
@@ -190,8 +190,7 @@
               <rect x="-138" y="-8" width="130" height="96" fill="url(#tl-ecg-fade)"><animate attributeName="x" values="-138;300;300" keyTimes="0;.7;1" dur="3.4s" repeatCount="indefinite" calcMode="spline" keySplines=".35 0 .65 1;0 0 1 1"/></rect>
             </mask>
           </defs>
-          <path class="tl-ecg-base" d="M-8,58 H55 L58.5,55 L62,51.5 L65.5,55 L67,58 H121 L125,62.5 L131.5,5 L138.5,77 L143.5,58 H211 L214.5,53.5 L218,49.5 L221.5,53.5 L223.5,58 H300"/>
-          <g class="tl-ecg-run" mask="url(#tl-ecg-mask)"><path class="tl-ecg-glow" d="M-8,58 H55 L58.5,55 L62,51.5 L65.5,55 L67,58 H121 L125,62.5 L131.5,5 L138.5,77 L143.5,58 H211 L214.5,53.5 L218,49.5 L221.5,53.5 L223.5,58 H300"/><path class="tl-ecg" d="M-8,58 H55 L58.5,55 L62,51.5 L65.5,55 L67,58 H121 L125,62.5 L131.5,5 L138.5,77 L143.5,58 H211 L214.5,53.5 L218,49.5 L221.5,53.5 L223.5,58 H300"/></g>
+          <g class="tl-ecg-run" mask="url(#tl-ecg-mask)"><path class="tl-ecg" d="M-8,58 H55 L58.5,55 L62,51.5 L65.5,55 L67,58 H121 L125,62.5 L131.5,5 L138.5,77 L143.5,58 H211 L214.5,53.5 L218,49.5 L221.5,53.5 L223.5,58 H300"/></g>
         </svg>
         <small>THE WELL BELOW</small>
       </h1>
