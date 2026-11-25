@@ -39,10 +39,13 @@ const SETTING_ROWS = [
   ['관리 PIN', '', '순위판의 ⚙ 관리 코드 — 기록 지우기 · 글 고치기 (처음에 저절로 만들어짐 · 순위판에는 안 나감)'],
   ['개발자 이름', '장도우', '이 이름의 판은 순위 · TOP 3 에서 빠짐'],
   ['결제 승인', '켬', '켬 — 타임어택 한 판마다 부스에서 승인해야 시작 (docs/approve.html) · 끔 — 그냥 시작'],
-  ['도전 비용', '100원', '결제 대기 화면 · 승인 페이지에 나오는 한 판 값 (숫자만 세어 오늘 합계를 냄)']
+  ['도전 비용', '100원', '결제 대기 화면 · 승인 페이지에 나오는 한 판 값 (숫자만 세어 오늘 합계를 냄)'],
+  ['타임어택', '닫힘', '열림 — 타임어택을 할 수 있음 · 닫힘 — 게임 메뉴에서 막힘 (docs/approve.html 의 스위치로 바꿈 · 여기서 직접 고쳐도 됨)']
 ];
 const PRIVATE = ['순위판 PIN', '관리 PIN'];                  // 순위판으로 안 보내는 항목
 /* 관리 코드 견주기 — 0 으로 시작하는 코드를 시트가 숫자로 바꿔 적어도 맞게 (앞의 0 · 빈칸 무시) */
+/* 타임어택이 열려 있는지 — '순위판 설정' 의 '타임어택' 칸이 「열림」일 때만 (비었거나 다른 글이면 닫힘) */
+const taOpen_ = set => String(set['타임어택'] == null ? '' : set['타임어택']).trim() === '열림';
 const sameKey_ = (a, b) => { const n = v => String(v == null ? '' : v).trim().replace(/^0+(?=.)/, ''); return !!n(a) && n(a) === n(b); };
 const RUN_HEAD = ['id', '시각', '이름', '뒷자리', '결과', '도달', '점수', '시간(ms)', '시간'];
 const CONTACT_HEAD = ['id', '시각', '이름', '연락처'];
@@ -105,6 +108,9 @@ function doPost(e) {
     if (b.op === 'reqcancel') return out_(paySet_(b.id, '취소', ['대기']));
     if (b.op === 'payset') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });
       return out_(paySet_(b.id, b.status === '승인' ? '승인' : '거절', ['대기'])); }
+    if (b.op === 'taon') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });    // 승인 페이지의 타임어택 열림 / 닫힘 스위치
+      setSetting_('타임어택', b.on ? '열림' : '닫힘');
+      return out_({ ok: true, ta: !!b.on }); }
     if (b.op === 'payon') { if (!sameKey_(settings_()['관리 PIN'], b.key)) return out_({ ok: false, error: 'key' });   // 승인 페이지의 유료 켬 / 끔 스위치
       setSetting_('결제 승인', b.on ? '켬' : '끔');
       if (!b.on) payRows_().rows.filter(r => r.status === '대기').forEach(r => paySet_(r.id, '무료', ['대기']));   // 기다리던 손님은 바로 시작
@@ -165,6 +171,7 @@ function payRows_() {
 }
 function payReq_(b) {
   const set = settings_();
+  if (!taOpen_(set)) return { ok: false, error: 'closed' };          // 타임어택이 닫힌 동안은 새 판을 받지 않음
   if (!payOn_(set)) return { ok: true, free: true };
   const name = str_(b.name, 10), tail = str_(b.tail, 4).replace(/\D/g, '');
   if (!name || tail.length !== 4) return { ok: false, error: 'invalid' };
@@ -198,7 +205,7 @@ function payList_(b) {
   const recent = rows.filter(r => r.status !== '대기').sort((a, b) => (b.done || b.at) - (a.done || a.at)).slice(0, 40)
                      .map(r => ({ id: r.id, no: r.no, at: r.at.getTime(), done: r.done ? r.done.getTime() : 0, name: r.name, tail: r.tail, status: r.status }));
   const paid = rows.filter(r => r.status === '승인' || r.status === '사용').length;
-  return { ok: true, on: payOn_(set), price: str_(set['도전 비용'], 20), pending: pend, recent, paid, used: rows.filter(r => r.status === '사용').length, now: now.getTime() };
+  return { ok: true, on: payOn_(set), ta: taOpen_(set), price: str_(set['도전 비용'], 20), pending: pend, recent, paid, used: rows.filter(r => r.status === '사용').length, now: now.getTime() };
 }
 
 /* 일반 모드 '어려움' 클리어 — '어려움 클리어' 탭에 한 줄, 연락처는 '연락처' 탭에 (같은 id 는 한 번만) */
@@ -284,6 +291,7 @@ function refreshTop() { markTop_(readRuns_(), true); }
 /* ── 보내기 : 순위판이 받아 감 (연락처는 없음) ── */
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  if (p.op === 'ta') return out_({ ok: true, ta: taOpen_(settings_()) });   // 타임어택이 열렸는지 — 게임이 시작 화면에서 물어봄 (순위판 PIN 과 상관없이)
   if (p.op === 'pay') return out_(payStatus_(p.id));             // 결제 상태 — 게임이 2~3초마다 물어봄 (순위판 PIN 과 상관없이)
   const set = settings_(), pin = String(set['순위판 PIN'] || BOARD_PIN || '').trim();
   if (pin && String(p.pin || '') !== pin) return out_({ ok: false, error: 'pin' });

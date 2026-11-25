@@ -41,7 +41,7 @@ const MARGIN = +(process.env.MARGIN ?? 3), BOSSLEFT = process.env.BOSSLEFT === '
     const g = __game, G = g.G, P = g.P, MAP = g.MAP, BALANCE = g.BALANCE, I = () => g.bot();
     const { TS, CAM, TOUCH, doorCenter, onConfirm, runTime } = I(); let W, H; const mouse = I().mouse;
     window.runTime = runTime;
-    const PATH = ['start', 'fork', 'north', 'fork', 'south', 'fork', 'mid', 'gate', 'boss', 'exit'];
+    const PATH = ['start', 'fork', 'mid', 'ne', 'mid', 'se', 'mid', 'gate', 'boss', 'exit'];   // 타임어택 열쇠 방 = 중앙 양옆 (rooms.js 의 TA_KEY_ROOMS)
     let ptr = 0, plan = null, planT = 0, planRoom = null, log = [], lastRoom = null, stuck = 0, lastP = [0, 0];
     window.__log = log;
     const dirTo = (a, b) => { const A = MAP[a], B = MAP[b]; return B.gx > A.gx ? 'E' : B.gx < A.gx ? 'W' : B.gy > A.gy ? 'S' : 'N'; };
@@ -186,7 +186,7 @@ const MARGIN = +(process.env.MARGIN ?? 3), BOSSLEFT = process.env.BOSSLEFT === '
       let [gx, gy] = goal();
       if (window.__MODE === 'door') {                                       // 문으로 걸으면서 쏨 — 문 앞에서도 남아 있으면 그때 다가감
         const atDoor = Math.hypot(gx - P.x, gy - P.y) < 40;
-        const dead = G.room === 'north' || G.room === 'south';            // 들어온 문으로 다시 나가는 방 — 문 앞에서 버팀
+        const dead = G.room === 'ne' || G.room === 'se';                  // 들어온 문으로 다시 나가는 방 — 문 앞에서 버팀
         const ap = dead ? (window.__HOLD || 150) : (window.__APPROACH || 120);
         if (t && (atDoor || !t[2]) && (t[1] > ap || !t[2])) { gx = t[0].x; gy = t[0].y; }
       } else if (t && (t[1] > (window.__APPROACH || 120) || !t[2])) { gx = t[0].x; gy = t[0].y; }   // 적이 남으면 문이 막힘 — 멀거나 가려 있으면 다가감

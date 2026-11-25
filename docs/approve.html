@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>우물 아래 · 결제 승인</title>
+<title>우물 아래 · 컨트롤 패널</title>
 <!--
   부스 결제 승인 — 타임어택 한 판마다 손님 게임에 뜬 「요청 번호」를 보고 돈을 받은 뒤 승인.
   같은 festival-config.js 의 기록 서버(WB_SERVER)와 이야기함. 들어올 때 관리 코드(시트 '순위판 설정' 의 관리 PIN).
   서버 쪽 : server/apps_script.gs 의 payList_ · paySet_ ('결제' 탭)
 -->
-<script src="festival-config.js?v=1795507251"></script>
+<script src="festival-config.js?v=1795610815"></script>
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
 /* 폰 한 손으로 — 위에 오늘 합계, 가운데 대기 카드(번호 크게 · 승인 / 거절), 아래 처리한 목록 */
@@ -37,12 +37,18 @@ h1 small{ display:block; font-size:11px; letter-spacing:.24em; color:var(--dim);
 .mode b{ display:block; font-weight:400; font-size:17px; }
 .mode span{ font-size:12px; color:var(--dim); }
 .mode.free b{ color:var(--glow); }
-#sw{ position:relative; flex:none; width:64px; height:34px; border:none; border-radius:17px; background:rgba(241,236,224,.18); cursor:pointer; transition:background .15s; }
-#sw i{ position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:var(--fg); transition:transform .15s; }
-#sw[aria-checked="true"]{ background:var(--ok); }
-#sw[aria-checked="true"] i{ transform:translateX(30px); }
-#sw:disabled{ opacity:.5; cursor:default; }
-@media (prefers-reduced-motion:reduce){ #sw, #sw i{ transition:none; } }
+.sw{ position:relative; flex:none; width:64px; height:34px; border:none; border-radius:17px; background:rgba(241,236,224,.18); cursor:pointer; transition:background .15s; }
+.sw i{ position:absolute; top:4px; left:4px; width:26px; height:26px; border-radius:50%; background:var(--fg); transition:transform .15s; }
+.sw[aria-checked="true"]{ background:var(--ok); }
+.sw[aria-checked="true"] i{ transform:translateX(30px); }
+.sw:disabled{ opacity:.5; cursor:default; }
+@media (prefers-reduced-motion:reduce){ .sw, .sw i{ transition:none; } }
+/* 타임어택 열림 / 닫힘 — 닫혀 있으면 눈에 띄게 */
+.mode.ta{ border-left:4px solid var(--ok); }
+.mode.ta.closed{ border-left-color:var(--no); }
+.mode.ta.closed b{ color:var(--no); }
+.mode.ta.old{ border-left-color:var(--hwang); }
+.mode.ta.old b{ color:var(--hwang); }
 h2{ margin:0 0 8px; font-weight:400; font-size:13px; letter-spacing:.2em; color:var(--dim); }
 #pend{ display:flex; flex-direction:column; gap:10px; }
 .card{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; align-items:center; padding:14px; background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--hwang); }
@@ -86,11 +92,13 @@ footer button{ font:inherit; font-size:12px; color:var(--dim); background:none; 
 <body>
 <div class="wrap">
   <header>
-    <h1><small>THE WELL BELOW · BOOTH</small>타임어택 결제 승인</h1>
+    <h1><small>THE WELL BELOW · BOOTH</small>타임어택 컨트롤 패널</h1>
     <div class="stats"><div><b id="sWait">0</b><span>대기</span></div><div><b id="sPaid">0</b><span>오늘 승인</span></div><div><b id="sWon">0</b><span>받은 돈</span></div></div>
   </header>
+  <div class="mode ta closed" id="ta"><div><b id="taT">타임어택 닫힘</b><span id="taS">게임 메뉴에서 막혀 있어요 — 켜면 바로 열려요</span></div>
+    <button type="button" class="sw" id="taSw" role="switch" aria-checked="false" aria-label="타임어택 열기"><i></i></button></div>
   <div class="mode" id="mode"><div><b id="modeT">유료 · 한 판 100원</b><span id="modeS">손님은 부스 승인을 받아야 시작해요</span></div>
-    <button type="button" id="sw" role="switch" aria-checked="true" aria-label="타임어택 유료"><i></i></button></div>
+    <button type="button" class="sw" id="sw" role="switch" aria-checked="true" aria-label="타임어택 유료"><i></i></button></div>
   <p class="off" id="off" hidden>지금은 <b>무료</b> — 손님 게임은 승인 없이 바로 시작해요. 다시 돈을 받으려면 위 스위치를 켜세요.</p>
   <section><h2>기다리는 요청 · 돈 받고 번호 확인 → 승인</h2><div id="pend"><div class="empty">아직 요청이 없어요</div></div></section>
   <section><h2>오늘 처리한 것</h2><ul id="recent"></ul></section>
@@ -114,7 +122,7 @@ function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add(
 
 /* ── 관리 코드 ── */
 const gate = $('gate');
-gate.innerHTML = `<div class="gbox"><p><b>부스 결제 승인</b>순위판 관리와 같은 관리 코드를 넣어 주세요</p>
+gate.innerHTML = `<div class="gbox"><p><b>부스 컨트롤 패널</b>순위판 관리와 같은 관리 코드를 넣어 주세요</p>
   <input id="key" inputmode="numeric" maxlength="12" placeholder="••••••" aria-label="관리 코드">
   <div id="gateErr" role="alert"></div><button type="submit">들어가기</button></div>`;
 gate.addEventListener('submit', async e => {
@@ -149,8 +157,8 @@ function render() {
   const j = data; if (!j) return;
   const pend = j.pending.filter(p => !acting.has(p.id));
   $('sWait').textContent = pend.length; $('sPaid').textContent = j.paid + '판'; $('sWon').textContent = won(j.price, j.paid);
-  showMode(j.on !== false, j.price);
-  document.title = (pend.length ? `(${pend.length}) ` : '') + '우물 아래 · 결제 승인';
+  showMode(j.on !== false, j.price); showTa(j.ta);
+  document.title = (pend.length ? `(${pend.length}) ` : '') + '우물 아래 · 컨트롤 패널';
   const box = $('pend'); box.textContent = '';
   const fresh = seen ? pend.filter(p => !seen.has(p.id)) : [];
   if (fresh.length) ding();
@@ -193,6 +201,29 @@ $('sw').addEventListener('click', async () => {
     toast(e.message === 'invalid' ? '서버가 옛 버전이에요 — Apps Script 를 새 버전으로 배포해 주세요' : e.message === 'key' ? '관리 코드가 바뀌었어요' : '바꾸지 못했어요 — 다시 눌러 주세요');
     modeBusy = false; showMode(!on, data && data.price);
   } finally { sw.disabled = false; modeBusy = false; await poll(true); }
+});
+/* ── 타임어택 열림 / 닫힘 — 시트 '순위판 설정' 의 '타임어택' 칸을 바꿈 (게임은 시작 화면에서 몇 초 안에 따름) ── */
+let taBusy = false;
+function showTa(ta) {
+  if (taBusy) return;
+  const old = typeof ta !== 'boolean', open = ta === true;              // 옛 서버는 ta 를 안 보냄 — 게임에선 닫힘으로 보임
+  $('taSw').setAttribute('aria-checked', String(open));
+  $('ta').classList.toggle('closed', !open && !old); $('ta').classList.toggle('old', old);
+  $('taT').textContent = old ? '타임어택 닫힘 · 서버 배포 필요' : open ? '타임어택 열림' : '타임어택 닫힘';
+  $('taS').textContent = old ? 'Apps Script 를 새 버전으로 배포해야 열 수 있어요' : open ? '누구나 도전할 수 있어요 — 끄면 메뉴에서 막혀요' : '게임 메뉴에서 막혀 있어요 — 켜면 바로 열려요';
+}
+$('taSw').addEventListener('click', async () => {
+  const sw = $('taSw'), on = sw.getAttribute('aria-checked') !== 'true';
+  if (!on && !confirm('타임어택을 닫을까요?\n(하고 있는 판은 끝까지 되고, 새로 시작은 막혀요)')) return;
+  sw.disabled = true; taBusy = false; showTa(on); taBusy = true;
+  try {
+    const j = await post({ op: 'taon', key: store.get(), on });
+    if (!j.ok) throw new Error(j.error || 'server');
+    toast(on ? '타임어택을 열었어요 — 몇 초 안에 게임에 반영돼요' : '타임어택을 닫았어요');
+  } catch (e) {
+    toast(e.message === 'invalid' ? '서버가 옛 버전이에요 — Apps Script 를 새 버전으로 배포해 주세요' : e.message === 'key' ? '관리 코드가 바뀌었어요' : '바꾸지 못했어요 — 다시 눌러 주세요');
+    taBusy = false; showTa(data ? data.ta : undefined);
+  } finally { sw.disabled = false; taBusy = false; await poll(true); }
 });
 async function act(p, status, ok, no) {
   ok.disabled = no.disabled = true; acting.add(p.id); render();

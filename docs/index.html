@@ -1762,10 +1762,19 @@ button{ box-shadow:0 3px 0 #8a6a18; }
 .st-check input:checked::before{ left:20px; background:var(--hwang); }
 .st-check output{ justify-self:end; white-space:nowrap; }
 
+/* ═══ 타임어택 닫힘 — 부스(approve.html)가 열기 전 (festival.js 의 showTa) ═══ */
+.tm-item.locked b, .modebtn.locked b{ color:rgba(241,236,224,.34); white-space:nowrap; }
+.tm-item.locked em, .modebtn.locked em{ color:var(--hwang); white-space:nowrap; }
+.tm-item.locked b::after{ content:''; display:inline-block; width:7px; height:8px; margin-left:5px; vertical-align:-1px; image-rendering:pixelated;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23e3b23c' d='M2 0h3v1h1v2h1v5H0V3h1V1h1zM2 1v2h3V1z'/%3E%3Cpath fill='%230a0910' d='M3 5h1v2H3z'/%3E%3C/svg%3E") no-repeat center / contain; }
+.tm-item.locked.sel{ color:rgba(242,251,255,.6); }
+.tm-item.nudge, .modebtn.nudge{ animation:taNudge .28s steps(4) 1; }
+@keyframes taNudge{ 0%, 100%{ transform:translateX(0); } 25%{ transform:translateX(-3px); } 75%{ transform:translateX(3px); } }
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795507251"></script>
+<script src="festival-config.js?v=1795610815"></script>
 
 <div id="frame">
   <div id="stage">
@@ -1963,12 +1972,12 @@ button{ box-shadow:0 3px 0 #8a6a18; }
             <circle class="tb-dot" r="4"></circle>
           </svg>
           <ol class="tb-steps">
-            <li><b>가운데 복도</b>로 직진</li>
-            <li>갈림길의 <b class="y">위 · 아래 방</b> 전부 처치 → <b class="y">관문 열쇠 2개</b></li>
+            <li>갈림길은 지나쳐 <b>중앙</b>까지 직진</li>
+            <li>중앙의 <b class="y">위 · 아래 방</b> 전부 처치 → <b class="y">관문 열쇠 2개</b></li>
             <li><b>관문</b> → <b class="r">보스</b> → <b class="g">탈출</b></li>
           </ol>
         </div>
-        <p class="tb-skip">옆 통로 · 상자 · 노란 열쇠는 <b>생략 가능</b> · 지도의 <b class="g">청록 점</b>이 다음 방</p>
+        <p class="tb-skip">갈림길 옆방 · 상자 · 노란 열쇠는 <b>생략 가능</b> · 지도의 <b class="g">청록 점</b>이 다음 방</p>
         <button id="tbgo" type="button">시작 <span>SPACE</span></button>
         <button id="tbback" type="button">← 뒤로</button>
       </div>
@@ -15258,7 +15267,8 @@ const BALANCE = {
   bossRingAdd:   3,     // 눈의 원형 포자 발수에 더함 (8 · 12 → 11 · 15)
   bossRingWaves1: 1,    // 원형 포자를 몇 겹 연달아 — 페이즈1
   bossRingWaves:  2,    //                          — 페이즈2 · 3 (겹마다 반 칸씩 돌아서 틈이 옮겨 감)
-  abomGapAdd:    .07    // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다 (음수면 좁게)
+  abomGapAdd:    .07,   // 비명 파동의 빠져나갈 틈을 이만큼(라디안) 넓힙니다 (음수면 좁게)
+  bossAlt:       false  // true — 타임어택 전용 보스 패턴 (바람개비 · 갈라진 고리 · 정해진 차례, game.js 의 bossAltFire)
 };
 
 /* ── 난이도 ───────────────────────────────────────────────
@@ -15340,16 +15350,18 @@ const DIFF = {
   },
 
   /* 타임어택 — 고르는 화면엔 없고, 타임어택이면 언제나 이것.
-     던전의 몹 · 체력칸 · 무적 시간은 '보통' 그대로(기록 경쟁이니까), 보스(눈 · 심연)만 쉬움과 보통의 딱 중간.
-     축제에서 처음 하는 사람도 몇 번이면 깰 수 있게 — 원형 포자는 페이즈2 · 3도 한 겹(발수는 보통 그대로). */
+     던전의 몹 · 체력칸 · 무적 시간은 '보통' 그대로(기록 경쟁이니까), 보스(눈 · 심연)만 따로.
+     배포 직전에 방 전체를 덮는 탄 패턴을 바꾸고(bossAlt — 고리 대신 바람개비 · 갈라진 고리, 심연의 비명은 틈 둘) 전보다 느리게 :
+     공격 간격 1.03 → 1.2 · 예비 동작 1.12 → 1.3(심연 1.25) · 탄속 .98 → .84 · 나선탄 간격 1.14 → 1.25(심연 1.5). */
   ta: {
     id: 'ta', name: '타임어택', tag: '', desc: '',
     over: {
+      bossAlt: true,
       bossHp: 64, bossSpeed: 0.60,
-      bossCdMul: 1.03, bossWindMul: 1.12, bossShotMul: .98, bossSpiralMul: 1.14,
+      bossCdMul: 1.2, bossWindMul: 1.3, bossShotMul: .84, bossSpiralMul: 1.25,
       bossRingAdd: 3, bossRingWaves1: 1, bossRingWaves: 1,
       abomHp: 71, abomSpeed: 0.50,
-      abomCdMul: 1.03, abomWindMul: 1.12, abomShotMul: .98, abomSpiralMul: 1.14,
+      abomCdMul: 1.2, abomWindMul: 1.25, abomShotMul: .84, abomSpiralMul: 1.5,
       abomGapAdd: .12
     }
   }
@@ -15526,15 +15538,18 @@ const MAP = {
 /* ── 모드별 진행 조건 ──────────────────────────────────────
    관문(gate)을 여는 조건이 모드에 따라 갈립니다.
 
-   · 타임어택 : 관문 열쇠 2 개만 모으면 통과.
-                북쪽 방 · 남쪽 방만 들르면 되므로 지름길이 생깁니다.
-                (시작 → 갈림길 → 북 → 갈림길 → 남 → 갈림길 → 중앙 → 관문)
+   · 타임어택 : 관문 열쇠 2 개만 모으면 통과. 열쇠 방이 일반 모드와 다릅니다 (아래 TA_KEY_ROOMS).
+                (시작 → 갈림길 → 중앙 → 북동 → 중앙 → 남동 → 중앙 → 관문)
 
    · 일반     : 관문 열쇠 2 개 + 아래 방을 **전부** 밟아야 통과.
                 북동 · 남동 통로까지 둘러봐야 하므로 쪽지와 상자를
                 모두 보게 됩니다.
    ───────────────────────────────────────────────────────── */
 const EXPLORE_ROOMS = ['start', 'fork', 'north', 'south', 'mid', 'ne', 'se'];
+/* 타임어택 전용 관문 열쇠 방 — 일반 모드(북쪽 · 남쪽 방)와 달리 중앙 양옆의 북동 · 남동 통로.
+   갈림길은 그냥 지나 중앙까지 가서 위 · 아래를 찍고 관문으로 (시작 → 갈림길 → 중앙 → 북동 → 중앙 → 남동 → 중앙 → 관문).
+   타임어택에선 북쪽 · 남쪽 방을 비워도 상자 열쇠만 나옵니다 (game.js 의 clearOf). */
+const TA_KEY_ROOMS = ['ne', 'se'];
 
 /* 방을 처음 밟을 때마다 며칠씩 건너뛰는 날짜 (복선) */
 const DATES = [
@@ -16337,16 +16352,17 @@ window.HeroArt = { FW, FH, FEET_Y, DIRS, STEPS, LOOKS, OB, ORIGINAL, originalSta
 (() => {
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
-if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 98788 };
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 0 };   // ms 0 — 아직 기록 없음 (개발자가 처음 깨면 그게 기록)
 /* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
-const DEVKEY = 'wellbelow.devbest';
+const DEVKEY = 'wellbelow.devbest.v2';             // v2 — 배포 직전 기록을 전부 비움 (경로 · 보스 패턴이 바뀌어 예전 기록과 견줄 수 없음)
+try { localStorage.removeItem('wellbelow.devbest'); } catch (e) {}
 try { const v = JSON.parse(localStorage.getItem(DEVKEY) || 'null'), d = window.WB_DEV;
-      if (d && v && v.name === d.name && v.ms > 0 && v.ms < d.ms) d.ms = v.ms; } catch (e) {}
+      if (d && v && v.name === d.name && v.ms > 0 && (!(d.ms > 0) || v.ms < d.ms)) d.ms = v.ms; } catch (e) {}
 const isDevName = name => { const d = window.WB_DEV; return !!(d && d.name && String(name || '').trim() === String(d.name).trim()); };
 function bumpDev(list) {
   const d = window.WB_DEV; if (!d || !Array.isArray(list)) return false;
   let hit = false;
-  for (const r of list) if (r && r.clear !== false && typeof r.ms === 'number' && r.ms > 0 && isDevName(r.name) && !(r.ms >= d.ms)) { d.ms = r.ms; hit = true; }
+  for (const r of list) if (r && r.clear !== false && typeof r.ms === 'number' && r.ms > 0 && isDevName(r.name) && (!(d.ms > 0) || r.ms < d.ms)) { d.ms = r.ms; hit = true; }
   if (hit) { try { localStorage.setItem(DEVKEY, JSON.stringify({ name: d.name, ms: d.ms })); } catch (e) {} try { showDev(); } catch (e) {} }
   return hit;
 }
@@ -16381,6 +16397,54 @@ async function fetchBoard(pin) {
 }
 const ranks = {};                                  // 서버가 돌려준 등수 (기록 id → 등수)
 
+/* ── 타임어택 열림 / 닫힘 — 부스(docs/approve.html 의 스위치)가 열어야 시작할 수 있음 ──
+   서버 설정 '타임어택' 이 「열림」일 때만. 서버에 못 물어봤으면 이 기기가 마지막으로 들은 값(6시간까지), 그것도 없으면 닫힘.
+   서버가 옛 버전이라 답에 ta 가 없어도 닫힘 (새 버전으로 배포해야 열 수 있음). 기록 서버가 없는 판(파일 · 아티팩트)은 늘 열림 */
+const TAKEY = 'wellbelow.ta.open', TA_TTL = 6 * 3600e3;
+let taOpen = null, taT = 0;                        // null — 아직 모름(닫힘으로 침)
+try { const v = JSON.parse(localStorage.getItem(TAKEY) || 'null'); if (v && typeof v.open === 'boolean' && Date.now() - v.t < TA_TTL) taOpen = v.open; } catch (e) {}
+const taLocked = () => HTTP && taOpen !== true;
+function setTa(open) {
+  const was = taOpen; taOpen = !!open;
+  try { localStorage.setItem(TAKEY, JSON.stringify({ open: taOpen, t: Date.now() })); } catch (e) {}
+  if (was !== taOpen) showTa();
+}
+function showTa() {
+  const lock = taLocked();
+  document.body.classList.toggle('ta-locked', lock);
+  document.querySelectorAll('#startbtn .tm-item[data-act="time"], .modebtn[data-mode="time"]').forEach(b => {
+    b.classList.toggle('locked', lock); b.setAttribute('aria-disabled', String(lock));
+    const em = b.querySelector('em'); if (!em) return;
+    if (em.dataset.open == null) em.dataset.open = em.textContent;
+    em.textContent = lock ? '준비 중' : em.dataset.open;
+  });
+}
+/* 잠긴 타임어택을 눌렀을 때 — 그 자리에서 잠깐 알려 줌 */
+function taNotice() {
+  checkTa();
+  document.querySelectorAll('#startbtn .tm-item[data-act="time"], .modebtn[data-mode="time"]').forEach(b => {
+    const em = b.querySelector('em'); if (!em) return;
+    em.textContent = '아직 닫혀 있어요'; b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
+    clearTimeout(b._taT); b._taT = setTimeout(() => { b.classList.remove('nudge'); showTa(); }, 2200);
+  });
+}
+async function checkTa() {
+  if (!HTTP) return;
+  try {
+    const j = await fetch(SERVER + '?' + new URLSearchParams({ op: 'ta' }), { redirect: 'follow', cache: 'no-store' }).then(r => r.json());
+    setTa(!!(j && j.ok && j.ta === true));         // 옛 서버는 ta 가 없음 → 닫힘
+  } catch (e) {}                                   // 못 물어봄 — 마지막으로 들은 값 그대로
+}
+/* 시작 화면이 보이는 동안만 다시 물어봄 — 닫혀 있으면 8초(열리는 걸 바로 알게), 열려 있으면 40초 */
+function watchTa() {
+  clearTimeout(taT);
+  taT = setTimeout(async () => {
+    const t = $('title');
+    if (!document.hidden && t && !t.classList.contains('hidden') && !playing) await checkTa();
+    watchTa();
+  }, taLocked() ? 8000 : 40000);
+}
+
 let canWriteP = null;
 function canWrite() {
   if (!canWriteP) canWriteP = (async () => {
@@ -16391,7 +16455,8 @@ function canWrite() {
   })();
   return canWriteP;
 }
-const QKEY = 'wellbelow.fest.queue';
+const QKEY = 'wellbelow.fest.queue.v2';             // v2 — 예전에 이 기기에 줄 세워 둔(못 보낸) 기록은 버림
+try { localStorage.removeItem('wellbelow.fest.queue'); } catch (e) {}
 const $ = id => document.getElementById(id);
 const digits = s => String(s || '').replace(/\D/g, '');
 const phone = d => d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
@@ -16874,6 +16939,7 @@ async function payStart(onOk, onCancel) {
   try { j = await post({ op: 'req', name: who.name, tail: who.contact.replace(/\D/g, '').slice(-4) }); }
   catch (e) {
     if (payState !== st) return;
+    if (e.code === 'closed') { setTa(false); payView(null, '타임어택이 닫혀 있어요', '부스에서 열면 다시 도전할 수 있어요', 'err', false); return; }
     if (e.code === 'invalid' && !st.tried) { st.tried = true; payView(null, '기록 서버가 아직 옛 버전이에요', '부스에 알려 주세요 — 서버를 새 버전으로 배포해야 결제를 받을 수 있어요', 'err', true); return; }
     payView(null, '연결이 안 돼요', '인터넷을 확인하고 다시 요청해 주세요', 'err', true); return;
   }
@@ -16914,13 +16980,14 @@ function init() {
     btn.addEventListener('click', openBoard);
     credits.parentNode.insertBefore(btn, credits);
   }
+  showTa(); if (HTTP) { checkTa().then(watchTa); }                    // 타임어택 열림 / 닫힘 — 들어오자마자 한 번, 그 뒤로 시작 화면에서 주기적으로
   flush(); setInterval(flush, 20000);
   if (HTTP) fetchBoard(getPin()).then(j => { if (j && j.ok) bumpDev(j.runs); }).catch(() => {});   // 개발자가 다른 기기에서 깬 기록도 바로
   if (/board/.test(location.hash)) openBoard();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();
 
 </script>
@@ -17422,7 +17489,8 @@ const P = {
    죽으면 기록은 남지 않고 처음부터 다시 시작합니다.
    ═════════════════════════════════════════════════════ */
 const RUN = { start: 0, elapsed: 0, running: false };
-const REC_KEY = 'wellbelow.records';
+const REC_KEY = 'wellbelow.records.v2';             // v2 — 배포 직전 이 기기의 예전 기록을 비움 (타임어택 경로 · 보스 패턴이 바뀜)
+try { localStorage.removeItem('wellbelow.records'); } catch (e) {}
 const REC_MAX = 5;
 let memRecords = [];                 // localStorage 를 못 쓸 때의 대비책
 
@@ -17640,7 +17708,7 @@ function menuGo(act) {
   act = act || (menuItems().find(b => b.classList.contains('sel')) || {}).dataset?.act || 'start';
   Sfx.unlock();
   if (act === 'start') { openModeSelect(); openDiffSelect(); }          // 일반 모드 — 바로 난이도
-  else if (act === 'time') { openModeSelect(); startTimeAttack(); }
+  else if (act === 'time') { if (taLocked()) { Festival.taNotice(); return; } openModeSelect(); startTimeAttack(); }
   else if (act === 'board') { if (window.Festival) Festival.openBoard(); }
   else if (act === 'settings') { if (window.Settings) Settings.open(() => { const b = menuItems().find(x => x.dataset.act === 'settings'); if (b) b.focus(); }); }
   else if (act === 'full') {
@@ -17680,7 +17748,10 @@ function runProgress() {
 }
 
 /* 타임어택 — 축제판이면 먼저 이름 · 연락처를 받고 시작 (기록이 순위판에 모입니다, festival.js) */
+/* 타임어택이 닫혀 있는지 — 축제판은 부스가 열어야 시작 (festival.js 의 taLocked · 개발자 모드는 그냥 됨) */
+const taLocked = () => !G.dev && !!(window.Festival && Festival.on && Festival.taLocked && Festival.taLocked());
 function startTimeAttack() {
+  if (taLocked()) { Festival.taNotice(); return; }
   if (!(window.Festival && Festival.on)) { showTaBrief(); return; }
   $('modesel').classList.add('hidden');
   G.mode = 'entry';
@@ -17688,8 +17759,9 @@ function startTimeAttack() {
   Festival.ask(() => (G.dev || !Festival.pay) ? showTaBrief() : Festival.pay(() => showTaBrief(), () => closeModeSelect()), () => closeModeSelect());
 }
 /* 타임어택 공략 — 시계가 돌기 전에, 지도 위로 가장 빠른 길이 그려짐.
-   가운데 복도 → 갈림길에서 위(북쪽 방) · 아래(남쪽 방) 들러 관문 열쇠 2개 → 다시 가운데로 쭉 오른쪽 (관문 → 심층 → 탈출구) */
-const TA_PATH = ['start', 'fork', 'north', 'fork', 'south', 'fork', 'mid', 'gate', 'boss', 'exit'];
+   가운데 복도로 갈림길을 지나 중앙까지 → 중앙에서 위(북동 통로) · 아래(남동 통로) 들러 관문 열쇠 2개 → 다시 가운데로 쭉 오른쪽 (관문 → 심층 → 탈출구) */
+const TA_HUB = 'mid';
+const TA_PATH = ['start', 'fork', TA_HUB, TA_KEY_ROOMS[0], TA_HUB, TA_KEY_ROOMS[1], TA_HUB, 'gate', 'boss', 'exit'];
 function showTaBrief() {
   const el = $('tabrief'), svg = el.querySelector('svg'), C = 43, S = 36;               // 칸 간격 · 칸 크기
   const at = id => [MAP[id].gx * C + S / 2, MAP[id].gy * C + S / 2];
@@ -17697,14 +17769,15 @@ function showTaBrief() {
   const rooms = svg.querySelector('.tb-rooms'); rooms.textContent = '';
   for (const id in MAP) {
     const r = MAP[id], x = r.gx * C, y = r.gy * C, on = TA_PATH.includes(id);
-    const cls = 'tb-room' + (on ? ' on' : ' off') + (r.clear === 'doorKey' ? ' key' : '') + (r.boss ? ' boss' : '') + (r.final ? ' exit' : '') + (id === 'start' ? ' here' : '');
+    const key = TA_KEY_ROOMS.includes(id);
+    const cls = 'tb-room' + (on ? ' on' : ' off') + (key ? ' key' : '') + (r.boss ? ' boss' : '') + (r.final ? ' exit' : '') + (id === 'start' ? ' here' : '');
     const g = mk('g', { class: cls }); g.appendChild(mk('rect', { x, y, width: S, height: S, rx: 2 }));
-    if (r.clear === 'doorKey') g.appendChild(mk('path', { d: `M${x + S / 2 - 1.5} ${y + S / 2 - 6}h3v4.5h4.5v3h-4.5v4.5h-3v-4.5h-4.5v-3h4.5z`, class: 'tb-plus' }));   // 방 이름은 안 씀 — 칸 색 · ✚ 만
+    if (key) g.appendChild(mk('path', { d: `M${x + S / 2 - 1.5} ${y + S / 2 - 6}h3v4.5h4.5v3h-4.5v4.5h-3v-4.5h-4.5v-3h4.5z`, class: 'tb-plus' }));   // 방 이름은 안 씀 — 칸 색 · ✚ 만
     rooms.appendChild(g);
   }
-  const pts = TA_PATH.map(at), off = { north: [-4, 0], south: [4, 0] };                // 위 · 아래로 갔다 오는 길이 겹치지 않게 살짝 비켜
-  let poly = [], d = 0, seg = [];
-  TA_PATH.forEach((id, i) => { const p = at(id), o = (TA_PATH[i - 1] === 'north' || TA_PATH[i + 1] === 'north') && id === 'fork' ? [-4, 0] : (TA_PATH[i - 1] === 'south' || TA_PATH[i + 1] === 'south') && id === 'fork' ? [4, 0] : off[id] || [0, 0];
+  const [KA, KB] = TA_KEY_ROOMS, off = { [KA]: [-4, 0], [KB]: [4, 0] };                 // 위 · 아래로 갔다 오는 길이 겹치지 않게 살짝 비켜
+  let poly = [], d = 0;
+  TA_PATH.forEach((id, i) => { const p = at(id), o = (TA_PATH[i - 1] === KA || TA_PATH[i + 1] === KA) && id === TA_HUB ? [-4, 0] : (TA_PATH[i - 1] === KB || TA_PATH[i + 1] === KB) && id === TA_HUB ? [4, 0] : off[id] || [0, 0];
     poly.push([p[0] + o[0], p[1] + o[1]]); });
   poly = poly.filter((p, i) => !i || p[0] !== poly[i - 1][0] || p[1] !== poly[i - 1][1]);
   for (let i = 1; i < poly.length; i++) d += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
@@ -17784,6 +17857,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
 function retry() {
   if (G.timeAttack && window.Festival && Festival.on && Festival.player) {   // 축제판 — 등록한 그 사람 그대로 다시 (한 판 더 = 결제 한 번 더)
     if (Festival.isPaying && Festival.isPaying()) return;
+    if (taLocked()) { nextPlayer(); Festival.taNotice(); return; }             // 하는 사이에 부스가 닫음 — 시작 화면으로
     const go = () => { resetRun(); startGame(true); };
     if (G.dev || !Festival.pay) go(); else Festival.pay(go, () => {});
   }
@@ -17932,8 +18006,8 @@ function neighbourOf(id, d) {
    두 모드가 서로 다른 게임처럼 굴러야 해서, 관문 통과 조건을 한 군데
    표로 몰아 두고 나머지 코드는 이 표만 봅니다.
 
-     타임어택 : 관문 열쇠 2개면 끝. 북쪽 방 · 남쪽 방만 들르면 되므로
-                갈림길에서 위아래만 찍고 곧장 중앙 → 관문으로 갑니다.
+     타임어택 : 관문 열쇠 2개면 끝. 열쇠 방은 중앙 양옆(북동 · 남동 통로 — TA_KEY_ROOMS)이라
+                갈림길은 지나쳐 중앙에서 위아래만 찍고 관문으로 갑니다.
      일반     : 관문 열쇠 2개 + EXPLORE_ROOMS 전부 밟기.
 
    ⛨ 열쇠가 나오는 방은 MAP 에서 clear:'doorKey' 로 표시된 방(북·남)
@@ -17950,11 +18024,14 @@ const MODE_RULE = {
 const rule = () => G.timeAttack ? MODE_RULE.time : MODE_RULE.normal;
 
 /* ⛨ 관문 열쇠가 나오는 방들 (MAP 에서 자동으로 뽑습니다) */
-const DOOR_KEY_ROOMS = Object.keys(MAP).filter(id => MAP[id].clear === 'doorKey');
-const roomHasDoorKey = id => DOOR_KEY_ROOMS.includes(id) && !(G.st[id] && G.st[id].rewarded);
+const NORMAL_KEY_ROOMS = Object.keys(MAP).filter(id => MAP[id].clear === 'doorKey');
+const doorKeyRooms = () => G.timeAttack ? TA_KEY_ROOMS : NORMAL_KEY_ROOMS;     // 타임어택은 열쇠 방이 다름 (rooms.js 의 TA_KEY_ROOMS)
+/* 방을 비우면 주는 것 — 타임어택에선 TA_KEY_ROOMS 가 관문 열쇠, 원래 관문 열쇠 방은 상자 열쇠만 */
+const clearOf = id => { const c = MAP[id] && MAP[id].clear; return !G.timeAttack ? c : TA_KEY_ROOMS.includes(id) ? 'doorKey' : c === 'doorKey' ? 'key' : c; };
+const roomHasDoorKey = id => doorKeyRooms().includes(id) && !(G.st[id] && G.st[id].rewarded);
 
 function earnedDoorKeys() {
-  return DOOR_KEY_ROOMS.filter(id => G.st[id] && G.st[id].rewarded).length;
+  return doorKeyRooms().filter(id => G.st[id] && G.st[id].rewarded).length;
 }
 const syncKeys = () => { G.doorKeys = earnedDoorKeys(); };
 
@@ -18950,11 +19027,11 @@ function update() {
 
 /* 방을 비웠을 때 보상 */
 function onRoomCleared() {
-  const s = stateOf(G.room), r = MAP[G.room];
+  const s = stateOf(G.room), clr = clearOf(G.room);
   s.cleared = true;
-  if (s.rewarded || !r.clear) return;
+  if (s.rewarded || !clr) return;
   s.rewarded = true;
-  if (r.clear === 'doorKey') {
+  if (clr === 'doorKey') {
     updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
     say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
@@ -19083,14 +19160,15 @@ function updateBoss() {
       const a = Math.random() * 6.28, dist = 70 + Math.random() * 40;
       G.fx.push({ k: 'suck', x: B.x + Math.cos(a) * dist, y: B.y + Math.sin(a) * dist,
                   tx: B.x, ty: B.y, life: 18, max: 18,
-                  c: B.windKind === 'dash' ? '#ffb37a' : '#c9a0ff' });
+                  c: B.windKind === 'dash' ? '#ffb37a' : B.windKind === 'pin' ? '#8fe3ff' : '#c9a0ff' });
     }
     if (B.wind === 0) {
       if (B.windKind === 'dash') {
         B.dash = 26; B.dvx = dx / d * 4.6; B.dvy = dy / d * 4.6; Sfx.bossRoar();
         G.shake = Math.max(G.shake, 15); glare(.6);
         shockRing(B.x, B.y, 150, '255,179,122', 5, 26);
-      } else {
+      } else if (BALANCE.bossAlt) bossAltFire(B, ph);      // 타임어택 — 바람개비 · 갈라진 고리
+      else {
         const n = (ph === 1 ? 8 : 12) + (BALANCE.bossRingAdd || 0), off = Math.random() * 6.28;
         bossRing(B, n, off, ph);
         // 여러 겹 — 첫 고리 뒤로 같은 수의 고리가 반 칸씩 돌아 가며 더 날아옵니다
@@ -19106,7 +19184,7 @@ function updateBoss() {
     if (--B.cd <= 0) {
       B.cd = Math.round((ph === 1 ? 150 : ph === 2 ? 120 : 96) * BALANCE.bossCdMul);
       B.wind = Math.round(32 * BALANCE.bossWindMul);
-      B.windKind = (ph >= 2 && Math.random() < .45) ? 'dash' : 'ring';
+      B.windKind = BALANCE.bossAlt ? bossAltNext(B, ph) : (ph >= 2 && Math.random() < .45) ? 'dash' : 'ring';
     }
   }
   if (B.waveLeft > 0 && --B.waveT <= 0) {           // 남은 겹
@@ -19115,13 +19193,60 @@ function updateBoss() {
     bossRing(B, B.waveN, B.waveOff, B.wavePh);
     Sfx.glitch(); G.shake = Math.max(G.shake, 7);
   }
-  if (ph === 3 && B.t % Math.round(11 * BALANCE.bossSpiralMul) === 0) {
+  bossAltSeq(B);
+  if (ph === 3 && BALANCE.bossAlt) {                // 타임어택 — 마주 보는 두 갈래가 반대쪽으로 천천히 도는 나선
+    if (B.t % Math.round(22 * BALANCE.bossSpiralMul) === 0) {
+      B.spiralA -= .52;
+      for (const k of [0, Math.PI]) foeShot(B.x, B.y, Math.cos(B.spiralA + k), Math.sin(B.spiralA + k), 1.5 * BALANCE.bossShotMul);
+    }
+  } else if (ph === 3 && B.t % Math.round(11 * BALANCE.bossSpiralMul) === 0) {
     B.spiralA += .78;
     foeShot(B.x, B.y, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.5 * BALANCE.bossShotMul);
   }
   B.x = Math.max(TS + B.r, Math.min(W - TS - B.r, B.x));
   B.y = Math.max(TS + B.r, Math.min(H - TS - B.r, B.y));
   if (d < B.r * .72 + P.r) hurt(1);
+}
+
+/* ── 타임어택 전용 눈 패턴 (BALANCE.bossAlt) ─────────────────
+   사방으로 한 번에 퍼지던 고리 대신 —
+   · pin 바람개비    : 네(다섯) 갈래가 조금씩 돌면서 서너 박자에 걸쳐 차례로. 갈래 사이가 넓어 그 사이에 서서 같이 돌면 됩니다 (예고 빛 : 하늘색).
+   · gap 갈라진 고리 : 마주 보는 두 군데가 뚫린 고리. 3단계는 틈이 90도 돌아간 고리가 한 겹 더 (예고 빛 : 보라).
+   차례는 무작위가 아니라 단계마다 정해져 있고(기록 경쟁이라 운을 줄임), 탄은 전보다 느립니다. */
+const BOSS_ALT_ORDER = { 1: ['pin', 'gap'], 2: ['gap', 'dash', 'pin'], 3: ['pin', 'dash', 'gap', 'dash'] };
+function bossAltNext(B, ph) {
+  const o = BOSS_ALT_ORDER[ph];
+  B.altI = (B.altI == null ? 0 : B.altI + 1) % o.length;
+  return o[B.altI];
+}
+function bossAltFire(B, ph) {
+  const sp = (BALANCE.spore + (ph - 1) * .2) * BALANCE.bossShotMul, off = Math.random() * 6.283;
+  B.seq = B.seq || [];
+  if (B.windKind === 'pin') {
+    const arms = ph === 3 ? 5 : 4, beats = ph === 1 ? 3 : 4, dir = Math.random() < .5 ? 1 : -1;
+    for (let i = 0; i < beats; i++) B.seq.push({ at: B.t + i * 10, k: 'pin', n: arms, off: off + dir * i * .2, sp });
+    shockRing(B.x, B.y, 200, '143,227,255', 5, 30);
+  } else {
+    const n = ph === 1 ? 14 : 18, w = ph === 1 ? .62 : .5;
+    B.seq.push({ at: B.t, k: 'gap', n, off, w, sp });
+    if (ph === 3) B.seq.push({ at: B.t + 36, k: 'gap', n, off: off + Math.PI / 2, w, sp, echo: true });
+    shockRing(B.x, B.y, 230, '201,160,255', 6, 32);
+  }
+  Sfx.glitch(); G.shake = Math.max(G.shake, 12); glare(.75);
+}
+/* 예약해 둔 박자가 되면 쏨 */
+function bossAltSeq(B) {
+  if (!B.seq || !B.seq.length) return;
+  B.seq = B.seq.filter(q => {
+    if (q.at > B.t) return true;
+    for (let i = 0; i < q.n; i++) {
+      const a = q.off + i / q.n * Math.PI * 2;
+      if (q.k === 'gap' && (Math.abs(angDiff(a, q.off)) < q.w || Math.abs(angDiff(a, q.off + Math.PI)) < q.w)) continue;   // 마주 보는 두 틈
+      foeShot(B.x, B.y, Math.cos(a), Math.sin(a), q.sp);
+    }
+    if (q.echo) { Sfx.glitch(); G.shake = Math.max(G.shake, 7); }
+    return false;
+  });
 }
 
 /* 눈의 원형 포자 한 겹 */
@@ -19163,6 +19288,8 @@ const MORPH_DUR   = 1070;  // 약 17.8초 — 명령을 읽고 심연이 받아 
 const MORPH_TYPE  = 4;     // 한 글자에 몇 프레임 (클수록 느리게 찍힙니다)
 const ABOM_W = 150, ABOM_H = 101;   // 원본 168×113 비율 그대로
 
+/* 타임어택(BALANCE.bossAlt)의 행동 차례 — 1단계 · 광란(2단계) */
+const ABOM_ALT_ORDER = { 1: ['lash', 'scream', 'claw', 'blade'], 2: ['scream', 'blade', 'claw', 'lash', 'scream', 'claw'] };
 /* 각 행동의 [예비 동작, 그 뒤 길이] */
 const ABOM_ACT = {
   blade:  { wind: 40, dur: 80, c: '#ffb27a' },   // 왼팔의 녹슨 낫
@@ -19463,7 +19590,7 @@ function updateAbom() {
 
   // 상시 — 몸에 달린 작은 눈들이 나선으로 뱉는 탄
   if (B.t % Math.round((st === 2 ? 9 : 13) * BALANCE.abomSpiralMul) === 0) {
-    B.spiralA += 1.07;
+    B.spiralA += BALANCE.bossAlt ? -.83 : 1.07;      // 타임어택은 반대로 · 더 촘촘한 각도로 돎
     foeShot(B.x, B.y + 4, Math.cos(B.spiralA), Math.sin(B.spiralA), 1.6 * BALANCE.abomShotMul);
   }
 
@@ -19479,6 +19606,10 @@ function startAbomAct(B) {
     : ['blade', 'scream', 'lash', 'claw', 'blade', 'scream'];
   let k = pool[(Math.random() * pool.length) | 0];
   if (k === B.last && Math.random() < .7) k = pool[(Math.random() * pool.length) | 0];
+  if (BALANCE.bossAlt) {                              // 타임어택 — 정해진 차례 (운을 줄임)
+    const o = ABOM_ALT_ORDER[B.stage];
+    B.altI = (B.altI == null ? 0 : B.altI + 1) % o.length; k = o[B.altI];
+  }
   B.last = k; B.act = k; B.actT = 0;
   B.aim = Math.atan2(P.y - B.y, P.x - B.x);
   if (k === 'blade') {
@@ -19564,10 +19695,11 @@ function runAbomAct(B, dx, dy, d) {
       G.shake = Math.max(G.shake, 28); glare(.9); Sfx.glitch(); Sfx.landThump(.4);
       shockRing(B.x, B.y, 270, '236,120,80', 7, 34);
       shockRing(B.x, B.y, 170, '255,255,255', 4, 24);
-      const n = fast ? 16 : 12, off = Math.random() * 6.28;
+      const alt = BALANCE.bossAlt;                        // 타임어택 — 발수를 줄이고 빠른 탄 · 느린 탄을 번갈아 (별 모양으로 퍼짐)
+      const n = alt ? (fast ? 14 : 10) : fast ? 16 : 12, off = Math.random() * 6.28;
       for (let i = 0; i < n; i++) {
         const a = off + i / n * 6.283;
-        foeShot(B.x, B.y, Math.cos(a), Math.sin(a), 1.85 * shot);
+        foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (alt && i % 2 ? 1.3 : 1.85) * shot);
       }
       if (Math.hypot(P.x - B.x, P.y - B.y) < 62) hurt(1);
       for (let i = 0; i < 16; i++)
@@ -19590,13 +19722,15 @@ function runAbomAct(B, dx, dy, d) {
   }
 
   else if (B.act === 'scream') {
-    const beats = fast ? [w, w + 26, w + 52] : [w, w + 34];
+    const alt = BALANCE.bossAlt;                          // 타임어택 — 틈이 마주 보고 둘, 박자마다 조금씩 돌아감 · 박자 사이도 길게
+    const beats = alt ? (fast ? [w, w + 30, w + 60] : [w, w + 38]) : fast ? [w, w + 26, w + 52] : [w, w + 34];
     beats.forEach((bt, i) => {
       if (t !== bt) return;
-      const n = 22, gapA = B.gap + i * 1.15, gapW = (fast ? .5 : .7) + BALANCE.abomGapAdd;
+      const n = alt ? 18 : 22, gapA = B.gap + i * (alt ? .8 : 1.15), gapW = ((fast ? .5 : .7) + BALANCE.abomGapAdd) * (alt ? .8 : 1);
       for (let j = 0; j < n; j++) {
         const a = j / n * 6.283;
         if (Math.abs(angDiff(a, gapA)) < gapW) continue;   // 빠져나갈 틈 하나
+        if (alt && Math.abs(angDiff(a, gapA + Math.PI)) < gapW) continue;   // 타임어택은 맞은편에도 하나 더
         foeShot(B.x, B.y + 14, Math.cos(a), Math.sin(a), 1.55 * shot);
       }
       Sfx.glitch(); Sfx.bossRoar();
@@ -20171,13 +20305,17 @@ function drawMinimap() {
 /* 타임어택 길잡이 — 지금 방에서 다음 목표(남은 관문 열쇠 방 → 심층 → 탈출구)까지 가장 짧은 방 순서 (지금 방은 빼고) */
 function taRoute() {
   if (!G.room || !MAP[G.room]) return [];
-  const prev = { [G.room]: null }, q = [G.room], dist = { [G.room]: 0 };
-  while (q.length) { const c = q.shift(); for (const d in DIRS) { const nb = neighbourOf(c, d); if (nb && !(nb in prev)) { prev[nb] = c; dist[nb] = dist[c] + 1; q.push(nb); } } }
-  const keys = DOOR_KEY_ROOMS.filter(id => roomHasDoorKey(id) && id in prev).sort((a, b) => dist[a] - dist[b]);
-  const goal = keys.length ? keys[0] : Object.keys(MAP).find(id => G.bossDead ? MAP[id].final : MAP[id].boss);
-  if (!goal || !(goal in prev) || goal === G.room) return [];
-  const path = []; for (let c = goal; c && c !== G.room; c = prev[c]) path.unshift(c);
-  return path;
+  /* 같은 걸음 수면 공략 화면의 길(TA_PATH — 어차피 비워야 하는 방들)로 — 먼저 그 방들만으로 찾고, 길을 벗어나 있으면 전체에서 */
+  const find = only => {
+    const prev = { [G.room]: null }, q = [G.room], dist = { [G.room]: 0 };
+    while (q.length) { const c = q.shift(); for (const d in DIRS) { const nb = neighbourOf(c, d); if (nb && !(nb in prev) && (!only || TA_PATH.includes(nb))) { prev[nb] = c; dist[nb] = dist[c] + 1; q.push(nb); } } }
+    const keys = doorKeyRooms().filter(id => roomHasDoorKey(id) && id in prev).sort((a, b) => dist[a] - dist[b]);
+    const goal = keys.length ? keys[0] : Object.keys(MAP).find(id => G.bossDead ? MAP[id].final : MAP[id].boss);
+    if (!goal || !(goal in prev)) return null;
+    const path = []; for (let c = goal; c && c !== G.room; c = prev[c]) path.unshift(c);
+    return path;
+  };
+  return find(true) || find(false) || [];
 }
 
 /* ── 오브젝트 ──────────────────────────────────────── */
@@ -22842,7 +22980,7 @@ function beginEnding() {
       Festival.finish(ms).then(rank => {
         const dev = window.WB_DEV;
         if (isDevP) {                                            // 개발자 본인 — 순위 대신 개발자 기록으로
-          fr.textContent = dev0 > 0 && ms < dev0 ? `개발자 기록 갱신  ${fmtTime(dev0)} → ${fmtTime(ms)}` : `개발자 판 — 지금 개발자 기록 ${fmtTime(dev0)} (${fmtTime(ms - dev0)} 느림)`;
+          fr.textContent = !(dev0 > 0) ? `개발자 기록 등록  ${fmtTime(ms)}` : ms < dev0 ? `개발자 기록 갱신  ${fmtTime(dev0)} → ${fmtTime(ms)}` : `개발자 판 — 지금 개발자 기록 ${fmtTime(dev0)} (${fmtTime(ms - dev0)} 느림)`;
           return;
         }
         fr.textContent = rank ? `${me} 님, 순위판 ${rank}위!` : '이 기기에 저장 · 연결되면 순위판에 올라가요';
@@ -23481,7 +23619,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,
                   resetRun, loadRecords, fmtTime,
-                  EXPLORE_ROOMS, DOOR_KEYS_NEEDED, DOOR_KEY_ROOMS, MODE_RULE, rule,
+                  EXPLORE_ROOMS, DOOR_KEYS_NEEDED, get DOOR_KEY_ROOMS() { return doorKeyRooms(); }, clearOf, MODE_RULE, rule,
                   gateReady, gateBlocker, exploreDone, exploreAll,
                   earnedDoorKeys, beginCreepy, queueBoss, makeBoss,
                   beginMorph, makeAbom, MORPH_DUR, ABOM_ACT, abomPose,

@@ -24,16 +24,17 @@
 (() => {
 const ON = !!window.WB_FESTIVAL;
 /* 개발자 최고 기록 — festival-config.js 에 WB_DEV 가 없으면(옛 설정 · 캐시) 이 값. 안 보이게 하려면 config 에 WB_DEV = null */
-if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 98788 };
+if (ON && window.WB_DEV === undefined) window.WB_DEV = { name: '장도우', tail: '0862', ms: 0 };   // ms 0 — 아직 기록 없음 (개발자가 처음 깨면 그게 기록)
 /* 개발자(이름이 WB_DEV.name 인 사람 — 지금은 장도우)가 더 빠르게 깨면 그게 곧 새 개발자 기록 — 이 기기에도 기억 */
-const DEVKEY = 'wellbelow.devbest';
+const DEVKEY = 'wellbelow.devbest.v2';             // v2 — 배포 직전 기록을 전부 비움 (경로 · 보스 패턴이 바뀌어 예전 기록과 견줄 수 없음)
+try { localStorage.removeItem('wellbelow.devbest'); } catch (e) {}
 try { const v = JSON.parse(localStorage.getItem(DEVKEY) || 'null'), d = window.WB_DEV;
-      if (d && v && v.name === d.name && v.ms > 0 && v.ms < d.ms) d.ms = v.ms; } catch (e) {}
+      if (d && v && v.name === d.name && v.ms > 0 && (!(d.ms > 0) || v.ms < d.ms)) d.ms = v.ms; } catch (e) {}
 const isDevName = name => { const d = window.WB_DEV; return !!(d && d.name && String(name || '').trim() === String(d.name).trim()); };
 function bumpDev(list) {
   const d = window.WB_DEV; if (!d || !Array.isArray(list)) return false;
   let hit = false;
-  for (const r of list) if (r && r.clear !== false && typeof r.ms === 'number' && r.ms > 0 && isDevName(r.name) && !(r.ms >= d.ms)) { d.ms = r.ms; hit = true; }
+  for (const r of list) if (r && r.clear !== false && typeof r.ms === 'number' && r.ms > 0 && isDevName(r.name) && (!(d.ms > 0) || r.ms < d.ms)) { d.ms = r.ms; hit = true; }
   if (hit) { try { localStorage.setItem(DEVKEY, JSON.stringify({ name: d.name, ms: d.ms })); } catch (e) {} try { showDev(); } catch (e) {} }
   return hit;
 }
@@ -68,6 +69,54 @@ async function fetchBoard(pin) {
 }
 const ranks = {};                                  // 서버가 돌려준 등수 (기록 id → 등수)
 
+/* ── 타임어택 열림 / 닫힘 — 부스(docs/approve.html 의 스위치)가 열어야 시작할 수 있음 ──
+   서버 설정 '타임어택' 이 「열림」일 때만. 서버에 못 물어봤으면 이 기기가 마지막으로 들은 값(6시간까지), 그것도 없으면 닫힘.
+   서버가 옛 버전이라 답에 ta 가 없어도 닫힘 (새 버전으로 배포해야 열 수 있음). 기록 서버가 없는 판(파일 · 아티팩트)은 늘 열림 */
+const TAKEY = 'wellbelow.ta.open', TA_TTL = 6 * 3600e3;
+let taOpen = null, taT = 0;                        // null — 아직 모름(닫힘으로 침)
+try { const v = JSON.parse(localStorage.getItem(TAKEY) || 'null'); if (v && typeof v.open === 'boolean' && Date.now() - v.t < TA_TTL) taOpen = v.open; } catch (e) {}
+const taLocked = () => HTTP && taOpen !== true;
+function setTa(open) {
+  const was = taOpen; taOpen = !!open;
+  try { localStorage.setItem(TAKEY, JSON.stringify({ open: taOpen, t: Date.now() })); } catch (e) {}
+  if (was !== taOpen) showTa();
+}
+function showTa() {
+  const lock = taLocked();
+  document.body.classList.toggle('ta-locked', lock);
+  document.querySelectorAll('#startbtn .tm-item[data-act="time"], .modebtn[data-mode="time"]').forEach(b => {
+    b.classList.toggle('locked', lock); b.setAttribute('aria-disabled', String(lock));
+    const em = b.querySelector('em'); if (!em) return;
+    if (em.dataset.open == null) em.dataset.open = em.textContent;
+    em.textContent = lock ? '준비 중' : em.dataset.open;
+  });
+}
+/* 잠긴 타임어택을 눌렀을 때 — 그 자리에서 잠깐 알려 줌 */
+function taNotice() {
+  checkTa();
+  document.querySelectorAll('#startbtn .tm-item[data-act="time"], .modebtn[data-mode="time"]').forEach(b => {
+    const em = b.querySelector('em'); if (!em) return;
+    em.textContent = '아직 닫혀 있어요'; b.classList.remove('nudge'); void b.offsetWidth; b.classList.add('nudge');
+    clearTimeout(b._taT); b._taT = setTimeout(() => { b.classList.remove('nudge'); showTa(); }, 2200);
+  });
+}
+async function checkTa() {
+  if (!HTTP) return;
+  try {
+    const j = await fetch(SERVER + '?' + new URLSearchParams({ op: 'ta' }), { redirect: 'follow', cache: 'no-store' }).then(r => r.json());
+    setTa(!!(j && j.ok && j.ta === true));         // 옛 서버는 ta 가 없음 → 닫힘
+  } catch (e) {}                                   // 못 물어봄 — 마지막으로 들은 값 그대로
+}
+/* 시작 화면이 보이는 동안만 다시 물어봄 — 닫혀 있으면 8초(열리는 걸 바로 알게), 열려 있으면 40초 */
+function watchTa() {
+  clearTimeout(taT);
+  taT = setTimeout(async () => {
+    const t = $('title');
+    if (!document.hidden && t && !t.classList.contains('hidden') && !playing) await checkTa();
+    watchTa();
+  }, taLocked() ? 8000 : 40000);
+}
+
 let canWriteP = null;
 function canWrite() {
   if (!canWriteP) canWriteP = (async () => {
@@ -78,7 +127,8 @@ function canWrite() {
   })();
   return canWriteP;
 }
-const QKEY = 'wellbelow.fest.queue';
+const QKEY = 'wellbelow.fest.queue.v2';             // v2 — 예전에 이 기기에 줄 세워 둔(못 보낸) 기록은 버림
+try { localStorage.removeItem('wellbelow.fest.queue'); } catch (e) {}
 const $ = id => document.getElementById(id);
 const digits = s => String(s || '').replace(/\D/g, '');
 const phone = d => d.length === 11 ? `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`
@@ -561,6 +611,7 @@ async function payStart(onOk, onCancel) {
   try { j = await post({ op: 'req', name: who.name, tail: who.contact.replace(/\D/g, '').slice(-4) }); }
   catch (e) {
     if (payState !== st) return;
+    if (e.code === 'closed') { setTa(false); payView(null, '타임어택이 닫혀 있어요', '부스에서 열면 다시 도전할 수 있어요', 'err', false); return; }
     if (e.code === 'invalid' && !st.tried) { st.tried = true; payView(null, '기록 서버가 아직 옛 버전이에요', '부스에 알려 주세요 — 서버를 새 버전으로 배포해야 결제를 받을 수 있어요', 'err', true); return; }
     payView(null, '연결이 안 돼요', '인터넷을 확인하고 다시 요청해 주세요', 'err', true); return;
   }
@@ -601,11 +652,12 @@ function init() {
     btn.addEventListener('click', openBoard);
     credits.parentNode.insertBefore(btn, credits);
   }
+  showTa(); if (HTTP) { checkTa().then(watchTa); }                    // 타임어택 열림 / 닫힘 — 들어오자마자 한 번, 그 뒤로 시작 화면에서 주기적으로
   flush(); setInterval(flush, 20000);
   if (HTTP) fetchBoard(getPin()).then(j => { if (j && j.ok) bumpDev(j.runs); }).catch(() => {});   // 개발자가 다른 기기에서 깬 기록도 바로
   if (/board/.test(location.hash)) openBoard();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();
