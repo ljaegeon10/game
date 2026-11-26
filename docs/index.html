@@ -1860,10 +1860,36 @@ body.topview #crt{
 body.fp3d #tjoy, body.fp3d #tfire, body.fp3d #tbtn, body.fp3d #hud, body.fp3d #scanlines, body.fp3d #vignette{ display:none !important; }
 body.fp3d #cine-t, body.fp3d #cine-b{ transition:none; }      /* 3D 캔버스 위에서 띠 높이가 움직이는 동안 그 아래로 흰 줄이 비치는 일이 있어, 여기선 바로 뜸 */
 
+/* ═══ 인게임 UI 밝기 올림 — 화면 구석(브라운관 그늘이 가장 짙은 곳)에 있는 체력 · 열쇠 · 시계 · 날짜 · 안내가 어둡게 묻히던 것 ═══
+   색을 밝히고 · 반투명을 걷고 · 옅은 빛 번짐을 줌. 자리 · 크기는 그대로 (체력 칸만 1px 키움) */
+#hud{ text-shadow:0 1px 0 #000, 0 0 4px rgba(0,0,0,.9); }
+.heart, .heart.empty{ width:16px; height:7px; }
+.heart{ background:linear-gradient(180deg, #ffb3a6 0 35%, #ff5545 35% 100%); box-shadow:0 0 8px rgba(255,90,70,.95), 0 0 2px rgba(255,200,190,.7), 0 1px 0 #2a0707; }
+.heart.empty{ background:rgba(20,18,26,.7); box-shadow:inset 0 0 0 1px rgba(255,110,96,.75); }
+#keyrow{ background:linear-gradient(90deg, rgba(8,9,14,.72), rgba(8,9,14,0)); border-left-color:rgba(241,236,224,.8); }
+#keys{ color:#ffe9a6; text-shadow:0 0 6px rgba(227,178,60,.55), 0 1px 0 #000; }
+#gatekeys{ color:#d2f3fc; text-shadow:0 0 6px rgba(125,200,230,.5), 0 1px 0 #000; }
+#keys .pix, #gatekeys .pix{ filter:brightness(1.35) drop-shadow(0 0 2px rgba(255,255,255,.35)); }
+.datelabel{ color:rgba(241,236,224,.82); }
+#datetext{ color:#f6f1e4; }
+#exploretext{ color:#cfe4ff; text-shadow:0 0 6px rgba(140,190,255,.5), 0 1px 0 #000; }
+#timerbox{ background:linear-gradient(270deg, rgba(8,9,14,.72), rgba(8,9,14,0)); }
+#timertext{ color:#fffbe8; text-shadow:0 0 10px rgba(255,200,80,.85), 0 0 3px rgba(255,220,140,.6), 0 1px 0 #000; }
+#prompt{ color:#fffdf6; }
+#prompt b{ background:#fffdf6; box-shadow:0 2px 0 rgba(0,0,0,.6), 0 0 8px rgba(255,250,235,.45); }
+#tanotice{ color:#fffdf6; }
+#maplegend{ color:#fbf8ee; }
+#maplegend .ml-hint{ color:rgba(245,240,228,.8); }
+#subtitle p{ color:#fffdf6; }
+#subtitle.whisper p{ color:#cfdcec; }
+/* 가장 큰 원인 — UI 가 브라운관 그늘 층(#crt : 주사선 · 가장자리 어둠 · 안쪽 그림자) 아래에 깔려 구석에서 절반쯤 어두워졌음.
+   그 층과 같은 높이로 올려(뒤에 오는 요소가 위) 유리 위에 뜬 표시처럼 제 밝기로 보이게. 사망 · 쪽지 · 서류 · 시작 화면 등 화면을 덮는 것이 떠 있을 땐 예전 높이 그대로 */
+#stage:not(:has(#dead:not(.hidden), #noteoverlay:not(.hidden), #docoverlay:not(.hidden), #creepy:not(.hidden), #ending:not(.hidden), #title:not(.hidden))) :is(#hud, #prompt, #tanotice, #maplegend, #subtitle){ z-index:90; }
+
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795670215"></script>
+<script src="festival-config.js?v=1795674027"></script>
 
 <div id="frame">
   <div id="stage">
@@ -14716,17 +14742,17 @@ const DOCS = {
 const CSS = `
 #p2{ position:fixed; inset:0; z-index:1500; background:#000; overflow:hidden; font-family:'DungGeunMo', ui-monospace, monospace; color:#e9eef2; user-select:none; -webkit-user-select:none; touch-action:none; }
 #p2 canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
-#p2 .dot{ position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; border-radius:50%; background:rgba(233,238,242,.55); pointer-events:none; }
-#p2 .prompt{ position:absolute; left:50%; top:58%; transform:translateX(-50%); padding:6px 14px; font-size:clamp(13px,1.5vw,19px); background:rgba(8,12,15,.72); border:1px solid rgba(227,178,60,.6); pointer-events:none; white-space:nowrap; }
-#p2 .prompt b{ color:#e3b23c; font-weight:400; margin-right:.5em; }
-#p2 .obj{ position:absolute; left:2.2vw; top:2.4vh; font-size:clamp(12px,1.25vw,17px); color:rgba(233,238,242,.75); letter-spacing:.04em; pointer-events:none; text-shadow:0 1px 3px #000; }
-#p2 .obj small{ display:block; margin-bottom:4px; font-size:.72em; letter-spacing:.3em; color:rgba(227,178,60,.7); }
+#p2 .dot{ position:absolute; left:50%; top:50%; width:4px; height:4px; margin:-2px; border-radius:50%; background:rgba(245,248,250,.85); box-shadow:0 0 4px rgba(0,0,0,.8); pointer-events:none; }
+#p2 .prompt{ position:absolute; left:50%; top:58%; transform:translateX(-50%); padding:6px 14px; font-size:clamp(13px,1.5vw,19px); color:#fffdf6; background:rgba(8,12,15,.8); border:1px solid rgba(255,206,90,.95); box-shadow:0 0 12px rgba(227,178,60,.3); pointer-events:none; white-space:nowrap; }
+#p2 .prompt b{ color:#ffd257; font-weight:400; margin-right:.5em; }
+#p2 .obj{ position:absolute; left:2.2vw; top:2.4vh; font-size:clamp(12px,1.25vw,17px); color:#f6f9fb; letter-spacing:.04em; pointer-events:none; text-shadow:0 1px 3px #000, 0 0 8px rgba(0,0,0,.8); }
+#p2 .obj small{ display:block; margin-bottom:4px; font-size:.72em; letter-spacing:.3em; color:#ffd257; }
 #p2 .inv{ position:absolute; right:2.2vw; top:2.4vh; display:flex; gap:8px; pointer-events:none; }
-#p2 .inv span{ padding:5px 10px; font-size:clamp(11px,1.1vw,15px); border:1px solid rgba(233,238,242,.3); background:rgba(8,12,15,.6); }
-#p2 .inv span.on{ border-color:#e3b23c; color:#e3b23c; }
+#p2 .inv span{ padding:5px 10px; font-size:clamp(11px,1.1vw,15px); border:1px solid rgba(233,238,242,.6); background:rgba(8,12,15,.7); color:#f6f9fb; }
+#p2 .inv span.on{ border-color:#ffd257; color:#ffd257; box-shadow:0 0 10px rgba(227,178,60,.35); }
 #p2 .sub{ position:absolute; left:0; right:0; bottom:9vh; text-align:center; font-size:clamp(15px,1.9vw,26px); line-height:1.5; pointer-events:none; text-shadow:0 2px 6px #000, 0 0 2px #000; padding:0 6vw; }
 #p2 .sub.pa{ color:#8fe8d8; letter-spacing:.06em; } #p2 .sub.doc{ color:#ffd0c8; } #p2 .sub.sys{ color:#ff6a5a; letter-spacing:.2em; }
-#p2 .help{ position:absolute; left:0; right:0; bottom:2.2vh; text-align:center; font-size:clamp(10px,1vw,13px); color:rgba(233,238,242,.35); letter-spacing:.08em; pointer-events:none; }
+#p2 .help{ position:absolute; left:0; right:0; bottom:2.2vh; text-align:center; font-size:clamp(10px,1vw,13px); color:rgba(240,244,247,.72); letter-spacing:.08em; pointer-events:none; text-shadow:0 1px 3px #000; }
 #p2 .fade{ position:absolute; inset:0; background:#000; pointer-events:none; opacity:1; transition:opacity 1.2s; }
 #p2 .modal{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.72); }
 #p2 .modal.hidden{ display:none; }
@@ -20740,9 +20766,9 @@ function drawMinimap() {
   const bw = (maxX + 1) * (cell + gap), bh = (maxY + 1) * (cell + gap);
   const x0 = ox - bw, y0 = oy - bh;
   g.save();
-  g.fillStyle = 'rgba(6,6,12,.62)';
+  g.fillStyle = 'rgba(6,6,12,.7)';
   g.fillRect(x0 - 4, y0 - 4, bw + 8, bh + 8);
-  g.strokeStyle = 'rgba(241,236,224,.10)';
+  g.strokeStyle = 'rgba(241,236,224,.42)';
   g.strokeRect(x0 - 4.5, y0 - 4.5, bw + 9, bh + 9);
   ids.forEach(id => {
     const r = MAP[id];
@@ -20752,18 +20778,18 @@ function drawMinimap() {
     ['E', 'S'].forEach(d => {
       const nb = neighbourOf(id, d);
       if (!nb || !(seen || G.visited.has(nb))) return;
-      g.fillStyle = 'rgba(150,160,180,.35)';
+      g.fillStyle = 'rgba(200,210,228,.7)';
       if (d === 'E') g.fillRect(x + cell, y + cell / 2 - .5, gap, 1);
       else g.fillRect(x + cell / 2 - .5, y + cell, 1, gap);
     });
-    if (id === G.room) { g.fillStyle = '#e3b23c'; g.fillRect(x, y, cell, cell); }
-    else if (seen) { g.fillStyle = 'rgba(160,172,192,.55)'; g.fillRect(x, y, cell, cell); }
+    if (id === G.room) { g.fillStyle = '#ffd24a'; g.fillRect(x, y, cell, cell); }
+    else if (seen) { g.fillStyle = 'rgba(206,216,234,.92)'; g.fillRect(x, y, cell, cell); }
     else {
       const adj = Object.keys(DIRS).some(d => {
         const nb = neighbourOf(id, d); return nb && G.visited.has(nb);
       });
       if (!adj) return;
-      g.strokeStyle = 'rgba(160,172,192,.30)';
+      g.strokeStyle = 'rgba(200,210,228,.6)';
       g.strokeRect(x + .5, y + .5, cell - 1, cell - 1);
     }
     if (r.boss && seen) { g.fillStyle = '#c2352c'; g.fillRect(x + 3, y + 3, 3, 3); }

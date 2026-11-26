@@ -3349,9 +3349,9 @@ function drawMinimap() {
   const bw = (maxX + 1) * (cell + gap), bh = (maxY + 1) * (cell + gap);
   const x0 = ox - bw, y0 = oy - bh;
   g.save();
-  g.fillStyle = 'rgba(6,6,12,.62)';
+  g.fillStyle = 'rgba(6,6,12,.7)';
   g.fillRect(x0 - 4, y0 - 4, bw + 8, bh + 8);
-  g.strokeStyle = 'rgba(241,236,224,.10)';
+  g.strokeStyle = 'rgba(241,236,224,.42)';
   g.strokeRect(x0 - 4.5, y0 - 4.5, bw + 9, bh + 9);
   ids.forEach(id => {
     const r = MAP[id];
@@ -3361,18 +3361,18 @@ function drawMinimap() {
     ['E', 'S'].forEach(d => {
       const nb = neighbourOf(id, d);
       if (!nb || !(seen || G.visited.has(nb))) return;
-      g.fillStyle = 'rgba(150,160,180,.35)';
+      g.fillStyle = 'rgba(200,210,228,.7)';
       if (d === 'E') g.fillRect(x + cell, y + cell / 2 - .5, gap, 1);
       else g.fillRect(x + cell / 2 - .5, y + cell, 1, gap);
     });
-    if (id === G.room) { g.fillStyle = '#e3b23c'; g.fillRect(x, y, cell, cell); }
-    else if (seen) { g.fillStyle = 'rgba(160,172,192,.55)'; g.fillRect(x, y, cell, cell); }
+    if (id === G.room) { g.fillStyle = '#ffd24a'; g.fillRect(x, y, cell, cell); }
+    else if (seen) { g.fillStyle = 'rgba(206,216,234,.92)'; g.fillRect(x, y, cell, cell); }
     else {
       const adj = Object.keys(DIRS).some(d => {
         const nb = neighbourOf(id, d); return nb && G.visited.has(nb);
       });
       if (!adj) return;
-      g.strokeStyle = 'rgba(160,172,192,.30)';
+      g.strokeStyle = 'rgba(200,210,228,.6)';
       g.strokeRect(x + .5, y + .5, cell - 1, cell - 1);
     }
     if (r.boss && seen) { g.fillStyle = '#c2352c'; g.fillRect(x + 3, y + 3, 3, 3); }

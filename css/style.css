@@ -1830,3 +1830,29 @@ body.topview #crt{
       떨어지다 화면이 뒤집히는 순간 body.topview 가 켜지며 「게임 화면」이 됨 (game.js loop) ── */
 body.fp3d #tjoy, body.fp3d #tfire, body.fp3d #tbtn, body.fp3d #hud, body.fp3d #scanlines, body.fp3d #vignette{ display:none !important; }
 body.fp3d #cine-t, body.fp3d #cine-b{ transition:none; }      /* 3D 캔버스 위에서 띠 높이가 움직이는 동안 그 아래로 흰 줄이 비치는 일이 있어, 여기선 바로 뜸 */
+
+/* ═══ 인게임 UI 밝기 올림 — 화면 구석(브라운관 그늘이 가장 짙은 곳)에 있는 체력 · 열쇠 · 시계 · 날짜 · 안내가 어둡게 묻히던 것 ═══
+   색을 밝히고 · 반투명을 걷고 · 옅은 빛 번짐을 줌. 자리 · 크기는 그대로 (체력 칸만 1px 키움) */
+#hud{ text-shadow:0 1px 0 #000, 0 0 4px rgba(0,0,0,.9); }
+.heart, .heart.empty{ width:16px; height:7px; }
+.heart{ background:linear-gradient(180deg, #ffb3a6 0 35%, #ff5545 35% 100%); box-shadow:0 0 8px rgba(255,90,70,.95), 0 0 2px rgba(255,200,190,.7), 0 1px 0 #2a0707; }
+.heart.empty{ background:rgba(20,18,26,.7); box-shadow:inset 0 0 0 1px rgba(255,110,96,.75); }
+#keyrow{ background:linear-gradient(90deg, rgba(8,9,14,.72), rgba(8,9,14,0)); border-left-color:rgba(241,236,224,.8); }
+#keys{ color:#ffe9a6; text-shadow:0 0 6px rgba(227,178,60,.55), 0 1px 0 #000; }
+#gatekeys{ color:#d2f3fc; text-shadow:0 0 6px rgba(125,200,230,.5), 0 1px 0 #000; }
+#keys .pix, #gatekeys .pix{ filter:brightness(1.35) drop-shadow(0 0 2px rgba(255,255,255,.35)); }
+.datelabel{ color:rgba(241,236,224,.82); }
+#datetext{ color:#f6f1e4; }
+#exploretext{ color:#cfe4ff; text-shadow:0 0 6px rgba(140,190,255,.5), 0 1px 0 #000; }
+#timerbox{ background:linear-gradient(270deg, rgba(8,9,14,.72), rgba(8,9,14,0)); }
+#timertext{ color:#fffbe8; text-shadow:0 0 10px rgba(255,200,80,.85), 0 0 3px rgba(255,220,140,.6), 0 1px 0 #000; }
+#prompt{ color:#fffdf6; }
+#prompt b{ background:#fffdf6; box-shadow:0 2px 0 rgba(0,0,0,.6), 0 0 8px rgba(255,250,235,.45); }
+#tanotice{ color:#fffdf6; }
+#maplegend{ color:#fbf8ee; }
+#maplegend .ml-hint{ color:rgba(245,240,228,.8); }
+#subtitle p{ color:#fffdf6; }
+#subtitle.whisper p{ color:#cfdcec; }
+/* 가장 큰 원인 — UI 가 브라운관 그늘 층(#crt : 주사선 · 가장자리 어둠 · 안쪽 그림자) 아래에 깔려 구석에서 절반쯤 어두워졌음.
+   그 층과 같은 높이로 올려(뒤에 오는 요소가 위) 유리 위에 뜬 표시처럼 제 밝기로 보이게. 사망 · 쪽지 · 서류 · 시작 화면 등 화면을 덮는 것이 떠 있을 땐 예전 높이 그대로 */
+#stage:not(:has(#dead:not(.hidden), #noteoverlay:not(.hidden), #docoverlay:not(.hidden), #creepy:not(.hidden), #ending:not(.hidden), #title:not(.hidden))) :is(#hud, #prompt, #tanotice, #maplegend, #subtitle){ z-index:90; }
