@@ -325,6 +325,21 @@ function askHard(ms, done) {
                 done && done(who); },
       () => { restore(); player = prev; done && done(null); });
 }
+/* ── 일반 모드 '어려움'을 고르면 — 시작 전에 이름 · 전화번호부터 (타임어택과 같은 등록 창, 제목 · 단추 글만 바꿔서).
+   깨면 엔딩에서 그대로 명예의 전당에 올라감 (submitHard). 타임어택 기록(player)과는 섞지 않음 */
+function askHardEntry(onGo, onBack) {
+  const box = $('fest-entry'); if (!box) { onGo(null); return; }
+  const prev = player, q = box.querySelector('.ms-q'), goB = $('fe-go'), keep = { q: q.textContent, go: goB.textContent };
+  box.classList.add('hardmode'); q.textContent = '어려움 도전 — 이름 · 연락처'; goB.textContent = '어려움 시작';
+  const restore = () => { box.classList.remove('hardmode'); q.textContent = keep.q; goB.textContent = keep.go; player = prev; };
+  ask(p => { restore(); onGo(p || null); }, () => { restore(); onBack && onBack(); });
+}
+/* 어려움 클리어를 명예의 전당('어려움 클리어' 탭)에 — 이름과 뒷자리 4개만 순위판에, 전체 번호는 시트의 연락처 탭에만 */
+function submitHard(who, ms) {
+  if (!ON || !who || !who.name || !who.contact) return false;
+  memQ = getQ().concat({ op: 'hard', id: rid(), run: { name: who.name, tail: who.contact.slice(-4), ms: Math.round(ms), at: Date.now() }, contact: { name: who.name, contact: who.contact } });
+  saveQ(memQ); flush(); return true;
+}
 function submitEntry() {
   const name = $('fe-name').value.trim().replace(/\s+/g, ' '), d = digits($('fe-contact').value);
   const err = t => { $('fe-err').textContent = t; };
@@ -345,7 +360,7 @@ function wireEntry() {
   $('fest-entry').addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target.closest && e.target.closest('.fe-chipw, #fe-back, #fe-skip, #fe-check, #fe-new')) return;   // 단추는 단추대로
     if (e.key === 'Enter') { e.preventDefault(); submitEntry(); }
-    else if (e.key === 'Escape') { e.preventDefault(); $('fe-back').click(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); $('fe-back').click(); }   // 같은 ESC 가 돌아간 화면(난이도 선택)의 「뒤로」까지 누르지 않게
   });
 }
 
@@ -670,5 +685,5 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, askHardEntry, submitHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();

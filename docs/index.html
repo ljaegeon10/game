@@ -1889,7 +1889,7 @@ body.fp3d #cine-t, body.fp3d #cine-b{ transition:none; }      /* 3D 캔버스 �
 </style>
 </head>
 <body>
-<script src="festival-config.js?v=1795675587"></script>
+<script src="festival-config.js?v=1795675962"></script>
 
 <div id="frame">
   <div id="stage">
@@ -17202,6 +17202,21 @@ function askHard(ms, done) {
                 done && done(who); },
       () => { restore(); player = prev; done && done(null); });
 }
+/* ── 일반 모드 '어려움'을 고르면 — 시작 전에 이름 · 전화번호부터 (타임어택과 같은 등록 창, 제목 · 단추 글만 바꿔서).
+   깨면 엔딩에서 그대로 명예의 전당에 올라감 (submitHard). 타임어택 기록(player)과는 섞지 않음 */
+function askHardEntry(onGo, onBack) {
+  const box = $('fest-entry'); if (!box) { onGo(null); return; }
+  const prev = player, q = box.querySelector('.ms-q'), goB = $('fe-go'), keep = { q: q.textContent, go: goB.textContent };
+  box.classList.add('hardmode'); q.textContent = '어려움 도전 — 이름 · 연락처'; goB.textContent = '어려움 시작';
+  const restore = () => { box.classList.remove('hardmode'); q.textContent = keep.q; goB.textContent = keep.go; player = prev; };
+  ask(p => { restore(); onGo(p || null); }, () => { restore(); onBack && onBack(); });
+}
+/* 어려움 클리어를 명예의 전당('어려움 클리어' 탭)에 — 이름과 뒷자리 4개만 순위판에, 전체 번호는 시트의 연락처 탭에만 */
+function submitHard(who, ms) {
+  if (!ON || !who || !who.name || !who.contact) return false;
+  memQ = getQ().concat({ op: 'hard', id: rid(), run: { name: who.name, tail: who.contact.slice(-4), ms: Math.round(ms), at: Date.now() }, contact: { name: who.name, contact: who.contact } });
+  saveQ(memQ); flush(); return true;
+}
 function submitEntry() {
   const name = $('fe-name').value.trim().replace(/\s+/g, ' '), d = digits($('fe-contact').value);
   const err = t => { $('fe-err').textContent = t; };
@@ -17222,7 +17237,7 @@ function wireEntry() {
   $('fest-entry').addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target.closest && e.target.closest('.fe-chipw, #fe-back, #fe-skip, #fe-check, #fe-new')) return;   // 단추는 단추대로
     if (e.key === 'Enter') { e.preventDefault(); submitEntry(); }
-    else if (e.key === 'Escape') { e.preventDefault(); $('fe-back').click(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); $('fe-back').click(); }   // 같은 ESC 가 돌아간 화면(난이도 선택)의 「뒤로」까지 누르지 않게
   });
 }
 
@@ -17547,7 +17562,7 @@ function init() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-window.Festival = { on: ON, isDevName, ask, askHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
+window.Festival = { on: ON, isDevName, ask, askHard, askHardEntry, submitHard, pay, isPaying, begin, end, finish, fail, openBoard, closeBoard, taLocked: () => ON && taLocked(), taNotice, checkTa, clearPlayer() { player = null; playing = false; }, get player() { return player; } };
 })();
 
 </script>
@@ -17737,7 +17752,7 @@ addEventListener('keydown', e => {
   else if (m0 === 'diffsel') {                      // 난이도는 1 / 2 / 3
     if (k === '1') startGame(false, 'easy');
     if (k === '2') startGame(false, 'normal');
-    if (k === '3') startGame(false, 'hard');
+    if (k === '3') startHard();
     if (k === 'escape' || k === 'backspace') closeDiffSelect();
   }
 });
@@ -18389,6 +18404,7 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
    diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
+  G.hardWho = null;                                    // 어려움 등록한 사람 — startHard 가 시작 뒤에 넣음
   G.wreckT = 0;                                        // 주인공은 멀쩡한 채로 시작
   if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
   if (window.WellShaft) WellShaft.hold = G.timeAttack;         // 타임어택 판이 도는 동안엔 우물 통로 굽기를 쉼
@@ -18512,7 +18528,15 @@ document.querySelectorAll('.modebtn').forEach(b =>
   b.addEventListener('click', () =>
     b.dataset.mode === 'time' ? startTimeAttack() : openDiffSelect()));
 document.querySelectorAll('.diffbtn').forEach(b =>
-  b.addEventListener('click', () => startGame(false, b.dataset.diff)));
+  b.addEventListener('click', () => b.dataset.diff === 'hard' ? startHard() : startGame(false, b.dataset.diff)));
+/* 어려움 — 축제판이면 시작 전에 이름 · 전화번호를 받음 (깨면 엔딩에서 바로 명예의 전당에). 뒤로 가면 난이도 선택으로 */
+function startHard() {
+  const F = window.Festival;
+  if (G.dev || !(F && F.on && F.askHardEntry)) { startGame(false, 'hard'); return; }
+  $('diffsel').classList.add('hidden');
+  G.mode = 'entry';
+  F.askHardEntry(who => { startGame(false, 'hard'); G.hardWho = who; }, () => openDiffSelect());
+}
 $('retrybtn').addEventListener('click', retry);
 /* 축제판 — 죽은 뒤 다음 사람에게 넘김 (타이틀로, 다음 사람은 새로 등록) */
 function nextPlayer() { if (window.Festival) Festival.clearPlayer(); resetRun(); }
@@ -23846,7 +23870,9 @@ function beginEnding() {
   // 축제판 · 일반 모드 '어려움' 클리어 — 엔드 카드에 명예의 전당 단추 (순위판 '어려움 클리어' 칸)
   { const hb = $('hardfame'), on = !G.timeAttack && G.diff === 'hard' && !G.dev && !!(window.Festival && Festival.on && Festival.askHard);
     hb.classList.toggle('hidden', !on); hb.disabled = false; hb.textContent = '어려움 클리어 · 명예의 전당에 이름 남기기';
-    G.hardMs = Math.round((G.normF || 0) * STEP); }
+    G.hardMs = Math.round((G.normF || 0) * STEP);
+    if (on && G.hardWho && Festival.submitHard && Festival.submitHard(G.hardWho, G.hardMs)) {     // 시작할 때 등록한 사람 — 묻지 않고 바로 올림
+      hb.disabled = true; hb.textContent = `${G.hardWho.name} 님, 명예의 전당에 올렸어요!`; G.hardWho = null; } }
   if (G.timeAttack) {
     const ms = RUN.elapsed;
     const prevBest = loadRecords()[0];
