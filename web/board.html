@@ -31,23 +31,24 @@ body{
 .obang i:nth-child(1){ background:var(--cheong); } .obang i:nth-child(2){ background:var(--baek); }
 .obang i:nth-child(3){ background:var(--jeok); } .obang i:nth-child(4){ background:#2a232b; } .obang i:nth-child(5){ background:var(--hwang); }
 
-.wrap{ height:calc(100% - 6px); display:grid; grid-template-columns:minmax(0, 1.55fr) minmax(0, 1fr); grid-template-rows:auto minmax(0, 1fr); gap:clamp(16px, 2.6vw, 44px);
-  padding:clamp(14px, 3vh, 40px) clamp(16px, 3vw, 56px) clamp(14px, 2.6vh, 34px); }
+.wrap{ height:calc(100% - 6px); display:grid; grid-template-columns:minmax(0, 2.35fr) minmax(0, 1fr); grid-template-rows:auto minmax(0, 1fr); gap:clamp(12px, 1.8vh, 26px) clamp(14px, 2vw, 34px);
+  padding:clamp(10px, 2vh, 26px) clamp(14px, 2.2vw, 40px) clamp(12px, 2vh, 26px); }   /* 왼쪽(순위 · 플레이 영상)이 화면의 약 70% */
 header{ grid-column:1 / -1; display:flex; align-items:flex-end; justify-content:space-between; gap:20px; }
-.club{ display:inline-block; padding:6px 14px 5px; background:var(--jeok); font-size:clamp(12px, 1.3vw, 18px); letter-spacing:.2em; }
-h1{ margin:clamp(6px, 1.2vh, 14px) 0 0; font-weight:400; font-size:clamp(34px, min(5.6vw, 9vh), 96px); line-height:1;
+header > div:first-child{ display:flex; align-items:center; flex-wrap:wrap; gap:4px clamp(12px, 1.4vw, 22px); }
+.club{ display:inline-block; padding:5px 12px 4px; background:var(--jeok); font-size:clamp(11px, 1.05vw, 16px); letter-spacing:.2em; }
+h1{ margin:0; order:-1; font-weight:400; font-size:clamp(28px, min(4.2vw, 6.6vh), 76px); line-height:1;
   text-shadow:0 0 30px rgba(194,53,44,.65), 0 4px 0 rgba(0,0,0,.7); }
 h1 small{ margin-left:.5em; font-size:.36em; letter-spacing:.36em; color:var(--jeok); text-shadow:none; vertical-align:middle; }
 .stats{ display:flex; gap:clamp(10px, 1.6vw, 28px); text-align:right; }
-.stat b{ display:block; font-size:clamp(24px, min(3.4vw, 5.4vh), 58px); font-weight:400; color:var(--hwang); line-height:1; font-variant-numeric:tabular-nums; }
+.stat b{ display:block; font-size:clamp(22px, min(2.8vw, 4.6vh), 50px); font-weight:400; color:var(--hwang); line-height:1; font-variant-numeric:tabular-nums; }
 .stat span{ font-size:clamp(11px, 1vw, 15px); color:var(--dim); letter-spacing:.1em; }
 
 /* 왼쪽 — 순위 */
 .rank{ min-height:0; display:flex; flex-direction:column; }
-.rank-head{ display:grid; grid-template-columns:var(--cols); gap:var(--gap); padding:0 18px 8px; font-size:clamp(11px, 1vw, 15px); color:var(--dim); letter-spacing:.14em; border-bottom:2px solid rgba(241,236,224,.2); }
+.rank-head{ display:grid; grid-template-columns:var(--cols); gap:var(--gap); padding:0 18px 5px; font-size:clamp(11px, 1vw, 15px); color:var(--dim); letter-spacing:.14em; border-bottom:2px solid rgba(241,236,224,.2); }
 .rank{ --cols:clamp(40px, 5vw, 86px) 1fr clamp(60px, 7vw, 110px) clamp(110px, 13vw, 210px); --gap:clamp(8px, 1.2vw, 18px); }
 ol{ list-style:none; margin:0; padding:0; flex:1; min-height:0; display:flex; flex-direction:column; }
-li{ flex:1; max-height:12vh; display:grid; grid-template-columns:var(--cols); gap:var(--gap); align-items:center; padding:0 18px;
+li{ flex:1; max-height:13vh; display:grid; grid-template-columns:var(--cols); gap:var(--gap); align-items:center; padding:0 18px;
   font-size:clamp(16px, min(2.2vw, 3.6vh), 38px); border-bottom:1px solid var(--line); transition:background .6s; }
 li .no{ text-align:center; color:var(--dim); }
 li .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -65,8 +66,8 @@ li.new{ animation:pop 1.2s ease-out 1, glow 2.4s ease-in-out 3; }
 @keyframes pop{ from{ transform:translateX(-24px); opacity:0; } to{ transform:none; opacity:1; } }
 @keyframes glow{ 50%{ background:rgba(125,227,200,.16); } }
 li.empty{ justify-content:center; display:flex; color:var(--dim); font-size:clamp(14px, 1.8vw, 26px); border:none; }
-.tabs{ display:flex; gap:clamp(6px, .8vw, 12px); margin:0 0 12px; }
-.tabs button{ font:inherit; font-size:clamp(12px, 1.25vw, 20px); letter-spacing:.06em; padding:clamp(5px, .6vw, 9px) clamp(10px, 1.2vw, 18px); color:var(--dim);
+.tabs{ display:flex; gap:clamp(6px, .8vw, 12px); margin:0 0 clamp(6px, 1vh, 10px); }
+.tabs button{ font:inherit; font-size:clamp(12px, 1.15vw, 19px); letter-spacing:.06em; padding:clamp(4px, .5vw, 7px) clamp(10px, 1.1vw, 16px); color:var(--dim);
   background:rgba(241,236,224,.04); border:1px solid var(--line); cursor:pointer; position:relative; overflow:hidden; }
 .tabs button.on{ color:var(--ink); background:var(--hwang); border-color:var(--hwang); }
 .tabs button.on::after{ content:''; position:absolute; left:0; bottom:0; height:3px; width:100%; background:rgba(10,9,16,.35); transform-origin:left; animation:tabT var(--rot, 15s) linear 1; }
@@ -75,16 +76,18 @@ body.tabhold .tabs button.on::after{ display:none; }
 li .cnt{ text-align:right; font-variant-numeric:tabular-nums; color:var(--hwang); }
 li .cnt small{ display:block; font-size:.5em; color:var(--dim); }
 li .when{ display:block; margin-top:2px; font-size:.42em; color:var(--dim); letter-spacing:.04em; }
-.rule{ margin:10px 0 0; font-size:clamp(11px, 1vw, 15px); color:rgba(241,236,224,.3); }
+.rule{ margin:6px 0 0; font-size:clamp(11px, 1vw, 15px); color:rgba(241,236,224,.3); }
 li .nm small{ display:block; margin-top:2px; font-size:.45em; color:var(--hwang); letter-spacing:.04em; opacity:.85; }   /* 1~3등 상품 */
 .prizes{ display:block; margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--hwang); line-height:1.6; }
 .prizes:empty{ display:none; }
 /* 개발자 최고 기록 — 순위와 따로, 목록 위 한 줄 */
-.dev{ display:flex; align-items:center; gap:clamp(10px, 1.4vw, 22px); margin:0 0 clamp(8px, 1.4vh, 16px); padding:clamp(8px, 1.4vh, 14px) 18px;
+.toprow{ display:flex; align-items:center; gap:clamp(10px, 1.4vw, 22px); margin:0 0 clamp(6px, 1vh, 12px); }
+.toprow:not(:has(> :not([hidden]))){ display:none; }
+.dev{ flex:1; min-width:0; display:flex; align-items:center; gap:clamp(10px, 1.4vw, 22px); margin:0; padding:clamp(5px, .9vh, 10px) 16px;
   border:2px dashed rgba(125,227,200,.45); background:rgba(125,227,200,.06); font-size:clamp(14px, min(1.9vw, 3vh), 30px); }
 .dev[hidden]{ display:none; }
 /* 명예의 전당 — 순위와 따로, 아주 작은 한 줄 */
-.fame{ display:flex; align-items:baseline; justify-content:flex-end; gap:.6em; margin:-6px 2px clamp(8px, 1.4vh, 16px); font-size:clamp(11px, min(1.3vw, 2.1vh), 18px); color:var(--dim); }
+.fame{ flex:none; display:flex; align-items:baseline; justify-content:flex-end; gap:.6em; margin:0 2px; font-size:clamp(11px, min(1.3vw, 2.1vh), 18px); color:var(--dim); }
 .fame[hidden]{ display:none; }
 .fame .ft{ padding:1px 7px 0; font-size:.8em; letter-spacing:.16em; color:var(--ink); background:var(--hwang); }
 .fame b{ font-weight:400; color:var(--fg); }
@@ -107,7 +110,7 @@ body.has-notice footer{ bottom:calc(clamp(14px, 1.6vw, 24px) + 26px); }
 aside{ min-height:0; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 26px); }
 .card{ border:2px solid rgba(241,236,224,.16); padding:clamp(12px, 2vh, 22px) clamp(14px, 1.6vw, 24px); background:rgba(10,9,16,.4); }
 .card h2{ margin:0 0 clamp(6px, 1.2vh, 14px); font-weight:400; font-size:clamp(11px, 1vw, 15px); letter-spacing:.3em; color:var(--dim); }
-.live{ min-height:clamp(90px, 16vh, 190px); display:flex; flex-direction:column; justify-content:center; }
+.live{ min-height:clamp(80px, 13vh, 160px); display:flex; flex-direction:column; justify-content:center; }
 .live .who{ font-size:clamp(22px, min(3vw, 5vh), 52px); line-height:1.1; }
 .live .clock{ margin-top:6px; font-size:clamp(28px, min(4vw, 6.6vh), 70px); color:var(--glow); font-variant-numeric:tabular-nums; line-height:1; }
 .live .sub{ margin-top:6px; font-size:clamp(12px, 1.2vw, 18px); color:var(--dim); }
@@ -127,8 +130,8 @@ aside{ min-height:0; display:flex; flex-direction:column; gap:clamp(12px, 2vh, 2
 .recent li.c span{ color:var(--hwang); }
 .join{ display:flex; align-items:center; gap:clamp(12px, 1.4vw, 22px); }
 #qr{ flex:none; padding:8px; background:#fff; line-height:0; }
-#qr img, #qr canvas{ width:clamp(84px, min(9vw, 15vh), 160px) !important; height:auto !important; image-rendering:pixelated; }
-.join p{ margin:0; font-size:clamp(14px, 1.5vw, 24px); line-height:1.5; }
+#qr img, #qr canvas{ width:clamp(76px, min(7.5vw, 13vh), 140px) !important; height:auto !important; image-rendering:pixelated; }
+.join p{ margin:0; font-size:clamp(13px, 1.25vw, 21px); line-height:1.45; }
 .join small{ display:block; margin-top:4px; font-size:clamp(10px, .9vw, 13px); color:var(--dim); word-break:break-all; }
 
 footer{ position:fixed; right:12px; bottom:10px; display:flex; align-items:center; gap:10px; font-size:12px; color:rgba(241,236,224,.35); }
@@ -199,6 +202,8 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   .stats{ text-align:left; }
   li{ min-height:44px; max-height:none; }
   .stagev{ min-height:clamp(190px, 56vw, 440px); }
+  .toprow{ flex-direction:column; align-items:stretch; }
+  .fame{ justify-content:flex-end; }
 }
 </style>
 </head>
@@ -218,8 +223,8 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   </header>
 
   <section class="rank" aria-label="순위">
-    <div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
-    <div class="fame" id="fame" hidden></div>
+    <div class="toprow"><div class="dev" id="dev" hidden><span class="tag">개발자 기록</span><span class="who"><span id="devName"></span><small id="devSub">순위 밖 · 이 기록을 깨 보세요!</small></span><span class="tm" id="devTime"></span></div>
+    <div class="fame" id="fame" hidden></div></div>
     <div class="tabs" role="tablist" aria-label="보기">
       <button type="button" role="tab" data-tab="ta" class="on">타임어택 순위</button>
       <button type="button" role="tab" data-tab="count">도전왕</button>
