@@ -102,7 +102,7 @@ let wall = null, fig = null, raf = 0, t = 0, figTry = 0, figAt = 0, figWait = 0;
 const PRE = window.TITLE_FIG || null;
 let preImg = null;
 if (PRE && PRE.src) { const im = new Image(); im.onload = () => { preImg = im; }; im.onerror = () => { preImg = false; }; im.src = PRE.src; }
-/* 바이저 유리에 비치는 제목의 심전도 — index.html 로고의 SMIL 쓸기와 같은 시계(svg.getCurrentTime)로.
+/* 바이저 유리에 비치는 제목의 심전도 — 로고의 쓸기(logoEcg)와 같은 시계(ecgSweep)로.
    좌우가 뒤집히고(거울) 볼록 유리라 가장자리로 갈수록 눌리며 휘어 보임. 미리 구운 그림(바이저 심전도 없음)일 때만 */
 const ECG = [[-8, 58], [55, 58], [58.5, 55], [62, 51.5], [65.5, 55], [67, 58], [121, 58], [125, 62.5], [131.5, 5], [138.5, 77], [143.5, 58], [211, 58], [214.5, 53.5], [218, 49.5], [221.5, 53.5], [223.5, 58], [300, 58]];
 const VISOR = { x: 535, y: 242, rx: 92, ry: 114 };      // 그림(TITLE_FIG) 안의 바이저 유리 — 가운데 · 반지름
@@ -111,11 +111,33 @@ const ecgPieces = (() => { const out = []; for (let i = 1; i < ECG.length; i++) 
   for (let k = 0; k < n; k++) out.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n, ax + (bx - ax) * (k + 1) / n, ay + (by - ay) * (k + 1) / n]); } return out; })();
 /* 로고 마스크(index.html)와 같은 모양 — 쓸고 가는 네모의 왼쪽 끝 x 에서 본 밝기 (0 · .8 에서 .75 · .97 에서 1 · 1 에서 0) */
 const fade = f => f <= 0 || f >= 1 ? 0 : f < .8 ? f / .8 * .75 : f < .97 ? .75 + (f - .8) / .17 * .25 : (1 - f) / .03;
+/* 쓸고 가는 창(너비 130)의 왼쪽 끝 x — 3.4초마다 2.4초에 걸쳐 왼쪽 밖 → 오른쪽 밖 (그 뒤 1초 쉼 : null) */
+const ecgSweep = () => { const ph = (performance.now() / 1000 % 3.4) / 3.4; if (ph >= .7) return null; return -138 + 438 * (.5 - .5 * Math.cos(Math.PI * ph / .7)); };
+/* 로고의 심전도 — 선 세 겹의 보이는 구간을 옮김 (마스크 · SMIL 없이 stroke-dasharray 만 — 모바일 브라우저에서도 그대로) */
+const ecgEls = logoSvg ? [...logoSvg.querySelectorAll('.tl-ecg')] : [];
+const ECG_CUM = (() => { const c = [0]; for (let i = 1; i < ECG.length; i++) c.push(c[i - 1] + Math.hypot(ECG[i][0] - ECG[i - 1][0], ECG[i][1] - ECG[i - 1][1])); return c; })();
+const ECG_T = ECG_CUM[ECG_CUM.length - 1];
+const lenAtX = x => { if (x <= ECG[0][0]) return 0; for (let i = 1; i < ECG.length; i++) if (x <= ECG[i][0]) return ECG_CUM[i - 1] + (ECG_CUM[i] - ECG_CUM[i - 1]) * (x - ECG[i - 1][0]) / (ECG[i][0] - ECG[i - 1][0]); return ECG_T; };
+const ECG_PART = [0, .5, .86];                         // 겹마다 창의 어디부터 보이는지 — 꼬리(전체) · 몸(뒤 절반) · 머리(끝)
+let ecgShown = '';
+function logoEcg() {
+  if (!ecgEls.length) return;
+  const rx0 = still.matches ? null : ecgSweep();
+  const key = still.matches ? 'still' : rx0 == null ? 'off' : 'run';
+  if (key !== 'run') {                                 // 쉬는 동안엔 숨김 · 움직임 줄이기면 파형 전체를 옅게 세워 둠
+    if (ecgShown === key) return; ecgShown = key;
+    ecgEls.forEach((el, i) => { el.style.strokeDasharray = key === 'still' && i === 1 ? 'none' : '0 9999'; el.style.strokeDashoffset = '0'; });
+    return;
+  }
+  ecgShown = key;
+  const b = lenAtX(rx0 + 130);
+  ecgEls.forEach((el, i) => { const a = lenAtX(rx0 + 130 * ECG_PART[i]);
+    if (b - a < .6) { el.style.strokeDasharray = '0 9999'; return; }
+    el.style.strokeDasharray = (b - a).toFixed(1) + ' 9999'; el.style.strokeDashoffset = (-a).toFixed(1); });
+}
 function visorEcg(ox, oy) {
   if (still.matches) return;
-  let tm; try { tm = logoSvg && logoSvg.getCurrentTime ? logoSvg.getCurrentTime() : performance.now() / 1000; } catch (e) { tm = performance.now() / 1000; }
-  const ph = (tm % 3.4) / 3.4; if (ph >= .7) return;
-  const q = ph / .7, e = .5 - .5 * Math.cos(Math.PI * q), rx0 = -138 + 438 * e;          // 쓸고 가는 네모의 왼쪽 끝 (로고 좌표)
+  const rx0 = ecgSweep(); if (rx0 == null) return;                                      // 쓸고 가는 창의 왼쪽 끝 (로고 좌표)
   const cx = ox + VISOR.x, cy = oy + VISOR.y, RX = VISOR.rx, RY = VISOR.ry;
   const map = (x, y) => {                                                               // 로고 좌표 → 유리 위 (거울 · 볼록)
     const s = 1 - (x + 8) / 308 * 2, w = Math.sin(s * 1.15) / Math.sin(1.15);
@@ -179,6 +201,7 @@ function loop() {
   // 인물 — 없으면 굽기. 실패하면(3D 가 아직 준비 안 됨 등) 1초 간격으로 몇 번 더 해 봄. 창 크기를 끄는 동안엔 멈출 때까지 기다림
   const now = performance.now();
   if (!fig && (!PRE || preImg === false) && figTry < 5 && now >= figAt && now >= figWait) { fig = bakeFigure(); figTry++; figAt = now + 1000; }
+  logoEcg();                                                                 // 제목의 심전도 — 화면 주사율 그대로
   if (t < 3 || now - lastDraw >= 31) { draw(); lastDraw = now; }               // (바이저에 비친 심전도도 이 30장 안에서)               // 초당 30장 — 화면이 60 · 120 · 144Hz 여도 같게
   raf = requestAnimationFrame(loop);
 }

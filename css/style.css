@@ -1791,7 +1791,7 @@ button{ box-shadow:0 3px 0 #8a6a18; }
 .tl-ecg-glow{ stroke:#58d8ff; stroke-width:5; opacity:.55; filter:blur(2.5px); }
 #title.konami .tl-ecg-base, #title.konami .tl-ecg-glow{ stroke:#ff4a3c; } #title.konami .tl-ecg{ stroke:#ffd2cc; }
 html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
-@media (prefers-reduced-motion: reduce){ .tl-ecg-run{ display:none; } .tl-ecg-base{ opacity:.5; } }
+
 
 /* 순위판(게임 안) 아래 단추 — 크게 (손가락 · 멀리서도 눌리게) */
 .fb-foot{ gap:12px; padding:14px 20px max(14px, env(safe-area-inset-bottom, 0px)); }
@@ -1804,3 +1804,7 @@ html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 /* 제목 심전도 — 윤곽(바탕선 · 번지는 빛) 없이 깔끔한 선 하나만 쓸고 지나감 */
 .tl-ecg{ stroke:#bff6ff; stroke-width:1.9; }
 #title.konami .tl-ecg{ stroke:#ffd2cc; }
+
+/* 제목 심전도 세 겹 — 꼬리(옅게 · 길게) · 몸 · 머리(밝게 · 짧게). 보이는 구간은 titlescreen.js 가 stroke-dasharray 로 (처음엔 숨김) */
+.tl-ecg{ stroke-dasharray:0 9999; }
+.tl-ecg.e1{ opacity:.3; } .tl-ecg.e2{ opacity:.65; } .tl-ecg.e3{ opacity:1; stroke:#eaffff; }
