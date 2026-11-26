@@ -1131,7 +1131,7 @@ function titleCard(main, sub, kind) {
 }
 function loadRoom(id, fromDir) {
   const r = MAP[id], s = stateOf(id);
-  G.inForest = false; G.room = id; G.depth = r.depth;
+  G.inForest = false; G.room = id; G.depth = r.depth; G.roomFade = 10;
   [W, H] = r.size || [VW, VH];                // 보스방만 더 넓음
   G.bullets = []; G.fx = []; G.pickups = []; G.clouds = []; G.rings = [];
   G.foes = []; G.pots = []; G.chest = null; G.floorKey = null; G.boss = null;
@@ -1316,6 +1316,8 @@ function shoot(dx, dy) {
   });
   P.fireCd = BALANCE.playerFireCd;
   Sfx.shoot();
+  const mx = P.x + dx / l * 13, my = P.y + dy / l * 13 - 3;            // 총구 불꽃 + 한순간의 빛 (보이는 것만)
+  G.fx.push({ k: 'mz', x: mx, y: my, life: 3, max: 3 }, { k: 'lt', x: mx, y: my, r: 46, life: 4, max: 4, c: '125,227,200' });
 }
 function foeShot(x, y, dx, dy, sp) {
   const l = Math.hypot(dx, dy) || 1;
@@ -1331,6 +1333,7 @@ function damageFoe(f, dmg, vx, vy) {
   f.ky += vy / l * BALANCE.knockback;
   G.shake = Math.max(G.shake, 3.5);
   spark(f.x, f.y, -vx, -vy);
+  G.fx.push({ k: 'lt', x: f.x, y: f.y, r: 54, life: 7, max: 7, c: '255,236,200' });       // 맞는 순간 번쩍
   Sfx.hit();
 }
 function spark(x, y, vx, vy) {
@@ -1724,6 +1727,7 @@ function update() {
      tickFx() 안에만 있어서, 착지 직후 방 인트로 대사가 뜨면 섬광과 충격파
      고리가 그 자리에 얼어붙어 있었습니다. */
   if (G.shake > 0) G.shake *= .86;
+  if (G.roomFade > 0) G.roomFade--;
   if (G.flash > 0) G.flash = Math.max(0, G.flash - .035);
   if (G.wake > 0) G.wake--;
   tickScreenFx();
@@ -1844,7 +1848,9 @@ function update() {
     P.y += my / ml * spd;
     // 보폭(걷는 속도)이 실제 이동 속도에 비례해야 발이 미끄러지지 않고
     // 자연스러운 걸음걸이로 보입니다
-    P.walkPhase += spd * 0.1023; P.anim += spd * 0.0744;
+    { const s0 = Math.sin(P.walkPhase); P.walkPhase += spd * 0.1023;                    // 발이 땅에 닿는 순간 — 먼지 한 줌 (보이는 것만)
+      if (s0 > 0 && Math.sin(P.walkPhase) <= 0) for (let i = 0; i < 2; i++) G.fx.push({ k: 'p', x: P.x + (Math.random() - .5) * 8, y: P.y + 12, vx: (Math.random() - .5) * .8 - mx / ml * .4, vy: -.2 - Math.random() * .4, life: 9 + (Math.random() * 6 | 0), max: 30, c: G.inForest ? '#5a5238' : '#5c5868' }); }
+    P.anim += spd * 0.0744;
     P.walkAmt += (1 - P.walkAmt) * 0.35;        // 걷기 시작 → 부드럽게 리듬 붙기
     P.dir = Math.abs(mx) >= Math.abs(my) ? (mx > 0 ? 'right' : 'left') : (my > 0 ? 'down' : 'up');   // 조이스틱은 기운 쪽이 큰 방향
     const stepEvery = Math.round(20 * BALANCE.playerSpeed / spd);
@@ -2860,6 +2866,8 @@ function renderScreen() {
   // 암전이 걷히는 동안엔 지도도 같이 드러납니다
   if (!G.inForest && !cine && !G.hideHero && G.wake <= 0 && G.mode !== 'morph' && G.mode !== 'abomdeath' && G.mode !== 'doze') drawMinimap();
   if (G.wake > 0 && !cine) renderWake();
+  if (G.roomFade > 0 && !cine) { g.save(); g.globalAlpha = Math.min(1, G.roomFade / 10) * .8; g.fillStyle = '#040408'; g.fillRect(0, 0, W, H); g.restore(); }   // 방에 들어서면 어둠에서 스르륵
+  if (P.hp === 1 && P.max > 1 && !G.inForest && !cine && (G.mode === 'play' || G.mode === 'talk')) LightFX.lowHp(g, W, H, .5 + .35 * Math.sin(G.t * .13));       // 하트 한 칸 — 가장자리가 붉게 뜀
 
   if (G.flash > .02) {
     g.save();
@@ -2930,7 +2938,13 @@ function renderForest() {
     g.restore();
   });
   drawPlayer();
-  drawNightOverlay(g, W, H, P.x, P.y, .34, 172);
+  // 해 질 녘의 어둠 — 주인공 둘레 · 반딧불 같은 나비 · 우물의 빛 (lightfx.js)
+  const lite = !!(window.Perf && Perf.low);
+  LightFX.add(P.x, P.y - 4, 176, 1, '255,220,170', .05);
+  G.butterflies.forEach(b => LightFX.add(b.x, b.y, b.gl > 0 ? 30 : 16, b.gl > 0 ? .8 : .45, b.gl > 0 ? '125,227,200' : null, .6));
+  LightFX.add(G.well.x, G.well.y, 54 + G.well.glow * 40, .45 + G.well.glow * .4, '125,227,200', G.well.glow * .16);
+  LightFX.flush(g, camX(), camY() - OY, VW, SH, .4, '8,7,20', lite);
+  if (!lite) { LightFX.rays(g, G.t, camX(), camY() - OY, VW, SH, .2); LightFX.dust(g, G.t, camX(), camY() - OY, VW, SH, [P.x, P.y, 150]); }   // 저녁 햇살 · 떠다니는 먼지
 }
 
 /* 늙은 나무 밑동에 낀 서류 한 장 — 가까이 가면 살짝 밝아집니다.
@@ -3021,6 +3035,7 @@ function renderDungeon() {
   drawWalls(g, W, H, TS, R.depth, G.t);
   drawDoors();
   drawWallPlants(g, W, H, TS, G.plants, G.t);
+  drawLamps();
 
   if (R.graffiti !== '' ) {
     // 아랫벽 돌에 손톱으로 긁어 새긴 날짜 — 파인 홈(어둠) 아래로 긁힌 가루(밝음)
@@ -3047,8 +3062,12 @@ function renderDungeon() {
   if (G.floorKey) drawKey(G.floorKey.x, G.floorKey.y + Math.sin(G.floorKey.bob) * 2.5);
   if (MAP[G.room].final) drawFinalLock();
 
+  if (G.chest && !G.chest.open) LightFX.add(G.chest.x, G.chest.y, 40, .55, '227,178,60', .16);
+  if (G.floorKey) LightFX.add(G.floorKey.x, G.floorKey.y, 36, .8, '227,178,60', .34);
+  if (MAP[G.room].final) LightFX.add(W - TS - 24, H / 2, 78, .9, '125,227,200', .14);
   G.pickups.forEach(p => {
     const y = p.y + Math.sin(p.bob) * 2.5;
+    LightFX.add(p.x, y, 32, .75, '224,72,60', .38);
     g.save(); g.fillStyle = '#c2352c';
     g.beginPath();
     g.moveTo(p.x, y + 6); g.lineTo(p.x - 6, y - 1); g.lineTo(p.x - 3, y - 5);
@@ -3095,6 +3114,13 @@ function renderDungeon() {
   drawPropsPass(g, G.props, G.t, P.y, true);                // 주인공 앞을 가리는 장애물
   drawRings();
 
+  G.bullets.forEach(b => {                                     // 탄의 빛 · 내 탄은 짧은 꼬리 (도트 겹 밖에서 — 값싸게)
+    LightFX.add(b.x, b.y, b.mine ? 30 : 24, .6, b.mine ? '125,227,200' : '255,90,70', b.mine || G.bullets.length < 28 ? .34 : 0);   // 탄막이 짙을 땐 적 탄의 색 번짐은 생략 (밝히는 구멍만)
+    if (!b.mine) return;
+    g.fillStyle = '#7de3c8';
+    for (let i = 1; i <= 3; i++) { g.globalAlpha = .42 - i * .11; const s = 4 - i; g.fillRect(Math.round(b.x - b.vx * i * 1.1) - (s >> 1), Math.round(b.y - b.vy * i * 1.1) - (s >> 1), s, s); }
+    g.globalAlpha = 1;
+  });
   const g0 = g; if (window.PixFX) g = PixFX.layerBegin(g0);    // 탄 — 도트 겹에 모아 (계단 가장자리 · 디더 빛무리)
   G.bullets.forEach(b => {
     g.save();
@@ -3118,6 +3144,12 @@ function renderDungeon() {
       g.globalAlpha = k > .5 ? 1 : k * 2; g.fillStyle = f.c;          // 튀는 조각 — 정수 픽셀, 작아지며 사라짐
       const sz = k > .6 ? 3 : k > .3 ? 2 : 1;
       g.fillRect(Math.round(f.x) - (sz >> 1), Math.round(f.y) - (sz >> 1), sz, sz); g.globalAlpha = 1;
+    } else if (f.k === 'lt') {               // 잠깐 번쩍이는 빛 (맞는 순간 · 총구)
+      LightFX.add(f.x, f.y, f.r * (.55 + .45 * k), k, f.c, k * .7);
+    } else if (f.k === 'mz') {               // 총구 불꽃 — 십자로 한 번 튐
+      const x = Math.round(f.x), y = Math.round(f.y), n = k > .5 ? 3 : 2;
+      g.fillStyle = '#effffa'; g.fillRect(x - n, y, n * 2 + 1, 1); g.fillRect(x, y - n, 1, n * 2 + 1);
+      g.fillStyle = '#7de3c8'; g.fillRect(x - 1, y - 1, 3, 3); g.fillStyle = '#ffffff'; g.fillRect(x, y, 1, 1);
     } else if (f.k === 'shard') {            // 깨진 강철 껍데기 조각
       g.save();
       g.globalAlpha = Math.min(1, k * 4);
@@ -3190,11 +3222,42 @@ function renderDungeon() {
     g.restore();
   }
 
-  // 어둠 — 주인공 주변만 밝다 (화면 기준으로 — 가장자리 어둠이 화면 가장자리에 오도록)
-  g.save(); g.translate(camX(), camY() - OY);                      // 늘어난 띠까지 어둡게
-  drawNightOverlay(g, VW, SH, P.x - camX(), P.y - camY() + OY, .40 + G.depth * .022, 150);
-  g.restore();
+  // 어둠과 빛 — 주인공 · 등롱 · 버섯 · 탄 · 몹 · 보스가 저마다 어둠을 밝힘 (lightfx.js). 늘어난 띠까지 덮음
+  const lite = !!(window.Perf && Perf.low), B = G.boss;
+  if (!G.hideHero) LightFX.add(P.x, P.y - 4, 150, 1, '255,214,160', .06);
+  if (G.mode === 'boss-intro' && !B) LightFX.add(W / 2, 118, 60 + Math.min(1, G.bossIntroT / 90) * 120, 1);
+  if (G.eyeMorph || G.mode === 'morph') LightFX.add(G.morphX, G.morphY, 190, 1);
+  if (G.corpse) LightFX.add(G.corpse.x, G.corpse.y, 150, .9);
+  const vx = camX(), vy = camY() - OY, boom = Math.min(.75, G.flash * .5 + G.glare * .6);       // 섬광이 터지면 어둠도 잠깐 걷힘
+  if (!lite && G.depth >= 2) LightFX.fog(g, G.t, vx, vy, VW, SH, .5 + G.depth * .1);                 // 바닥에 낮게 흐르는 안개 (깊을수록 짙게)
+  LightFX.flush(g, vx, vy, VW, SH, (.54 + G.depth * .022) * (1 - boom), '5,7,18', lite);
+  if (!lite) LightFX.dust(g, G.t, vx, vy, VW, SH, lampDust(R));
 }
+/* ── 벽의 등롱 — 방마다 윗벽에 둘(심층은 넷). 깊은 방일수록 한쪽이 가끔 꺼질 듯 깜빡임 ── */
+function roomLamps() { const n = W > VW ? 4 : 2; return n === 4 ? [W * .14, W * .38, W * .62, W * .86] : [W * .22, W * .78]; }
+const lampFlick = i => { const d = G.depth || 1, t = G.t;
+  let f = .88 + .07 * Math.sin(t * .23 + i * 2.3) + .05 * Math.sin(t * .61 + i * 5.1);
+  if (d >= 3 && i % 2 && (t + i * 37) % 210 < 9) f *= .3 + .3 * ((t >> 1) % 2);          // 깊은 방 — 꺼질 듯 깜빡
+  if (d >= 5) f *= .78;
+  return f; };
+function drawLamps() {
+  roomLamps().forEach((lx, i) => {
+    const x = Math.round(lx), y = TS - 8, fl = lampFlick(i), on = fl > .6;
+    g.fillStyle = '#0e0a08'; g.fillRect(x, y - 5, 1, 5);                                  // 줄
+    g.fillStyle = '#2a1c12'; g.fillRect(x - 4, y, 9, 2); g.fillStyle = '#4a321e'; g.fillRect(x - 4, y, 9, 1);   // 지붕
+    g.fillStyle = '#7a3f14'; g.fillRect(x - 3, y + 2, 7, 9);                              // 종이 몸 — 가장자리
+    g.fillStyle = on ? '#f0a23c' : '#a86a24'; g.fillRect(x - 2, y + 2, 5, 9);
+    g.fillStyle = on ? '#ffe2a0' : '#d09a48'; g.fillRect(x - 1, y + 4, 3, 5);             // 불빛
+    if (on) { g.fillStyle = '#fffbe6'; g.fillRect(x, y + 5, 1, 3); }
+    g.fillStyle = '#5a3214'; g.fillRect(x - 3, y + 2, 7, 1); g.fillRect(x - 3, y + 10, 7, 1);   // 살대
+    g.fillStyle = '#2a1c12'; g.fillRect(x - 2, y + 11, 5, 1);                             // 받침
+    g.fillStyle = '#c2352c'; g.fillRect(x, y + 12, 1, 3);                                 // 술
+    LightFX.add(x, TS + 34, 104, .9 * fl, '255,170,80', .2 * fl);                         // 바닥에 떨어지는 빛
+    LightFX.add(x, y + 6, 26, fl, '255,200,120', .55 * fl);                               // 등롱 둘레
+  });
+}
+const _lampDust = [];
+function lampDust(R) { _lampDust.length = 0; _lampDust.push(P.x, P.y, 130); roomLamps().forEach(x => _lampDust.push(x, TS + 34, 100)); return _lampDust; }
 
 /* ── 문 ────────────────────────────────────────────── */
 function drawDoors() {
@@ -3626,15 +3689,7 @@ function drawFoe(f) {
 
   // 발밑에 깔리는 제 빛 — 어두운 방에서 뭐가 다가오는지 색으로 먼저 압니다
   // (둥근 공처럼 떠 보이지 않게 바닥에 납작하게 깐 타원)
-  g.globalAlpha = (.5 + Math.sin(f.bob * .7) * .12) * warpK;
-  g.save();
-  g.translate(f.x, f.y + 10); g.scale(1, .42);
-  const ag = g.createRadialGradient(0, 0, 2, 0, 0, s * .8);
-  ag.addColorStop(0, `rgba(${C.glow},.26)`);
-  ag.addColorStop(1, 'rgba(0,0,0,0)');
-  g.fillStyle = ag;
-  g.beginPath(); g.arc(0, 0, s * .8, 0, Math.PI * 2); g.fill();
-  g.restore();
+  LightFX.add(f.x, f.y + 2, s * 1.5 + 10, .55 * warpK, C.glow, (.3 + Math.sin(f.bob * .7) * .08) * warpK);   // 제 빛 — 어둠 속에서도 윤곽이 보이게 (lightfx.js)
   g.globalAlpha = warpK;
 
   // 돌진체 : 웅크리는 동안 — 발밑에서 흙먼지가 일고, 달려들 쪽으로 바닥에
@@ -3696,6 +3751,7 @@ function drawRingsIn() {
 /* 보스 주변의 빛 — 단계가 오를수록 색이 짙어지고 빛줄기가 돕니다 */
 function drawBossLight() {
   const B = G.boss;
+  LightFX.add(B.x, B.y, 185, 1);                          // 보스 둘레는 늘 밝음 (lightfx.js)
   const ph = B.phase;
   const pulse = .5 + Math.sin(G.t * .09) * .5;
   const wind = B.wind > 0 ? (1 - B.wind / 32) : 0;
@@ -4669,6 +4725,7 @@ function quickAbomDeath(B) {
 
 function drawAbomLight() {
   const B = G.boss;
+  LightFX.add(B.x, B.y, 200, 1);                          // 심연 둘레는 늘 밝음 (lightfx.js)
   const pulse = .5 + Math.sin(G.t * .08) * .5;
   const wind = B.act ? Math.min(1, B.actT / abomWind(B.act)) : 0;
   const col = B.stage === 2 ? '236,60,44' : '198,58,58';
