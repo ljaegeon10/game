@@ -22530,7 +22530,7 @@ function paintBossBar(B, name, sub, col, mark) {
    ③ 전환    : 눈을 완전히 뜨는 순간 탑뷰로 확 바뀌면서, 섬광 · 충격파와
                 함께 브금의 "두둥"이 크게 터집니다. */
 const FALL_DUR   = 300;   // 소용돌이 낙하 (5.0초)
-const FP_CUT = 170, FP_FALL = 440;                    // 1인칭 숲에서 떨어질 때 — 170칸까지 제 눈으로(팔이 도트로 변해 감), 그 뒤 화면이 뒤집혀 캐릭터가 떨어짐
+const FP_CUT = 130, FP_FALL = 400;                    // 1인칭 숲에서 떨어질 때 — 130칸까지 제 눈으로(화면이 도트로 뭉개짐), 그 뒤 브라운관이 켜지고 사람이 캐릭터로 바뀌며 떨어짐
 const fallDur = () => G.fp ? FP_FALL : FALL_DUR;
 const fpFallEye = () => G.mode === 'fall' && !!G.fp && G.fallT < FP_CUT;      // 아직 제 눈으로 보는 구간
 const LAND_BLACK = 66;    // 착지 직후 완전 암전 (1.1초)
@@ -23715,48 +23715,11 @@ function renderFall() {
 }
 
 /* ═══════════ 1인칭 숲에서 떨어질 때 (G.fp) ═══════════════════════════
-   ① 0 ‥ FP_CUT  아직 제 눈 — 등부터 떨어지며 멀어지는 우물 입구를 올려다봄. 허우적대는 두 팔이 살빛에서
-                 노란 도트로 칸칸이 바뀌고, 화면 전체도 점점 굵은 도트로 뭉개짐 (고해상도 캔버스)
+   ① 0 ‥ FP_CUT  아직 제 눈 — 등부터 떨어지며 멀어지는 우물 입구를 올려다봄. 화면이 점점 굵은 도트로 뭉개짐 (고해상도 캔버스)
+                 (팔은 그리지 않음 — 바뀌는 건 ③ 의 캐릭터뿐)
    ② FP_CUT      화면이 꺼졌다 켜지며 브라운관이 됨 — 여기부터는 「게임 화면」 (css body.topview)
    ③ 그 뒤       내려다보는 소용돌이(renderFall) — 흐릿한 사람이 도트 캐릭터로 굳어지며 어둠 속으로 (drawFallMorph) */
 const fpHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
-const FP_CELL = 12;                                             // 팔이 바뀌는 칸 크기 (게임 좌표)
-/* 팔 하나 — side -1 왼 · 1 오른, avatar : 노란 캐릭터 팔(손가락 없는 뭉툭한 손) */
-function fpArm(side, t, avatar) {
-  const cx = W / 2, a = Math.sin(t * .13 + side * 1.3), b = Math.sin(t * .21 + side * 2.1 + 1), c = Math.sin(t * .09 + side);
-  const sh = [cx + side * 228, H + 44], el = [cx + side * (170 + a * 16), H - 58 + b * 12], wr = [cx + side * (98 + b * 18 + c * 8), H * .47 + 34 + a * 16];
-  const limb = (p, q, wp, wq) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
-    g.beginPath(); g.moveTo(p[0] + nx * wp, p[1] + ny * wp); g.lineTo(q[0] + nx * wq, q[1] + ny * wq); g.arc(q[0], q[1], wq, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true);
-    g.lineTo(p[0] - nx * wp, p[1] - ny * wp); g.closePath(); };
-  const dir = Math.atan2(wr[1] - el[1], wr[0] - el[0]), hx = wr[0] + Math.cos(dir) * 15, hy = wr[1] + Math.sin(dir) * 15;
-  if (avatar) {                                                 // 노란 캐릭터 — 굵은 외곽선 · 평평한 색 · 아래쪽 한 톤 어둡게
-    g.lineJoin = 'round'; g.strokeStyle = '#1b0d06'; g.lineWidth = 5;
-    limb(sh, el, 36, 30); g.stroke(); g.fillStyle = '#d9bd13'; g.fill();
-    limb(el, wr, 29, 20); g.stroke(); g.fillStyle = '#f6ea1e'; g.fill();
-    g.beginPath(); g.arc(hx, hy, 23, 0, 7); g.stroke(); g.fillStyle = '#f6ea1e'; g.fill();
-    g.fillStyle = '#d9bd13'; g.beginPath(); g.arc(hx + side * 5, hy + 8, 15, 0, 7); g.fill();
-    g.fillStyle = '#fff9a8'; g.fillRect(hx - side * 12 - 3, hy - 14, 7, 5);                      // 도트 그림의 반짝이 한 점
-    return;
-  }
-  const shade = (p, q, w, c0, c1, c2) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = dy / l * side, ny = -dx / l * side, mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
-    const gr = g.createLinearGradient(mx - nx * w, my - ny * w, mx + nx * w, my + ny * w); gr.addColorStop(0, c0); gr.addColorStop(.45, c1); gr.addColorStop(1, c2); return gr; };
-  // 소매 (환자복) — 팔꿈치 조금 위까지
-  limb(sh, el, 40, 31); g.fillStyle = shade(sh, el, 40, '#4c5f62', '#7f9a98', '#b9cfca'); g.fill();
-  // 아래팔 · 손 — 살빛. 우물 입구 쪽(안쪽)이 하늘빛을 받아 밝음
-  limb(el, wr, 24, 15); g.fillStyle = shade(el, wr, 24, '#5a3c30', '#a57a62', '#e2c2ad'); g.fill();
-  g.save(); g.translate(hx, hy); g.rotate(dir + Math.PI / 2);
-  { const hg = g.createRadialGradient(-side * 5, -8, 2, 0, 0, 21); hg.addColorStop(0, '#d9b8a2'); hg.addColorStop(.6, '#a57a62'); hg.addColorStop(1, '#6b493a'); g.fillStyle = hg; }
-  g.beginPath(); g.ellipse(0, 0, 15, 18, 0, 0, 7); g.fill();
-  g.lineCap = 'round';
-  for (let i = 0; i < 5; i++) {                                 // 벌어진 다섯 손가락 — 허우적대며 조금씩 오므렸다 폄
-    const u = i - 2, fa = u * .34 * side + Math.sin(t * .17 + i * 1.7 + side) * .09, len = (i === 0 ? 17 : 26 - Math.abs(u - .4) * 3) * (.86 + .14 * Math.sin(t * .23 + i));
-    const bx = u * 6.2 * side, by = -13 + Math.abs(u) * 2.4, ex = bx + Math.sin(fa) * len, ey = by - Math.cos(fa) * len;
-    g.strokeStyle = '#7d5645'; g.lineWidth = 6.6; g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
-    g.strokeStyle = '#b58a72'; g.lineWidth = 5.8; g.beginPath(); g.moveTo(bx - side * .5, by); g.lineTo(ex - side * .5, ey); g.stroke();
-    g.strokeStyle = 'rgba(236,208,190,.75)'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx - side * 1.6, by - 2); g.lineTo(ex - side * 1.6, ey + 2); g.stroke();   // 입구 쪽 빛을 받은 결
-  }
-  g.restore();
-}
 let fpPix = null;
 function renderFallFP() {
   const t = G.fallT, k = t / FP_CUT, cx = W / 2, cy = H * .42;
@@ -23787,22 +23750,6 @@ function renderFallFP() {
   // 가장자리는 어둠 — 깊어질수록 좁아짐
   gr = g.createRadialGradient(cx, cy, 60, cx, cy, 330 - k * 90);
   gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${.55 + k * .4})`); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  // 3) 허우적대는 두 팔 — 살빛 팔 위로, 바뀐 칸에만 노란 도트 팔을 덮어 그림. 손끝부터 번져 어깨까지
-  const m = smooth01((k - .26) / .66);
-  {
-    const cells = new Path2D(), rest = new Path2D(); rest.rect(0, 0, W, H);
-    if (m > 0) for (let y = Math.floor(H * .28 / FP_CELL); y * FP_CELL < H; y++) for (let x = 0; x * FP_CELL < W; x++) {
-      const th = fpHash(x, y) * .55 + Math.max(0, (y * FP_CELL - H * .3) / (H * .7)) * .45;
-      if (m * 1.04 > th) { cells.rect(x * FP_CELL, y * FP_CELL, FP_CELL, FP_CELL); rest.rect(x * FP_CELL, y * FP_CELL, FP_CELL, FP_CELL); }
-    }
-    g.save(); g.clip(rest, 'evenodd'); for (const side of [-1, 1]) fpArm(side, t, false); g.restore();
-    if (m > 0) { g.save(); g.clip(cells); for (const side of [-1, 1]) fpArm(side, t, true); g.restore(); }
-  }
-  if (m > 0) {
-    // 막 바뀌는 칸 — 청록 · 흰 깨진 픽셀이 튐
-    for (let i = 0; i < 26; i++) { const x = fpHash(i, t >> 1) * W, y = H * .3 + fpHash(i + 40, t >> 1) * H * .7, th = fpHash(Math.floor(x / FP_CELL), Math.floor(y / FP_CELL)) * .55 + Math.max(0, (y - H * .3) / (H * .7)) * .45;
-      if (Math.abs(m * 1.04 - th) < .05) { g.fillStyle = i % 3 ? '#7de3c8' : '#ffffff'; g.fillRect(Math.floor(x / 3) * 3, Math.floor(y / 3) * 3, 3 + (i % 2) * 3, 3); } }
-  }
   // 처음엔 어둠에서 — 우물 안으로 고꾸라진 직후
   if (t < 18) { g.fillStyle = `rgba(0,0,0,${1 - t / 18})`; g.fillRect(0, 0, W, H); }
   g.restore();
@@ -23850,8 +23797,9 @@ function fallMorphFrame(m, step) {
 }
 function drawFallMorph(cx, cy, t, k) {
   const { FW, FH } = HeroArt, m = smooth01((t - 18) / 130);
-  const big = 1 + 2.3 * Math.pow(1 - Math.min(1, t / 170), 2.4);                 // 처음엔 바로 눈앞 — 떨어져 나가며 작아짐
-  const scale = Math.max(.05, 1 - k * .92) * big * 1.85, step = Math.floor(t / 6) % HeroArt.STEPS, img = fallMorphFrame(m, step);
+  const big = 1 + 1.5 * Math.pow(1 - Math.min(1, t / 200), 1.6);                 // 처음엔 바로 눈앞 — 바뀌는 동안은 크게 보이고, 다 바뀐 뒤에 멀어짐
+  const far = Math.max(0, (t - 110) / (FP_FALL - FP_CUT - 110));                 // 멀어지는 건 110칸 뒤부터
+  const scale = Math.max(.05, 1 - far * .92) * big * 1.85, step = Math.floor(t / 6) % HeroArt.STEPS, img = fallMorphFrame(m, step);
   g.save();
   g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
   g.rotate(k * 3.2 - (1 - Math.min(1, t / 120)) * .5);
