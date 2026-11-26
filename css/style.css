@@ -1825,3 +1825,8 @@ body.topview #crt{
 /* 설정 줄이 하나 늘어서(화면 밝기) — 줄 간격을 조금 줄여 낮은 화면에서도 아래 단추까지 한 번에 */
 .st-row{ padding-block:9px; }
 .st-box{ padding-top:24px; padding-bottom:18px; } .st-box .pm-obang{ margin-top:-24px; }
+
+/* ── 제 눈으로 보는 동안 (1인칭 숲 forest3d.js · 우물로 떨어지는 앞부분) — 브라운관 주사선 · HUD · 조이스틱 없음.
+      떨어지다 화면이 뒤집히는 순간 body.topview 가 켜지며 「게임 화면」이 됨 (game.js loop) ── */
+body.fp3d #tjoy, body.fp3d #tfire, body.fp3d #tbtn, body.fp3d #hud, body.fp3d #scanlines, body.fp3d #vignette{ display:none !important; }
+body.fp3d #cine-t, body.fp3d #cine-b{ transition:none; }      /* 3D 캔버스 위에서 띠 높이가 움직이는 동안 그 아래로 흰 줄이 비치는 일이 있어, 여기선 바로 뜸 */

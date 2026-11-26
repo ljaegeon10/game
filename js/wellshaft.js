@@ -145,6 +145,9 @@ const W_ = 576, H_ = 324;                   // 게임 화면 좌표
 const drops = [];
 window.WellShaft = {
   ready: () => !!IMG,
+  /* 구운 그림 그대로 — 떨어지며 올려다보는 장면이 제 배율 · 기울기로 그림 (game.js renderFallFP). k : 게임 좌표로 줄이는 배율 · mr : 입구 반지름(게임 좌표) */
+  image() { return this.bake(); },
+  geom: { BW, BH, CX, CY, k: W_ / BW, mr: F / ZTOP * S * (W_ / BW) },
   bake() { if (!IMG) { bakeRows(JOB ? JOB.y : 0, BH); IMG = bakeFinish(); JOB = null; } return IMG; },
   /* 틈틈이 조금씩 구워 둠 — 한 번에 18줄, 다 되면 끝 */
   prebake() {

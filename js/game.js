@@ -917,7 +917,7 @@ function resetRun() {
   { const n = $('maplegend'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   { const n = $('tanotice'); if (n) { n.classList.remove('on'); clearTimeout(n._t); } }
   Sfx.ring(0);
-  stopRun();
+  stopRun(); stopForest3D(); G.fp = false;
   if (window.Festival) Festival.end();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
@@ -1483,7 +1483,7 @@ function openDoc() {
 function closeDoc() {
   Sfx.paper(false);                     // 덮는 소리
   $('docoverlay').classList.add('hidden');
-  G.mode = 'forest';
+  G.mode = forest3dOn() ? 'forest3d' : 'forest';
 }
 
 /* ═══════════ 이스터에그 ② : 지도 밖으로 걸어 나가면 ══════
@@ -1755,10 +1755,16 @@ function update() {
     return;
   }
   if (G.mode === 'doc') return;   // 서류를 보는 동안은 시간이 멈춥니다
+  if (G.mode === 'forest3d') return;                 // 1인칭 숲 — 걷기 · 조사는 forest3d.js 가
   if (G.mode === 'opening') { tickOpening(); return; }
   if (G.mode === 'fall') {
     G.fallT++;
-    if (G.fallT > FALL_DUR) { G.mode = 'landing'; G.landT = 0; }
+    if (G.fp) {                                      // 1인칭에서 캐릭터로 — 화면이 뒤집히는 순간 · 그 뒤 긴 낙하
+      if (G.fallT === FP_CUT) { Sfx.glitch(); G.shake = 14; glare(.5); }
+      if (G.fallT === FP_CUT + 16) Sfx.fall();
+      if (G.fallT === 60) Sfx.inhale(.07, .5);
+    }
+    if (G.fallT > fallDur()) { G.mode = 'landing'; G.landT = 0; }
 
     return;
   }
@@ -1777,7 +1783,10 @@ function update() {
     tickFx();
 
     // 암전이 걷히면 1인칭 — 우물 바닥에 누운 채 천장을 올려다봅니다
-    if (G.landT >= LAND_BLACK) { G.mode = 'wakeup'; G.eyeT = 0; }
+    if (G.landT >= LAND_BLACK) {
+      if (G.fp) { G.fp = false; G.mode = 'play'; $('hud').classList.remove('hidden'); enterDungeon(); }      // 이미 캐릭터가 됨 — 눈 뜨는 1인칭 없이 바로 지하 (숲에서 치워 둔 HUD 도 다시)
+      else { G.mode = 'wakeup'; G.eyeT = 0; }
+    }
     return;
   }
   if (G.mode === 'wakeup') {
@@ -2794,7 +2803,7 @@ function updateCamera(snap) {
 const camX = () => Math.round(CAM.x), camY = () => Math.round(CAM.y);   // 픽셀이 번지지 않게 정수로
 
 function useHiRes() {
-  const on = !!G.opening || G.mode === 'wakeup';  // 오프닝 · 우물 바닥에서 올려다보는 장면은 고해상도
+  const on = !!G.opening || G.mode === 'wakeup' || fpFallEye();  // 오프닝 · 우물 바닥에서 올려다보는 장면 · 떨어지며 올려다보는 장면은 고해상도
   if (!on) { if (cvHi) cvHi.style.display = 'none'; return false; }
   if (!cvHi) {
     cvHi = document.createElement('canvas'); cvHi.id = 'gamehi';
@@ -4982,6 +4991,9 @@ function paintBossBar(B, name, sub, col, mark) {
    ③ 전환    : 눈을 완전히 뜨는 순간 탑뷰로 확 바뀌면서, 섬광 · 충격파와
                 함께 브금의 "두둥"이 크게 터집니다. */
 const FALL_DUR   = 300;   // 소용돌이 낙하 (5.0초)
+const FP_CUT = 170, FP_FALL = 440;                    // 1인칭 숲에서 떨어질 때 — 170칸까지 제 눈으로(팔이 도트로 변해 감), 그 뒤 화면이 뒤집혀 캐릭터가 떨어짐
+const fallDur = () => G.fp ? FP_FALL : FALL_DUR;
+const fpFallEye = () => G.mode === 'fall' && !!G.fp && G.fallT < FP_CUT;      // 아직 제 눈으로 보는 구간
 const LAND_BLACK = 66;    // 착지 직후 완전 암전 (1.1초)
 const EYE_OPEN_T = 236;   // 여기까지가 "눈을 뜨는" 애니메이션
 const GAZE_HOLD  = 210;   // 다 뜬 채로 저 위 입구를 올려다보는 시간 (3.5초)
@@ -5182,11 +5194,50 @@ function beginOpening() {
   Sfx.ambientStop();
 }
 
+/* ═══════════ 1인칭 숲 (forest3d.js) ═══════════════════════════════
+   오프닝에서 눈을 뜬 뒤 — 아직 「캐릭터」가 아니라 제 눈으로 숲을 걷습니다. 우물을 들여다보다 떨어지는 동안
+   (renderFall 의 G.fp 갈래) 화면이 게임 화면으로, 몸이 도트 캐릭터로 바뀌고, 지하부터는 익숙한 탑뷰입니다.
+   대사 · 조사 안내 · 서류 · 일시정지는 탑뷰 숲과 같은 것을 씀 (G.mode 가 'forest3d' 일 때만 걸을 수 있음) */
+let forestScene = null;
+const forest3dOn = () => !!(forestScene && forestScene.running);
+function stopForest3D() { if (forestScene) { if (forestScene.running) forestScene.stop(); forestScene = null; } }
+function beginForest3D() {
+  if (!window.Forest3D || !window.Lab3D) return false;
+  stopForest3D();
+  const sc = new Forest3D({
+    sfx: Sfx,
+    busy: () => G.mode !== 'forest3d' || PAUSE.on,
+    sawDoc: () => G.sawDoc,
+    prompt: txt => { if (txt && G.mode === 'forest3d') { $('prompt').classList.remove('hidden'); $('prompttext').textContent = txt; } else $('prompt').classList.add('hidden'); },
+    tap: () => { if (G.mode === 'talk') onConfirm(); },
+    ready: () => { if (G.mode !== 'forest3d') return;                       // 몸을 다 일으키면 첫 혼잣말 + 걷는 법
+      say([...FOREST.intro.filter(l => !l.sys), { t: TOUCH.on ? '걷기 — 화면 왼쪽을 끌기 · 둘러보기 — 오른쪽을 끌기' : '걷기 — W A S D · 둘러보기 — 마우스', sys: true }]); talk.back = 'forest3d'; },
+    doc: () => openDoc(),
+    gap: () => beginCreepy(),
+    well: () => {
+      G.wellUsed = true;
+      say(FALL_LINES, () => sc.drop(() => {                                // 대사가 끝나면 몸이 쏠리며 떨어짐 → 낙하 장면으로
+        stopForest3D(); releaseAll(); mouse.down = false;
+        G.fp = true; G.mode = 'fall'; G.fallT = 0; G.shake = 7;
+        Sfx.fall(); Sfx.ambientStop();
+      }));
+      talk.back = 'forest3d';
+    }
+  });
+  let ok = false; try { ok = sc.start($('stage')); } catch (e) { ok = false; }
+  if (!ok) { try { sc.stop(); } catch (e) {} return false; }
+  forestScene = sc;
+  G.mode = 'forest3d'; G.fp = false;
+  ['hud', 'prompt'].forEach(id => $(id).classList.add('hidden'));
+  return true;
+}
+
 /* 오프닝 — 길게 눌러(약 1초) 건너뛰기. 누르기 시작하면 오른쪽 아래에 고리가 차오릅니다 */
 const OP_SKIP_T = 60;
 function finishOpening() {
   G.opening = null;
   op3dDispose();
+  if (!G.timeAttack && beginForest3D()) return;      // 일반 모드 — 숲은 제 눈으로 (forest3d.js). WebGL 이 안 되면 예전 탑뷰 숲
   G.mode = 'forest';
   $('hud').classList.remove('hidden');
   G.wake = WAKE_DUR;                    // 조리개가 열리듯 숲이 드러납니다
@@ -5468,6 +5519,7 @@ function warmOpening(delay = 1200) {
             try { opLabImage(R, 0, .9); R.fig.render({ kind: 'suit', x: .34, y: -1.58, z: .98, yaw: -.25, stride: 0, reach: .45, lean: .35, alpha: 1 },
                   { cam: { f: 450, px: 480, py: 250, roll: -.55 }, sky: [.22, .23, .25], gnd: [.05, .05, .06], fog: [0, 0, 0], near: 1, red: [0, 0, 0, 0], lights: OP_LIT }); } catch (e) {} },
     () => { if (window.WellShaft) WellShaft.prebake(); },
+    () => { if (window.Forest3D && Forest3D.warm && !G.timeAttack) Forest3D.warm(); },      // 1인칭 숲의 나무 · 풀을 미리 지어 둠
     () => { if (W === VW && H === VH) forestFloor(); },
     () => { prebakeFloors(0); }
   ];
@@ -5994,8 +6046,10 @@ function renderWake() {
 }
 
 function renderFall() {
-  const dur = FALL_DUR;
-  const t = G.fallT, k = t / dur;
+  const fp = !!G.fp;
+  if (fp && G.fallT < FP_CUT) { renderFallFP(); return; }       // 1인칭 숲에서 떨어짐 — 앞부분은 아직 제 눈으로
+  const dur = fp ? FP_FALL - FP_CUT : FALL_DUR;
+  const t = fp ? G.fallT - FP_CUT : G.fallT, k = t / dur;
   const cx = W / 2, cy = H / 2 - 6;
   g.save();
 
@@ -6012,7 +6066,7 @@ function renderFall() {
 
   // 1.5) 저 위 우물 입구 — 떨어질수록 작아지며 멀어집니다.
   //      떨어지고 있다는 게 눈으로 보여야 낙하가 길어도 지루하지 않습니다.
-  if (k < .52) {
+  if (k < .52 && !fp) {
     const mk = k / .52;                        // 0 → 1
     const mr = 26 * (1 - mk * .90);            // 점점 작아지고
     const my = cy - 46 - mk * 66;              // 주인공 위로, 점점 멀어짐
@@ -6086,7 +6140,8 @@ function renderFall() {
   g.restore();
 
   // 4) 작아지며 구르듯 떨어지는 주인공
-  if (IMG.hero) {
+  if (fp && heroArt()) drawFallMorph(cx, cy, t, k);          // 흐릿한 사람이 도트 캐릭터로 굳어짐
+  else if (IMG.hero) {
     const scale = Math.max(.05, 1 - k * .92);
     g.save();
     g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
@@ -6104,12 +6159,174 @@ function renderFall() {
     g.fillRect(0, 0, W, H);
   }
 
+  // 5.5) 1인칭에서 넘어온 직후 — 브라운관이 켜지듯 가운데 줄에서 화면이 펼쳐짐
+  if (fp && t < 16) {
+    const o = ease01(t / 12), bar = (H / 2) * (1 - o);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, bar); g.fillRect(0, H - bar, W, bar + 1);
+    g.fillStyle = `rgba(214,255,244,${(1 - t / 16) * .8})`; g.fillRect(0, bar - 1, W, Math.max(2, H - bar * 2 + 2));
+  }
+
   // 6) 마지막은 완전한 암전으로 마무리
   const fadeFrom = .72;
   if (k > fadeFrom) {
     g.fillStyle = `rgba(0,0,0,${Math.min(1, (k - fadeFrom) / (1 - fadeFrom))})`;
     g.fillRect(0, 0, W, H);
   }
+  g.restore();
+}
+
+/* ═══════════ 1인칭 숲에서 떨어질 때 (G.fp) ═══════════════════════════
+   ① 0 ‥ FP_CUT  아직 제 눈 — 등부터 떨어지며 멀어지는 우물 입구를 올려다봄. 허우적대는 두 팔이 살빛에서
+                 노란 도트로 칸칸이 바뀌고, 화면 전체도 점점 굵은 도트로 뭉개짐 (고해상도 캔버스)
+   ② FP_CUT      화면이 꺼졌다 켜지며 브라운관이 됨 — 여기부터는 「게임 화면」 (css body.topview)
+   ③ 그 뒤       내려다보는 소용돌이(renderFall) — 흐릿한 사람이 도트 캐릭터로 굳어지며 어둠 속으로 (drawFallMorph) */
+const fpHash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
+const FP_CELL = 12;                                             // 팔이 바뀌는 칸 크기 (게임 좌표)
+/* 팔 하나 — side -1 왼 · 1 오른, avatar : 노란 캐릭터 팔(손가락 없는 뭉툭한 손) */
+function fpArm(side, t, avatar) {
+  const cx = W / 2, a = Math.sin(t * .13 + side * 1.3), b = Math.sin(t * .21 + side * 2.1 + 1), c = Math.sin(t * .09 + side);
+  const sh = [cx + side * 228, H + 44], el = [cx + side * (170 + a * 16), H - 58 + b * 12], wr = [cx + side * (98 + b * 18 + c * 8), H * .47 + 34 + a * 16];
+  const limb = (p, q, wp, wq) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+    g.beginPath(); g.moveTo(p[0] + nx * wp, p[1] + ny * wp); g.lineTo(q[0] + nx * wq, q[1] + ny * wq); g.arc(q[0], q[1], wq, Math.atan2(ny, nx), Math.atan2(-ny, -nx), true);
+    g.lineTo(p[0] - nx * wp, p[1] - ny * wp); g.closePath(); };
+  const dir = Math.atan2(wr[1] - el[1], wr[0] - el[0]), hx = wr[0] + Math.cos(dir) * 15, hy = wr[1] + Math.sin(dir) * 15;
+  if (avatar) {                                                 // 노란 캐릭터 — 굵은 외곽선 · 평평한 색 · 아래쪽 한 톤 어둡게
+    g.lineJoin = 'round'; g.strokeStyle = '#1b0d06'; g.lineWidth = 5;
+    limb(sh, el, 36, 30); g.stroke(); g.fillStyle = '#d9bd13'; g.fill();
+    limb(el, wr, 29, 20); g.stroke(); g.fillStyle = '#f6ea1e'; g.fill();
+    g.beginPath(); g.arc(hx, hy, 23, 0, 7); g.stroke(); g.fillStyle = '#f6ea1e'; g.fill();
+    g.fillStyle = '#d9bd13'; g.beginPath(); g.arc(hx + side * 5, hy + 8, 15, 0, 7); g.fill();
+    g.fillStyle = '#fff9a8'; g.fillRect(hx - side * 12 - 3, hy - 14, 7, 5);                      // 도트 그림의 반짝이 한 점
+    return;
+  }
+  const shade = (p, q, w, c0, c1, c2) => { const dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, nx = dy / l * side, ny = -dx / l * side, mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+    const gr = g.createLinearGradient(mx - nx * w, my - ny * w, mx + nx * w, my + ny * w); gr.addColorStop(0, c0); gr.addColorStop(.45, c1); gr.addColorStop(1, c2); return gr; };
+  // 소매 (환자복) — 팔꿈치 조금 위까지
+  limb(sh, el, 40, 31); g.fillStyle = shade(sh, el, 40, '#4c5f62', '#7f9a98', '#b9cfca'); g.fill();
+  // 아래팔 · 손 — 살빛. 우물 입구 쪽(안쪽)이 하늘빛을 받아 밝음
+  limb(el, wr, 24, 15); g.fillStyle = shade(el, wr, 24, '#5a3c30', '#a57a62', '#e2c2ad'); g.fill();
+  g.save(); g.translate(hx, hy); g.rotate(dir + Math.PI / 2);
+  { const hg = g.createRadialGradient(-side * 5, -8, 2, 0, 0, 21); hg.addColorStop(0, '#d9b8a2'); hg.addColorStop(.6, '#a57a62'); hg.addColorStop(1, '#6b493a'); g.fillStyle = hg; }
+  g.beginPath(); g.ellipse(0, 0, 15, 18, 0, 0, 7); g.fill();
+  g.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {                                 // 벌어진 다섯 손가락 — 허우적대며 조금씩 오므렸다 폄
+    const u = i - 2, fa = u * .34 * side + Math.sin(t * .17 + i * 1.7 + side) * .09, len = (i === 0 ? 17 : 26 - Math.abs(u - .4) * 3) * (.86 + .14 * Math.sin(t * .23 + i));
+    const bx = u * 6.2 * side, by = -13 + Math.abs(u) * 2.4, ex = bx + Math.sin(fa) * len, ey = by - Math.cos(fa) * len;
+    g.strokeStyle = '#7d5645'; g.lineWidth = 6.6; g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
+    g.strokeStyle = '#b58a72'; g.lineWidth = 5.8; g.beginPath(); g.moveTo(bx - side * .5, by); g.lineTo(ex - side * .5, ey); g.stroke();
+    g.strokeStyle = 'rgba(236,208,190,.75)'; g.lineWidth = 2; g.beginPath(); g.moveTo(bx - side * 1.6, by - 2); g.lineTo(ex - side * 1.6, ey + 2); g.stroke();   // 입구 쪽 빛을 받은 결
+  }
+  g.restore();
+}
+let fpPix = null;
+function renderFallFP() {
+  const t = G.fallT, k = t / FP_CUT, cx = W / 2, cy = H * .42;
+  g.save();
+  g.fillStyle = '#020204'; g.fillRect(0, 0, W, H);
+  // 1) 우물 통로 — 입구가 빠르게 멀어짐 (일정한 속도로 떨어지면 보이는 크기는 1 / 깊이). 몸이 돌아서 화면도 천천히 돎
+  const WS = window.WellShaft, zoom = 9 / (1 + 6.2 * k), rot = -.7 + k * 1.5 + Math.sin(t * .05) * .06;
+  const jx = (fpHash(t, 1) - .5) * 5 * (1 - k * .5), jy = (fpHash(t, 2) - .5) * 5 * (1 - k * .5), mr = (WS ? WS.geom.mr : 26) * zoom;
+  if (WS) { const q = WS.geom, img = WS.image(), blur = zoom > 1.8 ? 3 : 1;
+    for (let i = 0; i < blur; i++) { const z = zoom * (1 + i * .05 * Math.min(1, zoom / 4));
+      g.save(); g.globalAlpha = 1 / (i + 1); g.translate(cx + jx, cy + jy); g.rotate(rot + i * .012); g.scale(z, z); g.drawImage(img, -q.CX * q.k, -q.CY * q.k, q.BW * q.k, q.BH * q.k); g.restore(); }
+    // 입구로 보이는 하늘 — 숲에서 보던 노을빛으로 물들임 (그림은 낮 하늘빛)
+    g.save(); g.beginPath(); g.arc(cx + jx, cy + jy, mr * 1.1, 0, 7); g.clip(); g.globalCompositeOperation = 'multiply';
+    const sg = g.createRadialGradient(cx + jx, cy + jy - mr * .3, mr * .1, cx + jx, cy + jy, mr * 1.1);
+    sg.addColorStop(0, '#ffc98c'); sg.addColorStop(.6, '#f08a52'); sg.addColorStop(1, '#a8506a'); g.fillStyle = sg; g.fillRect(cx + jx - mr * 1.2, cy + jy - mr * 1.2, mr * 2.4, mr * 2.4); g.restore(); }
+  // 입구의 저녁 하늘 — 숲에서 보던 노을빛이 번져 들어옴 (멀어질수록 차갑게 식음)
+  g.globalCompositeOperation = 'lighter';
+  let gr = g.createRadialGradient(cx + jx, cy + jy, mr * .2, cx + jx, cy + jy, mr * 2.6 + 30);
+  gr.addColorStop(0, `rgba(255,${150 + k * 30 | 0},${84 + k * 60 | 0},${.42 - k * .2})`); gr.addColorStop(.4, `rgba(210,${104 + k * 30 | 0},${74 + k * 50 | 0},${.15 - k * .06})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // 2) 벽이 위로 쓸려 올라감 — 입구 쪽으로 모여드는 잔상
+  for (let i = 0; i < 40; i++) {
+    const ang = i * 2.39996 + rot, cyc = (t * (.02 + (i % 5) * .005) + i / 40) % 1, d0 = 30 + (1 - cyc) * 330, len = 20 + (i % 4) * 16 + (1 - cyc) * 30;
+    g.strokeStyle = `rgba(${150 + (i % 3) * 30},${150 + (i % 3) * 26},${170 + (i % 3) * 20},${Math.min(1, cyc * 3) * (1 - cyc) * .5})`; g.lineWidth = 1 + (1 - cyc) * 1.6;
+    g.beginPath(); g.moveTo(cx + Math.cos(ang) * d0, cy + Math.sin(ang) * d0); g.lineTo(cx + Math.cos(ang) * (d0 + len), cy + Math.sin(ang) * (d0 + len)); g.stroke();
+  }
+  g.globalCompositeOperation = 'source-over';
+  // 가장자리는 어둠 — 깊어질수록 좁아짐
+  gr = g.createRadialGradient(cx, cy, 60, cx, cy, 330 - k * 90);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${.55 + k * .4})`); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // 3) 허우적대는 두 팔 — 살빛 팔 위로, 바뀐 칸에만 노란 도트 팔을 덮어 그림. 손끝부터 번져 어깨까지
+  const m = smooth01((k - .26) / .66);
+  {
+    const cells = new Path2D(), rest = new Path2D(); rest.rect(0, 0, W, H);
+    if (m > 0) for (let y = Math.floor(H * .28 / FP_CELL); y * FP_CELL < H; y++) for (let x = 0; x * FP_CELL < W; x++) {
+      const th = fpHash(x, y) * .55 + Math.max(0, (y * FP_CELL - H * .3) / (H * .7)) * .45;
+      if (m * 1.04 > th) { cells.rect(x * FP_CELL, y * FP_CELL, FP_CELL, FP_CELL); rest.rect(x * FP_CELL, y * FP_CELL, FP_CELL, FP_CELL); }
+    }
+    g.save(); g.clip(rest, 'evenodd'); for (const side of [-1, 1]) fpArm(side, t, false); g.restore();
+    if (m > 0) { g.save(); g.clip(cells); for (const side of [-1, 1]) fpArm(side, t, true); g.restore(); }
+  }
+  if (m > 0) {
+    // 막 바뀌는 칸 — 청록 · 흰 깨진 픽셀이 튐
+    for (let i = 0; i < 26; i++) { const x = fpHash(i, t >> 1) * W, y = H * .3 + fpHash(i + 40, t >> 1) * H * .7, th = fpHash(Math.floor(x / FP_CELL), Math.floor(y / FP_CELL)) * .55 + Math.max(0, (y - H * .3) / (H * .7)) * .45;
+      if (Math.abs(m * 1.04 - th) < .05) { g.fillStyle = i % 3 ? '#7de3c8' : '#ffffff'; g.fillRect(Math.floor(x / 3) * 3, Math.floor(y / 3) * 3, 3 + (i % 2) * 3, 3); } }
+  }
+  // 처음엔 어둠에서 — 우물 안으로 고꾸라진 직후
+  if (t < 18) { g.fillStyle = `rgba(0,0,0,${1 - t / 18})`; g.fillRect(0, 0, W, H); }
+  g.restore();
+
+  // 4) 화면이 도트로 뭉개짐 — 통째로 줄였다가 각지게 다시 키움. 끝으로 갈수록 굵어지고, 줄이 어긋나고, 꺼지기 직전 청록빛
+  const pk = (k - .3) / .7;
+  if (pk > 0) {
+    const bsz = .45 + 2.6 * Math.pow(pk, 1.5);                 // 도트 한 칸 (게임 좌표 px)
+    const pw = Math.max(16, Math.round(VW / bsz / 8) * 8), ph = Math.max(9, Math.round(pw * cv.height / cv.width));
+    if (!fpPix) fpPix = document.createElement('canvas');
+    if (fpPix.width !== pw || fpPix.height !== ph) { fpPix.width = pw; fpPix.height = ph; }
+    const c = fpPix.getContext('2d'); c.imageSmoothingEnabled = true; c.drawImage(cv, 0, 0, pw, ph);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false;
+    g.drawImage(fpPix, 0, 0, pw, ph, 0, 0, cv.width, cv.height);
+    const gk = (t - (FP_CUT - 50)) / 50;                        // 마지막 50칸 — 띠째 어긋남
+    if (gk > 0) for (let i = 0; i < 2 + gk * 6; i++) {
+      if (fpHash(i, t) > .35 + gk * .5) continue;
+      const y = Math.floor(fpHash(i + 9, t) * ph), h = 1 + Math.floor(fpHash(i + 17, t) * ph * .08), dx = (fpHash(i + 29, t) - .5) * cv.width * .22 * gk, sy = cv.height / ph;
+      g.drawImage(fpPix, 0, y, pw, h, dx, y * sy, cv.width, h * sy);
+      if (i % 2) { g.globalAlpha = .5; g.globalCompositeOperation = 'lighter'; g.drawImage(fpPix, 0, y, pw, h, dx + 6 * SR, y * sy, cv.width, h * sy); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; }
+    }
+    if (t >= FP_CUT - 4) { g.fillStyle = `rgba(125,227,200,${.18 + (t - (FP_CUT - 4)) * .12})`; g.fillRect(0, 0, cv.width, cv.height); }
+    g.restore();
+  }
+}
+/* 떨어지는 사람 → 캐릭터 한 칸 (FW × FH) — 사람 그림 위에 캐릭터 그림을 2 × 2 도트씩 덮음. m 0 사람 ‥ 1 캐릭터 (머리부터) */
+let fallHuman = null; const fallMorphCache = new Map();
+function fallMorphFrame(m, step) {
+  const { FW, FH } = HeroArt, lv = Math.round(m * 20), key = step * 32 + lv;
+  let cvs = fallMorphCache.get(key); if (cvs) return cvs;
+  const art = heroArt(), f = HeroArt.frameIndex('down', step);
+  if (!fallHuman) fallHuman = HeroArt.bakeSheet({ ...HeroArt.LOOKS.A, cap: null, cables: null });      // 환자복의 사람 — 머리의 전극 모자 없이
+  cvs = document.createElement('canvas'); cvs.width = FW; cvs.height = FH; const c = cvs.getContext('2d');
+  c.drawImage(fallHuman, f * FW, 0, FW, FH, 0, 0, FW, FH);
+  if (lv > 0) {
+    const top = document.createElement('canvas'); top.width = FW; top.height = FH; const tc = top.getContext('2d');
+    tc.drawImage(art.bare, f * FW, 0, FW, FH, 0, 0, FW, FH);
+    if (lv < 20) { tc.globalCompositeOperation = 'destination-in'; tc.beginPath();
+      for (let y = 0; y < FH; y += 2) for (let x = 0; x < FW; x += 2) if (lv / 20 * 1.05 > fpHash(x + 3, y + 7) * .6 + y / FH * .4) tc.rect(x, y, 2, 2);
+      tc.fill(); }
+    else c.clearRect(0, 0, FW, FH);
+    c.drawImage(top, 0, 0);
+  }
+  fallMorphCache.set(key, cvs); return cvs;
+}
+function drawFallMorph(cx, cy, t, k) {
+  const { FW, FH } = HeroArt, m = smooth01((t - 18) / 130);
+  const big = 1 + 2.3 * Math.pow(1 - Math.min(1, t / 170), 2.4);                 // 처음엔 바로 눈앞 — 떨어져 나가며 작아짐
+  const scale = Math.max(.05, 1 - k * .92) * big * 1.85, step = Math.floor(t / 6) % HeroArt.STEPS, img = fallMorphFrame(m, step);
+  g.save();
+  g.translate(cx, cy + Math.sin(t * .22) * 3 * (1 - k));
+  g.rotate(k * 3.2 - (1 - Math.min(1, t / 120)) * .5);
+  g.globalAlpha = Math.min(1, 1.3 - k) * Math.min(1, t / 10);
+  // 노란 조각이 사방에서 날아와 붙음
+  if (m > .02 && m < .98) for (let i = 0; i < 18; i++) {
+    const cyc = (t * .035 + i / 18) % 1, ang = i * 2.39996 + t * .01, d = (1 - cyc) * (40 + (i % 4) * 16) * scale * .9 + 6 * scale, sz = Math.max(1, Math.round(scale * (1 + i % 2)));
+    g.fillStyle = i % 4 === 0 ? '#fff9a8' : i % 3 ? '#f6ea1e' : '#c9a90f'; g.globalAlpha = Math.min(1, cyc * 2.5) * (1 - Math.abs(m - .5) * 1.6) * Math.min(1, 1.3 - k);
+    g.fillRect(Math.round(Math.cos(ang) * d), Math.round(Math.sin(ang) * d * .9), sz, sz);
+  }
+  g.globalAlpha = Math.min(1, 1.3 - k) * Math.min(1, t / 10);
+  g.scale(scale, scale);
+  g.imageSmoothingEnabled = false; g.drawImage(img, -FW / 2, -FH / 2);          // 또렷한 도트
+  if (m < 1) { g.globalAlpha *= Math.pow(1 - m, 1.4); g.imageSmoothingEnabled = true; g.drawImage(img, -FW / 2, -FH / 2); g.imageSmoothingEnabled = false; }   // 그 위에 흐릿하게 한 겹 — 아직 덜 굳은 사람
   g.restore();
 }
 
@@ -6450,7 +6667,7 @@ const DEV_STAGES = [
   ['gate', '관문'], ['boss', '심층 (보스)'], ['exit', '탈출구']
 ];
 const DEV_CINES = [                                 // 1부 컷신
-  ['opening', '오프닝 (1인칭)'], ['fall', '우물 추락'], ['bossintro', '보스 등장'],
+  ['opening', '오프닝 (1인칭)'], ['forest3d', '숲 (1인칭)'], ['fall', '우물 추락 (1인칭 → 캐릭터)'], ['fallold', '우물 추락 (타임어택 숲)'], ['bossintro', '보스 등장'],
   ['morph', '변이 · 변신'], ['abom', '심연 바로'], ['abomdeath', '심연의 최후'],
   ['endlines', '엔딩 대사'], ['ending', '엔딩만']
 ];
@@ -6550,7 +6767,9 @@ function devJump(kind) {
   if (MAP[kind]) { devPrepare(true); devRoom(kind); return; }
   switch (kind) {
     case 'opening':   startGame(false, 'normal'); break;
-    case 'fall':      devPrepare(false); P.x = G.well.x; P.y = G.well.y + 20; interact(); break;
+    case 'forest3d':  devPrepare(false); if (!beginForest3D()) say(FOREST_HINT); break;
+    case 'fall':      devPrepare(false); $('hud').classList.add('hidden'); releaseAll(); G.fp = true; G.mode = 'fall'; G.fallT = 0; G.shake = 7; Sfx.fall(); Sfx.ambientStop(); break;
+    case 'fallold':   devPrepare(false); P.x = G.well.x; P.y = G.well.y + 20; interact(); break;
     case 'bossintro': devPrepare(true); devRoom('boss'); break;
     case 'morph':     devPrepare(true); devRoom('boss'); makeBoss(); G.mode = 'play'; beginMorph(); break;
     case 'abom':      devAbom(); break;
@@ -6684,15 +6903,17 @@ function loop(now) {
   if (window.Perf && !Perf.draw('game', now, steps)) return;   // 설정 「프레임」 — 30 · 60(기본: 게임이 움직인 장만) · 최대
   if (window.Perf) Perf.frame(now);
 
-  if (G.mode !== 'ending') render();
+  if (G.mode !== 'ending' && !forest3dOn()) render();                       // 1인칭 숲은 제 캔버스에 그림
   if (RUN.running) updateTimer();
   // 브라운관은 탑뷰 본편에서만 (css body.topview)
-  const top = !G.opening && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
+  const top = !G.opening && !forest3dOn() && !fpFallEye() && !['wakeup', 'ending', 'title', 'modesel', 'diffsel', 'devsel', 'entry'].includes(G.mode);
   if (top !== _topview) { _topview = top; document.body.classList.toggle('topview', top); }
+  const eye = forest3dOn() || fpFallEye();                    // 제 눈으로 보는 동안 — 주사선 · HUD · 조이스틱 없음 (css body.fp3d)
+  if (eye !== _fpeye) { _fpeye = eye; document.body.classList.toggle('fp3d', eye); }
   const ing = canPause();
   if (ing !== _ingame) { _ingame = ing; document.body.classList.toggle('ingame', ing); }
 }
-let _ingame = null;
+let _ingame = null, _fpeye = null;
 
 /* ═══════════ 일시정지 — 게임 중 ESC (또는 P) ═══════════════════════
    1부(숲 · 던전 · 보스) · 오프닝 · 엔딩 · 탈출 어디서든. 멈춘 동안은 게임 · 타이머 · 소리가 모두 서고,
@@ -6708,7 +6929,7 @@ function canPause() {
 }
 const pmItems = () => [...document.querySelectorAll(PAUSE.confirm ? '#pm-confirm .pm-item' : '#pausemenu > .pm-box > .pm-item')];
 function pmSelect(i) { const it = pmItems(); PAUSE.sel = (i + it.length) % it.length; document.querySelectorAll('#pausemenu .pm-item').forEach(b => b.classList.remove('sel')); it[PAUSE.sel].classList.add('sel'); }
-function scenes() { return [endingScene, escapeScene, part2Scene].filter(x => x && x.running); }
+function scenes() { return [endingScene, escapeScene, part2Scene, forestScene].filter(x => x && x.running); }
 function pauseGame() {
   if (PAUSE.on || !canPause()) return;
   PAUSE.on = true; PAUSE.at = performance.now(); PAUSE.confirm = false;
@@ -6786,7 +7007,7 @@ $('tpause').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPro
 $('tpause').addEventListener('click', e => { e.stopPropagation(); pauseGame(); });
 
 /* 디버그용 (개발/테스트 편의) */
-window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEXT, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
+window.__game = { part2: () => part2Scene, forest3d: () => forestScene, beginForest3D, enterDungeon, tickOpening, OP, OP_TEXT, G, P, RUN, MAP, BALANCE, loadRoom, loadForest, say, beginEnding,
                   startGame, openModeSelect, closeModeSelect,
                   openDiffSelect, closeDiffSelect, applyDifficulty, DIFF, DIFF_ORDER,
                   retry, respawn, respawnAbom, hurt,
