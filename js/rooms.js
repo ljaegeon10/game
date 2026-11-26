@@ -27,6 +27,7 @@ const BALANCE = {
   bulletLife:    48,
   bulletDmg:     1,
   invFrames:     66,     // 체력이 적으므로 무적 시간을 넉넉히
+  hurtR:         1,      // 맞는 판정 — 주인공 반지름(10px)에 곱함. 어려움만 조금 작게 (적 탄 · 몸통 · 보스 공격 모두)
 
   shroomHp:      3,
   shroomSpeed:   0.70,
@@ -146,6 +147,7 @@ const DIFF = {
     over: {
       playerHp: 3, abomPlayerMax: 4,
       invFrames: 50, playerFireCd: 24,
+      hurtR: .8,                       // 맞는 판정 반지름 10 → 8px — 적 공격이 모두 약 2px 덜 맞음 (탄 14.5 → 12.5)
 
       shroomHp: 4, shroomSpeed: 0.84,
       spitterHp: 5, spitterSpeed: 0.55, spitterCd: 108, spore: 1.85,

@@ -1636,6 +1636,8 @@ function bumpKeys(sel) {
   setTimeout(() => el.classList.remove('bump'), 400);
 }
 
+/* 적의 공격에 맞는 판정 반지름 — 몸의 크기(P.r, 벽 · 몹과 부딪히는 것)는 그대로, 맞는 것만 (어려움 : BALANCE.hurtR .8) */
+const hurtR = () => P.r * (BALANCE.hurtR || 1);
 function hurt(n) {
   if (P.inv > 0 || P.dead) return;
   if (G.dev && G.devGod) return;          // 개발자 모드 · 무적
@@ -1949,7 +1951,7 @@ function update() {
         if (B.hp <= 0) (B.kind === 'abom' ? killBoss : beginMorph)();
         return false;
       }
-    } else if (P.inv <= 0 && Math.hypot(b.x - P.x, b.y - P.y) < P.r + b.r) {
+    } else if (P.inv <= 0 && Math.hypot(b.x - P.x, b.y - P.y) < hurtR() + b.r) {
       hurt(1); return false;
     }
     return true;
@@ -2018,7 +2020,7 @@ function update() {
     if (G.props.length && !(f.dash > 0) && !f.warp)           // 침대 · 기둥에 막히면 모서리를 따라 돌아감
       propSlide(G.props, f, f.r, fmx, fmy, [TS + f.r, TS + f.r], [W - TS - f.r, H - TS - f.r]);
     // 점멸 중(사라진 상태)에는 부딪히지 않습니다
-    if (!f.warp && d < f.r + P.r - 2) hurt(1);
+    if (!f.warp && d < f.r + hurtR() - 2) hurt(1);
   });
 
   /* ── 포자 구름 ─────────────────────────────────────── */
@@ -2249,7 +2251,7 @@ function updateBoss() {
   }
   B.x = Math.max(TS + B.r, Math.min(W - TS - B.r, B.x));
   B.y = Math.max(TS + B.r, Math.min(H - TS - B.r, B.y));
-  if (d < B.r * .72 + P.r) hurt(1);
+  if (d < B.r * .72 + hurtR()) hurt(1);
 }
 
 /* ── 타임어택 전용 눈 패턴 (BALANCE.bossAlt) ─────────────────
@@ -2641,7 +2643,7 @@ function updateAbom() {
   // 덩치가 커서 벽에 반쯤 박혀 보이지 않도록 안쪽으로 넉넉히 잡습니다
   B.x = Math.max(TS + 64, Math.min(W - TS - 64, B.x));
   B.y = Math.max(TS + 48, Math.min(H - TS - 54, B.y));
-  if (d < B.r * .58 + P.r) hurt(1);
+  if (d < B.r * .58 + hurtR()) hurt(1);
 }
 
 function startAbomAct(B) {
@@ -2703,7 +2705,8 @@ function runAbomAct(B, dx, dy, d) {
       G.shake = Math.max(G.shake, 4);
       // 낫날 — 몸통에서 42~132 거리의 좁은 부채꼴
       const pd = Math.hypot(dx, dy);
-      if (pd > 42 && pd < 132 && Math.abs(angDiff(Math.atan2(dy, dx), B.bladeA)) < .27) hurt(1);
+      const sh = P.r - hurtR();                                       // 어려움 — 판정이 작아진 만큼 낫날 안팎 · 폭도 조금 좁게
+      if (pd > 42 + sh && pd < 132 - sh && Math.abs(angDiff(Math.atan2(dy, dx), B.bladeA)) < .27 - sh / Math.max(60, pd)) hurt(1);
       if (fast && (t - w) % 13 === 0)
         foeShot(bx, by, Math.cos(B.bladeA + B.dir * 1.57), Math.sin(B.bladeA + B.dir * 1.57), 1.75 * shot);
     }
@@ -2745,7 +2748,7 @@ function runAbomAct(B, dx, dy, d) {
         const a = off + i / n * 6.283;
         foeShot(B.x, B.y, Math.cos(a), Math.sin(a), (alt && i % 2 ? 1.3 : 1.85) * shot);
       }
-      if (Math.hypot(P.x - B.x, P.y - B.y) < 62) hurt(1);
+      if (Math.hypot(P.x - B.x, P.y - B.y) < 62 - (P.r - hurtR())) hurt(1);
       for (let i = 0; i < 16; i++)
         G.fx.push({ k: 'p', x: B.x, y: B.y + 16, vx: (Math.random() - .5) * 6,
                     vy: (Math.random() - .5) * 5, life: 24, max: 24, c: '#8a6250' });
@@ -2758,7 +2761,7 @@ function runAbomAct(B, dx, dy, d) {
       B.lashLen = B.reach * Math.min(1, (t - w) / 5);
       for (const a of B.lash) {
         const ex = B.x + Math.cos(a) * B.lashLen, ey = B.y + Math.sin(a) * B.lashLen;
-        if (distToSeg(P.x, P.y, B.x, B.y, ex, ey) < 11 + P.r * .4) { hurt(1); break; }
+        if (distToSeg(P.x, P.y, B.x, B.y, ex, ey) < 11 + P.r * .4 - (P.r - hurtR())) { hurt(1); break; }
       }
     } else if (t > w + 16) {
       B.lashLen = Math.max(0, B.lashLen - B.reach / 14);
