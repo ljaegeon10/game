@@ -5154,17 +5154,17 @@ const OP_EYE = [
                                far  : 저쪽에서 들리는 조수의 목소리 (작고 흐리게)
                                cold : 짧은 지시 하나 */
 const OP_TEXT = [
-  [40, 140, '…들리세요?', 'near'],
-  [200, 290, '반응 있어요. 동공이 느리고.', 'far'],
+  [40, 140, '...정신이 드세요?', 'near'],
+  [200, 290, '심박수 정상. 반응 있어요.', 'far'],
   [300, 400, '오늘도 금방 끝내봅시다.', 'near'],
-  [420, 530, '이 짓을 얼마나 오래하는지..나 참', 'near'],
-  [552, 606, '수치가 올라가요!', 'urgent'],
+  [420, 530, '벌써 몇번째 실험인지.. 나 참', 'near'],
+  [552, 606, '심박수 올라가요!', 'urgent'],
   [596, 640, '알프라졸람 0.5mg 투여', 'near'],
   /* [646, 692, '용량 올려.', 'cold'] — 대본실에서 뺌 */
-  [720, 830, '오늘은 우물에 대해 이야기 해보죠', 'near'],
-  [840, 950, '숲 끝에, 오래된 우물이 하나 있어요.', 'near'],
-  [960, 1060, '그 아래로… 천천히 내려가 보는 거예요.', 'near'],
-  [1080, 1180, '다시 우물로 내려가요. 숫자를 세면서.', 'near'],
+  [720, 830, '오늘도 **우물**얘기 이야기를 시작하죠.', 'near'],
+  [840, 950, '숲 속에, 오래된 우물이 하나 있어요.', 'near'],
+  [960, 1060, '깊고..아래 보이지 않을 정도로 깊은..', 'near'],
+  [1080, 1180, '바닥이 보이지 않는 우물로 내려가요. 천천히.', 'near'],
   // 숫자는 하나에 약 1.4초 — 천천히, 점점 멀어지게
   [1200, 1284, '10.', 'near'], [1284, 1368, '9.', 'near'], [1368, 1452, '8.', 'near'], [1452, 1552, '8…', 'near']
 ].map(([a, b, s, who]) => [opT(a), opT(b), s, who]);
@@ -5922,7 +5922,13 @@ function renderOpening() {
   const gl1 = opGlitchAt(O, t);
   if (gl1 && t < OP.END - 20) opGlitch(gl1, t);
 
-  // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게
+  // 멀리서 들리는 목소리 — 귀가 먹먹하게, 흐릿하게. **…** 는 황색으로 강조 (대본실과 같은 표시)
+  const richText = (s, x, y, col) => {
+    const seg = s.split('**'); if (seg.length < 2) { g.fillStyle = col; g.fillText(s, x, y); return; }
+    const w = seg.reduce((n, t) => n + g.measureText(t).width, 0); let cx = x - w / 2; g.textAlign = 'left';
+    seg.forEach((t, i) => { g.fillStyle = i % 2 ? '#f0c766' : col; g.fillText(t, cx, y); cx += g.measureText(t).width; });
+    g.textAlign = 'center';
+  };
   OP_TEXT.forEach(([a, b, s, who]) => {
     if (t < a || t >= b) return;
     const k = Math.min(1, (t - a) / 14) * Math.min(1, (b - t) / 14);
@@ -5933,24 +5939,20 @@ function renderOpening() {
       g.globalAlpha = k * .68;
       g.filter = 'blur(.5px)';
       g.font = '9px DungGeunMo, ui-monospace, monospace';
-      g.fillStyle = '#9fb0bf';
-      g.fillText(s, W * .36, H - 52);
+      richText(s, W * .36, H - 52, '#9fb0bf');
     } else if (who === 'urgent') {                           // 다급한 조수 — 붉고, 떨립니다
       g.globalAlpha = k * .92;
       g.font = '10px DungGeunMo, ui-monospace, monospace';
-      g.fillStyle = '#f2a39a';
-      g.fillText(s, W * .36 + (Math.random() - .5) * 2, H - 56 + (Math.random() - .5) * 2);
+      richText(s, W * .36 + (Math.random() - .5) * 2, H - 56 + (Math.random() - .5) * 2, '#f2a39a');
     } else if (who === 'cold') {                             // 짧고 또렷한 지시
       g.globalAlpha = k * .9;
       g.font = '10px DungGeunMo, ui-monospace, monospace';
-      g.fillStyle = '#e8c9c0';
-      g.fillText(s, W * .64, H - 46);
+      richText(s, W * .64, H - 46, '#e8c9c0');
     } else {
       g.globalAlpha = k * fade;
       g.filter = 'blur(.6px)';
       g.font = '10px DungGeunMo, ui-monospace, monospace';
-      g.fillStyle = '#d8e6ef';
-      g.fillText(s, W / 2, H - 34);
+      richText(s, W / 2, H - 34, '#d8e6ef');
     }
     g.restore();
   });

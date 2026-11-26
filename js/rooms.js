@@ -226,7 +226,7 @@ const NOTES = {
 /* ── 지상 (숲) ──────────────────────────────────────────── */
 /* 오프닝 — 숲에서 막 눈을 떠 누운 채로 하는 생각 */
 const OPENING_LINES = [
-  { t: '....뭐지 분명 뭔가가....', w: true },
+  { t: '....뭐지 분명 뭔가....', w: true },
   { t: '그냥 꿈이었나?', w: true }
 ];
 /* 탑뷰로 바뀐 뒤 처음 손에 쥐어지는 조작 안내 */
@@ -236,7 +236,7 @@ const FOREST = {
   kind: 'forest', date: '2145 / 05 / 01',
   intro: [
     { t: '벌써 해가 지네.', w: false },
-    { t: '뭐지 저 우물은... 위험해 보이긴 하는데..', w: true },
+    { t: '저런 우물이 원래 있었나..?', w: true },
     { t: '이동 — W A S D', sys: true }
   ]
 };
@@ -254,7 +254,7 @@ const MAP = {
   start: {
     gx: 0, gy: 1, depth: 1, name: '우물 아래',
     intro: [
-      { t: '아, 차가워… 사다리도 부서졌네. 올라가긴 글렀다.', w: false },
+      { t: '아, 차가워… 사다리도 부서졌네. 잠깐.. 길이 있잖아..?', w: false },
       { t: '공격 — 방향키 / 마우스', sys: true }
     ],
     enemies: [{ t: 'shroom', x: 408, y: 100 }],
@@ -263,14 +263,14 @@ const MAP = {
 
   fork: {
     gx: 1, gy: 1, depth: 1, name: '갈림길',
-    intro: [{ t: '길이 세 갈래네. 어디로 가든 안쪽으로 이어지나 봐.', w: false }],
+    intro: [{ t: '길이 세 갈래네. 어디로 가든 한곳으로 이어지나 봐.', w: false }],
     enemies: [{ t: 'shroom', x: 156, y: 90 }, { t: 'shroom', x: 420, y: 230 }],
     pots: [{ x: 288, y: 70 }, { x: 288, y: 250 }]
   },
 
   north: {
     gx: 1, gy: 0, depth: 2, name: '북쪽 방',
-    intro: [{ t: '어, 벽에 적힌 날짜가 바뀌었어. **방금 지나온 데 맞는데.**', w: true }],
+    intro: [{ t: '어, 벽에 적힌 날짜가 바뀌었어. **이건 기록인가..?**', w: true }],
     enemies: [
       { t: 'shroom', x: 132, y: 100 }, { t: 'charger', x: 444, y: 100 },
       { t: 'shroom', x: 288, y: 240 }, { t: 'spitter', x: 456, y: 220 }
@@ -281,7 +281,7 @@ const MAP = {
 
   south: {
     gx: 1, gy: 2, depth: 2, name: '남쪽 방',
-    intro: [{ t: '여긴 뼈가 왜 이렇게 많아… 저 구석에 상자가 있다.', w: false }],
+    intro: [{ t: '여긴 뼈가 왜 이렇게 많아… 저건 상자같은데.', w: false }],
     enemies: [
       { t: 'shroom', x: 144, y: 120 }, { t: 'sporer', x: 432, y: 210 },
       { t: 'shroom', x: 432, y: 100 }
@@ -293,7 +293,7 @@ const MAP = {
 
   mid: {
     gx: 2, gy: 1, depth: 3, name: '중앙',
-    intro: [{ t: '세 길이 여기서 다시 만나네. 결국 제자리로 돌아온 거잖아.', w: true }],
+    intro: [{ t: '세 길이 여기서 다시 만나네. 결국 같은 길이었던 거잖아.', w: true }],
     enemies: [
       { t: 'spitter', x: 144, y: 90 }, { t: 'blinker', x: 432, y: 240 },
       { t: 'shroom', x: 288, y: 90 }
@@ -381,8 +381,8 @@ const DATES = [
 
 /* ── 나레이션 ───────────────────────────────────────────── */
 const FALL_LINES = [
-  { t: '우와… 생각보다 훨씬 깊네. 바닥이 안 보이는데', w: false },
-  { t: '조금만 더 숙여 보면— 어..?', w: false },
+  { t: '우와… 엄청나게 깊네. 바닥이 보이질 않아.', w: false },
+  { t: '잠깐 저기 뭔가가..', w: false },
   { t: '어어, 잠깐 **으아악**', w: true }
 ];
 
