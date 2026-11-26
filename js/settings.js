@@ -11,7 +11,7 @@
    ═══════════════════════════════════════════════════════════════ */
 (() => {
 const KEY = 'wellbelow.settings';
-const DEF = { master: 1, music: 1, sfx: 1, sens: 1, invertY: false, layout: null, lite: 'auto', fps: 60 };   // fps : 30 · 60 · 0(최대 = 화면 주사율)   // lite : 가벼운 화면 auto | on | off   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
+const DEF = { master: 1, music: 1, sfx: 1, bright: 1, sens: 1, invertY: false, layout: null, lite: 'auto', fps: 60 };   // fps : 30 · 60 · 0(최대 = 화면 주사율)   // lite : 가벼운 화면 auto | on | off   // layout : 휴대폰 조작 배치 (아래 TouchLayout)
 const S = { ...DEF };
 try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v) for (const k in DEF) if (typeof v[k] === typeof DEF[k]) S[k] = v[k]; } catch (e) {}
 if (S.layout && !(S.layout.joy && S.layout.fire && S.layout.btn)) S.layout = null;
@@ -21,7 +21,12 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const OUT = new WeakMap(), BUS = [];        // BUS : { ac, kind, node }
 const vol = k => k === 'music' ? S.music : k === 'sfx' ? S.sfx : S.master;
 const curve = v => v * v;                   // 귀에 고르게 들리게 (밀대 반이면 소리 1/4)
+/* 화면 밝기 — 설정의 100% 가 기본(BRIGHT_BASE 배 — 예전보다 조금 밝게). #stage 에 CSS 밝기 필터 (css 의 --bright) */
+const BRIGHT_BASE = 1.14;
+function applyBright() { try { document.documentElement.style.setProperty('--bright', (S.bright * BRIGHT_BASE).toFixed(3)); } catch (e) {} }
+applyBright();
 function apply() {
+  applyBright();
   const set = (node, v, ac) => { try { node.gain.setTargetAtTime(curve(v), ac.currentTime, .03); } catch (e) { node.gain.value = curve(v); } };
   for (const b of BUS) set(b.node, vol(b.kind), b.ac);
   OUTS.forEach(o => set(o.node, S.master, o.ac));
@@ -44,6 +49,7 @@ const ROWS = [
   { k: 'master', label: '전체 음량', min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'music',  label: '배경음악',  min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sfx',    label: '효과음',    min: 0, max: 1, step: .05, fmt: v => Math.round(v * 100) + '%' },
+  { k: 'bright', label: '화면 밝기', min: .6, max: 1.6, step: .05, fmt: v => Math.round(v * 100) + '%' },
   { k: 'sens',   label: '카메라 감도', sub: '1인칭 시점 회전 속도', min: .3, max: 3, step: .1, fmt: v => v.toFixed(1) + '×' },
 ];
 let el = null, onClose = null, testT = 0;
@@ -68,7 +74,7 @@ function build() {
     const r = ROWS.find(x => x.k === row.dataset.k), inp = row.querySelector('input'), o = row.querySelector('output');
     inp.addEventListener('input', () => {
       S[r.k] = +inp.value; o.textContent = r.fmt(S[r.k]); apply(); save();
-      if (r.k !== 'sens') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
+      if (r.k !== 'sens' && r.k !== 'bright') { clearTimeout(testT); testT = setTimeout(() => { try { if (window.Sfx && Sfx.pickup) (r.k === 'music' ? Sfx.beep || Sfx.pickup : Sfx.pickup)(); } catch (e) {} }, 120); }   // 들어 보기
     });
   });
   el.querySelectorAll('[data-fps]').forEach(b => b.addEventListener('click', () => { S.fps = +b.dataset.fps; save(); sync(); }));

@@ -1808,3 +1808,20 @@ html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 /* 제목 심전도 세 겹 — 꼬리(옅게 · 길게) · 몸 · 머리(밝게 · 짧게). 보이는 구간은 titlescreen.js 가 stroke-dasharray 로 (처음엔 숨김) */
 .tl-ecg{ stroke-dasharray:0 9999; }
 .tl-ecg.e1{ opacity:.3; } .tl-ecg.e2{ opacity:.65; } .tl-ecg.e3{ opacity:1; stroke:#eaffff; }
+
+/* ═══ 화면 밝기 — 설정의 「화면 밝기」 (settings.js 가 --bright 를 넣음 · 기본은 예전보다 조금 밝게) ═══ */
+#stage{ filter:brightness(var(--bright, 1.14)); }
+/* 기본 밝기 올림 — 화면을 덮던 그늘(가장자리 어둠 · 주사선 · 브라운관 안쪽 그림자)을 덜어 냄 */
+#vignette{ background:radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,.18) 100%); }
+#scanlines{ opacity:.16; }
+body.topview #crt{
+  background:
+    repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 1px, rgba(0,0,0,.18) 1px 2px, rgba(0,0,0,0) 2px 3px),
+    repeating-linear-gradient(to right, rgba(255,40,40,.04) 0 1px, rgba(40,255,90,.03) 1px 2px, rgba(60,90,255,.04) 2px 3px),
+    radial-gradient(ellipse 72% 68% at 50% 46%, rgba(255,255,255,.05) 0%, rgba(0,0,0,0) 58%, rgba(0,0,0,.3) 100%);
+  box-shadow: inset 0 0 26px rgba(0,0,0,.7), inset 0 0 70px rgba(0,0,0,.3);
+}
+
+/* 설정 줄이 하나 늘어서(화면 밝기) — 줄 간격을 조금 줄여 낮은 화면에서도 아래 단추까지 한 번에 */
+.st-row{ padding-block:9px; }
+.st-box{ padding-top:24px; padding-bottom:18px; } .st-box .pm-obang{ margin-top:-24px; }

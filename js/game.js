@@ -835,6 +835,7 @@ function closeDiffSelect() {                    // 메뉴에서 바로 들어왔
    diffId : 'easy' | 'normal' | 'hard' — 일반 모드에서만 고를 수 있습니다. */
 function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
+  G.wreckT = 0;                                        // 주인공은 멀쩡한 채로 시작
   if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
   else if (window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
@@ -919,7 +920,7 @@ function resetRun() {
   if (window.Festival) Festival.end();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
-  G.visited = new Set(); G.st = {}; G.seenGlitch = false;
+  G.visited = new Set(); G.st = {}; G.seenGlitch = false; G.wreckT = 0;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmPlay(1500);   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
@@ -1727,6 +1728,14 @@ function update() {
   tickScreenFx();
   tickAwayMsg();                                   // 이스터에그 ⑤ — 게임을 멈추지 않는 속삭임
 
+  if (G.mode === 'play' && !G.inForest && G.room) {          // 던전에서 보낸 시간 — 주인공이 점점 망가짐 (wreckSheet)
+    const lv0 = wreckLevel(); G.wreckT = (G.wreckT || 0) + 1;
+    if (wreckLevel() > lv0) {                                // 한 단계 더 — 노란 조각이 후두둑 떨어져 나감
+      for (let i = 0; i < 9; i++) G.fx.push({ k: 'p', x: P.x + (Math.random() - .5) * 16, y: P.y - 4 + (Math.random() - .5) * 20, vx: (Math.random() - .5) * 2.6, vy: -.4 - Math.random() * 1.8,
+                                              life: 22 + (Math.random() * 12 | 0), max: 34, c: i % 3 ? '#e3c62c' : '#8a7412' });
+      G.shake = Math.max(G.shake, 3);
+    }
+  }
   if (G.mode === 'talk') { tickTalk(); return; }
   if (G.mode === 'note') {
     if (noteTypeT < noteFull.length) {
@@ -3412,6 +3421,62 @@ const HERO_G = window.HeroArt ? HeroArt.ORIGINAL : null;
 const HERO_REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;   // 움직임 줄이기면 글리치 끔
 let heroArtCache = null, heroRigT = -1, heroBurst = false, heroStage = null;
 const heroGl = {};
+/* ── 시간이 지날수록 망가지는 주인공 ─────────────────────
+   던전에서 보낸 시간(G.wreckT)에 따라 0‥8 단계. 노란 캐릭터(아바타)가 금 가고 · 조각이 떨어져 나가고 · 띠째 어긋나고 · 픽셀이 깨지며,
+   떨어져 나간 자리로는 그 밑의 「진짜 사람」(art.real)이 드러납니다. 끝(8단계)엔 아바타가 거의 남지 않습니다.
+   망가진 자리는 걸음 그림마다 같은 곳(칸 안 좌표)이라 걸어도 깜빡이지 않고, 단계가 오르면 앞 단계의 상처 위에 더 얹힙니다.
+   단계마다 그림 한 장을 구워 두고 다시 씀 (판정 · 조작은 그대로 — 보이는 것만). */
+const WRECK_MAX = 8;
+const wreckStep = () => (G.timeAttack ? 16 : 38) * 60;               // 한 단계 오르는 시간 — 타임어택 16초(약 2분에 끝까지) · 일반 38초(약 5분)
+const wreckLevel = () => G.inForest ? 0 : Math.min(WRECK_MAX, Math.floor((G.wreckT || 0) / wreckStep()));
+const WRECK = (() => {                                              // 상처 목록 — 늘 같은 자리 (씨앗 고정)
+  let s = 20450520; const R = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const FW = 30, FH = 36;
+  const holes = Array.from({ length: 18 }, (_, i) => { const edge = i < 9;                           // 처음엔 가장자리 · 팔다리부터, 나중엔 몸 한가운데까지
+    const a = R() * 6.283, r = edge ? .72 + R() * .25 : R() * .62;
+    return { x: FW / 2 + Math.cos(a) * r * 11, y: FH / 2 + 2 + Math.sin(a) * r * 14, r: 2 + R() * (edge ? 2.5 : 4), bits: Array.from({ length: 4 }, () => [R() * 2 - 1, R() * 2 - 1, .5 + R() * .6]) }; });
+  const cracks = Array.from({ length: 10 }, () => { let x = 6 + R() * 18, y = 4 + R() * 26, a = R() * 6.283; const pts = [[x, y]];
+    for (let k = 0; k < 4 + (R() * 4 | 0); k++) { a += (R() - .5) * 1.5; x += Math.cos(a) * (2 + R() * 2.5); y += Math.sin(a) * (2 + R() * 2.5); pts.push([x, y]); } return pts; });
+  const bands = Array.from({ length: 7 }, () => ({ y: 3 + (R() * 28 | 0), h: 2 + (R() * 4 | 0), dx: (R() < .5 ? -1 : 1) * (1 + (R() * 3 | 0)) }));
+  const noise = Array.from({ length: 70 }, () => [R() * FW | 0, R() * FH | 0, ['#00ffd5', '#ff2050', '#0b0a10', '#ffffff'][R() * 4 | 0]]);
+  return { holes, cracks, bands, noise };
+})();
+let heroWreck = { lv: 0, cv: null, src: null };
+function wreckSheet(art) {
+  const lv = wreckLevel();
+  if (!lv) return art.bare;
+  if (heroWreck.cv && heroWreck.lv === lv && heroWreck.src === art.bare) return heroWreck.cv;
+  const { FW, FH } = HeroArt, n = Math.round(art.bare.width / FW), k = lv / WRECK_MAX;
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const out = mk(art.bare.width, FH), o = out.getContext('2d'), cell = mk(FW, FH), c = cell.getContext('2d'), mask = mk(FW, FH), m = mask.getContext('2d');
+  const nH = Math.round(Math.pow(k, 1.5) * 13 + (lv > 1 ? 1 : 0)), nC = Math.min(WRECK.cracks.length, lv + 2), nB = Math.min(WRECK.bands.length, Math.max(0, lv - 2)), nN = Math.max(0, lv - 3) * 14;   // 끝까지 가도 노란 조각이 남아 뒤죽박죽
+  // 떨어져 나간 자리 (칸 안 좌표 — 모든 걸음 그림에 똑같이)
+  m.fillStyle = '#000';
+  WRECK.holes.slice(0, nH).forEach(h => { const r = h.r * (.65 + k * .4); m.fillRect(Math.round(h.x - r), Math.round(h.y - r), Math.round(r * 2), Math.round(r * 2));
+    h.bits.forEach(([bx, by, br]) => { const q = r * br; m.fillRect(Math.round(h.x + bx * r - q), Math.round(h.y + by * r - q), Math.max(1, Math.round(q * 2)), Math.max(1, Math.round(q * 2))); }); });
+  for (let f = 0; f < n; f++) {
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.clearRect(0, 0, FW, FH);
+    c.drawImage(art.bare, f * FW, 0, FW, FH, 0, 0, FW, FH);
+    c.globalCompositeOperation = 'source-atop';
+    c.fillStyle = `rgba(26,10,14,${(.05 * lv).toFixed(2)})`; c.fillRect(0, 0, FW, FH);                    // 때 · 그을음 — 점점 칙칙하게
+    c.strokeStyle = '#140c08'; c.lineWidth = 1;                                                        // 금
+    WRECK.cracks.slice(0, nC).forEach(pts => { c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(Math.round(x) + .5, Math.round(y) + .5) : c.moveTo(Math.round(x) + .5, Math.round(y) + .5)); c.stroke(); });
+    c.globalCompositeOperation = 'destination-out'; c.drawImage(mask, 0, 0);                            // 조각이 떨어져 나감
+    c.globalCompositeOperation = 'destination-over';
+    if (art.real) c.drawImage(art.real, f * FW, 0, FW, FH, 0, 0, FW, FH);                               // 그 밑의 진짜 사람
+    c.globalCompositeOperation = 'source-over';
+    // 띠째 어긋남 — 칸에서 띠를 떠서 옆으로 밀어 다시 찍음
+    o.drawImage(cell, f * FW, 0);
+    WRECK.bands.slice(0, nB).forEach(b => { o.clearRect(f * FW, b.y, FW, b.h);
+      o.save(); o.beginPath(); o.rect(f * FW, b.y, FW, b.h); o.clip(); o.drawImage(cell, 0, b.y, FW, b.h, f * FW + b.dx * (lv > 5 ? 2 : 1), b.y, FW, b.h); o.restore(); });
+    // 깨진 픽셀
+    o.save(); o.beginPath(); o.rect(f * FW, 0, FW, FH); o.clip(); o.globalCompositeOperation = 'source-atop';
+    WRECK.noise.slice(0, nN).forEach(([x, y, col]) => { o.fillStyle = col; o.fillRect(f * FW + x, y, 1 + (x & 1), 1); });
+    o.restore();
+  }
+  heroWreck = { lv, cv: out, src: art.bare };
+  return out;
+}
 function heroArt() {
   if (!heroArtCache && HERO_G && IMG.hero) heroArtCache = {
     bare: HeroArt.bakeOriginal(IMG.hero, HERO, false),     // 없음 (숲)
@@ -3482,7 +3547,7 @@ function drawPlayer() {
       heroRigT = G.t;
     }
     // 몸에 붙는 전극선 · 관자놀이 커넥터는 뺌 — 늘 맨몸 그림 (art.bare), 선(art.rig)은 그리지 않음
-    const st = heroStage, sheet = art.bare;
+    const st = heroStage, sheet = wreckSheet(art);                 // 시간이 지날수록 망가진 그림
     g.save();
     g.translate(P.x, P.y + bob - FH / 2 + 12);
     g.rotate(tilt);
@@ -6672,7 +6737,7 @@ window.__game = { part2: () => part2Scene, enterDungeon, tickOpening, OP, OP_TEX
                   spawnFoe, killFoe, drawFoe, FOE, FOE_SKIN: FoePix.SKIN,
                   endingScene: () => endingScene, escapeScene: () => escapeScene, beginEscape,
                   killBoss, MORPH_PRE, AD, AD_DONE,
-                  taRoute, devJump, openDevPanel, devKillAll, opT, beginDoze, DOZE_AFTER,
+                  taRoute, wreckLevel, wreckStep, devJump, openDevPanel, devKillAll, opT, beginDoze, DOZE_AFTER,
                   bot: () => ({ W, H, TS, CAM, TOUCH, mouse, doorCenter, onConfirm, runTime }),   // 타임어택 자동 플레이 봇(기록 분석)용
                   clearRecords: () => { memRecords = []; try { localStorage.removeItem(REC_KEY); } catch (e) {} } };
 
