@@ -4657,8 +4657,13 @@ function buildDoor(d, W, F, Ce, Pm, idx) {
     W.quad([out, T, za], [deep, T, za], [deep, 0, za], [out, 0, za], [1, 1, 1], { uv: [0, .28, 1, 1] });
     W.quad([out, T, zb], [deep, T, zb], [deep, 0, zb], [out, 0, zb], [1, 1, 1], { uv: [0, .28, 1, 1] });
     floorQuad(F, Math.min(x, deep), Math.max(x, deep), za, zb);
-    ceilQuad(Ce, Math.min(x, deep), Math.max(x, deep), za, zb, T);
+    // 안쪽 천장은 어둠으로 — 예전엔 천장만 밝게 칠해져, 어두운 통로가 복도로 튀어나온 검은 상자처럼 보였음
+    Pm.quad([out, T - .002, za], [deep, T - .002, za], [deep, T - .002, zb], [out, T - .002, zb], C.dark, { e: true });
     Pm.quad([deep, T, za], [deep, T, zb], [deep, 0, zb], [deep, 0, za], C.dark, { e: true });
+    // 문틀 — 뚫린 자리라는 게 한눈에 보이게 (실험실 문과 같은 틀)
+    const fx0 = s < 0 ? x : x - .035, fx1 = s < 0 ? x + .035 : x;
+    Pm.rbox(fx0, fx1, 0, T + .08, za - .08, za, C.frame, .01, { s: .4 }); Pm.rbox(fx0, fx1, 0, T + .08, zb, zb + .08, C.frame, .01, { s: .4 });
+    Pm.rbox(fx0, fx1, T, T + .08, za - .08, zb + .08, C.frame, .01, { s: .4 });
   }
 }
 /* 벽걸이 소화기 — 붉은 받침판 · 걸쇠 · 몸통 · 손잡이 · 호스, 위에 붉은 안내판 */

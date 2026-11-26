@@ -153,7 +153,7 @@ function buildGun() {
    손 좌표(오른손) : 손목이 원점 · 손가락 쪽 +y · 엄지 쪽 +x · 손바닥이 보는 쪽 +z.
    o.curl[손가락][마디] 굽힘(라디안) · o.spread[손가락] 벌림 · o.thumb 엄지 세 마디의 방향 ·
    o.arm 팔뚝이 뻗는 방향 · o.sleeve 소매가 시작하는 자리 */
-const FX = [.0285, .0095, -.0095, -.0275], FY = [.09, .094, .09, .081], FR = [.0098, .01, .0094, .0084];
+const FX = [.0285, .0095, -.0095, -.0275], FY = [.09, .094, .09, .081], FR = [.0083, .0085, .008, .0071];   // 손가락 굵기 — 화면 바로 앞이라 조금만 굵어도 소시지처럼 보임
 const FL = [[.042, .025, .021], [.046, .029, .022], [.042, .027, .021], [.033, .019, .019]];
 function buildHand(o) {
   const m = new Mesh(), S = { m: MAT.skin }, sk = C.skin;
@@ -162,7 +162,7 @@ function buildHand(o) {
   m.ellipsoid([.023, .03, .007], [.02, 0, 0], [0, .031, 0], [0, 0, .014], sk, 14, 8, S);
   m.ellipsoid([-.027, .034, .005], [.0135, 0, 0], [0, .033, 0], [0, 0, .0115], sk, 12, 8, S);
   for (let f = 0; f < 4; f++) {
-    m.ellipsoid([FX[f], FY[f] - .006, -.0075], [FR[f] * .95, 0, 0], [0, FR[f] * 1.3, 0], [0, 0, FR[f] * .8], [sk[0], sk[1] * .95, sk[2] * .93], 12, 8, S);   // 손등 마디 — 살짝 붉게
+    m.ellipsoid([FX[f], FY[f] - .006, -.0068], [FR[f] * .9, 0, 0], [0, FR[f] * 1.25, 0], [0, 0, FR[f] * .62], [sk[0], sk[1] * .95, sk[2] * .93], 12, 8, S);   // 손등 마디 — 살짝 붉게
     const cu = o.curl[f], sp = (o.spread && o.spread[f]) || 0;
     let p = [FX[f], FY[f], -.002], th = 0, d = [0, 1, 0];
     for (let k = 0; k < 3; k++) {
@@ -177,7 +177,7 @@ function buildHand(o) {
     m.ellipsoid(add(sub(p, mul(d, .0058)), mul(dor, rt * .72)), mul(d, .0064), [rt * .78, 0, 0], mul(dor, .0017), C.nail, 10, 6, G_(.45));   // 손톱
   }
   // 엄지 — 세 마디
-  { let p = [.034, .02, .006]; const L = [.04, .031, .026], R = [.0128, .0114, .01, .0088], T = o.thumb.map(norm);
+  { let p = [.034, .02, .006]; const L = [.04, .031, .026], R = [.0112, .0099, .0088, .0077], T = o.thumb.map(norm);
     for (let k = 0; k < 3; k++) { const q = add(p, mul(T[k], L[k])); m.cyl(p, q, R[k], R[k + 1], sk, 12, false, S); m.sphere(p, R[k] * 1.04, sk, 12, S); p = q; }
     m.sphere(p, R[3], sk, 12, S);
     const d = T[2], dor = norm(o.thumbBack || cross(d, cross([0, 0, -1], d)));
@@ -196,8 +196,8 @@ function buildHand(o) {
     obox(m, add(add(c, mul(n, .0013)), mul(A, .0035)), .0045, .0009, .0003, bx, A, n, hex('#3a4048'), { m: MAT.cloth }); }
   // 환자복 소매 — 헐렁한 끝단 · 잔주름
   surf(m, 14, 28, (u, v) => { const s = lerp((o.sleeve || .1) - .012, len, u), th = v * TAU;
-    const k = 1.22 + .12 * (1 - u) + .035 * Math.sin(th * 5 + u * 9) + .025 * Math.sin(th * 3 - u * 14);
-    return [ring(s, k, th), mul(u < .07 ? C.gownD : C.gown, .9 + .1 * Math.sin(th * 5 + u * 9))]; }, MAT.cloth);
+    const k = 1.2 + .07 * (1 - u) + .012 * Math.sin(th * 4 + u * 9) + .009 * Math.sin(th * 7 - u * 14) + (u < .06 ? .035 : 0);          // 잔주름만 — 예전 큰 주름은 가장자리가 톱니처럼 보였음
+    return [ring(s, k, th), mul(u < .06 ? C.gownD : C.gown, .93 + .07 * Math.sin(th * 4 + u * 9))]; }, MAT.cloth);
   return m;
 }
 /* 쥐는 모양들 */
@@ -258,8 +258,9 @@ class GunView3D extends window.Figure3D {
     const q = o.q == null ? -1 : o.q, cant = o.cant || 0, rc = o.recoil || 0;
     const br = Math.sin(o.t * .035), br2 = Math.sin(o.t * .021 + 1);
     const lift = (o.dy || 0) * .004 + (o.kick || 0) * .0025;
-    const pos = [lerp(.084, .02, cant) + (o.ax || 0) * .012 + br2 * .0012, lerp(-.062, .028, cant) - (o.ay || 0) * .008 + br * .0018 - lift + Math.sin((o.bob || 0) * 2) * .003 + rc * .008,
-                 lerp(-.27, -.3, cant) + rc * .03];
+    // 총은 눈에서 36cm — 예전(27cm)엔 손이 화면을 크게 차지해 뭉툭하게 부풀어 보였음. 조금 멀리 · 낮게 들어 손은 아래로 빠지고 총이 주로 보임
+    const pos = [lerp(.104, .026, cant) + (o.ax || 0) * .014 + br2 * .0014, lerp(-.088, .03, cant) - (o.ay || 0) * .01 + br * .002 - lift + Math.sin((o.bob || 0) * 2) * .0035 + rc * .009,
+                 lerp(-.36, -.38, cant) + rc * .034];
     const M = M4.chain(M4.T(pos[0], pos[1], pos[2]),
       M4.RY(lerp(.24, CANT[0], cant) - (o.ax || 0) * .03), M4.RX(lerp(.1, CANT[1], cant) + rc * .16 + (o.ay || 0) * -.02 + br * .004 - lift * 1.5), M4.RZ(lerp(0, CANT[2], cant) + br2 * .006));
     // 슬라이드 — 쏜 순간 · 당길 때 뒤로
