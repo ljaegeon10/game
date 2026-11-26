@@ -41,12 +41,22 @@ function spriteCtx(w, h) {
   sX.clearRect(0, 0, w, h); bbReset(sX);
   return sX;
 }
-const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const HEX = {}; const hexRgb = h => HEX[h] || (HEX[h] = (n => [n >> 16 & 255, n >> 8 & 255, n & 255])(parseInt(h.slice(1), 16)));   // 색 풀이는 한 번만
+let MASK = new Uint8Array(0);                              // 칠해진 곳 표 — 매번 새로 만들지 않고 키워 가며 다시 씀 (쓰레기 수거 줄임)
 /* g 의 (x, y) 에 — 캔버스 w×h, 그 안의 (ox, oy) 가 (x, y) 에 오도록.
    draw(ctx) 는 (ox, oy) 를 원점으로 그립니다.
    opt : outline '#rrggbb' · hi 위 빛 세기(0‥1) · lo 아래 그늘 · flash 흰 실루엣 0‥1 · cut 남길 알파 문턱 */
 function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
   w = Math.ceil(w); h = Math.ceil(h);
+  /* opt.hold = { } · opt.every = n — 큰 몸(심연)은 n 장에 한 번만 다시 정리하고 그 사이엔 붙잡아 둔 결과를 그 자리에 찍기만 함
+     (자세는 천천히 바뀌므로 눈에 안 띔. 깜빡임 세기나 칸 크기가 바뀌면 바로 다시) */
+  const H = opt.hold, hk = H ? w + 'x' + h + ':' + (opt.flash || 0) : '';
+  if (H && H.cv && H.left > 0 && H.key === hk) {
+    H.left--;
+    const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
+    g.drawImage(H.cv, 0, 0, H.w, H.h, Math.round(x + H.dx), Math.round(y + H.dy), H.w, H.h);
+    g.imageSmoothingEnabled = sm; return;
+  }
   const c = spriteCtx(w, h);
   c.save(); c.translate(ox, oy); draw(c); c.restore();
   // 그린 곳 상자만 (+1 외곽선 자리) — 큰 몸(심연)은 넉넉히 잡은 칸의 절반 넘게 비어 있었음
@@ -56,7 +66,8 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
   x += sx; y += sy; w = ex - sx; h = ey - sy;
   const id = c.getImageData(sx, sy, w, h), d = id.data, n = w * h;
   const cut = opt.cut == null ? 96 : opt.cut;
-  const m = new Uint8Array(n);
+  if (MASK.length < n) MASK = new Uint8Array(n);
+  const m = MASK;
   for (let i = 0; i < n; i++) m[i] = d[i * 4 + 3] >= cut ? 1 : 0;
   const ol = hexRgb(opt.outline || '#0b0910'), hi = opt.hi == null ? .32 : opt.hi, lo = opt.lo == null ? .3 : opt.lo, fl = opt.flash || 0;
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
@@ -74,7 +85,13 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
       else d[p + 3] = 0;
     }
   }
-  const bc = blitCtx(w, h); bc.putImageData(id, 0, 0);
+  let bc;
+  if (H) {                                                 // 붙잡아 둘 것은 제 캔버스에 (함께 쓰는 옮김 캔버스는 다음 몸이 덮어씀)
+    if (!H.cv || H.cv.width < w || H.cv.height < h) { H.cv = document.createElement('canvas'); H.cv.width = Math.ceil(w / 32) * 32; H.cv.height = Math.ceil(h / 32) * 32; H.x = H.cv.getContext('2d'); }
+    else H.x.clearRect(0, 0, H.cv.width, H.cv.height);
+    bc = H.x; H.w = w; H.h = h; H.dx = sx - ox; H.dy = sy - oy; H.key = hk; H.left = (opt.every || 2) - 1;
+  } else bc = blitCtx(w, h);
+  bc.putImageData(id, 0, 0);
   const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
   g.drawImage(bc.canvas, 0, 0, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
   g.imageSmoothingEnabled = sm;

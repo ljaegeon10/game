@@ -192,6 +192,7 @@ function draw() {
   g = c.createRadialGradient(W * .52, H * .45, H * .3, W * .52, H * .45, W * .72);
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
+  if (window.Settings && Settings.brightPass) Settings.brightPass(c, cv);      // 화면 밝기 (설정)
 }
 let lastDraw = 0;
 function loop() {

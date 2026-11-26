@@ -148,9 +148,11 @@ window.WellShaft = {
   bake() { if (!IMG) { bakeRows(JOB ? JOB.y : 0, BH); IMG = bakeFinish(); JOB = null; } return IMG; },
   /* 틈틈이 조금씩 구워 둠 — 한 번에 18줄, 다 되면 끝 */
   prebake() {
-    if (IMG || (JOB && JOB.busy)) return;
+    if (IMG || (JOB && JOB.busy) || this._run) return;
+    this._run = true;
     const step = () => {
       if (IMG) return;
+      if (window.WellShaft.hold) { JOB && (JOB.busy = true); setTimeout(step, 600); return; }   // 타임어택 판이 도는 동안엔 쉼 (그 판엔 우물 컷신이 없음)
       const y0 = JOB ? JOB.y : 0, y1 = Math.min(BH, y0 + 18);
       bakeRows(y0, y1); JOB.y = y1; JOB.busy = true;
       if (y1 >= BH) { IMG = bakeFinish(); JOB = null; } else setTimeout(step, 30);

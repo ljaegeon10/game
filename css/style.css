@@ -1810,7 +1810,7 @@ html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 .tl-ecg.e1{ opacity:.3; } .tl-ecg.e2{ opacity:.65; } .tl-ecg.e3{ opacity:1; stroke:#eaffff; }
 
 /* ═══ 화면 밝기 — 설정의 「화면 밝기」 (settings.js 가 --bright 를 넣음 · 기본은 예전보다 조금 밝게) ═══ */
-#stage{ filter:brightness(var(--bright, 1.14)); }
+#stage canvas:not(#game):not(#titlecv){ filter:brightness(var(--bright, 1.14)); }   /* 게임 화면 · 시작 화면 그림은 캔버스 안에서 직접 (settings.js 의 brightPass) — 화면 전체에 필터를 걸면 무거움 */
 /* 기본 밝기 올림 — 화면을 덮던 그늘(가장자리 어둠 · 주사선 · 브라운관 안쪽 그림자)을 덜어 냄 */
 #vignette{ background:radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,.18) 100%); }
 #scanlines{ opacity:.16; }

@@ -21,9 +21,21 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const OUT = new WeakMap(), BUS = [];        // BUS : { ac, kind, node }
 const vol = k => k === 'music' ? S.music : k === 'sfx' ? S.sfx : S.master;
 const curve = v => v * v;                   // 귀에 고르게 들리게 (밀대 반이면 소리 1/4)
-/* 화면 밝기 — 설정의 100% 가 기본(BRIGHT_BASE 배 — 예전보다 조금 밝게). #stage 에 CSS 밝기 필터 (css 의 --bright) */
+/* 화면 밝기 — 설정의 100% 가 기본(BRIGHT_BASE 배 — 예전보다 조금 밝게).
+   게임 화면(#game) · 시작 화면 그림(#titlecv)은 캔버스 안에서 직접 밝힘(brightPass — 회색을 '닷지'로 한 번 칠하면 곱한 것과 같음. 화면 해상도와 상관없이 576×324 만큼만).
+   화면 전체(#stage)에 CSS 필터를 걸면 그 위의 겹(주사선 · 베젤 · 글자)까지 매 장 따로 합쳐 다시 그려야 해서 고해상도 화면에서 무거움 — 그래서 안 씀.
+   그 밖의 캔버스(컷신 · 2부의 3D)만 CSS 필터 (css 의 --bright) */
 const BRIGHT_BASE = 1.14;
 function applyBright() { try { document.documentElement.style.setProperty('--bright', (S.bright * BRIGHT_BASE).toFixed(3)); } catch (e) {} }
+function brightPass(c, canvas) {
+  const f = S.bright * BRIGHT_BASE;
+  if (Math.abs(f - 1) < .01) return;
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none';
+  if (f > 1) { const v = Math.round((1 - 1 / f) * 255); c.globalCompositeOperation = 'color-dodge'; c.fillStyle = `rgb(${v},${v},${v})`; }   // 닷지 : 바탕 ÷ (1 − 회색) = 바탕 × f
+  else { c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1 - f; c.fillStyle = '#000'; }
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.restore();
+}
 applyBright();
 function apply() {
   applyBright();
@@ -253,7 +265,7 @@ const TL = (() => {
   return { open, close };
 })();
 window.Settings = {
-  get: k => S[k], out, bus, open, close, isOpen, applyLayout, openLayout: () => TL.open(),
+  get: k => S[k], out, bus, open, close, isOpen, applyLayout, brightPass, openLayout: () => TL.open(),
   look: () => S.sens,                                  // 둘러보기 배율
   lookY: () => S.sens * (S.invertY ? -1 : 1)
 };

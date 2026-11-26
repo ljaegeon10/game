@@ -837,7 +837,8 @@ function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
   G.wreckT = 0;                                        // 주인공은 멀쩡한 채로 시작
   if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
-  else if (window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
+  if (window.WellShaft) WellShaft.hold = G.timeAttack;         // 타임어택 판이 도는 동안엔 우물 통로 굽기를 쉼
+  if (timeAttack === false && window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
@@ -920,7 +921,7 @@ function resetRun() {
   if (window.Festival) Festival.end();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
-  G.visited = new Set(); G.st = {}; G.seenGlitch = false; G.wreckT = 0;
+  G.visited = new Set(); G.st = {}; G.seenGlitch = false; G.wreckT = 0; if (window.WellShaft) WellShaft.hold = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmPlay(1500);   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
@@ -2811,6 +2812,7 @@ function render() {
   renderFrame();
   BK = 1; BX = 0; BY = 0;
   g.setTransform(SR, 0, 0, SR, 0, 0);
+  if (!hi && window.Settings) Settings.brightPass(g, cv);      // 화면 밝기 (설정) — 캔버스 안에서 (고해상도 컷신 캔버스는 css 필터)
   if (hi) { cv = cvMain; g = gMain; SR = 1; }
 }
 /* 방 위아래로 늘어난 띠 — 바닥 그림의 가장자리를 거울처럼 이어 붙임 (방 좌표, 카메라 밀기 안에서) */
@@ -3751,8 +3753,9 @@ function drawBoss() {
     if ((G.t >> 4) % 2) { c.fillStyle = '#ff8a6a'; c.fillRect(Math.round((21 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); c.fillRect(Math.round((73 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); }   // 안테나 끝 등이 깜빡
   };
   const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .8 : .3) : 0;
-  if (window.PixFX) PixFX.sprite(g, B.x, B.y, w + 6, h + 6, w / 2 + 3, h / 2 + 3, eye, { outline: '#07080c', hi: .1, lo: .16, flash: fl });
-  else { g.translate(B.x, B.y); eye(g); }
+  // 이미 도트 그림(외곽선까지 구워 둠)이라 픽셀 정리(PixFX.sprite — 매 장 읽고 다시 칠함) 없이 바로 찍음. 맞으면 구워 둔 흰 실루엣을 덧씌움
+  g.translate(Math.round(B.x), Math.round(B.y)); eye(g);
+  if (fl) { g.globalAlpha = fl; g.drawImage(BossPix.white(), -w / 2, -h / 2, w, h); g.globalAlpha = 1; }
   g.restore();
 
   drawBossBar(B, '관측자', 'THE OBSERVER', '#e0483c', 0);
@@ -4694,6 +4697,7 @@ function drawAbomLight() {
   g.restore();
 }
 
+const ABOM_HOLD = {};                                 // 심연 몸 그림을 붙잡아 두는 곳 (PixFX.sprite 의 hold)
 function drawAbom() {
   const B = G.boss;
   const A = B.act ? ABOM_ACT[B.act] : null;
@@ -4822,7 +4826,7 @@ function drawAbom() {
     const bw = Math.ceil(ABOM_W * sc * 1.9) + 24, bh = Math.ceil(ABOM_H * sc * 2.1) + 24;
     const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .75 : .25) : 0;
     PixFX.sprite(g, B.x, y, bw, bh, bw / 2, bh / 2, c => { const gg = g; g = c; try { abomBody(0, 0, sc, 0, 1, po); } finally { g = gg; } },
-                 { outline: '#080306', hi: .14, lo: .2, flash: fl });
+                 { outline: '#080306', hi: .14, lo: .2, flash: fl, hold: ABOM_HOLD, every: window.Perf && Perf.low ? 3 : 2 });   // 두 장(가벼운 화면은 세 장)에 한 번만 다시 정리
   } else {
     abomBody(B.x, y, sc, 0, 1, po);
     // 피격 깜빡임 — 몸통과 같은 자세로 겹쳐야 팔이 따로 놀지 않습니다

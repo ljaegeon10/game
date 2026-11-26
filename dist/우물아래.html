@@ -1839,7 +1839,7 @@ html.lowfx .tl-ecg-glow{ filter:none; opacity:.3; }
 .tl-ecg.e1{ opacity:.3; } .tl-ecg.e2{ opacity:.65; } .tl-ecg.e3{ opacity:1; stroke:#eaffff; }
 
 /* ═══ 화면 밝기 — 설정의 「화면 밝기」 (settings.js 가 --bright 를 넣음 · 기본은 예전보다 조금 밝게) ═══ */
-#stage{ filter:brightness(var(--bright, 1.14)); }
+#stage canvas:not(#game):not(#titlecv){ filter:brightness(var(--bright, 1.14)); }   /* 게임 화면 · 시작 화면 그림은 캔버스 안에서 직접 (settings.js 의 brightPass) — 화면 전체에 필터를 걸면 무거움 */
 /* 기본 밝기 올림 — 화면을 덮던 그늘(가장자리 어둠 · 주사선 · 브라운관 안쪽 그림자)을 덜어 냄 */
 #vignette{ background:radial-gradient(ellipse at center, rgba(0,0,0,0) 62%, rgba(0,0,0,.18) 100%); }
 #scanlines{ opacity:.16; }
@@ -2303,9 +2303,21 @@ const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch
 const OUT = new WeakMap(), BUS = [];        // BUS : { ac, kind, node }
 const vol = k => k === 'music' ? S.music : k === 'sfx' ? S.sfx : S.master;
 const curve = v => v * v;                   // 귀에 고르게 들리게 (밀대 반이면 소리 1/4)
-/* 화면 밝기 — 설정의 100% 가 기본(BRIGHT_BASE 배 — 예전보다 조금 밝게). #stage 에 CSS 밝기 필터 (css 의 --bright) */
+/* 화면 밝기 — 설정의 100% 가 기본(BRIGHT_BASE 배 — 예전보다 조금 밝게).
+   게임 화면(#game) · 시작 화면 그림(#titlecv)은 캔버스 안에서 직접 밝힘(brightPass — 회색을 '닷지'로 한 번 칠하면 곱한 것과 같음. 화면 해상도와 상관없이 576×324 만큼만).
+   화면 전체(#stage)에 CSS 필터를 걸면 그 위의 겹(주사선 · 베젤 · 글자)까지 매 장 따로 합쳐 다시 그려야 해서 고해상도 화면에서 무거움 — 그래서 안 씀.
+   그 밖의 캔버스(컷신 · 2부의 3D)만 CSS 필터 (css 의 --bright) */
 const BRIGHT_BASE = 1.14;
 function applyBright() { try { document.documentElement.style.setProperty('--bright', (S.bright * BRIGHT_BASE).toFixed(3)); } catch (e) {} }
+function brightPass(c, canvas) {
+  const f = S.bright * BRIGHT_BASE;
+  if (Math.abs(f - 1) < .01) return;
+  c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none';
+  if (f > 1) { const v = Math.round((1 - 1 / f) * 255); c.globalCompositeOperation = 'color-dodge'; c.fillStyle = `rgb(${v},${v},${v})`; }   // 닷지 : 바탕 ÷ (1 − 회색) = 바탕 × f
+  else { c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1 - f; c.fillStyle = '#000'; }
+  c.fillRect(0, 0, canvas.width, canvas.height);
+  c.restore();
+}
 applyBright();
 function apply() {
   applyBright();
@@ -2535,7 +2547,7 @@ const TL = (() => {
   return { open, close };
 })();
 window.Settings = {
-  get: k => S[k], out, bus, open, close, isOpen, applyLayout, openLayout: () => TL.open(),
+  get: k => S[k], out, bus, open, close, isOpen, applyLayout, brightPass, openLayout: () => TL.open(),
   look: () => S.sens,                                  // 둘러보기 배율
   lookY: () => S.sens * (S.invertY ? -1 : 1)
 };
@@ -4036,7 +4048,15 @@ function bakePlants(seed, depth) {
 function drawFloorPlants(g, p, t) {
   if (!p) return;
   p.grass.forEach(q => drawGrassTuft(g, q.x, q.y, q.s, '#28382a', t));
-  p.ferns.forEach(q => drawFern(g, q.x, q.y, q.s, '#27392a', '#18261a'));
+  if (p.ferns.length) {                                   // 고사리는 안 움직임 — 방마다 한 장으로 구워 두고 찍기만 (매 장 선 수백 개를 다시 긋고 있었음)
+    if (!p._fern) { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      p.ferns.forEach(q => { x0 = Math.min(x0, q.x - q.s * 2 - 4); y0 = Math.min(y0, q.y - q.s * 2 - 4); x1 = Math.max(x1, q.x + q.s * 2 + 4); y1 = Math.max(y1, q.y + q.s * 2 + 4); });
+      x0 = Math.floor(x0); y0 = Math.floor(y0);
+      const c = document.createElement('canvas'); c.width = Math.ceil(x1 - x0); c.height = Math.ceil(y1 - y0);
+      const fx = c.getContext('2d'); fx.translate(-x0, -y0); p.ferns.forEach(q => drawFern(fx, q.x, q.y, q.s, '#27392a', '#18261a'));
+      p._fern = { c, x: x0, y: y0 }; }
+    g.drawImage(p._fern.c, p._fern.x, p._fern.y);
+  }
   p.glow.forEach(q => drawGlowShrooms(g, q.x, q.y, q.s, t, q.c));
 }
 
@@ -4504,8 +4524,8 @@ function core() {
   return s.outline(hex('#2a0a10'), hex('#4a1016')).canvas();
 }
 
-let SH = null, CO = null;
-window.BossPix = { W, H, CX, CY, shell: () => SH || (SH = shell()), core: () => CO || (CO = core()),
+let SH = null, CO = null, WH = null;
+window.BossPix = { W, H, CX, CY, shell: () => SH || (SH = shell()), core: () => CO || (CO = core()), white: () => WH || (WH = window.FoePix.white(SH || (SH = shell()))),
   METAL: ['#222932', '#48545f', '#8592a0', '#d5dde4', '#333d48'] };
 })();
 
@@ -4554,12 +4574,22 @@ function spriteCtx(w, h) {
   sX.clearRect(0, 0, w, h); bbReset(sX);
   return sX;
 }
-const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const HEX = {}; const hexRgb = h => HEX[h] || (HEX[h] = (n => [n >> 16 & 255, n >> 8 & 255, n & 255])(parseInt(h.slice(1), 16)));   // 색 풀이는 한 번만
+let MASK = new Uint8Array(0);                              // 칠해진 곳 표 — 매번 새로 만들지 않고 키워 가며 다시 씀 (쓰레기 수거 줄임)
 /* g 의 (x, y) 에 — 캔버스 w×h, 그 안의 (ox, oy) 가 (x, y) 에 오도록.
    draw(ctx) 는 (ox, oy) 를 원점으로 그립니다.
    opt : outline '#rrggbb' · hi 위 빛 세기(0‥1) · lo 아래 그늘 · flash 흰 실루엣 0‥1 · cut 남길 알파 문턱 */
 function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
   w = Math.ceil(w); h = Math.ceil(h);
+  /* opt.hold = { } · opt.every = n — 큰 몸(심연)은 n 장에 한 번만 다시 정리하고 그 사이엔 붙잡아 둔 결과를 그 자리에 찍기만 함
+     (자세는 천천히 바뀌므로 눈에 안 띔. 깜빡임 세기나 칸 크기가 바뀌면 바로 다시) */
+  const H = opt.hold, hk = H ? w + 'x' + h + ':' + (opt.flash || 0) : '';
+  if (H && H.cv && H.left > 0 && H.key === hk) {
+    H.left--;
+    const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
+    g.drawImage(H.cv, 0, 0, H.w, H.h, Math.round(x + H.dx), Math.round(y + H.dy), H.w, H.h);
+    g.imageSmoothingEnabled = sm; return;
+  }
   const c = spriteCtx(w, h);
   c.save(); c.translate(ox, oy); draw(c); c.restore();
   // 그린 곳 상자만 (+1 외곽선 자리) — 큰 몸(심연)은 넉넉히 잡은 칸의 절반 넘게 비어 있었음
@@ -4569,7 +4599,8 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
   x += sx; y += sy; w = ex - sx; h = ey - sy;
   const id = c.getImageData(sx, sy, w, h), d = id.data, n = w * h;
   const cut = opt.cut == null ? 96 : opt.cut;
-  const m = new Uint8Array(n);
+  if (MASK.length < n) MASK = new Uint8Array(n);
+  const m = MASK;
   for (let i = 0; i < n; i++) m[i] = d[i * 4 + 3] >= cut ? 1 : 0;
   const ol = hexRgb(opt.outline || '#0b0910'), hi = opt.hi == null ? .32 : opt.hi, lo = opt.lo == null ? .3 : opt.lo, fl = opt.flash || 0;
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
@@ -4587,7 +4618,13 @@ function sprite(g, x, y, w, h, ox, oy, draw, opt = {}) {
       else d[p + 3] = 0;
     }
   }
-  const bc = blitCtx(w, h); bc.putImageData(id, 0, 0);
+  let bc;
+  if (H) {                                                 // 붙잡아 둘 것은 제 캔버스에 (함께 쓰는 옮김 캔버스는 다음 몸이 덮어씀)
+    if (!H.cv || H.cv.width < w || H.cv.height < h) { H.cv = document.createElement('canvas'); H.cv.width = Math.ceil(w / 32) * 32; H.cv.height = Math.ceil(h / 32) * 32; H.x = H.cv.getContext('2d'); }
+    else H.x.clearRect(0, 0, H.cv.width, H.cv.height);
+    bc = H.x; H.w = w; H.h = h; H.dx = sx - ox; H.dy = sy - oy; H.key = hk; H.left = (opt.every || 2) - 1;
+  } else bc = blitCtx(w, h);
+  bc.putImageData(id, 0, 0);
   const sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false;
   g.drawImage(bc.canvas, 0, 0, w, h, Math.round(x - ox), Math.round(y - oy), w, h);
   g.imageSmoothingEnabled = sm;
@@ -10520,6 +10557,7 @@ function draw() {
   g = c.createRadialGradient(W * .52, H * .45, H * .3, W * .52, H * .45, W * .72);
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.72)');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
+  if (window.Settings && Settings.brightPass) Settings.brightPass(c, cv);      // 화면 밝기 (설정)
 }
 let lastDraw = 0;
 function loop() {
@@ -10700,9 +10738,11 @@ window.WellShaft = {
   bake() { if (!IMG) { bakeRows(JOB ? JOB.y : 0, BH); IMG = bakeFinish(); JOB = null; } return IMG; },
   /* 틈틈이 조금씩 구워 둠 — 한 번에 18줄, 다 되면 끝 */
   prebake() {
-    if (IMG || (JOB && JOB.busy)) return;
+    if (IMG || (JOB && JOB.busy) || this._run) return;
+    this._run = true;
     const step = () => {
       if (IMG) return;
+      if (window.WellShaft.hold) { JOB && (JOB.busy = true); setTimeout(step, 600); return; }   // 타임어택 판이 도는 동안엔 쉼 (그 판엔 우물 컷신이 없음)
       const y0 = JOB ? JOB.y : 0, y1 = Math.min(BH, y0 + 18);
       bakeRows(y0, y1); JOB.y = y1; JOB.busy = true;
       if (y1 >= BH) { IMG = bakeFinish(); JOB = null; } else setTimeout(step, 30);
@@ -17637,7 +17677,8 @@ function startGame(timeAttack = true, diffId = 'normal') {
   G.timeAttack = timeAttack !== false;
   G.wreckT = 0;                                        // 주인공은 멀쩡한 채로 시작
   if (timeAttack !== false) { clearTimeout(warmT); op3dDispose(); }   // 타임어택 — 컷신(오프닝 · 우물 · 엔딩)용 3D 는 짓지도 않고, 지어 둔 게 있으면 버려 메모리 비움
-  else if (window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
+  if (window.WellShaft) WellShaft.hold = G.timeAttack;         // 타임어택 판이 도는 동안엔 우물 통로 굽기를 쉼
+  if (timeAttack === false && window.WellShaft) WellShaft.prebake();   // 우물 바닥에서 올려다볼 통로를 틈틈이 구워 둠 (떨어지기 전에 끝남)
   prebakeFloors(600);                           // 방 바닥도 — 숲에 있는 동안 미리 (방을 옮길 때 안 멈추게)
   /* 난이도를 BALANCE 에 얹는 건 방을 만들기 전, 판이 시작되는 이 시점입니다 */
   const d = applyDifficulty(G.timeAttack ? 'ta' : diffId);   // 타임어택 — 보스만 쉬움과 보통 사이 (rooms.js 의 DIFF.ta)
@@ -17720,7 +17761,7 @@ function resetRun() {
   if (window.Festival) Festival.end();
   G.keys = 0; G.doorKeys = 0; G.gateOpen = false; G.bossDead = false;
   G.finalKey = false;
-  G.visited = new Set(); G.st = {}; G.seenGlitch = false; G.wreckT = 0;
+  G.visited = new Set(); G.st = {}; G.seenGlitch = false; G.wreckT = 0; if (window.WellShaft) WellShaft.hold = false;
   G.bullets = []; G.foes = []; G.fx = []; G.pickups = []; G.pots = []; G.clouds = [];
   G.rings = []; G.glare = 0; G.wake = 0; G.endWarp = 0; G.opening = null; op3dDispose(); warmPlay(1500);   // 오프닝 3D 는 일반 모드를 고를 때 다시 지음
   G.doze = null; G.dozeSeen = false; G.idleT = 0;
@@ -19611,6 +19652,7 @@ function render() {
   renderFrame();
   BK = 1; BX = 0; BY = 0;
   g.setTransform(SR, 0, 0, SR, 0, 0);
+  if (!hi && window.Settings) Settings.brightPass(g, cv);      // 화면 밝기 (설정) — 캔버스 안에서 (고해상도 컷신 캔버스는 css 필터)
   if (hi) { cv = cvMain; g = gMain; SR = 1; }
 }
 /* 방 위아래로 늘어난 띠 — 바닥 그림의 가장자리를 거울처럼 이어 붙임 (방 좌표, 카메라 밀기 안에서) */
@@ -20551,8 +20593,9 @@ function drawBoss() {
     if ((G.t >> 4) % 2) { c.fillStyle = '#ff8a6a'; c.fillRect(Math.round((21 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); c.fillRect(Math.round((73 - 48) * kx), Math.round((2 - 43.5) * kx), 2, 2); }   // 안테나 끝 등이 깜빡
   };
   const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .8 : .3) : 0;
-  if (window.PixFX) PixFX.sprite(g, B.x, B.y, w + 6, h + 6, w / 2 + 3, h / 2 + 3, eye, { outline: '#07080c', hi: .1, lo: .16, flash: fl });
-  else { g.translate(B.x, B.y); eye(g); }
+  // 이미 도트 그림(외곽선까지 구워 둠)이라 픽셀 정리(PixFX.sprite — 매 장 읽고 다시 칠함) 없이 바로 찍음. 맞으면 구워 둔 흰 실루엣을 덧씌움
+  g.translate(Math.round(B.x), Math.round(B.y)); eye(g);
+  if (fl) { g.globalAlpha = fl; g.drawImage(BossPix.white(), -w / 2, -h / 2, w, h); g.globalAlpha = 1; }
   g.restore();
 
   drawBossBar(B, '관측자', 'THE OBSERVER', '#e0483c', 0);
@@ -21494,6 +21537,7 @@ function drawAbomLight() {
   g.restore();
 }
 
+const ABOM_HOLD = {};                                 // 심연 몸 그림을 붙잡아 두는 곳 (PixFX.sprite 의 hold)
 function drawAbom() {
   const B = G.boss;
   const A = B.act ? ABOM_ACT[B.act] : null;
@@ -21622,7 +21666,7 @@ function drawAbom() {
     const bw = Math.ceil(ABOM_W * sc * 1.9) + 24, bh = Math.ceil(ABOM_H * sc * 2.1) + 24;
     const fl = B.flash > 0 ? ((G.t >> 1) % 2 ? .75 : .25) : 0;
     PixFX.sprite(g, B.x, y, bw, bh, bw / 2, bh / 2, c => { const gg = g; g = c; try { abomBody(0, 0, sc, 0, 1, po); } finally { g = gg; } },
-                 { outline: '#080306', hi: .14, lo: .2, flash: fl });
+                 { outline: '#080306', hi: .14, lo: .2, flash: fl, hold: ABOM_HOLD, every: window.Perf && Perf.low ? 3 : 2 });   // 두 장(가벼운 화면은 세 장)에 한 번만 다시 정리
   } else {
     abomBody(B.x, y, sc, 0, 1, po);
     // 피격 깜빡임 — 몸통과 같은 자세로 겹쳐야 팔이 따로 놀지 않습니다

@@ -79,7 +79,7 @@ function core() {
   return s.outline(hex('#2a0a10'), hex('#4a1016')).canvas();
 }
 
-let SH = null, CO = null;
-window.BossPix = { W, H, CX, CY, shell: () => SH || (SH = shell()), core: () => CO || (CO = core()),
+let SH = null, CO = null, WH = null;
+window.BossPix = { W, H, CX, CY, shell: () => SH || (SH = shell()), core: () => CO || (CO = core()), white: () => WH || (WH = window.FoePix.white(SH || (SH = shell()))),
   METAL: ['#222932', '#48545f', '#8592a0', '#d5dde4', '#333d48'] };
 })();
