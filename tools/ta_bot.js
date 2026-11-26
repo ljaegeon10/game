@@ -5,7 +5,8 @@ const { chromium } = require('playwright');
 const MARGIN = +(process.env.MARGIN ?? 3), BOSSLEFT = process.env.BOSSLEFT === '1', ICPT = process.env.ICPT === '1', SEEK = process.env.SEEK === '1', INSTA = process.argv[5] === 'insta', MODE = process.argv[6] || 'chase', HOLD = +process.argv[7] || 150, SEED = +process.argv[8] || 0, IMMORTAL = process.argv[2] !== 'mortal', APPROACH = +process.argv[3] || 120, LEAD = process.argv[4] != null ? +process.argv[4] : 1;
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
-  const p = await b.newPage({ viewport: { width: 640, height: 360 } });
+  const REC = process.env.REC || '', RW = +(process.env.RW || 768);        // REC=폴더 : 두 칸(1/30초)마다 화면을 찍어 둠 — 순위판의 플레이 영상용 (tools/make_play_video.sh)
+  const p = await b.newPage({ viewport: REC ? { width: RW, height: Math.round(RW * 9 / 16) } : { width: 640, height: 360 } });
   const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push('console: ' + m.text()); });
   if (SEED) await p.addInitScript(seed => { let x = seed >>> 0 || 1; Math.random = () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }, SEED);
   await p.addInitScript(() => {
@@ -208,7 +209,8 @@ const MARGIN = +(process.env.MARGIN ?? 3), BOSSLEFT = process.env.BOSSLEFT === '
   }, IMMORTAL);
   let done = false, frames = 0;
   while (!done && frames < 60 * 400) {
-    await p.evaluate(() => __step(30)); frames += 30;
+    if (REC) { for (let i = 0; i < 15; i++) { await p.evaluate(() => __step(2)); await p.screenshot({ path: `${REC}/f${String(frames / 2 + i).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 92 }); } frames += 30; }
+    else { await p.evaluate(() => __step(30)); frames += 30; }
     const s = await p.evaluate(() => ({ mode: __game.G.mode, room: __game.G.room, running: __game.RUN.running, el: __game.RUN.elapsed, t: __game.bot().runTime() }));
     if (!s.running && s.el > 0) done = true;
     if (frames % 1800 === 0) console.log('…', (frames / 60).toFixed(0) + 's', s.mode, s.room, (s.t / 1000).toFixed(1));

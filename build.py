@@ -83,7 +83,9 @@ print(f"✔  {DOCS / 'index.html'}  ({(DOCS / 'index.html').stat().st_size/1024:
 # 실시간 순위판 (따로 띄우는 화면) — 같은 festival-config.js 의 서버에서 순위를 받아 옴
 import shutil
 (DOCS / "board.html").write_text((ROOT / "web" / "board.html").read_text(encoding="utf-8")
-                                  .replace('src="festival-config.js"', f'src="festival-config.js?v={VER}"'), encoding="utf-8")
+                                  .replace('src="festival-config.js"', f'src="festival-config.js?v={VER}"')
+                                  .replace('src="play.mp4"', f'src="play.mp4?v={VER}"'), encoding="utf-8")
+# (순위판 뒤에 깔리는 플레이 영상 docs/play.mp4 · play.jpg 는 tools/make_play_video.sh 가 docs 에 바로 만듦 — 5MB 라 두 벌 두지 않음)
 shutil.copyfile(ROOT / "web" / "qrcode.js", DOCS / "qrcode.js")              # QR 생성 (MIT) — CDN 없이
 (DOCS / "fonts").mkdir(exist_ok=True)
 shutil.copyfile(ROOT / "assets" / "fonts" / "DungGeunMo.woff2", DOCS / "fonts" / "DungGeunMo.woff2")

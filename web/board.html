@@ -175,6 +175,22 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
 .gate button{ font:inherit; font-size:18px; padding:8px 26px; color:var(--ink); background:var(--hwang); border:none; cursor:pointer; }
 .gate .err{ color:var(--danger); min-height:1.2em; font-size:15px; }
 
+/* 플레이 영상 — 순위 목록 뒤에 깔림. 영상은 조금 어둡게(왼쪽 이름 쪽을 더), 순위 줄은 그 위에 반투명한 띠로 얹혀 글씨가 묻히지 않음 */
+.stagev{ position:relative; flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:#07060b; }
+.stagev video{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.78; }
+.stagev video[hidden]{ display:none; }
+.stagev::before{ content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(90deg, rgba(8,7,13,.7) 0%, rgba(8,7,13,.38) 55%, rgba(8,7,13,.55) 100%), linear-gradient(180deg, rgba(8,7,13,.5) 0%, rgba(8,7,13,0) 22%, rgba(8,7,13,0) 78%, rgba(8,7,13,.55) 100%); }
+.stagev ol{ position:relative; z-index:2; }
+.stagev li{ text-shadow:0 2px 0 rgba(0,0,0,.85), 0 0 10px rgba(0,0,0,.7); border-bottom-color:rgba(241,236,224,.16); }
+.stagev li:not(.p1):not(.empty){ background:rgba(8,7,13,.36); }
+.stagev li.p1{ background:linear-gradient(90deg, rgba(227,178,60,.42), rgba(60,44,10,.34)); }
+.stagev li.empty{ flex:1; max-height:none; align-items:center; color:var(--baek); font-size:clamp(16px, 2.1vw, 32px); }
+.stagev li .tl{ color:rgba(241,236,224,.6); }
+.stagev .tag{ position:absolute; right:10px; bottom:8px; z-index:1; display:flex; align-items:center; gap:.5em; padding:3px 9px 2px; font-size:clamp(9px, .8vw, 13px); letter-spacing:.22em; color:rgba(241,236,224,.75); background:rgba(5,6,10,.6); }
+.stagev .tag i{ width:.6em; height:.6em; border-radius:50%; background:var(--danger); animation:blink 1.2s steps(2) infinite; }
+.stagev:has(video[hidden]) .tag, .stagev:not(:has(li.empty)) .tag{ display:none; }      /* 표시는 순위가 비어 영상이 훤히 보일 때만 — 순위 줄을 가리지 않게 */
+
 /* 세로 화면 · 좁은 화면 — 한 줄로 */
 @media (max-aspect-ratio: 1/1), (max-width: 760px){
   body{ overflow:auto; }
@@ -182,6 +198,7 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
   header{ flex-direction:column; align-items:flex-start; }
   .stats{ text-align:left; }
   li{ min-height:44px; max-height:none; }
+  .stagev{ min-height:clamp(190px, 56vw, 440px); }
 }
 </style>
 </head>
@@ -209,7 +226,9 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
       <button type="button" role="tab" data-tab="hard">어려움 클리어</button>
     </div>
     <div class="rank-head" id="rankHead"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
-    <ol id="list"></ol>
+    <!-- 순위 목록 뒤에 플레이 영상이 깔림 — 순위 줄은 그 위에 얹힘 (docs/play.mp4 : 타임어택 한 판, 소리 없이 되풀이. tools/make_play_video.sh 로 다시 만듦) -->
+    <div class="stagev" id="play"><video id="playVid" src="play.mp4" poster="play.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true"></video>
+      <ol id="list"></ol><span class="tag" aria-hidden="true"><i></i>플레이 영상</span></div>
     <p class="rule" id="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
   </section>
 
@@ -507,6 +526,15 @@ render(); renderLive();
 if (!SERVER) { net(false, '기록 서버 주소가 없어요 (festival-config.js 의 WB_SERVER)'); return; }
 poll(); setInterval(poll, 3000);
 setInterval(() => { if (live && live.state === 'play') renderLive(); }, 100);   // 도전 중 시계는 매끄럽게
+})();
+
+/* 플레이 영상(순위 목록 뒤) — 파일이 없거나 못 틀면 영상만 숨김. 자동 재생이 막힌 브라우저는 처음 누를 때 시작, 탭으로 돌아오면 다시 */
+(() => { const box = document.getElementById('play'), v = document.getElementById('playVid'); if (!v) return;
+  const go = () => { const p = v.play(); if (p && p.catch) p.catch(() => {}); };
+  v.addEventListener('error', () => { v.hidden = true; });                 // 영상만 숨김 — 순위 목록은 그대로
+  v.muted = true; go();
+  addEventListener('pointerdown', go, { once: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) go(); });
 })();
 </script>
 </body>
