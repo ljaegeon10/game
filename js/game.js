@@ -857,6 +857,7 @@ function startGame(timeAttack = true, diffId = 'normal') {
   updateHud();
   Sfx.unlock();
   Sfx.preloadDungeonBgm();   // 우물에 떨어질 때 끊기지 않도록 미리 디코딩해 둡니다
+  if (G.timeAttack) warmNow();   // 타임어택 — 시계가 돌기 전에 남은 굽기를 다 끝냄 (예전엔 숲을 걷는 동안 방 바닥을 굽느라 70ms씩 멈췄음)
   if (G.timeAttack) { startRun(); if (window.Festival) Festival.begin(); }   // 축제판 — 순위판에 "지금 도전 중"
   else { RUN.running = false; RUN.elapsed = 0; }
   loadForest(true);       // 일반 모드는 1인칭 오프닝부터 (타임어택은 loadForest 가 건너뜀)
@@ -1082,6 +1083,13 @@ function autoGate() {
   updateHud();
   return true;
 }
+/* 타임어택 안내 띠 (아래쪽) — 대사창처럼 멈추지 않고 잠깐 떴다 사라짐 */
+function taToast(html, ms = 3200) {
+  const n = $('tanotice'); if (!n) return;
+  if (!n._orig) n._orig = n.innerHTML;
+  n.innerHTML = '<b>TIME ATTACK</b>' + html; n.classList.add('on');
+  clearTimeout(n._t); n._t = setTimeout(() => { n.classList.remove('on'); setTimeout(() => { if (!n.classList.contains('on')) n.innerHTML = n._orig; }, 500); }, ms);
+}
 function doorLockReason(toId) {
   const t = MAP[toId];
   if (t.needKeys && !G.gateOpen) return 'keys';
@@ -1167,6 +1175,15 @@ function loadRoom(id, fromDir) {
   (r.pots || []).forEach((p, i) => { if (s.pots[i]) G.pots.push({ x: p.x, y: p.y, i }); });
   if (r.key && !s.keyTaken) G.floorKey = { x: r.key.x, y: r.key.y, bob: 0 };
   if (r.chest) G.chest = { ...r.chest, open: s.chestOpen };
+  // 타임어택 — 열쇠 방(중앙 위 · 아래)은 들어가기만 하면 관문 열쇠 (몹을 다 잡을 필요 없음, 그냥 지나가도 됨)
+  if (G.timeAttack && TA_KEY_ROOMS.includes(id) && !s.rewarded) {
+    s.rewarded = true; syncKeys(); updateHud(); bumpKeys('gatekeys');
+    setTimeout(() => Sfx.keyGet(), 120);
+    const opened = autoGate();
+    if (opened) setTimeout(() => { Sfx.door(); G.shake = Math.max(G.shake, 8); }, 380);
+    taToast(opened ? `관문 열쇠 <em>${DOOR_KEYS_NEEDED}/${DOOR_KEYS_NEEDED}</em> — 관문이 열렸다! 중앙으로 돌아가 <em>오른쪽</em>으로`
+                   : `관문 열쇠 <em>${G.doorKeys}/${DOOR_KEYS_NEEDED}</em> — 남은 열쇠 방으로 (지도의 청록 점)`);
+  }
 
   // 입장 위치 : 들어온 문 반대쪽에서 걸어 들어옵니다
   const spawn = {
@@ -2129,7 +2146,7 @@ function clampPlayer(forest) {
 }
 
 function checkDoorTransit() {
-  if (G.foes.length || G.boss) return;      // 적이 남아 있으면 문이 막힌다
+  if ((G.foes.length && !(G.timeAttack && TA_KEY_ROOMS.includes(G.room))) || G.boss) return;      // 적이 남아 있으면 문이 막힌다 (타임어택 열쇠 방은 들어가면 끝이라 예외)
   const go = (d) => { Sfx.door(); loadRoom(G.doors[d].to, OPP[d]); };
   if (G.doors.W && !G.doors.W.lock && P.x <= TS - 6) return go('W');
   if (G.doors.E && !G.doors.E.lock && P.x >= W - TS + 6) return go('E');
@@ -3376,14 +3393,16 @@ function drawMinimap() {
   g.fillRect(x0 - 4, y0 - 4, bw + 8, bh + 8);
   g.strokeStyle = 'rgba(241,236,224,.42)';
   g.strokeRect(x0 - 4.5, y0 - 4.5, bw + 9, bh + 9);
+  const ta = G.timeAttack;                     // 타임어택 — 공략 길(TA_PATH)의 방만, 안 가 본 곳도 처음부터 테두리로. 길 밖의 방은 안 그림 (헷갈렸음)
   ids.forEach(id => {
     const r = MAP[id];
     const x = x0 + r.gx * (cell + gap), y = y0 + r.gy * (cell + gap);
-    const seen = G.visited.has(id);
+    const seen = G.visited.has(id), onPath = TA_PATH.includes(id);
+    if (ta && !onPath && !seen) return;
     // 이웃과의 연결선
     ['E', 'S'].forEach(d => {
       const nb = neighbourOf(id, d);
-      if (!nb || !(seen || G.visited.has(nb))) return;
+      if (!nb || (ta ? !(onPath && TA_PATH.includes(nb)) : !(seen || G.visited.has(nb)))) return;
       g.fillStyle = 'rgba(200,210,228,.7)';
       if (d === 'E') g.fillRect(x + cell, y + cell / 2 - .5, gap, 1);
       else g.fillRect(x + cell / 2 - .5, y + cell, 1, gap);
@@ -3391,7 +3410,7 @@ function drawMinimap() {
     if (id === G.room) { g.fillStyle = '#ffd24a'; g.fillRect(x, y, cell, cell); }
     else if (seen) { g.fillStyle = 'rgba(206,216,234,.92)'; g.fillRect(x, y, cell, cell); }
     else {
-      const adj = Object.keys(DIRS).some(d => {
+      const adj = ta || Object.keys(DIRS).some(d => {
         const nb = neighbourOf(id, d); return nb && G.visited.has(nb);
       });
       if (!adj) return;
@@ -5531,6 +5550,13 @@ function warmPlay(delay = 800) {
     if (steps.length) warmPT = setTimeout(() => idle(next), 60);
   };
   warmPT = setTimeout(() => idle(next), delay);
+}
+/* 남은 굽기를 지금 한꺼번에 — 타임어택 시작 직전 (시계가 돌기 전이라 한 번 멈춰도 기록 · 손맛에 영향 없음).
+   시작 화면에 몇 초 머물렀다면 warmPlay 가 이미 다 해 두어 바로 지나감 */
+function warmNow() {
+  clearTimeout(floorJob); clearTimeout(warmPT);
+  try { heroArt(); if (window.FoePix) FoePix.bake(); if (window.BossPix) { BossPix.shell(); BossPix.core(); BossPix.white(); } } catch (e) {}
+  for (const id of Object.keys(MAP)) roomFloor(id);
 }
 function warmOpening(delay = 1200) {
   clearTimeout(warmT);
