@@ -222,7 +222,7 @@ function buildEntry() {
   box.innerHTML = `
     <p class="ms-q">타임어택 참가 등록</p>
     <p class="fe-dev hidden" id="fe-dev"></p>
-    <p class="fe-tanote">지도의 <b>노란 ✚ 방 두 곳</b>에 들어가기만 하면 관문 열쇠<br>관문이 열리면 오른쪽으로 · <b>청록 점</b>이 최단 경로</p>
+    <p class="fe-tanote">지도의 <b>노란 ✚ 방 두 곳</b>의 몬스터를 다 잡으면 관문 열쇠<br>관문이 열리면 오른쪽으로 · <b>청록 점</b>이 최단 경로</p>
     <p id="fe-nowrite" class="hidden"></p>
     <div id="fe-recent" class="hidden"><p class="fe-rq">전에 한 사람이면 이름을 누르세요</p><div id="fe-chips"></div>
       <div id="fe-check" class="hidden"><span id="fe-checkname"></span><input id="fe-tail" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="뒷자리 4개"></div>

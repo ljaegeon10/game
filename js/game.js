@@ -1175,15 +1175,6 @@ function loadRoom(id, fromDir) {
   (r.pots || []).forEach((p, i) => { if (s.pots[i]) G.pots.push({ x: p.x, y: p.y, i }); });
   if (r.key && !s.keyTaken) G.floorKey = { x: r.key.x, y: r.key.y, bob: 0 };
   if (r.chest) G.chest = { ...r.chest, open: s.chestOpen };
-  // 타임어택 — 열쇠 방(중앙 위 · 아래)은 들어가기만 하면 관문 열쇠 (몹을 다 잡을 필요 없음, 그냥 지나가도 됨)
-  if (G.timeAttack && TA_KEY_ROOMS.includes(id) && !s.rewarded) {
-    s.rewarded = true; syncKeys(); updateHud(); bumpKeys('gatekeys');
-    setTimeout(() => Sfx.keyGet(), 120);
-    const opened = autoGate();
-    if (opened) setTimeout(() => { Sfx.door(); G.shake = Math.max(G.shake, 8); }, 380);
-    taToast(opened ? `관문 열쇠 <em>${DOOR_KEYS_NEEDED}/${DOOR_KEYS_NEEDED}</em> — 관문이 열렸다! 중앙으로 돌아가 <em>오른쪽</em>으로`
-                   : `관문 열쇠 <em>${G.doorKeys}/${DOOR_KEYS_NEEDED}</em> — 남은 열쇠 방으로 (지도의 청록 점)`);
-  }
 
   // 입장 위치 : 들어온 문 반대쪽에서 걸어 들어옵니다
   const spawn = {
@@ -2105,9 +2096,12 @@ function onRoomCleared() {
   s.rewarded = true;
   if (clr === 'doorKey') {
     updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
-    if (autoGate()) { Sfx.door(); G.shake = Math.max(G.shake, 8);                              // 타임어택 — 두 번째 열쇠면 관문이 바로 열림
-      say([{ t: `관문 열쇠 ${DOOR_KEYS_NEEDED}/${DOOR_KEYS_NEEDED} — **관문이 열렸다.** 중앙으로 돌아가 오른쪽으로!`, w: false }]); }
-    else say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
+    if (G.timeAttack) {                                     // 타임어택 — 대사창으로 멈추지 않고 아래 띠로. 두 번째 열쇠면 관문이 바로 열림
+      const opened = autoGate();
+      if (opened) setTimeout(() => { Sfx.door(); G.shake = Math.max(G.shake, 8); }, 300);
+      taToast(opened ? `관문 열쇠 <em>${DOOR_KEYS_NEEDED}/${DOOR_KEYS_NEEDED}</em> — 관문이 열렸다! 중앙으로 돌아가 <em>오른쪽</em>으로`
+                     : `관문 열쇠 <em>${G.doorKeys}/${DOOR_KEYS_NEEDED}</em> — 남은 열쇠 방으로 (지도의 청록 점)`);
+    } else say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
     say([{ t: '어, 사라진 자리에 열쇠가 떨어져 있네.', w: false }]);
@@ -2146,7 +2140,7 @@ function clampPlayer(forest) {
 }
 
 function checkDoorTransit() {
-  if ((G.foes.length && !(G.timeAttack && TA_KEY_ROOMS.includes(G.room))) || G.boss) return;      // 적이 남아 있으면 문이 막힌다 (타임어택 열쇠 방은 들어가면 끝이라 예외)
+  if (G.foes.length || G.boss) return;      // 적이 남아 있으면 문이 막힌다
   const go = (d) => { Sfx.door(); loadRoom(G.doors[d].to, OPP[d]); };
   if (G.doors.W && !G.doors.W.lock && P.x <= TS - 6) return go('W');
   if (G.doors.E && !G.doors.E.lock && P.x >= W - TS + 6) return go('E');
