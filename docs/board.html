@@ -9,7 +9,7 @@
      (구글 앱스 스크립트, server/apps_script.gs) 에서 3초마다 순위를 받아 옵니다. 연락처는 오지 않음(뒷자리 4개만).
      F 또는 오른쪽 아래 ⛶ — 전체 화면.  주소 끝 ?top=15 — 보여 줄 등수 (기본 10).
      글 · 상품 · 공지 · 등수 · PIN 은 구글 시트의 '순위판 설정' 탭에서 고치면 몇 초 뒤 그대로 바뀝니다. -->
-<script src="festival-config.js?v=1795676652"></script>
+<script src="festival-config.js?v=1795745335"></script>
 <script src="qrcode.js"></script><!-- QR 생성 (Kazuhiko Arase, MIT) — 인터넷 CDN 없이 같은 사이트에서 -->
 <style>
 @font-face{ font-family:'DungGeunMo'; src:url(fonts/DungGeunMo.woff2) format('woff2'); font-display:swap; }
@@ -232,7 +232,7 @@ body.admin .rank-head{ grid-template-columns:var(--cols) auto; }
     </div>
     <div class="rank-head" id="rankHead"><span>순위</span><span>이름</span><span></span><span style="text-align:right">기록</span></div>
     <!-- 순위 목록 뒤에 플레이 영상이 깔림 — 순위 줄은 그 위에 얹힘 (docs/play.mp4 : 타임어택 한 판, 소리 없이 되풀이. tools/make_play_video.sh 로 다시 만듦) -->
-    <div class="stagev" id="play"><video id="playVid" src="play.mp4?v=1795676652" poster="play.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true"></video>
+    <div class="stagev" id="play"><video id="playVid" src="play.mp4?v=1795745335" poster="play.jpg" autoplay muted loop playsinline preload="auto" disablepictureinpicture aria-hidden="true"></video>
       <ol id="list"></ol><span class="tag" aria-hidden="true"><i></i>플레이 영상</span></div>
     <p class="rule" id="rule">클리어한 사람은 빠른 순 · 못 깬 사람은 멀리 간 순으로 그 아래 · 같은 사람은 가장 좋은 기록 하나</p>
   </section>

@@ -18629,6 +18629,15 @@ function gateBlocker() {
   return null;
 }
 
+/* 타임어택 — 관문 열쇠 2개가 모이면 관문(중앙 → 관문 방 문)이 저절로 열림. 예전엔 문 앞에 서서 SPACE 를 눌러야 해서,
+   최단 경로를 따라 중앙으로 돌아온 사람이 닫힌 문 앞에서 막힌 줄 알았음. 일반 모드는 예전처럼 직접 열어야 함 */
+function autoGate() {
+  if (!G.timeAttack || G.gateOpen || !gateReady()) return false;
+  G.gateOpen = true;
+  if (G.room) buildDoors(G.room);
+  updateHud();
+  return true;
+}
 function doorLockReason(toId) {
   const t = MAP[toId];
   if (t.needKeys && !G.gateOpen) return 'keys';
@@ -18708,7 +18717,7 @@ function loadRoom(id, fromDir) {
   G.theme = roomTheme(id); G.props = buildRoomProps(id);
   G.floor = roomFloor(id);                     // 미리 구워 둔 바닥 (없으면 지금 굽기)
   G.plants = bakePlants(hash(id) + 91, r.depth);
-  buildDoors(id);
+  if (!autoGate()) buildDoors(id);             // 타임어택 — 열쇠가 다 모였으면 어느 방에 들어서든 관문은 이미 열려 있음
 
   if (!s.cleared) (r.enemies || []).forEach(e => spawnFoe(e.t, e.x, e.y));
   (r.pots || []).forEach((p, i) => { if (s.pots[i]) G.pots.push({ x: p.x, y: p.y, i }); });
@@ -19635,7 +19644,9 @@ function onRoomCleared() {
   s.rewarded = true;
   if (clr === 'doorKey') {
     updateHud(); Sfx.keyGet(); bumpKeys('gatekeys');
-    say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
+    if (autoGate()) { Sfx.door(); G.shake = Math.max(G.shake, 8);                              // 타임어택 — 두 번째 열쇠면 관문이 바로 열림
+      say([{ t: `관문 열쇠 ${DOOR_KEYS_NEEDED}/${DOOR_KEYS_NEEDED} — **관문이 열렸다.** 중앙으로 돌아가 오른쪽으로!`, w: false }]); }
+    else say([{ t: `마지막 하나가 사라진 자리, 관문 열쇠가 남아 있다. (${G.doorKeys}/${DOOR_KEYS_NEEDED})`, w: false }]);
   } else {
     G.keys++; updateHud(); Sfx.keyGet(); bumpKeys('keys');
     say([{ t: '어, 사라진 자리에 열쇠가 떨어져 있네.', w: false }]);
